@@ -7,8 +7,10 @@ use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use App\Modules\Wallet\Application\Services\WalletService;
+use App\Modules\Wallet\Infrastructure\Models\Settlement;
 use App\Modules\Wallet\Presentation\Http\Requests\RequestPayoutRequest;
 use App\Modules\Wallet\Presentation\Resources\PayoutRequestResource;
+use App\Modules\Wallet\Presentation\Resources\SettlementResource;
 use App\Modules\Wallet\Presentation\Resources\WalletResource;
 use App\Modules\Wallet\Presentation\Resources\WalletTransactionResource;
 use Illuminate\Http\JsonResponse;
@@ -47,6 +49,23 @@ class VendorWalletController extends Controller
         return Response::success(
             PayoutRequestResource::collection($this->service->payoutsFor($vendor)),
             'Payout requests retrieved.'
+        );
+    }
+
+    public function settlements(Request $request): JsonResponse
+    {
+        $vendor = $this->vendorFor($request);
+
+        $settlements = Settlement::query()
+            ->where('vendor_id', $vendor->id)
+            ->with(['payoutRequests'])
+            ->when($request->input('status'), fn ($query, $status) => $query->where('status', $status))
+            ->latest()
+            ->paginate(15);
+
+        return Response::success(
+            SettlementResource::collection($settlements),
+            'Settlements retrieved.'
         );
     }
 

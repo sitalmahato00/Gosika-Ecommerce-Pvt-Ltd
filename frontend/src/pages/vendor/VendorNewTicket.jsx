@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Headphones, ArrowLeft, UploadCloud, Image as ImageIcon,
-  FileText, X, CheckCircle2, AlertCircle, PhoneCall,
-  Clock, ShieldCheck, Sparkles, Send, Paperclip, HelpCircle,
+  ArrowLeft, UploadCloud, Image as ImageIcon,
+  FileText, X, PhoneCall,
+  Clock, ShieldCheck, Sparkles, Send,
   CreditCard, Truck, AlertTriangle, Layers
 } from 'lucide-react'
 import api from '../../api/client'
@@ -13,6 +13,7 @@ import Select from '../../components/ui/Select'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import { useToast } from '../../context/ToastContext'
+import { errorMessage } from '../../utils/format'
 
 const PRESET_ISSUES = [
   {
@@ -29,7 +30,7 @@ const PRESET_ISSUES = [
     label: 'Courier Pickup Issue',
     icon: Truck,
     category: 'Orders & Shipping Logistics',
-    priority: 'medium',
+    priority: 'normal',
     refType: 'Order ID',
     refId: 'VO-EAB6D2B8',
     subject: 'Courier delayed pickup at Biratnagar artisan workshop',
@@ -65,7 +66,7 @@ export default function VendorNewTicket() {
   const [form, setForm] = useState({
     subject: '',
     category: 'Payments & Settlement',
-    priority: 'medium',
+    priority: 'normal',
     refType: 'Order ID',
     refId: '',
     contactChannel: 'whatsapp',
@@ -152,16 +153,17 @@ export default function VendorNewTicket() {
 
     setSubmitting(true)
     try {
-      const payload = {
-        ...form,
-        attachments: attachments.map((a) => ({ name: a.name, size: a.size, dataUrl: a.dataUrl })),
-      }
-      await api.post('/vendor/support/tickets', payload).catch(() => {})
+      await api.post('/vendor/support/tickets', {
+        subject: form.subject.trim(),
+        description: form.description.trim(),
+        category: form.category,
+        priority: form.priority,
+        attachments: attachments.map((a) => ({ name: a.name, type: a.type, size: a.size, dataUrl: a.dataUrl })),
+      })
       toast.success('Support ticket created successfully! GOSIKA Helpdesk has been notified.')
       navigate('/vendor/support')
     } catch (err) {
-      toast.success('Support ticket created successfully! GOSIKA Helpdesk has been notified.')
-      navigate('/vendor/support')
+      toast.error(errorMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -261,9 +263,8 @@ export default function VendorNewTicket() {
                     <div className="flex gap-1">
                       {[
                         { id: 'low', label: 'Low', color: 'var(--muted)' },
-                        { id: 'medium', label: 'Medium', color: 'var(--primary)' },
+                        { id: 'normal', label: 'Normal', color: 'var(--primary)' },
                         { id: 'high', label: 'High', color: '#f59e0b' },
-                        { id: 'urgent', label: 'Urgent', color: '#ef4444' },
                       ].map((p) => (
                         <button
                           key={p.id}
@@ -342,7 +343,10 @@ export default function VendorNewTicket() {
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                 }}
-                onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  setDragActive(true)
+                }}
                 onDragLeave={() => setDragActive(false)}
                 onDrop={(e) => {
                   e.preventDefault()

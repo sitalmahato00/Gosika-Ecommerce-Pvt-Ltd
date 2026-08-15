@@ -14,6 +14,7 @@ Route::prefix('v1/vendor/wallet')->group(function () {
     Route::get('/', [VendorWalletController::class, 'summary']);
     Route::get('transactions', [VendorWalletController::class, 'transactions']);
     Route::get('payouts', [VendorWalletController::class, 'payouts']);
+    Route::get('settlements', [VendorWalletController::class, 'settlements']);
     Route::post('payouts', [VendorWalletController::class, 'requestPayout']);
 });
 

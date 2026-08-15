@@ -1,90 +1,35 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useState } from 'react'
 import {
   Ticket, Plus, Pencil, Trash2, Copy, Check, Search,
-  Sparkles, Percent, Gift, TrendingUp, Calendar, Zap, CheckCircle2
+  Sparkles, Zap, Gift, TrendingUp
 } from 'lucide-react'
 import api from '../../api/client'
+import { useList } from '../../hooks/useApi'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
 import Modal from '../../components/ui/Modal'
 import Input from '../../components/ui/Input'
 import Select from '../../components/ui/Select'
 import Button from '../../components/ui/Button'
-import Spinner from '../../components/ui/Spinner'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import { Skeleton } from '../../components/ui/Skeleton'
+import Pagination from '../../components/ui/Pagination'
 import { useToast } from '../../context/ToastContext'
-import { formatDate, formatDateTime, money, errorMessage } from '../../utils/format'
-
-const DEFAULT_COUPONS = [
-  {
-    id: 1,
-    code: 'KOSHI10',
-    type: 'percentage',
-    value: 10,
-    min_order: 1500,
-    max_discount: 1000,
-    usage_limit: 500,
-    used_count: 84,
-    start_date: '2026-08-01',
-    end_date: '2026-09-30',
-    status: 'active',
-    description: '10% off on all artisan & handicraft orders',
-  },
-  {
-    id: 2,
-    code: 'DASHAIN20',
-    type: 'percentage',
-    value: 20,
-    min_order: 3000,
-    max_discount: 2500,
-    usage_limit: 300,
-    used_count: 142,
-    start_date: '2026-08-10',
-    end_date: '2026-10-15',
-    status: 'active',
-    description: 'Dashain Festival Super Discount on Pashmina & Apparel',
-  },
-  {
-    id: 3,
-    code: 'FREESHIP',
-    type: 'free_shipping',
-    value: 0,
-    min_order: 2000,
-    max_discount: 250,
-    usage_limit: 1000,
-    used_count: 215,
-    start_date: '2026-08-01',
-    end_date: '2026-12-31',
-    status: 'active',
-    description: 'Free doorstep shipping across all 7 provinces of Nepal',
-  },
-  {
-    id: 4,
-    code: 'TIHAR500',
-    type: 'fixed',
-    value: 500,
-    min_order: 2500,
-    max_discount: 500,
-    usage_limit: 200,
-    used_count: 0,
-    start_date: '2026-10-01',
-    end_date: '2026-11-15',
-    status: 'scheduled',
-    description: 'Flat Rs. 500 off during Tihar & Deepawali festive lights',
-  },
-]
+import { formatDate, money, errorMessage } from '../../utils/format'
 
 const emptyForm = {
   code: '',
-  type: 'percentage',
-  value: 10,
-  min_order: 1000,
-  max_discount: 500,
-  usage_limit: 100,
+  description: '',
+  discount_type: 'percentage',
+  discount_value: '',
+  min_order_amount: '',
+  max_discount: '',
+  usage_limit: '',
+  per_user_limit: '',
   start_date: new Date().toISOString().slice(0, 10),
   end_date: '',
   status: 'active',
-  description: '',
 }
 
 const PRESETS = [
@@ -96,8 +41,9 @@ const PRESETS = [
 
 export default function VendorCoupons() {
   const toast = useToast()
-  const [coupons, setCoupons] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
@@ -105,27 +51,20 @@ export default function VendorCoupons() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [copied, setCopied] = useState(null)
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [search, setSearch] = useState('')
 
-  const load = () => {
-    setLoading(true)
-    api.get('/vendor/coupons')
-      .then((r) => {
-        const list = r.data.data?.coupons || r.data.data || []
-        if (list.length > 0) {
-          setCoupons(list)
-        } else {
-          setCoupons(DEFAULT_COUPONS)
-        }
-      })
-      .catch(() => {
-        setCoupons(DEFAULT_COUPONS)
-      })
-      .finally(() => setLoading(false))
+  const fetchCoupons = (page, pageSize) =>
+    api.get('/vendor/coupons', { params: { search, page, per_page: pageSize } })
+
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetchCoupons, {
+    pageSize: 9,
+    deps: [search],
+  })
+
+  const applySearch = (e) => {
+    e.preventDefault()
+    setPage(1)
+    setSearch(searchInput)
   }
-
-  useEffect(load, [])
 
   const openModal = (c) => {
     setEditing(c || null)
@@ -133,15 +72,16 @@ export default function VendorCoupons() {
       c
         ? {
             code: c.code || '',
-            type: c.type || 'percentage',
-            value: c.value ?? 10,
-            min_order: c.min_order ?? 1000,
-            max_discount: c.max_discount ?? '',
-            usage_limit: c.usage_limit ?? 100,
+            description: c.description || '',
+            discount_type: c.type || 'percentage',
+            discount_value: c.value != null ? Number(c.value) : '',
+            min_order_amount: c.min_order != null ? Number(c.min_order) : '',
+            max_discount: c.max_discount != null ? Number(c.max_discount) : '',
+            usage_limit: c.usage_limit ?? '',
+            per_user_limit: '',
             start_date: c.start_date ? c.start_date.slice(0, 10) : '',
             end_date: c.end_date ? c.end_date.slice(0, 10) : '',
             status: c.status || 'active',
-            description: c.description || '',
           }
         : emptyForm
     )
@@ -159,9 +99,9 @@ export default function VendorCoupons() {
     setForm((prev) => ({
       ...prev,
       code: preset.code,
-      type: preset.type,
-      value: preset.value,
-      min_order: preset.min_order,
+      discount_type: preset.type,
+      discount_value: preset.value,
+      min_order_amount: preset.min_order,
       max_discount: preset.max_discount,
     }))
   }
@@ -171,32 +111,29 @@ export default function VendorCoupons() {
     setSaving(true)
     try {
       const payload = {
-        ...form,
-        value: form.value === '' ? 0 : Number(form.value),
-        min_order: form.min_order ? Number(form.min_order) : 0,
+        code: form.code.trim().toUpperCase(),
+        description: form.description || null,
+        discount_type: form.discount_type,
+        discount_value: form.discount_type === 'free_shipping' ? 0 : Number(form.discount_value || 0),
+        min_order_amount: form.min_order_amount ? Number(form.min_order_amount) : null,
         max_discount: form.max_discount ? Number(form.max_discount) : null,
         usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
+        per_user_limit: form.per_user_limit ? Number(form.per_user_limit) : null,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+        status: form.status,
       }
       if (editing) {
         await api.put(`/vendor/coupons/${editing.id}`, payload)
-        setCoupons((prev) => prev.map((c) => (c.id === editing.id ? { ...c, ...payload } : c)))
         toast.success('Coupon updated successfully')
       } else {
         await api.post('/vendor/coupons', payload)
-        const newC = { id: coupons.length + 1, ...payload, used_count: 0 }
-        setCoupons((prev) => [newC, ...prev])
         toast.success('Coupon created successfully')
       }
       setModalOpen(false)
+      reload()
     } catch (err) {
-      if (editing) {
-        setCoupons((prev) => prev.map((c) => (c.id === editing.id ? { ...c, ...form } : c)))
-      } else {
-        const newC = { id: coupons.length + 1, ...form, used_count: 0 }
-        setCoupons((prev) => [newC, ...prev])
-      }
-      toast.success('Coupon saved successfully')
-      setModalOpen(false)
+      toast.error(errorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -206,12 +143,11 @@ export default function VendorCoupons() {
     setDeleting(true)
     try {
       await api.delete(`/vendor/coupons/${deleteTarget.id}`)
-      setCoupons((prev) => prev.filter((c) => c.id !== deleteTarget.id))
       toast.success('Coupon deleted')
       setDeleteTarget(null)
+      reload()
     } catch (err) {
-      setCoupons((prev) => prev.filter((c) => c.id !== deleteTarget.id))
-      toast.success('Coupon deleted')
+      toast.error(errorMessage(err))
       setDeleteTarget(null)
     } finally {
       setDeleting(false)
@@ -229,30 +165,20 @@ export default function VendorCoupons() {
     }
   }
 
-  // KPIs
-  const totalCoupons = coupons.length
-  const activeCoupons = coupons.filter((c) => c.status === 'active').length
-  const totalUsed = coupons.reduce((sum, c) => sum + (c.used_count || 0), 0)
-  const totalDiscountEstimated = totalUsed * 450
+  const activeCoupons = items.filter((c) => c.status === 'active').length
+  const totalUsed = items.reduce((sum, c) => sum + (c.used_count || 0), 0)
+  const remainingUses = items.reduce(
+    (sum, c) => sum + Math.max(0, (c.usage_limit || 0) - (c.used_count || 0)),
+    0
+  )
 
-  // Filtered
-  const filteredCoupons = useMemo(() => {
-    return coupons.filter((c) => {
-      const q = search.toLowerCase()
-      const matchSearch =
-        !q ||
-        c.code?.toLowerCase().includes(q) ||
-        c.description?.toLowerCase().includes(q) ||
-        c.type?.toLowerCase().includes(q)
+  const countFor = (s) => (s === 'all' ? items.length : items.filter((c) => c.status === s).length)
 
-      const matchStatus = statusFilter === 'all' || c.status === statusFilter
-      return matchSearch && matchStatus
-    })
-  }, [coupons, search, statusFilter])
+  const filteredCoupons =
+    statusFilter === 'all' ? items : items.filter((c) => c.status === statusFilter)
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Promotional Coupons & Vouchers</h1>
@@ -267,7 +193,6 @@ export default function VendorCoupons() {
         </div>
       </div>
 
-      {/* 4 Coupon KPI Cards */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 18 }}>
         <div className="card flex items-center gap-3" style={{ padding: '16px 18px' }}>
           <span className="avatar" style={{ width: 44, height: 44, background: 'var(--primary-50)', color: 'var(--primary)', flexShrink: 0 }}>
@@ -294,8 +219,8 @@ export default function VendorCoupons() {
             <Gift size={22} />
           </span>
           <div>
-            <div className="muted text-xs font-semibold uppercase" style={{ letterSpacing: '0.04em' }}>Customer Savings</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b', marginTop: 2 }}>{money(totalDiscountEstimated)}</div>
+            <div className="muted text-xs font-semibold uppercase" style={{ letterSpacing: '0.04em' }}>Total Coupons</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b', marginTop: 2 }}>{meta.total}</div>
           </div>
         </div>
 
@@ -304,21 +229,20 @@ export default function VendorCoupons() {
             <TrendingUp size={22} />
           </span>
           <div>
-            <div className="muted text-xs font-semibold uppercase" style={{ letterSpacing: '0.04em' }}>Conversion Lift</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb', marginTop: 2 }}>+28.4%</div>
+            <div className="muted text-xs font-semibold uppercase" style={{ letterSpacing: '0.04em' }}>Remaining Uses</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb', marginTop: 2 }}>{remainingUses}</div>
           </div>
         </div>
       </div>
 
-      {/* Filter Tabs & Search */}
       <div className="card" style={{ padding: '14px 18px', marginBottom: 16 }}>
         <div className="flex items-center justify-between wrap gap-3">
           <div className="flex gap-1 wrap">
             {[
-              { id: 'all', label: `All Coupons (${coupons.length})` },
-              { id: 'active', label: `Active (${coupons.filter(c => c.status === 'active').length})` },
-              { id: 'scheduled', label: `Scheduled (${coupons.filter(c => c.status === 'scheduled').length})` },
-              { id: 'expired', label: `Expired (${coupons.filter(c => c.status === 'expired').length})` },
+              { id: 'all', label: `All Coupons (${countFor('all')})` },
+              { id: 'active', label: `Active (${countFor('active')})` },
+              { id: 'scheduled', label: `Scheduled (${countFor('scheduled')})` },
+              { id: 'expired', label: `Expired (${countFor('expired')})` },
             ].map((t) => (
               <button
                 key={t.id}
@@ -332,30 +256,32 @@ export default function VendorCoupons() {
             ))}
           </div>
 
-          <div style={{ position: 'relative', width: 240 }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+          <form onSubmit={applySearch} style={{ position: 'relative', width: 240 }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
             <input
               type="text"
               className="input"
               style={{ paddingLeft: 30, height: 32, fontSize: 13 }}
               placeholder="Search coupon code…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
             />
-          </div>
+          </form>
         </div>
       </div>
 
-      {/* Coupons Cards Grid */}
       {loading ? (
-        <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-          <Spinner size={24} color="var(--primary)" />
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} height={220} />)}
         </div>
+      ) : error ? (
+        <ErrorState message={errorMessage(error)} onRetry={reload} />
       ) : filteredCoupons.length ? (
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
           {filteredCoupons.map((c) => {
             const isPct = c.type === 'percentage'
             const isFree = c.type === 'free_shipping'
+            const val = Number(c.value || 0)
 
             return (
               <div
@@ -401,7 +327,7 @@ export default function VendorCoupons() {
                   </div>
 
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginTop: 8 }}>
-                    {isPct ? `${c.value}% Discount` : isFree ? 'Free Shipping on Delivery' : `Flat ${money(c.value)} Discount`}
+                    {isPct ? `${val}% Discount` : isFree ? 'Free Shipping on Delivery' : `Flat ${money(val)} Discount`}
                   </div>
 
                   {c.description && (
@@ -458,11 +384,13 @@ export default function VendorCoupons() {
         />
       )}
 
-      {/* Create / Edit Modal */}
+      {filteredCoupons.length > 0 && (
+        <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
+      )}
+
       {modalOpen && (
         <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? `Edit Coupon: ${editing.code}` : 'Create New Promotional Coupon'} size="lg">
           <form onSubmit={save} className="flex flex-col gap-3">
-            {/* Quick Presets */}
             {!editing && (
               <div className="p-2.5" style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                 <span className="muted text-xs font-semibold uppercase block mb-1.5 flex items-center gap-1">
@@ -510,8 +438,8 @@ export default function VendorCoupons() {
               <Select
                 label="Discount Type"
                 required
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                value={form.discount_type}
+                onChange={(e) => setForm({ ...form, discount_type: e.target.value })}
               >
                 <option value="percentage">Percentage Discount (%)</option>
                 <option value="fixed">Fixed Amount Off (NPR)</option>
@@ -519,13 +447,13 @@ export default function VendorCoupons() {
               </Select>
 
               <Input
-                label={form.type === 'percentage' ? 'Discount Value (%)' : 'Discount Amount (NPR)'}
+                label={form.discount_type === 'percentage' ? 'Discount Value (%)' : 'Discount Amount (NPR)'}
                 type="number"
                 min="0"
-                required={form.type !== 'free_shipping'}
-                disabled={form.type === 'free_shipping'}
-                value={form.type === 'free_shipping' ? '0' : form.value}
-                onChange={(e) => setForm({ ...form, value: e.target.value })}
+                required={form.discount_type !== 'free_shipping'}
+                disabled={form.discount_type === 'free_shipping'}
+                value={form.discount_type === 'free_shipping' ? '0' : form.discount_value}
+                onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
               />
             </div>
 
@@ -534,8 +462,8 @@ export default function VendorCoupons() {
                 label="Minimum Order (NPR)"
                 type="number"
                 min="0"
-                value={form.min_order}
-                onChange={(e) => setForm({ ...form, min_order: e.target.value })}
+                value={form.min_order_amount}
+                onChange={(e) => setForm({ ...form, min_order_amount: e.target.value })}
                 placeholder="e.g. 1500"
               />
               <Input
@@ -558,6 +486,14 @@ export default function VendorCoupons() {
 
             <div className="form-row">
               <Input
+                label="Per User Limit"
+                type="number"
+                min="1"
+                value={form.per_user_limit}
+                onChange={(e) => setForm({ ...form, per_user_limit: e.target.value })}
+                placeholder="e.g. 1"
+              />
+              <Input
                 label="Start Date"
                 type="date"
                 value={form.start_date}
@@ -569,6 +505,9 @@ export default function VendorCoupons() {
                 value={form.end_date}
                 onChange={(e) => setForm({ ...form, end_date: e.target.value })}
               />
+            </div>
+
+            <div className="form-row">
               <Select
                 label="Status"
                 value={form.status}

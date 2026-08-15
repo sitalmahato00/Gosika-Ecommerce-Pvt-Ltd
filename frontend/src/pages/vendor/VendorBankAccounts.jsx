@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Landmark, Plus, Trash2, Pencil } from 'lucide-react'
+import { Landmark, Plus, Trash2 } from 'lucide-react'
 import api from '../../api/client'
 import Modal from '../../components/ui/Modal'
 import Input from '../../components/ui/Input'
@@ -18,7 +18,6 @@ export default function VendorBankAccounts() {
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -30,24 +29,14 @@ export default function VendorBankAccounts() {
   }
   useEffect(load, [])
 
-  const openModal = (a) => {
-    setEditing(a || null)
-    setForm(a ? { bank_name: a.bank_name, branch_name: a.branch_name || '', account_name: a.account_name, account_number: a.account_number, account_type: a.account_type || 'savings' } : emptyForm)
-    setModalOpen(true)
-  }
-
   const save = async (e) => {
     e.preventDefault()
     setSaving(true)
     try {
-      if (editing) {
-        await api.put(`/vendor/bank-accounts/${editing.id}`, form)
-        toast.success('Bank account updated')
-      } else {
-        await api.post('/vendor/bank-accounts', form)
-        toast.success('Bank account added')
-      }
+      await api.post('/vendor/bank-accounts', form)
+      toast.success('Bank account added')
       setModalOpen(false)
+      setForm(emptyForm)
       load()
     } catch (err) {
       toast.error(errorMessage(err))
@@ -77,7 +66,7 @@ export default function VendorBankAccounts() {
           <h2 style={{ fontSize: 20, marginBottom: 2 }}>Bank accounts</h2>
           <p className="muted text-sm m-0">Accounts used for payout settlements.</p>
         </div>
-        <Button variant="primary" icon={Plus} onClick={() => openModal(null)}>Add account</Button>
+        <Button variant="primary" icon={Plus} onClick={() => setModalOpen(true)}>Add account</Button>
       </div>
 
       {loading ? (
@@ -88,22 +77,26 @@ export default function VendorBankAccounts() {
             <div key={a.id} className="card flex items-center gap-3" style={{ padding: 16 }}>
               <span className="thumb" style={{ width: 48, height: 48 }}><Landmark size={20} /></span>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold" style={{ fontSize: 15 }}>{a.bank_name} {a.branch_name && <span className="muted font-normal">· {a.branch_name}</span>}</div>
-                <div className="muted text-sm">{a.account_name} · ••••{a.account_number?.slice(-4)}</div>
+                <div className="font-semibold" style={{ fontSize: 15 }}>
+                  {a.bank_name} {a.branch_name && <span className="muted font-normal">· {a.branch_name}</span>}
+                  {a.is_default && (
+                    <span className="chip chip-sm" style={{ marginLeft: 8, background: 'var(--primary-50)', color: 'var(--primary)' }}>Default</span>
+                  )}
+                </div>
+                <div className="muted text-sm">{a.account_name} · {a.account_number}</div>
                 <div className="capitalize text-xs muted">{a.account_type || 'savings'}</div>
               </div>
               <div className="flex items-center gap-1">
-                <button className="btn btn-outline btn-sm" onClick={() => openModal(a)}><Pencil size={13} /></button>
                 <button className="btn btn-danger-outline btn-sm" onClick={() => setDeleteTarget(a)}><Trash2 size={13} /></button>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <EmptyState icon={Landmark} title="No bank accounts" message="Add a bank account so you can withdraw your earnings." action={<Button variant="primary" icon={Plus} onClick={() => openModal(null)}>Add account</Button>} />
+        <EmptyState icon={Landmark} title="No bank accounts" message="Add a bank account so you can withdraw your earnings." action={<Button variant="primary" icon={Plus} onClick={() => setModalOpen(true)}>Add account</Button>} />
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit bank account' : 'Add bank account'}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add bank account">
         <form onSubmit={save} className="flex flex-col gap-2">
           <div className="form-row">
             <Input label="Bank name" required value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="e.g. Nabil Bank" />
@@ -116,7 +109,7 @@ export default function VendorBankAccounts() {
             <option value="current">Current</option>
             <option value="other">Other</option>
           </Select>
-          <Button type="submit" block disabled={saving}>{saving ? <Spinner size={15} color="#fff" /> : editing ? 'Update account' : 'Add account'}</Button>
+          <Button type="submit" block disabled={saving}>{saving ? <Spinner size={15} color="#fff" /> : 'Add account'}</Button>
         </form>
       </Modal>
 
@@ -127,7 +120,7 @@ export default function VendorBankAccounts() {
         danger
         loading={deleting}
         title="Remove bank account?"
-        message={`${deleteTarget?.bank_name} ••••${deleteTarget?.account_number?.slice(-4)} will be removed.`}
+        message={`${deleteTarget?.bank_name} (${deleteTarget?.account_number}) will be removed.`}
         confirmText="Remove"
       />
     </div>

@@ -1,38 +1,16 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  Store, Upload, Image as ImageIcon, ArrowLeft, CheckCircle2,
-  Globe, Mail, Phone, MapPin, Sparkles, X, SlidersHorizontal, Eye
+  Store, Upload, Image as ImageIcon, ArrowLeft, Eye, Send, Mail, Phone
 } from 'lucide-react'
 import api from '../../api/client'
 import Input from '../../components/ui/Input'
-import Select from '../../components/ui/Select'
 import Textarea from '../../components/ui/Textarea'
-import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
-import LocationMapPicker from '../../components/common/LocationMapPicker'
+import { Skeleton } from '../../components/ui/Skeleton'
+import ErrorState from '../../components/ui/ErrorState'
 import { useToast } from '../../context/ToastContext'
-import { NEPAL_PROVINCES } from '../../utils/constants'
-import {
-  apiImage, errorMessage, getStoreImage, getStoreBanner,
-  FALLBACK_STORE_LOGOS, FALLBACK_STORE_BANNERS
-} from '../../utils/format'
-
-const STORE_LOGO_PRESETS = [
-  { label: 'Handicrafts & Art', url: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&q=80' },
-  { label: 'Electronics & Tech', url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&q=80' },
-  { label: 'Organic Tea & Food', url: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=300&q=80' },
-  { label: 'Pashmina & Fashion', url: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=300&q=80' },
-  { label: 'Trekking & Outdoor', url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&q=80' },
-]
-
-const STORE_BANNER_PRESETS = [
-  { label: 'Artisan Boutique', url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=80' },
-  { label: 'Modern Retail Hub', url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&q=80' },
-  { label: 'Cozy Storefront', url: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1200&q=80' },
-  { label: 'Electronics & Tech Outlet', url: 'https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?w=1200&q=80' },
-  { label: 'Organic Mountain Market', url: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=1200&q=80' },
-]
+import { errorMessage } from '../../utils/format'
 
 export default function VendorStoreEdit() {
   const navigate = useNavigate()
@@ -42,61 +20,48 @@ export default function VendorStoreEdit() {
   const bannerInputRef = useRef(null)
 
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [storeId, setStoreId] = useState(id || null)
 
   const [form, setForm] = useState({
-    name: 'Koshi Handicrafts Store',
-    slug: 'koshi-handicrafts-store-1',
-    tagline: 'Authentic Nepali Dhaka & Handmade Artisan Goods',
-    description: 'We offer traditional high-quality hand-woven pashmina shawls, Dhaka textiles, woodcarvings, and organic herbal goods directly from local artisans in Nepal.',
-    logo: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&q=80',
-    cover_image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=80',
-    contact_email: 'hello@koshi.com.np',
-    contact_phone: '+977 9841223344',
-    address: 'Main Bazaar, Ward 4',
-    province: 'Koshi',
-    district: 'Morang',
-    municipality: 'Biratnagar',
-    website: 'https://koshihandicrafts.com.np',
-    facebook_url: 'https://facebook.com/koshihandicrafts',
-    instagram_url: 'https://instagram.com/koshihandicrafts',
-    twitter_url: '',
+    name: '',
+    slug: '',
+    description: '',
+    banner: '',
+    logo: '',
+    contact_email: '',
+    contact_phone: '',
   })
 
-  // Load existing store from backend if available
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
+    setError(null)
     api.get('/vendor/stores')
       .then((r) => {
-        const storeList = r.data.data || []
-        if (storeList.length > 0) {
-          const s = id ? storeList.find(item => String(item.id) === String(id)) || storeList[0] : storeList[0]
+        const list = r.data.data || []
+        const s = id ? list.find((item) => String(item.id) === String(id)) : list[0]
+        if (s) {
           setStoreId(s.id)
           setForm({
             name: s.name || '',
             slug: s.slug || '',
-            tagline: s.tagline || '',
             description: s.description || '',
-            logo: s.logo || getStoreImage(s),
-            cover_image: s.cover_image || getStoreBanner(s),
+            banner: s.banner || '',
+            logo: s.logo || '',
             contact_email: s.contact_email || '',
             contact_phone: s.contact_phone || '',
-            address: s.address || '',
-            province: s.province || 'Bagmati',
-            district: s.district || '',
-            municipality: s.municipality || '',
-            website: s.website || '',
-            facebook_url: s.facebook_url || s.socials?.facebook || '',
-            instagram_url: s.instagram_url || s.socials?.instagram || '',
-            twitter_url: s.twitter_url || s.socials?.twitter || '',
           })
+        } else {
+          setStoreId(null)
         }
       })
-      .catch(() => {})
+      .catch((e) => setError(e))
       .finally(() => setLoading(false))
-  }, [id])
+  }
+  useEffect(load, [id])
 
-  // Handle Logo File Upload (FileReader for Instant Preview and Base64 Payload)
   const handleLogoFileChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -104,15 +69,9 @@ export default function VendorStoreEdit() {
       toast.error('Please select a valid image file (PNG, JPG, WebP).')
       return
     }
-    const reader = new FileReader()
-    reader.onload = (uploadEvent) => {
-      setForm((prev) => ({ ...prev, logo: uploadEvent.target.result }))
-      toast.success('Store logo updated from file')
-    }
-    reader.readAsDataURL(file)
+    setForm((prev) => ({ ...prev, logo: URL.createObjectURL(file) }))
   }
 
-  // Handle Cover Banner File Upload (FileReader for Instant Preview and Base64 Payload)
   const handleBannerFileChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -120,12 +79,7 @@ export default function VendorStoreEdit() {
       toast.error('Please select a valid image file (PNG, JPG, WebP).')
       return
     }
-    const reader = new FileReader()
-    reader.onload = (uploadEvent) => {
-      setForm((prev) => ({ ...prev, cover_image: uploadEvent.target.result }))
-      toast.success('Store cover banner updated from file')
-    }
-    reader.readAsDataURL(file)
+    setForm((prev) => ({ ...prev, banner: URL.createObjectURL(file) }))
   }
 
   const handleSubmit = async (e) => {
@@ -133,26 +87,53 @@ export default function VendorStoreEdit() {
     setSaving(true)
     try {
       const payload = {
-        ...form,
-        socials: {
-          facebook: form.facebook_url,
-          instagram: form.instagram_url,
-          twitter: form.twitter_url,
-        },
+        name: form.name,
+        slug: form.slug || undefined,
+        description: form.description || undefined,
+        contact_email: form.contact_email || undefined,
+        contact_phone: form.contact_phone || undefined,
       }
       if (storeId) {
         await api.put(`/vendor/stores/${storeId}`, payload)
       } else {
         await api.post('/vendor/stores', payload)
       }
-      toast.success('Store details and branding saved successfully!')
+      toast.success('Store details saved successfully!')
       navigate('/vendor/stores')
     } catch (err) {
-      toast.success('Store details and branding saved successfully!')
-      navigate('/vendor/stores')
+      toast.error(errorMessage(err))
     } finally {
       setSaving(false)
     }
+  }
+
+  const submitForApproval = async () => {
+    if (!storeId) return
+    setSubmitting(true)
+    try {
+      await api.post(`/vendor/stores/${storeId}/submit`)
+      toast.success('Store submitted for approval')
+      navigate('/vendor/stores')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-4" style={{ maxWidth: 960, margin: '0 auto', paddingBottom: 40 }}>
+        <Skeleton height={48} width={180} />
+        <Skeleton height={120} />
+        <Skeleton height={220} />
+        <Skeleton height={160} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return <ErrorState onRetry={load} />
   }
 
   return (
@@ -173,9 +154,9 @@ export default function VendorStoreEdit() {
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
-          <h1 style={{ fontSize: 24, fontWeight: 800 }}>Edit Store Details & Branding</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800 }}>{storeId ? 'Edit Store Details & Branding' : 'Create Store'}</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Update your storefront identity, upload high-res store logo & banner images, and manage store contact details.
+            Set up your storefront identity, contact details and description.
           </p>
         </div>
       </div>
@@ -187,14 +168,14 @@ export default function VendorStoreEdit() {
             <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
               <ImageIcon size={18} color="var(--primary)" /> Store Visual Identity & Image Uploads
             </h3>
-            <p className="muted text-xs m-0 mt-1">Upload real image files from your computer or choose from curated Nepal store presets.</p>
+            <p className="muted text-xs m-0 mt-1">Upload real image files from your computer for your store banner and logo.</p>
           </div>
 
           <div style={{ padding: 20 }}>
             {/* 1. Cover Banner Input */}
             <div className="form-group mb-4">
               <label className="label font-bold text-sm">Store Cover Banner Image</label>
-              
+
               {/* Live Banner Preview Box */}
               <div
                 style={{
@@ -207,11 +188,18 @@ export default function VendorStoreEdit() {
                   border: '1px solid var(--border)',
                 }}
               >
-                <img
-                  src={form.cover_image || FALLBACK_STORE_BANNERS[0]}
-                  alt="Store Banner Preview"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
+                {form.banner ? (
+                  <img
+                    src={form.banner}
+                    alt="Store Banner Preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', flexDirection: 'column', gap: 6 }}>
+                    <ImageIcon size={28} />
+                    <span className="text-xs">No banner uploaded</span>
+                  </div>
+                )}
                 <div style={{
                   position: 'absolute', inset: 0,
                   background: 'linear-gradient(to top, rgba(15,23,42,0.7) 0%, rgba(15,23,42,0.1) 60%)',
@@ -219,7 +207,7 @@ export default function VendorStoreEdit() {
                 }}>
                   <div style={{ color: '#fff' }}>
                     <div style={{ fontWeight: 800, fontSize: 16 }}>{form.name || 'Store Name'}</div>
-                    <div style={{ fontSize: 12, opacity: 0.9 }}>{form.tagline || 'Store tagline preview'}</div>
+                    <div style={{ fontSize: 12, opacity: 0.9 }}>Store banner preview</div>
                   </div>
                 </div>
 
@@ -242,27 +230,6 @@ export default function VendorStoreEdit() {
                 style={{ display: 'none' }}
                 onChange={handleBannerFileChange}
               />
-
-              {/* Banner Presets */}
-              <div>
-                <span className="muted text-xs font-semibold uppercase block mb-1">Or Pick Banner Preset:</span>
-                <div className="flex gap-1 wrap">
-                  {STORE_BANNER_PRESETS.map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      className="btn btn-ghost btn-xs"
-                      style={{
-                        border: form.cover_image === p.url ? '2px solid var(--primary)' : '1px solid var(--border)',
-                        background: form.cover_image === p.url ? 'var(--primary-50)' : 'transparent',
-                      }}
-                      onClick={() => setForm({ ...form, cover_image: p.url })}
-                    >
-                      <Sparkles size={11} color="var(--primary)" /> {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
@@ -270,7 +237,7 @@ export default function VendorStoreEdit() {
             {/* 2. Store Logo Input */}
             <div className="form-group">
               <label className="label font-bold text-sm">Store Profile Picture / Logo</label>
-              
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
                 {/* Live Logo Preview Box */}
                 <div
@@ -282,14 +249,22 @@ export default function VendorStoreEdit() {
                     border: '3px solid var(--border)',
                     background: '#fff',
                     boxShadow: 'var(--shadow-sm)',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--muted)',
                   }}
                 >
-                  <img
-                    src={form.logo || FALLBACK_STORE_LOGOS[0]}
-                    alt="Store Logo Preview"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
+                  {form.logo ? (
+                    <img
+                      src={form.logo}
+                      alt="Store Logo Preview"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Store size={28} />
+                  )}
                 </div>
 
                 <div>
@@ -312,27 +287,6 @@ export default function VendorStoreEdit() {
                   onChange={handleLogoFileChange}
                 />
               </div>
-
-              {/* Logo Presets */}
-              <div>
-                <span className="muted text-xs font-semibold uppercase block mb-1">Or Pick Logo Preset:</span>
-                <div className="flex gap-1 wrap">
-                  {STORE_LOGO_PRESETS.map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      className="btn btn-ghost btn-xs"
-                      style={{
-                        border: form.logo === p.url ? '2px solid var(--primary)' : '1px solid var(--border)',
-                        background: form.logo === p.url ? 'var(--primary-50)' : 'transparent',
-                      }}
-                      onClick={() => setForm({ ...form, logo: p.url })}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -348,11 +302,14 @@ export default function VendorStoreEdit() {
               label="Store Display Name"
               required
               value={form.name}
-              onChange={(e) => setForm({
-                ...form,
-                name: e.target.value,
-                slug: form.slug || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-              })}
+              onChange={(e) => {
+                const name = e.target.value
+                setForm((prev) => ({
+                  ...prev,
+                  name,
+                  slug: prev.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+                }))
+              }}
               placeholder="e.g. Koshi Handicrafts Store"
             />
 
@@ -361,14 +318,8 @@ export default function VendorStoreEdit() {
                 label="Store URL Slug"
                 value={form.slug}
                 onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                placeholder="koshi-handicrafts-store-1"
+                placeholder="koshi-handicrafts-store"
                 hint="Used as /store/your-slug on the marketplace"
-              />
-              <Input
-                label="Tagline / Short Motto"
-                value={form.tagline}
-                onChange={(e) => setForm({ ...form, tagline: e.target.value })}
-                placeholder="e.g. Authentic Handwoven Pashmina & Crafts"
               />
             </div>
 
@@ -382,7 +333,7 @@ export default function VendorStoreEdit() {
           </div>
         </div>
 
-        {/* Contact & Location in Nepal */}
+        {/* Contact Information */}
         <div className="card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 16 }} className="flex items-center gap-2">
             <Phone size={18} color="var(--primary)" /> Store Contact Information
@@ -392,77 +343,32 @@ export default function VendorStoreEdit() {
             <Input
               label="Store Contact Email"
               type="email"
-              required
               value={form.contact_email}
               onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
               placeholder="store@example.com"
             />
             <Input
               label="Customer Service Phone (Nepal)"
-              required
               value={form.contact_phone}
               onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
               placeholder="+977 98XXXXXXXX"
             />
           </div>
-        </div>
-
-        {/* Store Physical Location & Map Pinpoint */}
-        <LocationMapPicker
-          title="Store Physical Location & Map Pinpoint"
-          description="Pinpoint your warehouse, storefront or artisan workshop location on the Nepal map."
-          value={{
-            province: form.province,
-            district: form.district,
-            municipality: form.municipality,
-            street: form.address,
-          }}
-          onChange={(loc) => {
-            setForm((prev) => ({
-              ...prev,
-              province: loc.province,
-              district: loc.district,
-              municipality: loc.municipality,
-              address: loc.street,
-            }))
-          }}
-        />
-
-        {/* Social & External Links */}
-        <div className="card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 16 }} className="flex items-center gap-2">
-            <Globe size={18} color="var(--primary)" /> Social Channels & Website
-          </h3>
-
-          <div className="flex flex-col gap-3">
-            <Input
-              label="Official Website (Optional)"
-              value={form.website}
-              onChange={(e) => setForm({ ...form, website: e.target.value })}
-              placeholder="https://yourstore.com.np"
-            />
-            <div className="form-row">
-              <Input
-                label="Facebook Page URL"
-                value={form.facebook_url}
-                onChange={(e) => setForm({ ...form, facebook_url: e.target.value })}
-                placeholder="https://facebook.com/yourstore"
-              />
-              <Input
-                label="Instagram Handle URL"
-                value={form.instagram_url}
-                onChange={(e) => setForm({ ...form, instagram_url: e.target.value })}
-                placeholder="https://instagram.com/yourstore"
-              />
-            </div>
-          </div>
+          <p className="muted text-xs m-0 mt-2" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Mail size={11} /> Buyers use these details to reach your store.
+          </p>
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
           <Link to="/vendor/stores" className="btn btn-outline">
             Cancel
           </Link>
+          {storeId && (
+            <button type="button" className="btn btn-soft" onClick={submitForApproval} disabled={submitting}>
+              {submitting ? <Spinner size={16} color="#fff" /> : <><Send size={14} /> Submit for Approval</>}
+            </button>
+          )}
           <button type="submit" className="btn btn-primary" style={{ minWidth: 160 }} disabled={saving}>
             {saving ? <Spinner size={16} color="#fff" /> : 'Save Store Details'}
           </button>

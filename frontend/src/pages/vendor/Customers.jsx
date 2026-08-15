@@ -1,68 +1,91 @@
-import React, { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Users, Building2, Check, XCircle, Eye, Edit, Trash, Calendar, Mail, Phone } from 'lucide-react'
+import React, { useCallback } from 'react'
+import { Users, Mail, Phone, ShoppingBag, Clock } from 'lucide-react'
 import api from '../../api/client'
-import { useToast } from '../../context/ToastContext'
-import { money, formatDate } from '../../utils/format'
+import { useList } from '../../hooks/useApi'
+import { money, formatDate, initials } from '../../utils/format'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
+import Pagination from '../../components/ui/Pagination'
 import { Skeleton } from '../../components/ui/Skeleton'
 
 export default function VendorCustomers() {
-  const [customers, setCustomers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const fetcher = useCallback(
+    async (page) => api.get('/vendor/customers', { params: { page, per_page: 15 } }),
+    [],
+  )
 
-  useEffect(() => {
-    api.get('/vendor/customers', { params: { per_page: 10 } }).then((res) => {
-      setCustomers(res.data.data?.customers || [])
-    }).catch(() => {}).finally(() => setLoading(false))
-  }, [])
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { pageSize: 15 })
 
   if (loading) {
-    return <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}><Skeleton height={200} /><Skeleton height={200} /></div>
+    return (
+      <div className="py-8">
+        <div className="container">
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} height={170} />)}
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  if (!customers.length) return <EmptyState icon={Users} title="No Customers" message="No customers found." />
+  if (error) return <ErrorState onRetry={reload} />
 
   return (
     <div className="py-8">
       <div className="container">
-        <h2 style={{ fontSize: 28, marginBottom: 16 }}>Customers</h2>
+        <div className="page-header" style={{ marginBottom: 20 }}>
+          <div className="page-header-left">
+            <h1>Customers</h1>
+            <p>People who have purchased from your store</p>
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(customers && customers.map((c) => (
-            <div key={c.id} className="p-4 rounded" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
-              <div className="flex items-center gap-3 mb-3">
-                <img
-                  src="/placeholder-avatar.jpg"
-                  alt={c.name}
-                  className="w-16 h-16 rounded-full object-cover"
-                />
-                <div>
-                  <h4 style={{ fontSize: 14, marginBottom: 2 }}>{c.name}</h4>
-                  <p style={{ fontSize: 12, color: 'var(--muted)' }}>{c.email}</p>
+        {items.length ? (
+          <>
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+              {items.map((c) => (
+                <div key={c.id} className="card" style={{ padding: 18 }}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="avatar" style={{ width: 48, height: 48, flexShrink: 0 }}>
+                      {initials(c.name)}
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="font-semibold line-clamp-1" style={{ fontSize: 14 }}>{c.name}</div>
+                      <div className="muted text-xs flex items-center gap-1">
+                        <Mail size={11} /> {c.email || '—'}
+                      </div>
+                      {c.phone && (
+                        <div className="muted text-xs flex items-center gap-1 mt-0.5">
+                          <Phone size={11} /> {c.phone}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="kpi-card" style={{ padding: '12px 14px' }}>
+                      <div className="muted text-xs flex items-center gap-1">
+                        <ShoppingBag size={11} /> Orders
+                      </div>
+                      <div style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>{c.orders_count || 0}</div>
+                    </div>
+                    <div className="kpi-card" style={{ padding: '12px 14px' }}>
+                      <div className="muted text-xs">Total Spent</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--primary)', marginTop: 2 }}>{money(c.total_spent)}</div>
+                    </div>
+                  </div>
+
+                  <div className="muted text-xs flex items-center gap-1 mt-3" style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                    <Clock size={11} /> Last order: {formatDate(c.last_order_at)}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <div>
-                  <span style={{ fontSize: 10, color: 'var(--muted)' }}>Total Orders</span>
-                  <span style={{ fontWeight: 500 }}>{c.total_orders}</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: 10, color: 'var(--muted)' }}>Total Spent</span>
-                  <span style={{ fontWeight: 500, color: 'var(--primary)' }}>{(c.total_spent || 0).toLocaleString()}</span>
-                </div>
-              </div>
-              <div className="mt-3">
-                <span style={{ fontSize: 10, color: 'var(--muted)' }}>Member Since</span>
-                <span style={{ fontWeight: 500 }}>{formatDate(c.created_at)}</span>
-              </div>
+              ))}
             </div>
-          ))}
-        ]}
 
-        {!customers.length && (
-          <EmptyState icon={Users} title="No Customers" message="No customers found." />
+            <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
+          </>
+        ) : (
+          <EmptyState icon={Users} title="No Customers" message="No customers found yet. They will appear here once orders are placed." />
         )}
       </div>
     </div>

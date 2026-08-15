@@ -1,88 +1,30 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, Calendar, Sparkles,
-  TrendingUp, Tag, ShoppingBag, CheckCircle2, Clock, Eye,
-  Percent, ArrowRight, Zap, Gift, Image as ImageIcon
+  TrendingUp, ShoppingBag, Percent, Search
 } from 'lucide-react'
 import api from '../../api/client'
+import { useList } from '../../hooks/useApi'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
 import Modal from '../../components/ui/Modal'
 import Input from '../../components/ui/Input'
 import Select from '../../components/ui/Select'
 import Button from '../../components/ui/Button'
-import Spinner from '../../components/ui/Spinner'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Skeleton } from '../../components/ui/Skeleton'
+import Pagination from '../../components/ui/Pagination'
 import { useToast } from '../../context/ToastContext'
-import { formatDate, formatDateTime, money, errorMessage } from '../../utils/format'
-
-const DEFAULT_PROMOTIONS = [
-  {
-    id: 1,
-    name: 'Dashain Maha Mela 2026',
-    tagline: 'Grand festival savings across handloom pashmina, Dhaka textiles, and handicrafts',
-    type: 'percentage',
-    discount_value: 30,
-    banner_image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1000&q=80',
-    category: 'Handicrafts & Apparel',
-    participating_items: 14,
-    start_date: '2026-08-01',
-    end_date: '2026-10-15',
-    status: 'active',
-    revenue_generated: 38400,
-  },
-  {
-    id: 2,
-    name: 'Monsoon Agro & Herbal Tea Fest',
-    tagline: 'Special doorstep delivery deals on Ilam orthodox black tea and organic herbal honey',
-    type: 'free_shipping',
-    discount_value: 0,
-    banner_image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=1000&q=80',
-    category: 'Food & Beverages',
-    participating_items: 8,
-    start_date: '2026-08-10',
-    end_date: '2026-09-30',
-    status: 'active',
-    revenue_generated: 16200,
-  },
-  {
-    id: 3,
-    name: 'Tihar Lights & Handmade Brass Sale',
-    tagline: 'Festive discounts on handcrafted singing bowls, brass oil lamps, and wood carvings',
-    type: 'percentage',
-    discount_value: 20,
-    banner_image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=1000&q=80',
-    category: 'Handicrafts',
-    participating_items: 12,
-    start_date: '2026-10-01',
-    end_date: '2026-11-10',
-    status: 'scheduled',
-    revenue_generated: 0,
-  },
-  {
-    id: 4,
-    name: 'Weekend Palpali Dhaka BOGO Deal',
-    tagline: 'Buy 1 Pure Cotton Dhaka Topi, get 1 Handwoven handkerchief free',
-    type: 'buy_one_get_one',
-    discount_value: 50,
-    banner_image: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=1000&q=80',
-    category: 'Apparel',
-    participating_items: 4,
-    start_date: '2026-10-15',
-    end_date: '2026-10-31',
-    status: 'scheduled',
-    revenue_generated: 0,
-  },
-]
+import { formatDate, money, errorMessage, apiImage } from '../../utils/format'
 
 const emptyForm = {
   name: '',
   tagline: '',
   type: 'percentage',
-  discount_value: 20,
-  category: 'All Products',
-  banner_image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1000&q=80',
+  discount_value: '',
+  category: '',
+  banner_image: '',
   start_date: new Date().toISOString().slice(0, 10),
   end_date: '',
   status: 'active',
@@ -95,36 +37,46 @@ const CAMPAIGN_PRESETS = [
   { label: 'Flat Rs. 500 Promo', name: 'Autumn Seasonal Discount', type: 'fixed', discount_value: 500, category: 'Apparel' },
 ]
 
+const TABS = [
+  { id: 'all', label: 'All Campaigns' },
+  { id: 'active', label: 'Active' },
+  { id: 'scheduled', label: 'Scheduled' },
+  { id: 'draft', label: 'Draft' },
+  { id: 'ended', label: 'Ended' },
+]
+
 export default function VendorPromotions() {
   const toast = useToast()
-  const [promotions, setPromotions] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
-  const [statusFilter, setStatusFilter] = useState('all')
 
-  const load = () => {
-    setLoading(true)
-    api.get('/vendor/promotions')
-      .then((res) => {
-        const list = res.data.data?.promotions || res.data.data || []
-        if (list.length > 0) {
-          setPromotions(list)
-        } else {
-          setPromotions(DEFAULT_PROMOTIONS)
-        }
-      })
-      .catch(() => {
-        setPromotions(DEFAULT_PROMOTIONS)
-      })
-      .finally(() => setLoading(false))
+  const fetchPromotions = (page, pageSize) =>
+    api.get('/vendor/promotions', {
+      params: { status: statusFilter === 'all' ? '' : statusFilter, search, page, per_page: pageSize },
+    })
+
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetchPromotions, {
+    pageSize: 8,
+    deps: [statusFilter, search],
+  })
+
+  const changeStatus = (value) => {
+    setPage(1)
+    setStatusFilter(value)
   }
 
-  useEffect(load, [])
+  const applySearch = (e) => {
+    e.preventDefault()
+    setPage(1)
+    setSearch(searchInput)
+  }
 
   const openModal = (p) => {
     setEditing(p || null)
@@ -134,8 +86,8 @@ export default function VendorPromotions() {
             name: p.name || '',
             tagline: p.tagline || '',
             type: p.type || 'percentage',
-            discount_value: p.discount_value ?? 20,
-            category: p.category || 'All Products',
+            discount_value: p.discount_value != null ? Number(p.discount_value) : '',
+            category: p.category || '',
             banner_image: p.banner_image || '',
             start_date: p.start_date ? p.start_date.slice(0, 10) : '',
             end_date: p.end_date ? p.end_date.slice(0, 10) : '',
@@ -161,29 +113,27 @@ export default function VendorPromotions() {
     setSaving(true)
     try {
       const payload = {
-        ...form,
-        discount_value: Number(form.discount_value || 0),
+        name: form.name,
+        tagline: form.tagline || null,
+        type: form.type,
+        discount_value: form.type === 'free_shipping' ? 0 : Number(form.discount_value || 0),
+        category: form.category || null,
+        banner_image: form.banner_image || null,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+        status: form.status,
       }
       if (editing) {
         await api.put(`/vendor/promotions/${editing.id}`, payload)
-        setPromotions((prev) => prev.map((p) => (p.id === editing.id ? { ...p, ...payload } : p)))
         toast.success('Promotion campaign updated')
       } else {
         await api.post('/vendor/promotions', payload)
-        const newP = { id: promotions.length + 1, ...payload, participating_items: 10, revenue_generated: 0 }
-        setPromotions((prev) => [newP, ...prev])
         toast.success('Promotion campaign created')
       }
       setModalOpen(false)
+      reload()
     } catch (err) {
-      if (editing) {
-        setPromotions((prev) => prev.map((p) => (p.id === editing.id ? { ...p, ...form } : p)))
-      } else {
-        const newP = { id: promotions.length + 1, ...form, participating_items: 10, revenue_generated: 0 }
-        setPromotions((prev) => [newP, ...prev])
-      }
-      toast.success('Promotion campaign saved')
-      setModalOpen(false)
+      toast.error(errorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -193,33 +143,27 @@ export default function VendorPromotions() {
     setDeleting(true)
     try {
       await api.delete(`/vendor/promotions/${deleteTarget.id}`)
-      setPromotions((prev) => prev.filter((p) => p.id !== deleteTarget.id))
       toast.success('Promotion deleted')
       setDeleteTarget(null)
+      reload()
     } catch (err) {
-      setPromotions((prev) => prev.filter((p) => p.id !== deleteTarget.id))
-      toast.success('Promotion deleted')
+      toast.error(errorMessage(err))
       setDeleteTarget(null)
     } finally {
       setDeleting(false)
     }
   }
 
-  // KPIs
-  const totalCampaigns = promotions.length
-  const activeCount = promotions.filter((p) => p.status === 'active').length
-  const totalItemsParticipating = promotions.reduce((sum, p) => sum + (p.participating_items || 0), 0)
-  const totalRevenue = promotions.reduce((sum, p) => sum + (p.revenue_generated || 0), 0)
+  const activeCount = items.filter((p) => p.status === 'active').length
+  const totalItemsParticipating = items.reduce((sum, p) => sum + (p.participating_items || 0), 0)
+  const avgDiscount = items.length
+    ? items.reduce((sum, p) => sum + Number(p.discount_value || 0), 0) / items.length
+    : 0
 
-  // Filtered list
-  const filteredPromotions = useMemo(() => {
-    if (statusFilter === 'all') return promotions
-    return promotions.filter((p) => p.status === statusFilter)
-  }, [promotions, statusFilter])
+  const countFor = (s) => (s === 'all' ? items.length : items.filter((p) => p.status === s).length)
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Marketing Campaigns & Promotions</h1>
@@ -234,7 +178,6 @@ export default function VendorPromotions() {
         </div>
       </div>
 
-      {/* 4 Campaign KPI Cards */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 18 }}>
         <div className="card flex items-center gap-3" style={{ padding: '16px 18px' }}>
           <span className="avatar" style={{ width: 44, height: 44, background: 'var(--primary-50)', color: 'var(--primary)', flexShrink: 0 }}>
@@ -261,8 +204,8 @@ export default function VendorPromotions() {
             <TrendingUp size={22} />
           </span>
           <div>
-            <div className="muted text-xs font-semibold uppercase" style={{ letterSpacing: '0.04em' }}>Campaign Revenue</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b', marginTop: 2 }}>{money(totalRevenue)}</div>
+            <div className="muted text-xs font-semibold uppercase" style={{ letterSpacing: '0.04em' }}>Total Campaigns</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b', marginTop: 2 }}>{meta.total}</div>
           </div>
         </div>
 
@@ -272,41 +215,51 @@ export default function VendorPromotions() {
           </span>
           <div>
             <div className="muted text-xs font-semibold uppercase" style={{ letterSpacing: '0.04em' }}>Avg. Discount</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb', marginTop: 2 }}>22.5% Off</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb', marginTop: 2 }}>{avgDiscount ? `${avgDiscount.toFixed(1)}% Off` : '—'}</div>
           </div>
         </div>
       </div>
 
-      {/* Filter Tabs */}
       <div className="card" style={{ padding: '12px 18px', marginBottom: 16 }}>
-        <div className="flex gap-1 wrap">
-          {[
-            { id: 'all', label: `All Campaigns (${promotions.length})` },
-            { id: 'active', label: `Active (${promotions.filter(p => p.status === 'active').length})` },
-            { id: 'scheduled', label: `Scheduled (${promotions.filter(p => p.status === 'scheduled').length})` },
-            { id: 'ended', label: `Ended (0)` },
-          ].map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={`btn btn-xs ${statusFilter === t.id ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ borderRadius: 'var(--radius-sm)' }}
-              onClick={() => setStatusFilter(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between wrap gap-3">
+          <div className="flex gap-1 wrap">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`btn btn-xs ${statusFilter === t.id ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ borderRadius: 'var(--radius-sm)' }}
+                onClick={() => changeStatus(t.id)}
+              >
+                {t.label} ({countFor(t.id)})
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={applySearch} style={{ position: 'relative', width: 240 }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+            <input
+              type="text"
+              className="input"
+              style={{ paddingLeft: 30, height: 32, fontSize: 13 }}
+              placeholder="Search campaigns by name…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </form>
         </div>
       </div>
 
-      {/* Promotions List Grid */}
       {loading ? (
-        <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-          <Spinner size={24} color="var(--primary)" />
-        </div>
-      ) : filteredPromotions.length ? (
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
-          {filteredPromotions.map((p) => {
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={280} />)}
+        </div>
+      ) : error ? (
+        <ErrorState message={errorMessage(error)} onRetry={reload} />
+      ) : items.length ? (
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
+          {items.map((p) => {
+            const value = Number(p.discount_value || 0)
             return (
               <div
                 key={p.id}
@@ -318,10 +271,9 @@ export default function VendorPromotions() {
                 }}
               >
                 <div>
-                  {/* Campaign Cover Banner Image */}
                   <div style={{ height: 130, position: 'relative', overflow: 'hidden', background: 'var(--navy)' }}>
                     <img
-                      src={p.banner_image || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1000&q=80'}
+                      src={apiImage(p.banner_image, p.name)}
                       alt={p.name}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
@@ -331,7 +283,7 @@ export default function VendorPromotions() {
                       display: 'flex', alignItems: 'flex-end', padding: 14
                     }}>
                       <span className="chip chip-sm" style={{ background: '#fff', color: 'var(--primary)', fontWeight: 800 }}>
-                        {p.type === 'percentage' ? `Up to ${p.discount_value}% OFF` : p.type === 'free_shipping' ? 'FREE SHIPPING' : p.type === 'buy_one_get_one' ? 'BUY 1 GET 1' : `Flat ${money(p.discount_value)} OFF`}
+                        {p.type === 'percentage' ? `Up to ${value}% OFF` : p.type === 'free_shipping' ? 'FREE SHIPPING' : p.type === 'buy_one_get_one' ? 'BUY 1 GET 1' : `Flat ${money(value)} OFF`}
                       </span>
                     </div>
                     <span style={{ position: 'absolute', top: 10, right: 10 }}>
@@ -395,7 +347,10 @@ export default function VendorPromotions() {
         />
       )}
 
-      {/* Create / Edit Campaign Modal */}
+      {items.length > 0 && (
+        <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
+      )}
+
       {modalOpen && (
         <Modal
           open={modalOpen}
@@ -457,7 +412,8 @@ export default function VendorPromotions() {
                 label={form.type === 'percentage' ? 'Max Discount (%)' : 'Discount Value'}
                 type="number"
                 min="0"
-                value={form.discount_value}
+                disabled={form.type === 'free_shipping'}
+                value={form.type === 'free_shipping' ? '0' : form.discount_value}
                 onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
               />
 
@@ -488,8 +444,9 @@ export default function VendorPromotions() {
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
               >
-                <option value="active">Active / Live Now</option>
+                <option value="draft">Draft</option>
                 <option value="scheduled">Scheduled for Future</option>
+                <option value="active">Active / Live Now</option>
                 <option value="ended">Ended</option>
               </Select>
             </div>

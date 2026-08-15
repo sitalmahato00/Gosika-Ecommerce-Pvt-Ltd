@@ -4,7 +4,6 @@ import { ChevronRight, Check, X, PackageCheck, MapPin, Phone, Truck } from 'luci
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
-import Modal from '../../components/ui/Modal'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import ErrorState from '../../components/ui/ErrorState'
@@ -30,12 +29,13 @@ export default function VendorOrderDetail() {
 
   useEffect(load, [id])
 
-  const act = async (path, successMsg) => {
+  const act = async (path, successMsg, body) => {
     setBusy(true)
     try {
-      await api.post(`/vendor/orders/${id}/${path}`)
+      await api.post(`/vendor/orders/${id}/${path}`, body)
       toast.success(successMsg)
       setRejectOpen(false)
+      setReason('')
       load()
     } catch (e) {
       toast.error(errorMessage(e))
@@ -57,7 +57,6 @@ export default function VendorOrderDetail() {
     return <ErrorState message={errorMessage(error, 'Order not found.')} onRetry={load} />
   }
 
-  const customer = order.order?.user
   const addr = order.order?.shipping_address || order.shipping_address
 
   return (
@@ -102,7 +101,6 @@ export default function VendorOrderDetail() {
                     src={it.image ? apiImage(it.image) : getProductImage(it)}
                     alt=""
                     className="thumb-img"
-                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' }}
                   />
                 </span>
                 <div className="flex-1 min-w-0">
@@ -157,7 +155,10 @@ export default function VendorOrderDetail() {
       <ConfirmDialog
         open={rejectOpen}
         onClose={() => setRejectOpen(false)}
-        onConfirm={() => act('reject', 'Order rejected')}
+        onConfirm={() => {
+          if (!reason.trim()) return toast.error('Please provide a reason')
+          act('reject', 'Order rejected', { reason: reason.trim() })
+        }}
         danger
         loading={busy}
         title="Reject this order?"

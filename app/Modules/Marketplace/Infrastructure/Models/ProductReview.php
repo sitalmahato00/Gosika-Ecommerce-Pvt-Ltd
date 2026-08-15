@@ -21,6 +21,9 @@ class ProductReview extends BaseModel
         'status',
         'reviewed_by',
         'reviewed_at',
+        'reply',
+        'replied_by',
+        'replied_at',
     ];
 
     protected function casts(): array
@@ -29,12 +32,18 @@ class ProductReview extends BaseModel
             'rating' => 'integer',
             'status' => ReviewStatus::class,
             'reviewed_at' => 'datetime',
+            'replied_at' => 'datetime',
         ];
     }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function repliedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'replied_by');
     }
 
     public function product(): BelongsTo

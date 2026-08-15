@@ -89,6 +89,11 @@ class Product extends BaseModel
         return $this->hasMany(ProductVariant::class);
     }
 
+    public function items(): HasMany
+    {
+        return $this->hasMany(\App\Modules\Order\Infrastructure\Models\OrderItem::class);
+    }
+
     public function images(): HasMany
     {
         return $this->hasMany(ProductImage::class);

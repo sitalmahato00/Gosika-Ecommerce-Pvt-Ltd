@@ -55,7 +55,9 @@ export default function VendorWallet() {
 
   const filtered = typeFilter === 'all'
     ? transactions
-    : transactions.filter((t) => t.transaction_type === typeFilter)
+    : typeFilter === 'credit'
+      ? transactions.filter((t) => String(t.transaction_type).startsWith('credit_') || Number(t.amount) > 0)
+      : transactions.filter((t) => !String(t.transaction_type).startsWith('credit_') && Number(t.amount) <= 0)
 
   if (loading) {
     return (
@@ -117,7 +119,7 @@ export default function VendorWallet() {
               </thead>
               <tbody>
                 {filtered.map((t) => {
-                  const isCredit = t.transaction_type === 'credit' || t.transaction_type === 'sale' || t.transaction_type === 'refund' && Number(t.amount) > 0 || Number(t.amount) > 0
+                  const isCredit = String(t.transaction_type).startsWith('credit_') || Number(t.amount) > 0
                   return (
                     <tr key={t.id}>
                       <td>

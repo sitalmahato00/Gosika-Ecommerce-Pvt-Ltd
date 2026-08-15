@@ -1,120 +1,99 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Building2, ShieldCheck, CheckCircle2, UploadCloud, FileText,
-  Image as ImageIcon, X, MapPin, Sparkles, Phone, Mail,
-  CreditCard, Award, Check, UserCheck, AlertCircle
+  MapPin, Phone, Mail, Award, Check, Percent, CalendarDays
 } from 'lucide-react'
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
+import { Skeleton } from '../../components/ui/Skeleton'
+import ErrorState from '../../components/ui/ErrorState'
 import Input from '../../components/ui/Input'
-import Textarea from '../../components/ui/Textarea'
 import Select from '../../components/ui/Select'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import LocationMapPicker from '../../components/common/LocationMapPicker'
 import { useToast } from '../../context/ToastContext'
-import { errorMessage } from '../../utils/format'
+import { errorMessage, formatDate } from '../../utils/format'
+
+const DOC_CARDS = [
+  { type: 'citizenship_front', label: 'Citizenship (Front)' },
+  { type: 'citizenship_back', label: 'Citizenship (Back)' },
+  { type: 'pan_vat', label: 'PAN / VAT Certificate' },
+  { type: 'business_registration', label: 'Company Darta Certificate' },
+]
 
 export default function VendorProfile() {
   const toast = useToast()
-  const [vendor, setVendor] = useState({
-    company_name: 'Koshi Handicrafts Pvt. Ltd.',
-    business_email: 'hello@koshi.com.np',
-    business_phone: '+977 980-1234567',
-    pan_vat: '609842103',
-    registration_number: 'REG-KOSHI-2024-8841',
-    description: 'Premier manufacturer and exporter of traditional handwoven Pashmina, Dhaka apparel, Newari woodcarvings, and organic Ilam black tea from Koshi Province.',
-    status: 'approved',
-  })
-
+  const [vendor, setVendor] = useState(null)
   const [basic, setBasic] = useState({
-    company_name: 'Koshi Handicrafts Pvt. Ltd.',
-    business_email: 'hello@koshi.com.np',
-    business_phone: '+977 980-1234567',
-    pan_vat: '609842103',
-    registration_number: 'REG-KOSHI-2024-8841',
-    description: 'Premier manufacturer and exporter of traditional handwoven Pashmina, Dhaka apparel, Newari woodcarvings, and organic Ilam black tea from Koshi Province.',
+    company_name: '',
+    business_email: '',
+    business_phone: '',
+    pan_vat: '',
+    registration_number: '',
   })
-
   const [kyc, setKyc] = useState({
-    owner_full_name: 'Suman Pokhrel',
-    owner_citizenship_number: '12-01-76-04891 (Morang)',
-    owner_email: 'suman.pokhrel@koshi.com.np',
-    owner_phone: '+977 980-1234567',
-    business_type: 'Private Limited (Pvt. Ltd.)',
-    province: 'Koshi Province',
-    district: 'Morang',
-    city: 'Biratnagar',
-    address: 'Ward No. 4, Main Road, Near Traffic Chowk',
-    coordinates: { lat: 26.4525, lng: 87.2718 },
+    owner_full_name: '',
+    owner_citizenship_number: '',
+    owner_email: '',
+    owner_phone: '',
+    business_type: '',
+    address: '',
+    province: '',
+    district: '',
+    city: '',
+    coordinates: null,
   })
+  const [previews, setPreviews] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState('')
+  const [uploading, setUploading] = useState('')
 
-  const [documents, setDocuments] = useState({
-    citizenship_front: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&q=80',
-    citizenship_back: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600&q=80',
-    pan_certificate: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=600&q=80',
-    company_registration: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=600&q=80',
-  })
-
-  const [saving, setSaving] = useState(null)
-  const [loading, setLoading] = useState(false)
-
-  const citizenshipFrontRef = useRef(null)
-  const citizenshipBackRef = useRef(null)
-  const panRef = useRef(null)
-  const companyRegRef = useRef(null)
-
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
+    setError(null)
     api.get('/vendor/me')
       .then((r) => {
-        const v = r.data.data
-        if (v) {
-          setVendor((prev) => ({ ...prev, ...v }))
-          setBasic((prev) => ({
-            ...prev,
-            company_name: v.company_name || prev.company_name,
-            business_email: v.business_email || prev.business_email,
-            business_phone: v.business_phone || prev.business_phone,
-            pan_vat: v.pan_vat || prev.pan_vat,
-            registration_number: v.registration_number || prev.registration_number,
-            description: v.description || prev.description,
-          }))
-          const k = v.kyc || {}
-          setKyc((prev) => ({
-            ...prev,
-            owner_full_name: k.owner_full_name || prev.owner_full_name,
-            owner_citizenship_number: k.owner_citizenship_number || prev.owner_citizenship_number,
-            owner_email: k.owner_email || prev.owner_email,
-            owner_phone: k.owner_phone || prev.owner_phone,
-            business_type: k.business_type || prev.business_type,
-            address: k.address || prev.address,
-          }))
-        }
+        const v = r.data.data || {}
+        setVendor(v)
+        setBasic({
+          company_name: v.company_name || '',
+          business_email: v.business_email || '',
+          business_phone: v.business_phone || '',
+          pan_vat: v.pan_vat || '',
+          registration_number: v.registration_number || '',
+        })
+        const k = v.kyc || {}
+        setKyc({
+          owner_full_name: k.owner_full_name || '',
+          owner_citizenship_number: k.owner_citizenship_number || '',
+          owner_email: k.owner_email || '',
+          owner_phone: k.owner_phone || '',
+          business_type: k.business_type || '',
+          address: k.address || '',
+          province: '',
+          district: '',
+          city: '',
+          coordinates: null,
+        })
       })
-      .catch(() => {})
-  }, [])
-
-  const handleFileUpload = (field, file) => {
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setDocuments((prev) => ({ ...prev, [field]: e.target.result }))
-      toast.success(`Uploaded ${field.replace(/_/g, ' ')}`)
-    }
-    reader.readAsDataURL(file)
+      .catch((e) => setError(e))
+      .finally(() => setLoading(false))
   }
+  useEffect(load, [])
 
   const saveBasic = async (e) => {
     e.preventDefault()
     setSaving('basic')
     try {
-      await api.put('/vendor/me', basic).catch(() => {})
-      setVendor((prev) => ({ ...prev, ...basic }))
+      await api.put('/vendor/me', basic)
       toast.success('Business profile updated successfully')
+      load()
     } catch (err) {
-      toast.success('Business profile updated successfully')
+      toast.error(errorMessage(err))
     } finally {
-      setSaving(null)
+      setSaving('')
     }
   }
 
@@ -122,13 +101,53 @@ export default function VendorProfile() {
     e.preventDefault()
     setSaving('kyc')
     try {
-      await api.post('/vendor/kyc', { ...kyc, documents }).catch(() => {})
+      await api.post('/vendor/kyc', {
+        owner_full_name: kyc.owner_full_name,
+        owner_citizenship_number: kyc.owner_citizenship_number,
+        owner_email: kyc.owner_email,
+        owner_phone: kyc.owner_phone,
+        business_type: kyc.business_type,
+        address: kyc.address,
+      })
       toast.success('KYC verification submitted successfully for review')
+      load()
     } catch (err) {
-      toast.success('KYC verification submitted successfully for review')
+      toast.error(errorMessage(err))
     } finally {
-      setSaving(null)
+      setSaving('')
     }
+  }
+
+  const uploadDocument = async (type, file) => {
+    if (!file) return
+    const preview = URL.createObjectURL(file)
+    setPreviews((prev) => ({ ...prev, [type]: preview }))
+    setUploading(type)
+    const fd = new FormData()
+    fd.append('document_type', type)
+    fd.append('file', file)
+    try {
+      await api.post('/vendor/documents', fd)
+      toast.success('Document uploaded successfully')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setUploading('')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-4" style={{ paddingBottom: 40 }}>
+        <Skeleton height={120} />
+        <Skeleton height={260} />
+        <Skeleton height={320} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return <ErrorState onRetry={load} />
   }
 
   return (
@@ -156,22 +175,41 @@ export default function VendorProfile() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0, color: 'var(--ink)' }}>
-                  {vendor?.company_name}
+                  {vendor?.company_name || 'Vendor profile'}
                 </h1>
-                <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontWeight: 800 }}>
-                  <CheckCircle2 size={12} /> Verified Merchant
-                </span>
+                {vendor?.status === 'approved' && (
+                  <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontWeight: 800 }}>
+                    <CheckCircle2 size={12} /> Verified Merchant
+                  </span>
+                )}
               </div>
-              <div className="muted text-xs flex items-center gap-3 mt-1">
-                <span className="flex items-center gap-1"><Mail size={12} /> {vendor?.business_email}</span>
-                <span className="flex items-center gap-1"><Phone size={12} /> {vendor?.business_phone}</span>
-                <span className="flex items-center gap-1"><ShieldCheck size={12} color="var(--primary)" /> PAN: {vendor?.pan_vat}</span>
+              <div className="muted text-xs flex items-center gap-3 mt-1 wrap">
+                {vendor?.business_email && (
+                  <span className="flex items-center gap-1"><Mail size={12} /> {vendor.business_email}</span>
+                )}
+                {vendor?.business_phone && (
+                  <span className="flex items-center gap-1"><Phone size={12} /> {vendor.business_phone}</span>
+                )}
+                {vendor?.pan_vat && (
+                  <span className="flex items-center gap-1"><ShieldCheck size={12} color="var(--primary)" /> PAN: {vendor.pan_vat}</span>
+                )}
+              </div>
+              <div className="muted text-xs flex items-center gap-3 mt-1 wrap">
+                {vendor?.commission_rate != null && (
+                  <span className="flex items-center gap-1"><Percent size={12} color="var(--primary)" /> Commission: {vendor.commission_rate}%</span>
+                )}
+                {vendor?.approved_at && (
+                  <span className="flex items-center gap-1"><CalendarDays size={12} /> Approved: {formatDate(vendor.approved_at)}</span>
+                )}
+                {vendor?.kyc?.status && (
+                  <span className="flex items-center gap-1"><Award size={12} /> KYC <StatusBadge status={vendor.kyc.status} /></span>
+                )}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <StatusBadge status={vendor?.status?.value || vendor?.status || 'approved'} />
+            <StatusBadge status={vendor?.status} />
           </div>
         </div>
       </div>
@@ -205,15 +243,13 @@ export default function VendorProfile() {
 
         <div className="form-row">
           <Input
-            label="Business Phone Number *"
-            required
+            label="Business Phone Number"
             value={basic.business_phone}
             onChange={(e) => setBasic({ ...basic, business_phone: e.target.value })}
             placeholder="+977 98XXXXXXXX"
           />
           <Input
-            label="PAN / VAT Registration Number *"
-            required
+            label="PAN / VAT Registration Number"
             value={basic.pan_vat}
             onChange={(e) => setBasic({ ...basic, pan_vat: e.target.value })}
             placeholder="e.g. 609842103"
@@ -226,18 +262,10 @@ export default function VendorProfile() {
           />
         </div>
 
-        <Textarea
-          label="About Your Business & Brand Heritage"
-          rows={3}
-          value={basic.description}
-          onChange={(e) => setBasic({ ...basic, description: e.target.value })}
-          placeholder="Describe your artisan workshop, products, materials, and regional heritage…"
-        />
-
         <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-          <button type="submit" className="btn btn-primary btn-sm flex items-center gap-1.5" disabled={saving === 'basic'}>
-            <Check size={14} /> {saving === 'basic' ? 'Saving Profile…' : 'Save Business Profile'}
-          </button>
+          <Button type="submit" size="sm" disabled={saving === 'basic'}>
+            {saving === 'basic' ? <Spinner size={14} color="#fff" /> : <><Check size={14} /> Save Business Profile</>}
+          </Button>
         </div>
       </form>
 
@@ -261,8 +289,7 @@ export default function VendorProfile() {
             placeholder="e.g. Suman Pokhrel"
           />
           <Input
-            label="Citizenship Certificate Number (Nagarikta) *"
-            required
+            label="Citizenship Certificate Number (Nagarikta)"
             value={kyc.owner_citizenship_number}
             onChange={(e) => setKyc({ ...kyc, owner_citizenship_number: e.target.value })}
             placeholder="e.g. 12-01-76-04891 (Morang)"
@@ -271,26 +298,24 @@ export default function VendorProfile() {
 
         <div className="form-row">
           <Input
-            label="Owner Email Address *"
+            label="Owner Email Address"
             type="email"
-            required
             value={kyc.owner_email}
             onChange={(e) => setKyc({ ...kyc, owner_email: e.target.value })}
             placeholder="suman.pokhrel@koshi.com.np"
           />
           <Input
-            label="Owner Direct Mobile / WhatsApp *"
-            required
+            label="Owner Direct Mobile / WhatsApp"
             value={kyc.owner_phone}
             onChange={(e) => setKyc({ ...kyc, owner_phone: e.target.value })}
             placeholder="+977 98XXXXXXXX"
           />
           <Select
-            label="Legal Business Entity Type *"
-            required
+            label="Legal Business Entity Type"
             value={kyc.business_type}
             onChange={(e) => setKyc({ ...kyc, business_type: e.target.value })}
           >
+            <option value="">Select entity type</option>
             <option value="Private Limited (Pvt. Ltd.)">Private Limited (Pvt. Ltd.)</option>
             <option value="Sole Proprietorship">Sole Proprietorship (Ekala Swamittwa)</option>
             <option value="Partnership Firm">Partnership Firm (Sajhedari)</option>
@@ -323,103 +348,68 @@ export default function VendorProfile() {
           />
         </div>
 
-        {/* Real Document Upload Section */}
+        {/* Verification Documents & ID Proofs */}
         <div style={{ margin: '20px 0', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
           <h4 style={{ fontSize: 14, fontWeight: 800, marginBottom: 12 }} className="flex items-center gap-1.5">
             <FileText size={15} color="var(--primary)" /> Verification Documents & ID Proofs (Real File Uploads)
           </h4>
 
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-            {/* Citizenship Front */}
-            <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, background: 'var(--bg)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-xs text-ink">Citizenship (Front)</span>
-                <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontSize: 10 }}>Uploaded</span>
+            {DOC_CARDS.map((doc) => (
+              <div key={doc.type} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, background: 'var(--bg)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-xs text-ink">{doc.label}</span>
+                </div>
+                <div
+                  style={{
+                    height: 110,
+                    borderRadius: 'var(--radius-sm)',
+                    overflow: 'hidden',
+                    marginBottom: 8,
+                    background: '#fff',
+                    border: '1px solid var(--border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--muted)',
+                  }}
+                >
+                  {previews[doc.type] ? (
+                    <img src={previews[doc.type]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <FileText size={28} />
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  style={{ display: 'none' }}
+                  id={`doc-${doc.type}`}
+                  onChange={(e) => uploadDocument(doc.type, e.target.files?.[0])}
+                />
+                <label
+                  htmlFor={`doc-${doc.type}`}
+                  className="btn btn-outline btn-xs w-full"
+                  style={{
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                  }}
+                >
+                  {uploading === doc.type ? <Spinner size={11} /> : <UploadCloud size={11} />} Upload
+                </label>
               </div>
-              <div style={{ height: 110, borderRadius: 'var(--radius-sm)', overflow: 'hidden', marginBottom: 8, background: '#fff', border: '1px solid var(--border)' }}>
-                <img src={documents.citizenship_front} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              <input
-                ref={citizenshipFrontRef}
-                type="file"
-                accept="image/*,.pdf"
-                style={{ display: 'none' }}
-                onChange={(e) => handleFileUpload('citizenship_front', e.target.files[0])}
-              />
-              <button type="button" className="btn btn-outline btn-xs w-full" onClick={() => citizenshipFrontRef.current?.click()}>
-                <UploadCloud size={11} /> Replace Photo
-              </button>
-            </div>
-
-            {/* Citizenship Back */}
-            <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, background: 'var(--bg)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-xs text-ink">Citizenship (Back)</span>
-                <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontSize: 10 }}>Uploaded</span>
-              </div>
-              <div style={{ height: 110, borderRadius: 'var(--radius-sm)', overflow: 'hidden', marginBottom: 8, background: '#fff', border: '1px solid var(--border)' }}>
-                <img src={documents.citizenship_back} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              <input
-                ref={citizenshipBackRef}
-                type="file"
-                accept="image/*,.pdf"
-                style={{ display: 'none' }}
-                onChange={(e) => handleFileUpload('citizenship_back', e.target.files[0])}
-              />
-              <button type="button" className="btn btn-outline btn-xs w-full" onClick={() => citizenshipBackRef.current?.click()}>
-                <UploadCloud size={11} /> Replace Photo
-              </button>
-            </div>
-
-            {/* PAN / VAT Certificate */}
-            <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, background: 'var(--bg)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-xs text-ink">PAN / VAT Certificate</span>
-                <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontSize: 10 }}>Verified</span>
-              </div>
-              <div style={{ height: 110, borderRadius: 'var(--radius-sm)', overflow: 'hidden', marginBottom: 8, background: '#fff', border: '1px solid var(--border)' }}>
-                <img src={documents.pan_certificate} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              <input
-                ref={panRef}
-                type="file"
-                accept="image/*,.pdf"
-                style={{ display: 'none' }}
-                onChange={(e) => handleFileUpload('pan_certificate', e.target.files[0])}
-              />
-              <button type="button" className="btn btn-outline btn-xs w-full" onClick={() => panRef.current?.click()}>
-                <UploadCloud size={11} /> Replace Photo
-              </button>
-            </div>
-
-            {/* Company Registration Darta */}
-            <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, background: 'var(--bg)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-xs text-ink">Company Darta Certificate</span>
-                <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontSize: 10 }}>Verified</span>
-              </div>
-              <div style={{ height: 110, borderRadius: 'var(--radius-sm)', overflow: 'hidden', marginBottom: 8, background: '#fff', border: '1px solid var(--border)' }}>
-                <img src={documents.company_registration} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              <input
-                ref={companyRegRef}
-                type="file"
-                accept="image/*,.pdf"
-                style={{ display: 'none' }}
-                onChange={(e) => handleFileUpload('company_registration', e.target.files[0])}
-              />
-              <button type="button" className="btn btn-outline btn-xs w-full" onClick={() => companyRegRef.current?.click()}>
-                <UploadCloud size={11} /> Replace Photo
-              </button>
-            </div>
+            ))}
           </div>
         </div>
 
         <div className="flex justify-end pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-          <button type="submit" className="btn btn-primary btn-sm flex items-center gap-1.5" disabled={saving === 'kyc'}>
-            <ShieldCheck size={14} /> {saving === 'kyc' ? 'Submitting KYC…' : 'Submit Verified KYC Documents'}
-          </button>
+          <Button type="submit" size="sm" disabled={saving === 'kyc'}>
+            {saving === 'kyc' ? <Spinner size={14} color="#fff" /> : <><ShieldCheck size={14} /> Submit KYC Information</>}
+          </Button>
         </div>
       </form>
     </div>

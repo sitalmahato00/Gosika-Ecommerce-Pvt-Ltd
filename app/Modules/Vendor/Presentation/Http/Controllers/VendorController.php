@@ -43,6 +43,28 @@ class VendorController extends Controller
         return Response::success(new VendorResource($vendor), 'Vendor profile retrieved.');
     }
 
+    public function update(Request $request): JsonResponse
+    {
+        $vendor = $request->user()->vendor;
+
+        if (! $vendor) {
+            throw new DomainException('You must apply for a vendor account first.', 403);
+        }
+
+        $data = $request->validate([
+            'company_name' => ['required', 'string', 'max:200'],
+            'business_email' => ['required', 'email', 'unique:vendors,business_email,'.$vendor->id],
+            'business_phone' => ['nullable', 'string', 'max:40'],
+            'pan_vat' => ['nullable', 'string', 'max:60'],
+            'registration_number' => ['nullable', 'string', 'max:60'],
+            'logo' => ['nullable', 'string', 'max:600'],
+        ]);
+
+        $vendor->update($data);
+
+        return Response::success(new VendorResource($vendor->fresh()), 'Vendor profile updated.');
+    }
+
     public function submitKyc(KycRequest $request): JsonResponse
     {
         $vendor = $this->vendorFor($request);

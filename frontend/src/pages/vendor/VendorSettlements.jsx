@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { FileSpreadsheet, Banknote } from 'lucide-react'
 import api from '../../api/client'
+import { useApi, useList } from '../../hooks/useApi'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { Skeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
@@ -13,27 +16,35 @@ import { money, formatDate, errorMessage } from '../../utils/format'
 
 const MIN_PAYOUT = 1000
 
+const STATUSES = ['all', 'pending', 'eligible', 'processing', 'paid', 'failed', 'on_hold', 'reversed']
+
 export default function VendorSettlements() {
   const toast = useToast()
-  const [payouts, setPayouts] = useState([])
-  const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('all')
   const [payoutOpen, setPayoutOpen] = useState(false)
   const [amount, setAmount] = useState('')
   const [requesting, setRequesting] = useState(false)
 
-  const load = () => {
-    setLoading(true)
-    api.get('/vendor/wallet/payouts')
-      .then((r) => setPayouts(r.data.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [])
+  const walletApi = useApi(() => api.get('/vendor/wallet'))
 
-  const settled = payouts.filter((p) => ['approved', 'processing', 'paid', 'completed'].includes(p.status))
-  const totalSettled = settled.reduce((s, p) => s + Number(p.net_payable ?? p.amount ?? 0), 0)
-  const totalCommission = settled.reduce((s, p) => s + Number(p.commission_total || 0), 0)
+  const fetcher = useCallback(
+    (page, pageSize) => api.get('/vendor/wallet/settlements', {
+      params: {
+        page,
+        per_page: pageSize,
+        status: status === 'all' ? undefined : status,
+      },
+    }),
+    [status],
+  )
+
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
+    deps: [status],
+    pageSize: 15,
+  })
+
+  const netPayable = items.reduce((s, p) => s + Number(p.net_payable || 0), 0)
+  const available = Number(walletApi.data?.available_balance || 0)
 
   const requestPayout = async (e) => {
     e.preventDefault()
@@ -46,16 +57,13 @@ export default function VendorSettlements() {
       toast.success('Payout requested')
       setPayoutOpen(false)
       setAmount('')
-      load()
+      walletApi.reload()
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
       setRequesting(false)
     }
   }
-
-  const statuses = ['all', 'pending', 'approved', 'processing', 'paid', 'rejected']
-  const filtered = status === 'all' ? payouts : payouts.filter((p) => p.status === status)
 
   if (loading) {
     return (
@@ -67,6 +75,8 @@ export default function VendorSettlements() {
       </div>
     )
   }
+
+  if (error) return <ErrorState message={errorMessage(error)} onRetry={reload} />
 
   return (
     <div className="flex flex-col gap-4">
@@ -80,68 +90,74 @@ export default function VendorSettlements() {
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
         <div className="kpi-card">
-          <div className="kpi-label">Settled amount (all time)</div>
-          <div className="kpi-value text-success">{money(totalSettled)}</div>
+          <div className="kpi-label">Available for withdrawal</div>
+          <div className="kpi-value text-success">{money(available)}</div>
+          <div className="muted text-xs">Min. {money(MIN_PAYOUT)}</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">Total commission</div>
-          <div className="kpi-value">{money(totalCommission)}</div>
+          <div className="kpi-label">Net payable</div>
+          <div className="kpi-value">{money(netPayable)}</div>
+          <div className="muted text-xs">Listed on this page</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Settlements</div>
-          <div className="kpi-value">{settled.length}</div>
+          <div className="kpi-value">{meta.total}</div>
+          <div className="muted text-xs">Across all time</div>
         </div>
       </div>
 
       <div className="card">
         <div className="tabs" style={{ marginBottom: 12 }}>
-          {statuses.map((s) => (
-            <button key={s} className={`tab ${status === s ? 'active' : ''}`} onClick={() => setStatus(s)}>
+          {STATUSES.map((s) => (
+            <button key={s} className={`tab ${status === s ? 'active' : ''}`} onClick={() => { setStatus(s); setPage(1) }}>
               {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
         </div>
 
-        {filtered.length ? (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Payout #</th>
-                  <th>Period</th>
-                  <th style={{ textAlign: 'right' }}>Gross sales</th>
-                  <th style={{ textAlign: 'right' }}>Commission</th>
-                  <th style={{ textAlign: 'right' }}>Refunds</th>
-                  <th style={{ textAlign: 'right' }}>Net payable</th>
-                  <th>Status</th>
-                  <th>Paid on</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => (
-                  <tr key={p.id}>
-                    <td className="font-medium">{p.payout_number || p.settlement_number || `#${p.id}`}</td>
-                    <td className="muted text-sm">{formatDate(p.requested_at || p.created_at)} — {formatDate(p.paid_at)}</td>
-                    <td className="text-sm" style={{ textAlign: 'right' }}>{money(p.gross_sales ?? p.amount)}</td>
-                    <td className="muted text-sm" style={{ textAlign: 'right' }}>{money(p.commission_total)}</td>
-                    <td className="muted text-sm" style={{ textAlign: 'right' }}>{money(p.refunds_total)}</td>
-                    <td className="font-semibold" style={{ textAlign: 'right' }}>{money(p.net_payable ?? p.amount)}</td>
-                    <td><StatusBadge status={p.status} /></td>
-                    <td className="muted text-sm">{formatDate(p.paid_at)}</td>
+        {items.length ? (
+          <>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Settlement #</th>
+                    <th>Period</th>
+                    <th style={{ textAlign: 'right' }}>Gross sales</th>
+                    <th style={{ textAlign: 'right' }}>Commission</th>
+                    <th style={{ textAlign: 'right' }}>Refunds</th>
+                    <th style={{ textAlign: 'right' }}>Net payable</th>
+                    <th>Status</th>
+                    <th>Paid on</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {items.map((p) => (
+                    <tr key={p.id}>
+                      <td className="font-medium">{p.settlement_number || `#${p.id}`}</td>
+                      <td className="muted text-sm">{formatDate(p.period_start)} — {formatDate(p.period_end)}</td>
+                      <td className="text-sm" style={{ textAlign: 'right' }}>{money(p.gross_sales)}</td>
+                      <td className="muted text-sm" style={{ textAlign: 'right' }}>{money(p.commission_total)}</td>
+                      <td className="muted text-sm" style={{ textAlign: 'right' }}>{money(p.refunds_total)}</td>
+                      <td className="font-semibold" style={{ textAlign: 'right' }}>{money(p.net_payable)}</td>
+                      <td><StatusBadge status={p.status} /></td>
+                      <td className="muted text-sm">{formatDate(p.paid_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
+          </>
         ) : (
-          <EmptyState icon={FileSpreadsheet} title={status === 'all' ? 'No settlements yet' : `No ${status} payouts`} message="Completed payout cycles will be listed here with a full breakdown." />
+          <EmptyState icon={FileSpreadsheet} title={status === 'all' ? 'No settlements yet' : `No ${status} settlements`} message="Completed payout cycles will be listed here with a full breakdown." />
         )}
       </div>
 
       <Modal open={payoutOpen} onClose={() => setPayoutOpen(false)} title="Request payout">
         <form onSubmit={requestPayout} className="flex flex-col gap-2">
           <p className="muted text-sm" style={{ marginTop: 0 }}>Minimum payout is {money(MIN_PAYOUT)}. Amounts are sent to your registered bank account.</p>
-          <Input label="Amount (NPR)" type="number" min={MIN_PAYOUT} step="1" required value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Input label="Amount (NPR)" type="number" min={MIN_PAYOUT} step="1" required value={amount} onChange={(e) => setAmount(e.target.value)} hint={`Available: ${money(available)}`} />
           <Button type="submit" block disabled={requesting}>
             {requesting ? <Spinner size={15} color="#fff" /> : 'Request payout'}
           </Button>

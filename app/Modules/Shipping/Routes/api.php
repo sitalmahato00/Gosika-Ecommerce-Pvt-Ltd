@@ -4,6 +4,7 @@ use App\Modules\Shipping\Presentation\Http\Controllers\AdminDeliveryController;
 use App\Modules\Shipping\Presentation\Http\Controllers\AdminShippingController;
 use App\Modules\Shipping\Presentation\Http\Controllers\DeliveryPartnerController;
 use App\Modules\Shipping\Presentation\Http\Controllers\DeliveryTrackingController;
+use App\Modules\Shipping\Presentation\Http\Controllers\VendorDashboardController;
 use App\Modules\Shipping\Presentation\Http\Controllers\VendorOrderController;
 use Illuminate\Support\Facades\Route;
 
@@ -47,6 +48,10 @@ Route::prefix('v1/vendor/orders')->group(function () {
     Route::post('{vendorOrder}/accept', [VendorOrderController::class, 'accept']);
     Route::post('{vendorOrder}/reject', [VendorOrderController::class, 'reject']);
     Route::post('{vendorOrder}/ready-for-pickup', [VendorOrderController::class, 'readyForPickup']);
+});
+
+Route::prefix('v1/vendor')->group(function () {
+    Route::get('dashboard', [VendorDashboardController::class, 'dashboard']);
 });
 
 Route::prefix('v1')->group(function () {

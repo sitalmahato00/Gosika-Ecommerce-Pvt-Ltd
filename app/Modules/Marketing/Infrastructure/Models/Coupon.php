@@ -4,6 +4,8 @@ namespace App\Modules\Marketing\Infrastructure\Models;
 
 use App\Modules\Shared\Domain\Enums\DiscountType;
 use App\Modules\Shared\Infrastructure\Models\BaseModel;
+use App\Modules\Vendor\Infrastructure\Models\Vendor;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -12,6 +14,7 @@ class Coupon extends BaseModel
     use SoftDeletes;
 
     protected $fillable = [
+        'vendor_id',
         'code',
         'name',
         'description',
@@ -46,6 +49,11 @@ class Coupon extends BaseModel
             'applies_to_ids' => 'array',
             'is_first_order_only' => 'boolean',
         ];
+    }
+
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class);
     }
 
     public function redemptions(): HasMany

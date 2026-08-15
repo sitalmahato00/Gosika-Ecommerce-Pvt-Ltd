@@ -4,13 +4,23 @@ use App\Modules\Vendor\Presentation\Http\Controllers\AdminVendorController;
 use App\Modules\Vendor\Presentation\Http\Controllers\BankAccountController;
 use App\Modules\Vendor\Presentation\Http\Controllers\StoreController;
 use App\Modules\Vendor\Presentation\Http\Controllers\VendorController;
+use App\Modules\Vendor\Presentation\Http\Controllers\VendorSecurityController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/vendor')->group(function () {
     Route::post('apply', [VendorController::class, 'apply']);
     Route::get('me', [VendorController::class, 'myVendor']);
+    Route::put('me', [VendorController::class, 'update']);
     Route::post('kyc', [VendorController::class, 'submitKyc']);
     Route::post('documents', [VendorController::class, 'uploadDocument']);
+
+    Route::get('security', [VendorSecurityController::class, 'index']);
+    Route::put('password', [VendorSecurityController::class, 'changePassword']);
+    Route::delete('sessions/{token}', [VendorSecurityController::class, 'revokeSession']);
+    Route::delete('sessions', [VendorSecurityController::class, 'revokeAllSessions']);
+    Route::put('2fa', [VendorSecurityController::class, 'updateTwoFactor']);
+    Route::get('notification-settings', [VendorSecurityController::class, 'notificationSettings']);
+    Route::put('notification-settings', [VendorSecurityController::class, 'updateNotificationSettings']);
 
     Route::get('stores', [StoreController::class, 'myStores']);
     Route::post('stores', [StoreController::class, 'create']);

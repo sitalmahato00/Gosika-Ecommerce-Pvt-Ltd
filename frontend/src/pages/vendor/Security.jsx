@@ -1,55 +1,39 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import {
-  KeyRound, Shield, ShieldCheck, Smartphone, Laptop, LogOut,
-  Monitor, Check, Eye, EyeOff, Lock, AlertTriangle, QrCode,
-  Copy, RefreshCw, Sparkles, CheckCircle2, History
+  KeyRound, Shield, ShieldCheck, Smartphone, Laptop, Monitor, Check,
+  Eye, EyeOff, Lock, History, Mail, Phone, Clock, Globe, LogOut,
+  MessageSquare, AlertTriangle, ShoppingBag, PackageCheck, Wallet,
+  Megaphone, CheckCircle2
 } from 'lucide-react'
 import api from '../../api/client'
-import Input from '../../components/ui/Input'
+import { useApi } from '../../hooks/useApi'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
-import Modal from '../../components/ui/Modal'
-import StatusBadge from '../../components/commerce/StatusBadge'
+import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
-import { formatDateTime, formatDate, errorMessage } from '../../utils/format'
+import { formatDateTime, errorMessage, initials } from '../../utils/format'
 
-const DEFAULT_SESSIONS = [
-  {
-    id: 1,
-    device: 'desktop',
-    browser: 'Chrome 127 on Windows 11',
-    ip_address: '103.141.22.45',
-    location: 'Kathmandu, Bagmati, Nepal',
-    last_active_at: new Date().toISOString(),
-    is_current: true,
-  },
-  {
-    id: 2,
-    device: 'mobile',
-    browser: 'GOSIKA Merchant App (iOS 18)',
-    ip_address: '27.34.16.89',
-    location: 'Biratnagar, Koshi, Nepal',
-    last_active_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    is_current: false,
-  },
-  {
-    id: 3,
-    device: 'tablet',
-    browser: 'Safari on iPadOS 17',
-    ip_address: '27.34.18.12',
-    location: 'Dharan, Koshi, Nepal',
-    last_active_at: new Date(Date.now() - 26 * 3600 * 1000).toISOString(),
-    is_current: false,
-  },
+const PREFERENCE_META = [
+  { key: 'sms_orders', label: 'SMS for New Orders', desc: 'Instant SMS when a buyer places an order', icon: Smartphone, color: '#2563eb' },
+  { key: 'whatsapp_payouts', label: 'Payout Clearance Receipts', desc: 'WhatsApp confirmation when a bank transfer completes', icon: MessageSquare, color: '#10b981' },
+  { key: 'email_reviews', label: 'Customer Review Alerts', desc: 'Email notification when reviews are posted', icon: Mail, color: '#f59e0b' },
+  { key: 'low_stock_push', label: 'Low Inventory Warnings', desc: 'Urgent push when stock drops below threshold', icon: AlertTriangle, color: '#ef4444' },
+  { key: 'new_orders', label: 'New Order Alerts', desc: 'Real-time alerts for new customer orders', icon: ShoppingBag, color: '#2563eb' },
+  { key: 'order_updates', label: 'Order Status Updates', desc: 'Updates as orders progress and dispatch', icon: PackageCheck, color: '#0284c7' },
+  { key: 'low_stock', label: 'Low Stock Alerts', desc: 'Email when inventory is running low', icon: AlertTriangle, color: '#ef4444' },
+  { key: 'settlements', label: 'Settlement Reports', desc: 'Summaries of payouts and settlements', icon: Wallet, color: '#10b981' },
+  { key: 'product_approval', label: 'Product Approval Updates', desc: 'Notify when product listings are reviewed', icon: ShieldCheck, color: '#8b5cf6' },
+  { key: 'marketing', label: 'Marketing & Promotions', desc: 'Campaign and promotional announcements', icon: Megaphone, color: '#d97706' },
 ]
 
-const AUDIT_LOGS = [
-  { id: 1, event: 'Successful Login', ip: '103.141.22.45 (Kathmandu)', time: 'Today at 08:30 AM', status: 'success' },
-  { id: 2, event: '2FA Verification Passed', ip: '103.141.22.45 (Kathmandu)', time: 'Today at 08:30 AM', status: 'success' },
-  { id: 3, event: 'Bank Account Linked (Nabil Bank)', ip: '27.34.16.89 (Biratnagar)', time: '14 Aug 2026, 04:15 PM', status: 'success' },
-  { id: 4, event: 'KYC Document Verification Approved', ip: 'GOSIKA Admin Compliance Desk', time: '12 Aug 2026, 11:00 AM', status: 'verified' },
-]
+function sessionIcon(name) {
+  const n = (name || '').toLowerCase()
+  if (n.includes('mobile') || n.includes('ios') || n.includes('android')) return <Smartphone size={18} />
+  if (n.includes('tablet') || n.includes('ipad')) return <Laptop size={18} />
+  return <Monitor size={18} />
+}
 
 export default function VendorSecurity() {
   const toast = useToast()
@@ -58,25 +42,18 @@ export default function VendorSecurity() {
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  
-  const [twoFa, setTwoFa] = useState(false)
-  const [twoFaModal, setTwoFaModal] = useState(false)
-  const [twoFaCode, setTwoFaCode] = useState('')
-  const [twoFaSecret] = useState('JBSWY3DPEHPK3PXP')
-  const [copiedSecret, setCopiedSecret] = useState(false)
+  const [toggling2fa, setToggling2fa] = useState(false)
+  const [revoking, setRevoking] = useState(null)
 
-  const [sessions, setSessions] = useState(DEFAULT_SESSIONS)
-  const [loading, setLoading] = useState(false)
+  const security = useApi(() => api.get('/vendor/security'))
+  const settings = useApi(() => api.get('/vendor/notification-settings'))
 
-  useEffect(() => {
-    api.get('/vendor/security')
-      .then((s) => {
-        if (s.data.data?.two_factor_enabled !== undefined) {
-          setTwoFa(!!s.data.data.two_factor_enabled)
-        }
-      })
-      .catch(() => {})
-  }, [])
+  const sec = security.data || {}
+  const user = sec.user || {}
+  const sessions = sec.sessions || []
+  const auditLogs = sec.audit_logs || []
+  const twoFa = !!sec.two_factor_enabled
+  const preferences = settings.data?.preferences || {}
 
   const changePassword = async (e) => {
     e.preventDefault()
@@ -95,59 +72,70 @@ export default function VendorSecurity() {
 
     setSavingPw(true)
     try {
-      await api.put('/vendor/password', pw).catch(() => {})
+      await api.put('/vendor/password', {
+        current_password: pw.current_password,
+        password: pw.new_password,
+        password_confirmation: pw.new_password_confirmation,
+      })
       toast.success('Password updated successfully!')
       setPw({ current_password: '', new_password: '', new_password_confirmation: '' })
     } catch (err) {
-      toast.success('Password updated successfully!')
-      setPw({ current_password: '', new_password: '', new_password_confirmation: '' })
+      toast.error(errorMessage(err))
     } finally {
       setSavingPw(false)
     }
   }
 
-  const handleEnable2Fa = () => {
-    if (twoFa) {
-      setTwoFa(false)
-      toast.success('Two-factor authentication disabled')
-    } else {
-      setTwoFaModal(true)
-    }
-  }
-
-  const verifyAndSave2Fa = () => {
-    if (twoFaCode.length < 6) {
-      toast.error('Please enter a 6-digit authentication code')
-      return
-    }
-    setTwoFa(true)
-    setTwoFaModal(false)
-    setTwoFaCode('')
-    toast.success('2FA Two-Factor Authentication successfully activated!')
-  }
-
-  const copySecret = async () => {
+  const toggle2fa = async () => {
+    setToggling2fa(true)
     try {
-      await navigator.clipboard.writeText(twoFaSecret)
-      setCopiedSecret(true)
-      toast.success('Copied 2FA key to clipboard')
-      setTimeout(() => setCopiedSecret(false), 2000)
-    } catch {
-      toast.error('Could not copy key')
+      await api.put('/vendor/2fa', { enabled: !twoFa })
+      toast.success(twoFa ? 'Two-factor authentication disabled' : 'Two-factor authentication enabled')
+      security.reload()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setToggling2fa(false)
     }
   }
 
-  const logoutSession = (id) => {
-    setSessions((prev) => prev.filter((s) => s.id !== id))
-    toast.success('Session revoked and logged out')
+  const revokeSession = async (tokenId) => {
+    setRevoking(tokenId)
+    try {
+      await api.delete(`/vendor/sessions/${tokenId}`)
+      toast.success('Session revoked and logged out')
+      security.reload()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setRevoking(null)
+    }
   }
 
-  const logoutAllOtherSessions = () => {
-    setSessions((prev) => prev.filter((s) => s.is_current))
-    toast.success('Signed out of all other devices successfully')
+  const revokeAllSessions = async () => {
+    setRevoking('all')
+    try {
+      await api.delete('/vendor/sessions')
+      toast.success('Signed out of all other devices successfully')
+      security.reload()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setRevoking(null)
+    }
   }
 
-  // Password strength meter
+  const togglePreference = async (key) => {
+    const next = { ...preferences, [key]: !preferences[key] }
+    try {
+      await api.put('/vendor/notification-settings', next)
+      settings.setData({ preferences: next })
+      toast.success('Preference updated')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
+
   const getPasswordStrength = () => {
     const p = pw.new_password
     if (!p) return { score: 0, text: 'Enter password', color: 'var(--muted)' }
@@ -165,9 +153,26 @@ export default function VendorSecurity() {
 
   const strength = getPasswordStrength()
 
+  if (security.loading) {
+    return (
+      <div className="flex flex-col gap-4" style={{ paddingBottom: 50 }}>
+        <Skeleton height={120} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: 20 }}>
+          <Skeleton height={380} />
+          <Skeleton height={380} />
+        </div>
+        <Skeleton height={200} />
+        <Skeleton height={240} />
+      </div>
+    )
+  }
+
+  if (security.error) {
+    return <ErrorState message={errorMessage(security.error)} onRetry={security.reload} />
+  }
+
   return (
     <div style={{ width: '100%', paddingBottom: 50 }}>
-      {/* Page Header */}
       <div className="page-header" style={{ marginBottom: 20 }}>
         <div className="page-header-left">
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Account Security & Credentials</h1>
@@ -178,17 +183,15 @@ export default function VendorSecurity() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: 20, alignItems: 'start' }}>
-        {/* Change Password Card */}
         <form className="card" onSubmit={changePassword} style={{ padding: 24 }}>
           <div className="flex items-center justify-between mb-3">
             <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
               <KeyRound size={17} color="var(--primary)" /> Change Login Password
             </h3>
-            <span className="muted text-xs">Updated 14 days ago</span>
+            <span className="muted text-xs">Minimum 8 characters</span>
           </div>
 
           <div className="flex flex-col gap-3">
-            {/* Current Password */}
             <div>
               <label className="label" style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 4 }}>
                 Current Password *
@@ -223,7 +226,6 @@ export default function VendorSecurity() {
               </div>
             </div>
 
-            {/* New Password */}
             <div>
               <label className="label" style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 4 }}>
                 New Password *
@@ -258,7 +260,6 @@ export default function VendorSecurity() {
                 </button>
               </div>
 
-              {/* Password Strength Indicator */}
               {pw.new_password && (
                 <div style={{ marginTop: 6 }}>
                   <div className="flex items-center justify-between mb-1">
@@ -272,7 +273,6 @@ export default function VendorSecurity() {
               )}
             </div>
 
-            {/* Confirm Password */}
             <div>
               <label className="label" style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 4 }}>
                 Confirm New Password *
@@ -319,7 +319,6 @@ export default function VendorSecurity() {
           </div>
         </form>
 
-        {/* Two-Factor Authentication Card */}
         <div className="flex flex-col gap-4">
           <div className="card" style={{ padding: 24 }}>
             <div className="flex items-center justify-between mb-3">
@@ -339,7 +338,7 @@ export default function VendorSecurity() {
             </div>
 
             <p className="muted text-xs mb-3" style={{ lineHeight: 1.5 }}>
-              Add a mandatory second verification layer. When enabled, signing into your merchant store requires entering a 6-digit TOTP code from Google Authenticator, Authy, or Microsoft Authenticator.
+              Add a mandatory second verification layer. When enabled, signing into your merchant store requires an additional verification step.
             </p>
 
             <div className="p-3 mb-3" style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
@@ -354,34 +353,79 @@ export default function VendorSecurity() {
             <Button
               variant={twoFa ? 'danger-outline' : 'primary'}
               size="sm"
-              onClick={handleEnable2Fa}
+              onClick={toggle2fa}
+              disabled={toggling2fa}
             >
+              {toggling2fa && <Spinner size={13} color={twoFa ? '#ef4444' : '#fff'} />}
               {twoFa ? 'Disable Two-Factor Auth' : 'Setup & Enable 2FA'}
             </Button>
           </div>
 
-          {/* Quick Security Status Overview */}
           <div className="card" style={{ padding: 20, background: 'var(--bg)' }}>
-            <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Merchant Security Health</h4>
+            <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Account & Last Activity</h4>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="avatar" style={{ width: 40, height: 40, background: 'var(--primary-50)', color: 'var(--primary)', fontWeight: 800 }}>
+                {initials(user.full_name)}
+              </span>
+              <div className="min-w-0">
+                <div className="font-bold text-sm text-ink truncate">{user.full_name || '—'}</div>
+                <div className="muted text-xs flex items-center gap-1"><Mail size={11} /> {user.email || '—'}</div>
+                <div className="muted text-xs flex items-center gap-1"><Phone size={11} /> {user.phone || '—'}</div>
+              </div>
+            </div>
             <div className="flex flex-col gap-2 text-xs">
               <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} color="#10b981" />
-                <span className="text-ink">Government KYC Identity Verified</span>
+                <Clock size={13} color="#2563eb" />
+                <span className="text-ink">Last login: {formatDateTime(user.last_login_at)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} color="#10b981" />
-                <span className="text-ink">Verified Direct Settlement Bank Account</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} color="#10b981" />
-                <span className="text-ink">Encrypted TLS 1.3 HTTPS Session Active</span>
+                <Globe size={13} color="#2563eb" />
+                <span className="text-ink">Last login IP: {user.last_login_ip || '—'}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Active Sessions & Devices */}
+      <div className="card" style={{ padding: 24, marginTop: 20 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }} className="flex items-center gap-2">
+          <ShieldCheck size={17} color="var(--primary)" /> Notification Preferences
+        </h3>
+        <span className="muted text-xs">Choose which merchant alerts you receive and through which channels.</span>
+
+        {settings.loading ? (
+          <div style={{ marginTop: 16 }}>
+            <Skeleton height={120} />
+          </div>
+        ) : settings.error ? (
+          <div style={{ marginTop: 16 }}>
+            <ErrorState message={errorMessage(settings.error)} onRetry={settings.reload} />
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginTop: 16 }}>
+            {PREFERENCE_META.map((p) => {
+              if (preferences[p.key] === undefined) return null
+              return (
+                <div key={p.key} className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-bold text-xs text-ink flex items-center gap-1">
+                      <p.icon size={13} color={p.color} /> {p.label}
+                    </div>
+                    <div className="muted text-xs" style={{ fontSize: 11 }}>{p.desc}</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={!!preferences[p.key]}
+                    onChange={() => togglePreference(p.key)}
+                    style={{ width: 18, height: 18, accentColor: 'var(--primary)', flexShrink: 0 }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       <div className="card" style={{ padding: 24, marginTop: 20 }}>
         <div className="flex items-center justify-between wrap gap-2 mb-3">
           <div>
@@ -395,153 +439,109 @@ export default function VendorSecurity() {
             <button
               type="button"
               className="btn btn-danger-outline btn-xs flex items-center gap-1"
-              onClick={logoutAllOtherSessions}
+              onClick={revokeAllSessions}
+              disabled={revoking === 'all'}
             >
-              <LogOut size={12} /> Sign Out All Other Devices
+              {revoking === 'all' ? <Spinner size={12} color="#ef4444" /> : <LogOut size={12} />} Sign Out All Other Devices
             </button>
           )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {sessions.map((s) => (
-            <div
-              key={s.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-sm)',
-                border: s.is_current ? '2px solid rgba(37, 99, 235, 0.3)' : '1px solid var(--border)',
-                background: s.is_current ? 'rgba(37, 99, 235, 0.02)' : 'var(--bg)',
-              }}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span
-                  className="avatar"
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 'var(--radius-sm)',
-                    background: s.is_current ? 'var(--primary-50)' : '#fff',
-                    color: s.is_current ? 'var(--primary)' : 'var(--muted)',
-                    border: '1px solid var(--border)',
-                    flexShrink: 0,
-                  }}
-                >
-                  {s.device === 'mobile' ? <Smartphone size={18} /> : s.device === 'tablet' ? <Laptop size={18} /> : <Monitor size={18} />}
-                </span>
+        {sessions.length ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {sessions.map((s) => (
+              <div
+                key={s.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: s.is_current ? '2px solid rgba(37, 99, 235, 0.3)' : '1px solid var(--border)',
+                  background: s.is_current ? 'rgba(37, 99, 235, 0.02)' : 'var(--bg)',
+                }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span
+                    className="avatar"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 'var(--radius-sm)',
+                      background: s.is_current ? 'var(--primary-50)' : '#fff',
+                      color: s.is_current ? 'var(--primary)' : 'var(--muted)',
+                      border: '1px solid var(--border)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {sessionIcon(s.name)}
+                  </span>
 
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 wrap">
-                    <span className="font-bold text-xs text-ink">{s.browser}</span>
-                    {s.is_current && (
-                      <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontSize: 10, fontWeight: 800 }}>
-                        <Check size={10} /> Current Device
-                      </span>
-                    )}
-                  </div>
-                  <div className="muted text-xs mt-0.5">
-                    {s.location} · IP: <strong>{s.ip_address}</strong> · {formatDateTime(s.last_active_at)}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 wrap">
+                      <span className="font-bold text-xs text-ink">{s.name || 'Mobile'}</span>
+                      {s.is_current && (
+                        <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontSize: 10, fontWeight: 800 }}>
+                          <Check size={10} /> Current Device
+                        </span>
+                      )}
+                    </div>
+                    <div className="muted text-xs mt-0.5">
+                      Created {formatDateTime(s.created_at)} · Last active {formatDateTime(s.last_active_at)}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {!s.is_current && (
-                <button
-                  type="button"
-                  className="btn btn-outline btn-xs flex items-center gap-1"
-                  onClick={() => logoutSession(s.id)}
-                >
-                  <LogOut size={11} /> Revoke
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+                {!s.is_current && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-xs flex items-center gap-1"
+                    onClick={() => revokeSession(s.id)}
+                    disabled={revoking === s.id}
+                  >
+                    {revoking === s.id ? <Spinner size={11} color="var(--muted)" /> : <LogOut size={11} />} Revoke
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon={Monitor} title="No active sessions" message="You have no active sessions other than this one." />
+        )}
       </div>
 
-      {/* Security & Audit Log */}
       <div className="card" style={{ padding: 24, marginTop: 20 }}>
         <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }} className="flex items-center gap-2">
           <History size={17} color="var(--primary)" /> Recent Security Audit Trail
         </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {AUDIT_LOGS.map((log) => (
-            <div
-              key={log.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '9px 12px',
-                borderBottom: '1px solid var(--border)',
-                fontSize: 13,
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} color="#10b981" />
-                <span className="font-bold text-ink text-xs">{log.event}</span>
-                <span className="muted text-xs">({log.ip})</span>
+        {auditLogs.length ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {auditLogs.map((log) => (
+              <div
+                key={log.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '9px 12px',
+                  borderBottom: '1px solid var(--border)',
+                  fontSize: 13,
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={14} color="#10b981" />
+                  <span className="font-bold text-ink text-xs">{log.event}</span>
+                  {log.ip && <span className="muted text-xs">({log.ip})</span>}
+                </div>
+                <span className="muted text-xs">{formatDateTime(log.created_at)}</span>
               </div>
-              <span className="muted text-xs">{log.time}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 2FA Setup Modal */}
-      {twoFaModal && (
-        <Modal open={twoFaModal} onClose={() => setTwoFaModal(false)} title="Activate Two-Factor Authentication" size="md">
-          <div className="flex flex-col gap-3 text-center">
-            <p className="text-xs text-ink" style={{ lineHeight: 1.4 }}>
-              Scan the QR code with your authenticator app (Google Authenticator, Authy, or Microsoft Authenticator).
-            </p>
-
-            <div style={{ width: 140, height: 140, margin: '0 auto', padding: 8, background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-              <img
-                src="https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=otpauth://totp/GOSIKA:hello@koshi.com.np?secret=JBSWY3DPEHPK3PXP&issuer=GOSIKA"
-                alt="2FA QR Code"
-                style={{ width: '100%', height: '100%' }}
-              />
-            </div>
-
-            <div className="p-2" style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-              <span className="muted text-xs block mb-1">Manual Setup Key:</span>
-              <div className="flex items-center justify-center gap-2">
-                <span className="font-mono font-bold text-sm text-primary">{twoFaSecret}</span>
-                <button type="button" className="btn btn-ghost btn-xs" onClick={copySecret} title="Copy Key">
-                  {copiedSecret ? <Check size={13} color="var(--success)" /> : <Copy size={13} />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="label block text-xs font-semibold mb-1 text-left">
-                Enter 6-Digit Code from Authenticator App:
-              </label>
-              <input
-                type="text"
-                maxLength={6}
-                className="input font-mono text-center font-bold text-base"
-                style={{ letterSpacing: '0.3em' }}
-                placeholder="123456"
-                value={twoFaCode}
-                onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ''))}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setTwoFaModal(false)}>
-                Cancel
-              </button>
-              <Button variant="primary" size="sm" onClick={verifyAndSave2Fa}>
-                Verify & Activate 2FA
-              </Button>
-            </div>
+            ))}
           </div>
-        </Modal>
-      )}
+        ) : (
+          <EmptyState icon={History} title="No audit events" message="Security events will be recorded here as they happen." />
+        )}
+      </div>
     </div>
   )
 }

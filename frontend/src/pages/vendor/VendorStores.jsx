@@ -1,20 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Store, Plus, Pencil, Send, Trash2, Globe, Eye, Mail, Phone,
-  MapPin, CheckCircle2, SlidersHorizontal, Image as ImageIcon
+  Store, Plus, Pencil, Send, Globe, Eye, Mail, Phone, MapPin
 } from 'lucide-react'
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
-import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import EmptyState from '../../components/ui/EmptyState'
 import { useToast } from '../../context/ToastContext'
-import {
-  money, apiImage, formatDate, errorMessage,
-  getStoreImage, getStoreBanner
-} from '../../utils/format'
+import { errorMessage, getStoreImage, getStoreBanner } from '../../utils/format'
 
 function SocialIcon({ kind }) {
   const size = 14
@@ -25,42 +20,18 @@ function SocialIcon({ kind }) {
   return null
 }
 
-const DEFAULT_STORE = {
-  id: 1,
-  name: 'Koshi Handicrafts Store',
-  slug: 'koshi-handicrafts-store-1',
-  tagline: 'Authentic Nepali Dhaka & Handmade Artisan Goods',
-  description: 'Specialized in traditional hand-woven Dhaka textiles, authentic pashmina shawls, and handmade woodcrafts directly from artisans in Nepal.',
-  logo: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&q=80',
-  cover_image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=80',
-  contact_email: 'hello@koshi.com.np',
-  contact_phone: '+977 9841223344',
-  province: 'Koshi',
-  district: 'Morang',
-  municipality: 'Biratnagar',
-  status: 'active',
-  website: 'https://koshihandicrafts.com.np',
-  facebook_url: 'https://facebook.com/koshihandicrafts',
-  instagram_url: 'https://instagram.com/koshihandicrafts',
-}
-
 export default function VendorStores() {
   const toast = useToast()
-  const [stores, setStores] = useState([DEFAULT_STORE])
+  const [stores, setStores] = useState([])
   const [loading, setLoading] = useState(true)
-  const [deleteTarget, setDeleteTarget] = useState(null)
-  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState(null)
 
   const load = () => {
     setLoading(true)
+    setError(null)
     api.get('/vendor/stores')
-      .then((r) => {
-        const data = r.data.data || []
-        if (data.length > 0) {
-          setStores(data)
-        }
-      })
-      .catch(() => {})
+      .then((r) => setStores(r.data.data || []))
+      .catch((e) => setError(e))
       .finally(() => setLoading(false))
   }
   useEffect(load, [])
@@ -75,20 +46,6 @@ export default function VendorStores() {
     }
   }
 
-  const doDelete = async () => {
-    setDeleting(true)
-    try {
-      await api.delete(`/vendor/stores/${deleteTarget.id}`)
-      toast.success('Store deleted')
-      setDeleteTarget(null)
-      load()
-    } catch (err) {
-      toast.error(errorMessage(err))
-    } finally {
-      setDeleting(false)
-    }
-  }
-
   return (
     <div>
       {/* Page Header */}
@@ -96,12 +53,12 @@ export default function VendorStores() {
         <div className="page-header-left">
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Store Profile</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Manage your public storefront — name, branding pictures, contact and social links.
+            Manage your public storefront — name, branding pictures and contact details.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/vendor/stores/edit" className="btn btn-primary btn-sm flex items-center gap-1">
-            <Pencil size={14} /> Edit Store Details & Pictures
+          <Link to="/vendor/stores/new" className="btn btn-primary btn-sm flex items-center gap-1">
+            <Plus size={14} /> Add Store
           </Link>
         </div>
       </div>
@@ -110,6 +67,13 @@ export default function VendorStores() {
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>
           <Spinner size={24} color="var(--primary)" />
         </div>
+      ) : error ? (
+        <EmptyState
+          icon={Store}
+          title="Could not load stores"
+          message="Something went wrong while loading your stores."
+          action={<Button variant="outline" size="sm" onClick={load}>Try again</Button>}
+        />
       ) : stores.length ? (
         <div className="flex flex-col gap-4">
           {stores.map((s) => {
@@ -129,7 +93,7 @@ export default function VendorStores() {
                     background: 'linear-gradient(to top, rgba(15,23,42,0.7) 0%, rgba(15,23,42,0.1) 60%)'
                   }} />
                   <span style={{ position: 'absolute', top: 12, right: 12 }}>
-                    <StatusBadge status={s.status || 'active'} />
+                    <StatusBadge status={s.status} />
                   </span>
                 </div>
 
@@ -177,7 +141,7 @@ export default function VendorStores() {
                       <Link to={`/vendor/stores/${s.id}/edit`} className="btn btn-primary btn-sm">
                         <Pencil size={13} /> Edit Store
                       </Link>
-                      {s.status !== 'approved' && s.status !== 'active' && (
+                      {s.status !== 'active' && (
                         <button className="btn btn-success btn-sm" onClick={() => submitStore(s)}>
                           <Send size={13} /> Submit for Review
                         </button>
@@ -222,23 +186,12 @@ export default function VendorStores() {
           title="No store profile created"
           message="Create your store to start selling across Nepal."
           action={
-            <Link to="/vendor/stores/edit" className="btn btn-primary">
+            <Link to="/vendor/stores/new" className="btn btn-primary">
               <Plus size={14} /> Create Store
             </Link>
           }
         />
       )}
-
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={doDelete}
-        danger
-        loading={deleting}
-        title="Delete store profile?"
-        message={`"${deleteTarget?.name}" will be removed.`}
-        confirmText="Delete"
-      />
     </div>
   )
 }

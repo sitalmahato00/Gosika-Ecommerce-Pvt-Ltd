@@ -2,7 +2,10 @@
 
 use App\Modules\Catalog\Presentation\Http\Controllers\AdminCatalogController;
 use App\Modules\Catalog\Presentation\Http\Controllers\PublicCatalogController;
+use App\Modules\Catalog\Presentation\Http\Controllers\VendorCustomerController;
+use App\Modules\Catalog\Presentation\Http\Controllers\VendorInventoryController;
 use App\Modules\Catalog\Presentation\Http\Controllers\VendorProductController;
+use App\Modules\Catalog\Presentation\Http\Controllers\VendorReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -22,6 +25,14 @@ Route::prefix('v1/vendor')->group(function () {
 
     Route::get('brand-requests', [VendorProductController::class, 'myBrandRequests']);
     Route::post('brand-requests', [VendorProductController::class, 'requestBrand']);
+
+    Route::get('inventory', [VendorInventoryController::class, 'index']);
+    Route::put('inventory/{product}', [VendorInventoryController::class, 'update']);
+
+    Route::get('reviews', [VendorReviewController::class, 'index']);
+    Route::post('reviews/{type}/{review}/reply', [VendorReviewController::class, 'reply']);
+
+    Route::get('customers', [VendorCustomerController::class, 'index']);
 });
 
 Route::prefix('v1/admin')->group(function () {

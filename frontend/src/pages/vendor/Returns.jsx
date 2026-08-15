@@ -1,18 +1,21 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState } from 'react'
 import {
-  RotateCcw, Check, X, MessageSquare, ChevronRight, Search,
-  AlertTriangle, CheckCircle2, XCircle, Clock, ShieldAlert,
-  Download, Eye, Package
+  RotateCcw, Check, X, Eye, Search, Clock,
+  CheckCircle2, Package
 } from 'lucide-react'
 import api from '../../api/client'
+import { useList } from '../../hooks/useApi'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
 import Modal from '../../components/ui/Modal'
 import Textarea from '../../components/ui/Textarea'
+import Select from '../../components/ui/Select'
 import Button from '../../components/ui/Button'
-import Spinner from '../../components/ui/Spinner'
+import { Skeleton } from '../../components/ui/Skeleton'
+import Pagination from '../../components/ui/Pagination'
 import { useToast } from '../../context/ToastContext'
-import { money, formatDateTime, formatDate, errorMessage } from '../../utils/format'
+import { money, formatDateTime, errorMessage, apiImage } from '../../utils/format'
 
 const RETURN_REASONS = {
   wrong_item: 'Wrong item received',
@@ -23,101 +26,59 @@ const RETURN_REASONS = {
   other: 'Other reasons',
 }
 
-const MOCK_RETURNS = [
-  {
-    id: 1,
-    return_number: 'RTN-99201',
-    vendor_order_number: 'VO-77341209',
-    customer_name: 'Rohan Gurung',
-    customer_phone: '+977 9846001122',
-    product_name: 'Mustang Organic Sun-Dried Apples (250g)',
-    category: 'Food & Beverages',
-    reason: 'damaged',
-    reason_note: 'The seal was punctured during shipment transit.',
-    amount: 1350,
-    status: 'under_review',
-    created_at: '2026-08-14T15:20:00Z',
-    vendor_response: '',
-  },
-  {
-    id: 2,
-    return_number: 'RTN-99202',
-    vendor_order_number: 'VO-2E080B9D',
-    customer_name: 'Puja Karki',
-    customer_phone: '+977 9811002233',
-    product_name: 'Traditional Palpali Dhaka Topi (Size L)',
-    category: 'Apparel',
-    reason: 'size_issue',
-    reason_note: 'Need to exchange for Size M.',
-    amount: 1200,
-    status: 'requested',
-    created_at: '2026-08-15T09:40:00Z',
-    vendor_response: '',
-  },
-  {
-    id: 3,
-    return_number: 'RTN-99203',
-    vendor_order_number: 'VO-EAB6D2B8',
-    customer_name: 'Aarav Shrestha',
-    customer_phone: '+977 9841234567',
-    product_name: 'Handmade Pashmina Shawl (Charcoal Grey)',
-    category: 'Handicrafts',
-    reason: 'wrong_item',
-    reason_note: 'Received Navy Blue instead of Charcoal Grey.',
-    amount: 6500,
-    status: 'approved',
-    created_at: '2026-08-13T11:00:00Z',
-    vendor_response: 'Return approved. We will dispatch replacement Charcoal Grey shawl immediately.',
-  },
-  {
-    id: 4,
-    return_number: 'RTN-99204',
-    vendor_order_number: 'VO-88129031',
-    customer_name: 'Anjali Sharma',
-    customer_phone: '+977 9860123456',
-    product_name: 'Handcrafted Singing Bowl with Mallet',
-    category: 'Handicrafts',
-    reason: 'quality',
-    reason_note: 'Minor scratch on the wooden mallet.',
-    amount: 3400,
-    status: 'refunded',
-    created_at: '2026-08-10T14:30:00Z',
-    vendor_response: 'Refund processed to customer wallet successfully.',
-  },
+const STATUS_OPTIONS = [
+  'under_review',
+  'approved',
+  'rejected',
+  'collected',
+  'inspected',
+  'refund_pending',
+  'refunded',
+  'completed',
+]
+
+const TABS = [
+  { value: '', label: 'All Requests' },
+  { value: 'requested', label: 'New Requests' },
+  { value: 'under_review', label: 'Under Review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'refunded', label: 'Refunded' },
+  { value: 'rejected', label: 'Rejected' },
 ]
 
 export default function VendorReturns() {
   const toast = useToast()
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
+  const [nextStatus, setNextStatus] = useState('')
   const [response, setResponse] = useState('')
   const [acting, setActing] = useState(false)
 
-  const load = () => {
-    setLoading(true)
-    api.get('/vendor/returns')
-      .then((res) => {
-        const list = res.data.data?.items || res.data.data || []
-        if (list.length > 0) {
-          setItems(list)
-        } else {
-          setItems(MOCK_RETURNS)
-        }
-      })
-      .catch(() => {
-        setItems(MOCK_RETURNS)
-      })
-      .finally(() => setLoading(false))
+  const fetchReturns = (page, pageSize) =>
+    api.get('/vendor/returns', { params: { status, search, page, per_page: pageSize } })
+
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetchReturns, {
+    pageSize: 10,
+    deps: [status, search],
+  })
+
+  const changeStatus = (value) => {
+    setPage(1)
+    setStatus(value)
   }
 
-  useEffect(load, [])
+  const applySearch = (e) => {
+    e.preventDefault()
+    setPage(1)
+    setSearch(searchInput)
+  }
 
   const openRequest = (r) => {
     setSelected(r)
-    setResponse(r.vendor_response || '')
+    setNextStatus(r.status)
+    setResponse(r.response || '')
   }
 
   const updateStatus = async (newStatus) => {
@@ -125,68 +86,25 @@ export default function VendorReturns() {
     setActing(true)
     try {
       await api.post(`/vendor/returns/${selected.id}/status`, { status: newStatus, response })
-      setItems((prev) =>
-        prev.map((it) => (it.id === selected.id ? { ...it, status: newStatus, vendor_response: response } : it))
-      )
       toast.success(`Return request marked as ${newStatus.replace(/_/g, ' ')}`)
       setSelected(null)
-    } catch (e) {
-      setItems((prev) =>
-        prev.map((it) => (it.id === selected.id ? { ...it, status: newStatus, vendor_response: response } : it))
-      )
-      toast.success(`Return request marked as ${newStatus.replace(/_/g, ' ')}`)
-      setSelected(null)
+      reload()
+    } catch (err) {
+      toast.error(errorMessage(err))
     } finally {
       setActing(false)
     }
   }
 
-  // KPIs
-  const totalRequests = items.length
+  const totalRequests = meta.total
   const pendingCount = items.filter((i) => ['requested', 'under_review'].includes(i.status)).length
   const approvedCount = items.filter((i) => i.status === 'approved').length
   const refundedCount = items.filter((i) => ['refunded', 'completed'].includes(i.status)).length
 
-  // Tab counts
-  const counts = useMemo(() => {
-    return {
-      all: items.length,
-      requested: items.filter((i) => i.status === 'requested').length,
-      under_review: items.filter((i) => i.status === 'under_review').length,
-      approved: items.filter((i) => i.status === 'approved').length,
-      refunded: items.filter((i) => i.status === 'refunded').length,
-      rejected: items.filter((i) => i.status === 'rejected').length,
-    }
-  }, [items])
-
-  const TABS = [
-    { value: '', label: `All Requests (${counts.all})` },
-    { value: 'requested', label: `New Requests (${counts.requested})` },
-    { value: 'under_review', label: `Under Review (${counts.under_review})` },
-    { value: 'approved', label: `Approved (${counts.approved})` },
-    { value: 'refunded', label: `Refunded (${counts.refunded})` },
-    { value: 'rejected', label: `Rejected (${counts.rejected})` },
-  ]
-
-  // Filtered list
-  const filteredItems = useMemo(() => {
-    return items.filter((r) => {
-      const q = search.toLowerCase()
-      const matchSearch =
-        !q ||
-        r.return_number?.toLowerCase().includes(q) ||
-        r.customer_name?.toLowerCase().includes(q) ||
-        r.product_name?.toLowerCase().includes(q) ||
-        r.vendor_order_number?.toLowerCase().includes(q)
-
-      const matchStatus = !status || r.status === status
-      return matchSearch && matchStatus
-    })
-  }, [items, search, status])
+  const countFor = (s) => (s === '' ? items.length : items.filter((i) => i.status === s).length)
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Returns & Refunds Management</h1>
@@ -196,7 +114,6 @@ export default function VendorReturns() {
         </div>
       </div>
 
-      {/* 4 KPI Metric Cards */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 18 }}>
         <div className="card flex items-center gap-3" style={{ padding: '16px 18px' }}>
           <span className="avatar" style={{ width: 44, height: 44, background: 'var(--primary-50)', color: 'var(--primary)', flexShrink: 0 }}>
@@ -239,10 +156,8 @@ export default function VendorReturns() {
         </div>
       </div>
 
-      {/* Filter Tabs & Search Controls */}
       <div className="card" style={{ padding: '14px 18px', marginBottom: 16 }}>
         <div className="flex items-center justify-between wrap gap-3">
-          {/* Tabs */}
           <div className="flex gap-1 wrap">
             {TABS.map((t) => (
               <button
@@ -250,34 +165,28 @@ export default function VendorReturns() {
                 type="button"
                 className={`btn btn-xs ${status === t.value ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ borderRadius: 'var(--radius-sm)' }}
-                onClick={() => setStatus(t.value)}
+                onClick={() => changeStatus(t.value)}
               >
-                {t.label}
+                {t.label} ({countFor(t.value)})
               </button>
             ))}
           </div>
 
-          {/* Search */}
-          <div style={{ position: 'relative', width: 240 }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+          <form onSubmit={applySearch} style={{ position: 'relative', width: 240 }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
             <input
               type="text"
               className="input"
               style={{ paddingLeft: 30, height: 32, fontSize: 13 }}
-              placeholder="Search claim #, customer…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search claim #, product…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
             />
-          </div>
+          </form>
         </div>
       </div>
 
-      {/* Returns Data Table */}
       {loading ? (
-        <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-          <Spinner size={24} color="var(--primary)" />
-        </div>
-      ) : filteredItems.length ? (
         <div className="card card-pad-none" style={{ overflow: 'hidden' }}>
           <div className="table-responsive">
             <table className="table" style={{ width: '100%', margin: 0 }}>
@@ -288,64 +197,96 @@ export default function VendorReturns() {
                   <th>Customer</th>
                   <th>Item Details</th>
                   <th>Return Reason</th>
-                  <th>Claim Amount</th>
+                  <th>Refund Amount</th>
                   <th>Claim Status</th>
                   <th>Claim Date</th>
                   <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredItems.map((r) => (
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={9}><Skeleton height={26} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : error ? (
+        <ErrorState message={errorMessage(error)} onRetry={reload} />
+      ) : items.length ? (
+        <div className="card card-pad-none" style={{ overflow: 'hidden' }}>
+          <div className="table-responsive">
+            <table className="table" style={{ width: '100%', margin: 0 }}>
+              <thead>
+                <tr>
+                  <th>Claim Reference</th>
+                  <th>Order Number</th>
+                  <th>Customer</th>
+                  <th>Item Details</th>
+                  <th>Return Reason</th>
+                  <th>Refund Amount</th>
+                  <th>Claim Status</th>
+                  <th>Claim Date</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((r) => (
                   <tr key={r.id}>
-                    {/* Return Code */}
                     <td>
                       <span className="font-mono font-bold text-sm" style={{ color: 'var(--primary)' }}>
                         {r.return_number}
                       </span>
                     </td>
 
-                    {/* Order Reference */}
                     <td>
                       <span className="font-mono text-xs" style={{ background: 'var(--bg)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
-                        {r.vendor_order_number}
+                        {r.order_number || '—'}
                       </span>
                     </td>
 
-                    {/* Customer */}
                     <td>
-                      <div className="font-semibold text-sm text-ink">{r.customer_name}</div>
-                      <div className="muted text-xs">{r.customer_phone}</div>
+                      <div className="font-semibold text-sm text-ink">{r.customer?.full_name || '—'}</div>
+                      <div className="muted text-xs">{r.customer?.phone || r.customer?.email || ''}</div>
                     </td>
 
-                    {/* Product */}
-                    <td style={{ maxWidth: 220 }}>
-                      <div className="font-medium text-sm text-ink truncate">{r.product_name}</div>
-                      <div className="muted text-xs">{r.category || 'General'}</div>
+                    <td style={{ maxWidth: 240 }}>
+                      <div className="flex items-center gap-2">
+                        {r.product_image && (
+                          <img
+                            src={apiImage(r.product_image)}
+                            alt={r.product_name || 'Product'}
+                            style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                          />
+                        )}
+                        <div>
+                          <div className="font-medium text-sm text-ink truncate">{r.product_name || '—'}</div>
+                          {r.quantity > 0 && <div className="muted text-xs">Qty: {r.quantity}</div>}
+                        </div>
+                      </div>
                     </td>
 
-                    {/* Reason */}
                     <td>
                       <span className="chip chip-sm" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#b45309', fontWeight: 600 }}>
-                        {RETURN_REASONS[r.reason] || r.reason}
+                        {RETURN_REASONS[r.reason_type] || r.reason_type}
                       </span>
+                      {r.reason && <div className="muted text-xs mt-0.5" style={{ maxWidth: 180 }}>{r.reason}</div>}
                     </td>
 
-                    {/* Amount */}
                     <td className="font-bold text-sm text-ink">
-                      {money(r.amount)}
+                      {money(r.refund_amount)}
                     </td>
 
-                    {/* Status */}
                     <td>
                       <StatusBadge status={r.status} />
                     </td>
 
-                    {/* Date */}
                     <td className="muted text-xs" style={{ whiteSpace: 'nowrap' }}>
                       {formatDateTime(r.created_at)}
                     </td>
 
-                    {/* Review Button */}
                     <td style={{ textAlign: 'right' }}>
                       <button
                         type="button"
@@ -367,14 +308,21 @@ export default function VendorReturns() {
           title="No return claims found"
           message="There are no return requests matching your current status filter."
           action={
-            <button className="btn btn-outline" onClick={() => { setSearch(''); setStatus(''); }}>
+            <button className="btn btn-outline" onClick={() => {
+              setSearchInput('')
+              setSearch('')
+              changeStatus('')
+            }}>
               Reset Filters
             </button>
           }
         />
       )}
 
-      {/* Review Modal */}
+      {items.length > 0 && (
+        <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
+      )}
+
       {selected && (
         <Modal
           open={!!selected}
@@ -386,15 +334,16 @@ export default function VendorReturns() {
             <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, padding: 14, background: 'var(--bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
               <div>
                 <div className="muted text-xs uppercase font-semibold">Order Reference</div>
-                <div className="font-mono font-bold text-sm text-ink mt-0.5">{selected.vendor_order_number}</div>
+                <div className="font-mono font-bold text-sm text-ink mt-0.5">{selected.order_number || '—'}</div>
               </div>
               <div>
                 <div className="muted text-xs uppercase font-semibold">Customer</div>
-                <div className="font-bold text-sm text-ink mt-0.5">{selected.customer_name} ({selected.customer_phone})</div>
+                <div className="font-bold text-sm text-ink mt-0.5">{selected.customer?.full_name || '—'}</div>
+                <div className="muted text-xs">{selected.customer?.phone || selected.customer?.email || ''}</div>
               </div>
               <div>
-                <div className="muted text-xs uppercase font-semibold">Claim Amount</div>
-                <div className="font-bold text-sm text-primary mt-0.5">{money(selected.amount)}</div>
+                <div className="muted text-xs uppercase font-semibold">Refund Amount</div>
+                <div className="font-bold text-sm text-primary mt-0.5">{money(selected.refund_amount)}</div>
               </div>
               <div>
                 <div className="muted text-xs uppercase font-semibold">Status</div>
@@ -403,15 +352,44 @@ export default function VendorReturns() {
             </div>
 
             <div className="card" style={{ padding: 14, background: '#fff' }}>
+              <div className="muted text-xs uppercase font-semibold mb-1">Product</div>
+              <div className="flex items-center gap-2">
+                {selected.product_image && (
+                  <img
+                    src={apiImage(selected.product_image)}
+                    alt={selected.product_name || 'Product'}
+                    style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
+                  />
+                )}
+                <div>
+                  <div className="font-bold text-sm text-ink">{selected.product_name || '—'}</div>
+                  {selected.quantity > 0 && <div className="muted text-xs">Quantity: {selected.quantity}</div>}
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: 14, background: '#fff' }}>
               <div className="muted text-xs uppercase font-semibold mb-1">Customer Return Reason:</div>
               <div className="font-bold text-sm text-ink">
-                {RETURN_REASONS[selected.reason] || selected.reason}
+                {RETURN_REASONS[selected.reason_type] || selected.reason_type}
               </div>
-              {selected.reason_note && (
+              {selected.reason && (
                 <div className="muted text-xs mt-1" style={{ fontStyle: 'italic' }}>
-                  "{selected.reason_note}"
+                  "{selected.reason}"
                 </div>
               )}
+            </div>
+
+            <div className="form-row">
+              <Select
+                label="Update Status"
+                value={nextStatus}
+                onChange={(e) => setNextStatus(e.target.value)}
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                ))}
+              </Select>
             </div>
 
             <Textarea
@@ -422,30 +400,40 @@ export default function VendorReturns() {
               placeholder="e.g. Return approved. Please pack the item and our delivery courier will pick it up tomorrow."
             />
 
-            <div className="flex justify-end gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelected(null)}>
-                Cancel
-              </button>
-              {['requested', 'under_review'].includes(selected.status) && (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn-danger-outline btn-sm flex items-center gap-1"
-                    disabled={acting}
-                    onClick={() => updateStatus('rejected')}
-                  >
-                    <X size={13} /> Reject Request
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm flex items-center gap-1"
-                    disabled={acting}
-                    onClick={() => updateStatus('approved')}
-                  >
-                    <Check size={13} /> {acting ? 'Processing…' : 'Approve Return & Refund'}
-                  </button>
-                </>
-              )}
+            <div className="flex justify-between items-center gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+              <div className="flex items-center gap-2">
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelected(null)}>
+                  Cancel
+                </button>
+                {selected.status === 'under_review' && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-danger-outline btn-sm flex items-center gap-1"
+                      disabled={acting}
+                      onClick={() => updateStatus('rejected')}
+                    >
+                      <X size={13} /> Reject Request
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm flex items-center gap-1"
+                      disabled={acting}
+                      onClick={() => updateStatus('approved')}
+                    >
+                      <Check size={13} /> Approve Return
+                    </button>
+                  </>
+                )}
+              </div>
+              <Button
+                variant="primary"
+                icon={Package}
+                disabled={acting || nextStatus === selected.status}
+                onClick={() => updateStatus(nextStatus)}
+              >
+                Update Status
+              </Button>
             </div>
           </div>
         </Modal>

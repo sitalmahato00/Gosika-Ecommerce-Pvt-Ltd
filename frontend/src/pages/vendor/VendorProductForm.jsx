@@ -8,7 +8,7 @@ import Textarea from '../../components/ui/Textarea'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import { useToast } from '../../context/ToastContext'
-import { errorMessage, apiImage, FALLBACK_PRODUCT_IMAGES } from '../../utils/format'
+import { errorMessage, apiImage } from '../../utils/format'
 
 const PRESET_PRODUCT_IMAGES = [
   { label: 'Pashmina Shawl', url: 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' },
@@ -81,8 +81,8 @@ export default function VendorProductForm() {
             brand_id: p.brand?.id || '',
             weight_grams: String(p.weight_grams ?? '0'),
             dimensions: p.dimensions || '',
-            primary_image: p.primary_image?.url || p.primary_image || p.image || '',
-            images: (p.images || []).map((img) => img.url || img),
+            primary_image: p.primary_image?.url || p.images?.[0]?.url || '',
+            images: (p.images || []).map((img) => ({ url: img.url || img, file: null })),
             is_negotiable: !!p.is_negotiable,
             is_featured: !!p.is_featured,
             variants: (p.variants || []).map((v) => ({
@@ -108,12 +108,13 @@ export default function VendorProductForm() {
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result
+      const entry = { url: dataUrl, file }
       if (!form.primary_image) {
-        setForm({ ...form, primary_image: dataUrl, images: [...form.images, dataUrl] })
+        setForm({ ...form, primary_image: dataUrl, images: [...form.images, entry] })
       } else {
-        setForm({ ...form, images: [...form.images, dataUrl] })
+        setForm({ ...form, images: [...form.images, entry] })
       }
-      toast.success('Image uploaded')
+      toast.success('Image added')
     }
     reader.readAsDataURL(file)
   }
@@ -122,9 +123,9 @@ export default function VendorProductForm() {
     if (!customImageUrl.trim()) return
     const url = customImageUrl.trim()
     if (!form.primary_image) {
-      setForm({ ...form, primary_image: url, images: [...form.images, url] })
+      setForm({ ...form, primary_image: url, images: [...form.images, { url, file: null }] })
     } else {
-      setForm({ ...form, images: [...form.images, url] })
+      setForm({ ...form, images: [...form.images, { url, file: null }] })
     }
     setCustomImageUrl('')
     toast.success('Image added to gallery')
@@ -140,51 +141,64 @@ export default function VendorProductForm() {
     setForm({
       ...form,
       images: updated,
-      primary_image: form.primary_image === form.images[indexToRemove] ? (updated[0] || '') : form.primary_image
+      primary_image: form.primary_image === form.images[indexToRemove]?.url ? (updated[0]?.url || '') : form.primary_image
     })
+  }
+
+  const parseVariantOptions = (str) => {
+    const opts = {}
+    String(str || '').split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => {
+      const idx = s.indexOf('=')
+      if (idx > 0) opts[s.slice(0, idx).trim()] = s.slice(idx + 1).trim()
+    })
+    return opts
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setFieldErrors({})
     setSaving(true)
-    const payload = {
-      name: form.name,
-      slug: form.slug || undefined,
-      sku: form.sku,
-      price: form.price ? Number(form.price) : undefined,
-      compare_at_price: form.compare_at_price ? Number(form.compare_at_price) : undefined,
-      quantity: Number(form.quantity || 0),
-      low_stock_threshold: Number(form.low_stock_threshold || 5),
-      description: form.description || null,
-      short_description: form.short_description || null,
-      category_id: form.category_id || undefined,
-      brand_id: form.brand_id || undefined,
-      weight_grams: Number(form.weight_grams || 0),
-      dimensions: form.dimensions || undefined,
-      primary_image: form.primary_image || undefined,
-      images: form.images.length ? form.images : undefined,
-      is_negotiable: form.is_negotiable,
-      is_featured: form.is_featured,
-      variants: form.variants
-        .filter((v) => v.sku.trim() && v.price !== '')
-        .map((v) => ({
-          sku: v.sku,
-          name: v.name || null,
-          price: Number(v.price),
-          compare_at_price: v.compare_at_price ? Number(v.compare_at_price) : undefined,
-          quantity: Number(v.quantity || 0),
-          options: v.options
-            ? Object.fromEntries(v.options.split(',').map((s) => s.trim()).filter(Boolean).map((s) => s.split('=').map((x) => x.trim())))
-            : {},
-        })),
+
+    const fd = new FormData()
+    const put = (k, v) => {
+      if (v !== undefined && v !== null && v !== '') fd.append(k, v)
     }
+    put('name', form.name)
+    put('slug', form.slug)
+    put('description', form.description)
+    put('short_description', form.short_description)
+    put('category_id', form.category_id)
+    put('brand_id', form.brand_id)
+    put('sku', form.sku)
+    put('price', form.price)
+    put('compare_at_price', form.compare_at_price)
+    put('quantity', form.quantity)
+    put('low_stock_threshold', form.low_stock_threshold)
+    put('weight_grams', form.weight_grams)
+    put('dimensions', form.dimensions)
+    fd.append('is_featured', form.is_featured ? '1' : '0')
+    fd.append('is_negotiable', form.is_negotiable ? '1' : '0')
+    form.variants
+      .filter((v) => v.sku.trim() && v.price !== '')
+      .forEach((v, i) => {
+        put(`variants[${i}][sku]`, v.sku)
+        put(`variants[${i}][name]`, v.name)
+        put(`variants[${i}][price]`, v.price)
+        put(`variants[${i}][compare_at_price]`, v.compare_at_price)
+        put(`variants[${i}][quantity]`, v.quantity)
+        const opts = parseVariantOptions(v.options)
+        Object.keys(opts).forEach((key) => fd.append(`variants[${i}][options][${key}]`, opts[key]))
+      })
+    form.images
+      .filter((img) => img.file)
+      .forEach((img) => fd.append('images[]', img.file))
+
     try {
       if (isEdit) {
-        await api.put(`/vendor/products/${id}`, payload)
+        await api.put(`/vendor/products/${id}`, fd)
         toast.success('Product updated successfully')
       } else {
-        await api.post('/vendor/products', payload)
+        await api.post('/vendor/products', fd)
         toast.success('Product created successfully')
       }
       navigate('/vendor/products')
@@ -350,9 +364,9 @@ export default function VendorProductForm() {
                     style={{ border: '1px solid var(--border)', background: 'var(--bg)' }}
                     onClick={() => {
                       if (!form.primary_image) {
-                        setForm({ ...form, primary_image: p.url, images: [...form.images, p.url] })
+                        setForm({ ...form, primary_image: p.url, images: [...form.images, { url: p.url, file: null }] })
                       } else {
-                        setForm({ ...form, images: [...form.images, p.url] })
+                        setForm({ ...form, images: [...form.images, { url: p.url, file: null }] })
                       }
                       toast.success(`Selected ${p.label}`)
                     }}
@@ -369,7 +383,8 @@ export default function VendorProductForm() {
             <div>
               <span className="label">Gallery Images ({form.images.length})</span>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 12 }}>
-                {form.images.map((imgUrl, idx) => {
+                {form.images.map((img, idx) => {
+                  const imgUrl = img.url
                   const isPrimary = form.primary_image === imgUrl
                   return (
                     <div

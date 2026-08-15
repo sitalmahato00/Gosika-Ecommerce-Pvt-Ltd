@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { Receipt, ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from 'lucide-react'
 import api from '../../api/client'
 import { useList } from '../../hooks/useApi'
@@ -8,17 +8,32 @@ import ErrorState from '../../components/ui/ErrorState'
 import Pagination from '../../components/ui/Pagination'
 import Select from '../../components/ui/Select'
 import { Skeleton } from '../../components/ui/Skeleton'
-import { money, formatDateTime } from '../../utils/format'
+import { money, formatDateTime, errorMessage } from '../../utils/format'
 
-const TYPE_FILTERS = ['', 'sale', 'commission', 'payout', 'refund', 'adjustment', 'settlement']
+const TYPE_FILTERS = [
+  { value: '', label: 'All types' },
+  { value: 'credit', label: 'Income' },
+  { value: 'debit', label: 'Withdrawals' },
+  { value: 'credit_earnings', label: 'Earnings' },
+  { value: 'credit_settlement', label: 'Settlement' },
+  { value: 'credit_adjustment', label: 'Adjustment (credit)' },
+  { value: 'debit_commission', label: 'Commission' },
+  { value: 'debit_refund', label: 'Refund' },
+  { value: 'debit_withdrawal', label: 'Withdrawal' },
+  { value: 'debit_adjustment', label: 'Adjustment (debit)' },
+]
 
 const STATUS_FILTERS = ['', 'pending', 'completed', 'processing', 'failed', 'cancelled']
 
 function typeIcon(type) {
   const t = (type || '').toLowerCase()
-  if (['payout', 'withdrawal', 'settlement'].includes(t)) return <ArrowUpRight size={15} color="var(--danger)" />
-  if (['sale', 'credit', 'order', 'refund_adjustment'].includes(t)) return <ArrowDownLeft size={15} color="var(--success)" />
+  if (t.startsWith('debit_')) return <ArrowUpRight size={15} color="var(--danger)" />
+  if (t.startsWith('credit_')) return <ArrowDownLeft size={15} color="var(--success)" />
   return <ArrowLeftRight size={15} color="var(--primary)" />
+}
+
+function isCreditTransaction(t) {
+  return String(t.transaction_type).startsWith('credit_') || Number(t.amount) > 0
 }
 
 export default function VendorTransactions() {
@@ -26,21 +41,27 @@ export default function VendorTransactions() {
   const [statusFilter, setStatusFilter] = useState('')
 
   const fetcher = useCallback(
-    async (page) => api.get('/vendor/wallet/transactions', {
+    async (page, pageSize) => api.get('/vendor/wallet/transactions', {
       params: {
         page,
-        per_page: 20,
-        transaction_type: typeFilter || undefined,
-        status: statusFilter || undefined,
+        per_page: pageSize,
       },
     }),
-    [typeFilter, statusFilter],
+    [],
   )
 
   const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
-    deps: [typeFilter, statusFilter],
     pageSize: 20,
   })
+
+  const filtered = useMemo(() => items.filter((t) => {
+    const credit = isCreditTransaction(t)
+    const typeOk =
+      !typeFilter ||
+      (typeFilter === 'credit' ? credit : typeFilter === 'debit' ? !credit : t.transaction_type === typeFilter)
+    const statusOk = !statusFilter || t.status === statusFilter
+    return typeOk && statusOk
+  }), [items, typeFilter, statusFilter])
 
   return (
     <div>
@@ -49,15 +70,13 @@ export default function VendorTransactions() {
           <h1>Transactions</h1>
           <p>Complete financial ledger for your account</p>
         </div>
-        {meta.total > 0 && <span className="muted text-sm">{meta.total.toLocaleString()} records</span>}
+        {items.length > 0 && <span className="muted text-sm">{items.length.toLocaleString()} records</span>}
       </div>
 
-      {/* Filters */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-        <Select label="Type" style={{ minWidth: 180 }} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-          <option value="">All types</option>
-          {TYPE_FILTERS.filter(Boolean).map((t) => (
-            <option key={t} value={t}>{t.replace(/_/g, ' ').toUpperCase()}</option>
+        <Select label="Type" style={{ minWidth: 200 }} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+          {TYPE_FILTERS.map((t) => (
+            <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </Select>
         <Select label="Status" style={{ minWidth: 160 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -73,8 +92,8 @@ export default function VendorTransactions() {
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} height={58} />)}
         </div>
       ) : error ? (
-        <ErrorState onRetry={reload} />
-      ) : !items.length ? (
+        <ErrorState message={errorMessage(error)} onRetry={reload} />
+      ) : !filtered.length ? (
         <EmptyState
           icon={Receipt}
           title="No transactions found"
@@ -97,9 +116,9 @@ export default function VendorTransactions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((t) => {
+                  {filtered.map((t) => {
                     const amt = Number(t.amount || 0)
-                    const isCredit = amt > 0
+                    const isCredit = isCreditTransaction(t)
                     return (
                       <tr key={t.id}>
                         <td>
