@@ -25,6 +25,7 @@ class DeliveryPartnerController extends Controller
     public function __construct(protected DeliveryService $service)
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('ensure:delivery')->except(['apply']);
     }
 
     public function apply(ApplyDeliveryPartnerRequest $request): JsonResponse

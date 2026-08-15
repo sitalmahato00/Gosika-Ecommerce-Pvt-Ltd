@@ -2,7 +2,7 @@
 
 namespace App\Modules\Shipping\Presentation\Http\Controllers;
 
-use App\Modules\Identity\Domain\Permissions;
+use App\Modules\Identity\Domain\Roles;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
@@ -35,7 +35,7 @@ class DeliveryTrackingController extends Controller
             return;
         }
 
-        if ($user->hasPermissionTo(Permissions::ORDERS_VIEW) || $user->hasPermissionTo(Permissions::DELIVERIES_MANAGE)) {
+        if ($user->hasRole(Roles::SUPER_ADMIN)) {
             return;
         }
 

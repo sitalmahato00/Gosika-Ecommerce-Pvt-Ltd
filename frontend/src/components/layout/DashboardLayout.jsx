@@ -11,8 +11,19 @@ import * as Icons from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { initials } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import MobileBottomNav from './MobileBottomNav'
 
-export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
+export default function DashboardLayout({
+  nav,
+  title,
+  roleLabel,
+  homePath,
+  rider,
+  onDuty,
+  onToggleDuty,
+  dutyToggling,
+  mobileNav,
+}) {
   const toast = useToast()
   const { user, logout, isSuperAdmin } = useAuth()
   const [open, setOpen] = useState(false)
@@ -58,6 +69,11 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
   const role = roleLabel || (isSuperAdmin() ? 'Super Admin' : 'Vendor')
   const isVendor = role.toLowerCase().includes('vendor')
   const isDelivery = role.toLowerCase().includes('delivery') || role.toLowerCase().includes('rider')
+  const duty = onDuty ?? rider?.is_online ?? false
+  const riderName = rider?.name || user?.name || 'Delivery Partner'
+  const riderArea = Array.isArray(rider?.service_areas) && rider.service_areas.length > 0
+    ? rider.service_areas[0]
+    : 'Dispatch Hub'
 
   const handleGlobalSearch = (e) => {
     e.preventDefault()
@@ -65,18 +81,24 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
     const q = searchQuery.trim().toLowerCase()
     
     if (isDelivery) {
-      if (q.includes('task') || q.includes('order') || q.includes('dsp-')) {
-        navigate('/delivery/tasks')
-      } else if (q.includes('map') || q.includes('route') || q.includes('gps')) {
+      if (q.includes('task') || q.includes('order') || q.includes('deliver')) {
+        navigate('/delivery/deliveries')
+      } else if (q.includes('active') || q.includes('route') || q.includes('map') || q.includes('gps')) {
         navigate('/delivery/active')
-      } else if (q.includes('earning') || q.includes('payout')) {
+      } else if (q.includes('history') || q.includes('completed') || q.includes('done')) {
+        navigate('/delivery/history')
+      } else if (q.includes('earning') || q.includes('payout') || q.includes('fee')) {
         navigate('/delivery/earnings')
+      } else if (q.includes('transaction') || q.includes('ledger')) {
+        navigate('/delivery/transactions')
       } else if (q.includes('cod') || q.includes('cash')) {
         navigate('/delivery/cod-collection')
-      } else if (q.includes('support') || q.includes('help')) {
+      } else if (q.includes('profile') || q.includes('vehicle') || q.includes('rider')) {
+        navigate('/delivery/profile')
+      } else if (q.includes('support') || q.includes('help') || q.includes('faq')) {
         navigate('/delivery/support')
       } else {
-        navigate('/delivery/tasks')
+        navigate('/delivery/deliveries')
       }
     } else if (isVendor) {
       if (q.includes('order') || q.startsWith('vo-')) {
@@ -263,7 +285,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
               background: 'rgba(30, 41, 59, 0.7)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
             }}
-            title="Bikash Shrestha (Kathmandu Central Hub Rider)"
+            title={`${riderName} — GOSIKA Delivery Partner`}
           >
             <div className="flex items-center gap-3">
               <span
@@ -287,8 +309,10 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
               </span>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm text-white truncate">Bikash Shrestha</div>
-                  <div className="text-xs truncate font-mono" style={{ color: '#94a3b8' }}>BA 88 PA 4912</div>
+                  <div className="font-bold text-sm text-white truncate">{riderName}</div>
+                  <div className="text-xs truncate font-mono" style={{ color: '#94a3b8' }}>
+                    {rider?.vehicle_number || 'Vehicle not set'}
+                  </div>
                 </div>
               )}
             </div>
@@ -298,18 +322,18 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 <span
                   className="chip chip-sm"
                   style={{
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    color: '#34d399',
+                    background: duty ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)',
+                    color: duty ? '#34d399' : '#94a3b8',
                     fontSize: 10,
                     fontWeight: 800,
                     padding: '2px 8px',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    border: '1px solid ' + (duty ? 'rgba(16, 185, 129, 0.3)' : 'rgba(148, 163, 184, 0.3)'),
                   }}
                 >
-                  ● Active On Duty
+                  {duty ? '● Online / On Duty' : '● Offline'}
                 </span>
-                <span className="muted text-xs" style={{ color: '#64748b', fontSize: 10 }}>
-                  Kathmandu Hub
+                <span className="muted text-xs truncate" style={{ color: '#64748b', fontSize: 10, maxWidth: 120 }}>
+                  {riderArea}
                 </span>
               </div>
             )}
@@ -428,14 +452,20 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
               <span
                 className="chip chip-sm hide-sm"
                 style={{
-                  background: isVendor ? 'rgba(16, 185, 129, 0.1)' : 'rgba(99, 102, 241, 0.1)',
-                  color: isVendor ? '#10b981' : '#6366f1',
+                  background: isDelivery
+                    ? duty
+                      ? 'rgba(16, 185, 129, 0.1)'
+                      : 'rgba(148, 163, 184, 0.15)'
+                    : isVendor
+                    ? 'rgba(16, 185, 129, 0.1)'
+                    : 'rgba(99, 102, 241, 0.1)',
+                  color: isDelivery ? (duty ? '#10b981' : '#64748b') : isVendor ? '#10b981' : '#6366f1',
                   fontWeight: 800,
                   fontSize: 10,
                   padding: '2px 8px',
                 }}
               >
-                ● {isVendor ? 'Live & Online' : 'Super Admin Active'}
+                ● {isDelivery ? (duty ? 'Online / On Duty' : 'Offline') : isVendor ? 'Live & Online' : 'Super Admin Active'}
               </span>
             </div>
           </div>
@@ -462,7 +492,13 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 background: 'var(--bg)',
                 borderRadius: 'var(--radius)',
               }}
-              placeholder={isVendor ? 'Quick search orders, SKUs, tickets…' : 'Search vendors, orders, users, payouts…'}
+              placeholder={
+                isDelivery
+                  ? 'Quick search deliveries, earnings, support…'
+                  : isVendor
+                  ? 'Quick search orders, SKUs, tickets…'
+                  : 'Search vendors, orders, users, payouts…'
+              }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -496,7 +532,24 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
             </Link>
 
             {/* Wallet / Platform Status Pill */}
-            {isVendor ? (
+            {isDelivery ? (
+              <Link
+                to="/delivery/earnings"
+                className="chip chip-sm hide-sm flex items-center gap-1"
+                style={{
+                  background: duty ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.15)',
+                  color: duty ? '#10b981' : '#64748b',
+                  fontWeight: 800,
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  textDecoration: 'none',
+                }}
+                title="Rider Earnings"
+              >
+                <Icons.TrendingUp size={13} />
+                <span>Rider Earnings</span>
+              </Link>
+            ) : isVendor ? (
               <Link
                 to="/vendor/wallet"
                 className="chip chip-sm hide-sm flex items-center gap-1"
@@ -534,32 +587,34 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
 
             {/* Notifications Bell */}
             <Link
-              to={isVendor ? '/vendor/notifications' : '/admin/notifications'}
+              to={isDelivery ? '/delivery/notifications' : isVendor ? '/vendor/notifications' : '/admin/notifications'}
               className="icon-btn"
               style={{ position: 'relative' }}
               title="Notifications"
             >
               <Bell size={17} />
-              <span
-                style={{
-                  position: 'absolute',
-                  top: -2,
-                  right: -2,
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  background: '#ef4444',
-                  color: '#fff',
-                  fontSize: 9,
-                  fontWeight: 800,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '2px solid #fff',
-                }}
-              >
-                3
-              </span>
+              {!isDelivery && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    background: '#ef4444',
+                    color: '#fff',
+                    fontSize: 9,
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px solid #fff',
+                  }}
+                >
+                  3
+                </span>
+              )}
             </Link>
 
             {/* User Dropdown Trigger */}
@@ -572,12 +627,18 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                   height: 36,
                   fontSize: 13,
                   fontWeight: 800,
-                  background: isVendor
+                  background: isDelivery
+                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                    : isVendor
                     ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'
                     : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
                   color: '#fff',
                   cursor: 'pointer',
-                  border: isVendor ? '2px solid rgba(37,99,235,0.2)' : '2px solid rgba(99,102,241,0.2)',
+                  border: isDelivery
+                    ? '2px solid rgba(16,185,129,0.25)'
+                    : isVendor
+                    ? '2px solid rgba(37,99,235,0.2)'
+                    : '2px solid rgba(99,102,241,0.2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -585,7 +646,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 onClick={() => setUserDropdown(!userDropdown)}
                 aria-label="User profile menu"
               >
-                {isVendor ? 'K' : 'A'}
+                {isDelivery ? initials(riderName) : isVendor ? 'K' : 'A'}
               </button>
 
               {/* Interactive User Dropdown Menu */}
@@ -607,10 +668,18 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                   {/* Dropdown Header */}
                   <div style={{ padding: '14px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
                     <div className="font-bold text-sm text-ink truncate">
-                      {isVendor ? 'Koshi Handicrafts Pvt. Ltd.' : user?.name || 'GOSIKA Platform HQ'}
+                      {isVendor
+                        ? 'Koshi Handicrafts Pvt. Ltd.'
+                        : isDelivery
+                        ? riderName
+                        : user?.name || 'GOSIKA Platform HQ'}
                     </div>
                     <div className="muted text-xs truncate mt-0.5" style={{ fontSize: 11 }}>
-                      {isVendor ? 'hello@koshi.com.np' : user?.email || 'admin@gosika.com.np'}
+                      {isVendor
+                        ? 'hello@koshi.com.np'
+                        : isDelivery
+                        ? rider?.email || user?.email || 'delivery@gosika.com.np'
+                        : user?.email || 'admin@gosika.com.np'}
                     </div>
                     <span
                       className="chip chip-sm mt-1.5"
@@ -638,12 +707,20 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                           <LayoutDashboard size={15} color="#10b981" /> Rider Dashboard
                         </Link>
                         <Link
-                          to="/delivery/tasks"
+                          to="/delivery/deliveries"
                           className="dash-nav-link"
                           style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
                           onClick={() => setUserDropdown(false)}
                         >
-                          <Icons.Truck size={15} color="#10b981" /> Assigned Tasks
+                          <Icons.Truck size={15} color="#10b981" /> Assigned Deliveries
+                        </Link>
+                        <Link
+                          to="/delivery/active"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Icons.Navigation size={15} color="#10b981" /> Active Delivery
                         </Link>
                         <Link
                           to="/delivery/earnings"
@@ -651,7 +728,15 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                           style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
                           onClick={() => setUserDropdown(false)}
                         >
-                          <TrendingUp size={15} color="#10b981" /> Rider Earnings & Payouts
+                          <Icons.TrendingUp size={15} color="#10b981" /> Earnings & Payouts
+                        </Link>
+                        <Link
+                          to="/delivery/transactions"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Icons.Receipt size={15} color="#10b981" /> Transactions
                         </Link>
                         <Link
                           to="/delivery/cod-collection"
@@ -662,12 +747,28 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                           <Wallet size={15} color="#10b981" /> COD Cash Ledger
                         </Link>
                         <Link
+                          to="/delivery/notifications"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Icons.Bell size={15} color="#10b981" /> Notifications
+                        </Link>
+                        <Link
                           to="/delivery/profile"
                           className="dash-nav-link"
                           style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
                           onClick={() => setUserDropdown(false)}
                         >
                           <User size={15} color="#10b981" /> Rider & Vehicle Profile
+                        </Link>
+                        <Link
+                          to="/delivery/support"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Headphones size={15} color="#10b981" /> Help & Support
                         </Link>
                       </>
                     ) : isVendor ? (
@@ -777,9 +878,10 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
         </header>
 
         {/* Page Content Viewport */}
-        <main className="dash-content">
+        <main className={mobileNav ? 'dash-content with-bottom-nav' : 'dash-content'}>
           <Outlet />
         </main>
+        {mobileNav && <MobileBottomNav items={mobileNav} />}
       </div>
     </div>
   )

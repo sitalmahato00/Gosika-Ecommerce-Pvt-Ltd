@@ -3,6 +3,7 @@
 namespace App\Modules\Platform\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
+use App\Modules\Identity\Domain\Roles;
 use App\Modules\Platform\Infrastructure\Models\Setting;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,7 @@ class SettingsController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('role:'.Roles::SUPER_ADMIN);
         $this->middleware('permission:'.Permissions::SETTINGS_MANAGE);
     }
 

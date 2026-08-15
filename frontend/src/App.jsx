@@ -3,7 +3,7 @@ import CustomerHeader from './components/layout/CustomerHeader'
 import CustomerFooter from './components/layout/CustomerFooter'
 import DashboardLayout from './components/layout/DashboardLayout'
 import { AuthRoute, GuestRoute, VendorRoute, AdminRoute, DeliveryRoute } from './components/layout/RouteGuards'
-import { VENDOR_NAV, ADMIN_NAV, DELIVERY_NAV } from './utils/constants'
+import { VENDOR_NAV, ADMIN_NAV } from './utils/constants'
 
 import Home from './pages/Home'
 import Shop from './pages/Shop'
@@ -93,13 +93,22 @@ import AdminRoles from './pages/admin/AdminRoles'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminAuditLogs from './pages/admin/AdminAuditLogs'
 
+import DeliveryLayout from './components/layout/DeliveryLayout'
 import DeliveryDashboard from './pages/delivery/DeliveryDashboard'
-import DeliveryTasks from './pages/delivery/DeliveryTasks'
+import DeliveryDeliveries from './pages/delivery/DeliveryDeliveries'
+import DeliveryDetail from './pages/delivery/DeliveryDetail'
+import DeliveryPickup from './pages/delivery/DeliveryPickup'
+import DeliveryDeliver from './pages/delivery/DeliveryDeliver'
+import DeliveryFailure from './pages/delivery/DeliveryFailure'
 import DeliveryActiveRoute from './pages/delivery/DeliveryActiveRoute'
 import DeliveryHistory from './pages/delivery/DeliveryHistory'
 import DeliveryEarnings from './pages/delivery/DeliveryEarnings'
+import DeliveryTransactions from './pages/delivery/DeliveryTransactions'
 import DeliveryCodLedger from './pages/delivery/DeliveryCodLedger'
+import DeliveryNotifications from './pages/delivery/DeliveryNotifications'
 import DeliveryProfile from './pages/delivery/DeliveryProfile'
+import DeliveryVehicle from './pages/delivery/DeliveryVehicle'
+import DeliverySettings from './pages/delivery/DeliverySettings'
 import DeliverySupport from './pages/delivery/DeliverySupport'
 
 function CustomerLayout() {
@@ -231,14 +240,22 @@ export default function App() {
       </Route>
 
       {/* Delivery Partner Portal */}
-      <Route path="/delivery" element={<DeliveryRoute><DashboardLayout nav={DELIVERY_NAV} title="Delivery Portal" roleLabel="Delivery Partner" /></DeliveryRoute>}>
+      <Route path="/delivery" element={<DeliveryRoute><DeliveryLayout /></DeliveryRoute>}>
         <Route index element={<DeliveryDashboard />} />
-        <Route path="tasks" element={<DeliveryTasks />} />
+        <Route path="deliveries" element={<DeliveryDeliveries />} />
+        <Route path="deliveries/:id" element={<DeliveryDetail />} />
+        <Route path="deliveries/:id/pickup" element={<DeliveryPickup />} />
+        <Route path="deliveries/:id/deliver" element={<DeliveryDeliver />} />
+        <Route path="deliveries/:id/failure" element={<DeliveryFailure />} />
         <Route path="active" element={<DeliveryActiveRoute />} />
         <Route path="history" element={<DeliveryHistory />} />
         <Route path="earnings" element={<DeliveryEarnings />} />
+        <Route path="transactions" element={<DeliveryTransactions />} />
         <Route path="cod-collection" element={<DeliveryCodLedger />} />
+        <Route path="notifications" element={<DeliveryNotifications />} />
         <Route path="profile" element={<DeliveryProfile />} />
+        <Route path="vehicle" element={<DeliveryVehicle />} />
+        <Route path="settings" element={<DeliverySettings />} />
         <Route path="support" element={<DeliverySupport />} />
       </Route>
     </Routes>

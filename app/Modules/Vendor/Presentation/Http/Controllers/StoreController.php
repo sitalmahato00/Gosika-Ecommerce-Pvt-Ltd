@@ -17,6 +17,7 @@ class StoreController extends Controller
     public function __construct(protected VendorOnboardingService $service)
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('ensure:vendor');
     }
 
     public function create(StoreRequest $request): JsonResponse

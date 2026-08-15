@@ -3,6 +3,7 @@
 namespace App\Modules\Wallet\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
+use App\Modules\Identity\Domain\Roles;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
@@ -25,6 +26,7 @@ class AdminWalletController extends Controller
     public function __construct(protected WalletService $service)
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('role:'.Roles::SUPER_ADMIN);
         $this->middleware('permission:'.Permissions::WALLETS_VIEW);
         $this->middleware('permission:'.Permissions::PAYOUTS_APPROVE)->only([
             'approvePayout',
@@ -33,6 +35,7 @@ class AdminWalletController extends Controller
             'cancelPayout',
         ]);
         $this->middleware('permission:'.Permissions::SETTLEMENTS_MANAGE)->only(['generateSettlement']);
+        $this->middleware('permission:'.Permissions::WALLETS_ADJUST)->only(['adjustBalance']);
     }
 
     public function wallet(string $vendorId): JsonResponse

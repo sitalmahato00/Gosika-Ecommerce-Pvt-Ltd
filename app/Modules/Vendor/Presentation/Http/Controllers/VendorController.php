@@ -19,6 +19,7 @@ class VendorController extends Controller
     public function __construct(protected VendorOnboardingService $service)
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('ensure:vendor')->except(['apply']);
     }
 
     public function apply(ApplyVendorRequest $request): JsonResponse

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Wallet\Presentation\Http\Controllers;
 
+use App\Modules\Identity\Domain\Roles;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
@@ -19,6 +20,7 @@ class VendorWalletController extends Controller
     public function __construct(protected WalletService $service)
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('role:'.Roles::VENDOR_ADMIN);
     }
 
     public function summary(Request $request): JsonResponse

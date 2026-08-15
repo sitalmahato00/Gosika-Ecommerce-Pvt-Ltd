@@ -1,188 +1,198 @@
-import React, { useState } from 'react'
+﻿import React, { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
-  MapPin, Navigation, Phone, Store, User, CheckCircle2,
-  Clock, AlertTriangle, ExternalLink, ArrowRight, ShieldCheck
+  Navigation, Truck, Phone, User, Store, MapPin, Package,
+  CheckCircle2, ChevronRight, AlertTriangle,
 } from 'lucide-react'
-import { money } from '../../utils/format'
+import api from '../../api/client'
+import { useApi } from '../../hooks/useApi'
 import { useToast } from '../../context/ToastContext'
+import { money, errorMessage } from '../../utils/format'
+import { ACTIVE_STATUSES, nextStep } from '../../utils/delivery'
+import DeliveryStatusBadge from '../../components/delivery/DeliveryStatusBadge'
+import DeliveryStatusTimeline from '../../components/delivery/DeliveryStatusTimeline'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import { Skeleton } from '../../components/ui/Skeleton'
 
 export default function DeliveryActiveRoute() {
   const toast = useToast()
-  const [trafficReported, setTrafficReported] = useState(false)
+  const assignments = useApi(() => api.get('/delivery-partner/assignments', { params: { per_page: 100 } }))
+  const [busyId, setBusyId] = useState(null)
+  const [confirmAccept, setConfirmAccept] = useState(null)
 
-  const handleTrafficAlert = () => {
-    setTrafficReported(true)
-    toast.info('Traffic congestion alert logged. Customer notified of possible +15 min delay.')
+  const all = assignments.data?.data ?? []
+  const active = useMemo(() => all.filter((a) => ACTIVE_STATUSES.includes(a.status)), [all])
+  const activeDelivery =
+    active.find((a) => a.status === 'out_for_delivery') ||
+    active.find((a) => a.status === 'picked_up') ||
+    active.find((a) => a.status === 'accepted') ||
+    active.find((a) => a.status === 'assigned')
+
+  const handleAccept = async (a) => {
+    setBusyId(a.id)
+    try {
+      await api.post(`/delivery-partner/assignments/${a.id}/accept`)
+      toast.success('Delivery accepted. Proceed to pickup.')
+      setConfirmAccept(null)
+      assignments.reload({ silent: true })
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusyId(null)
+    }
   }
 
-  const openExternalMaps = (destination) => {
-    toast.success(`Opening GPS navigation for: ${destination}`)
+  if (assignments.loading) {
+    return (
+      <div className="w-full flex flex-col gap-4 pb-8">
+        <div className="page-header" style={{ marginBottom: 8 }}>
+          <Skeleton width={220} height={28} />
+        </div>
+        <div className="card" style={{ padding: 20, margin: 0 }}>
+          <Skeleton height={140} />
+        </div>
+      </div>
+    )
   }
+
+  if (assignments.error) {
+    return <ErrorState message={errorMessage(assignments.error)} onRetry={() => assignments.reload()} />
+  }
+
+  if (!activeDelivery) {
+    return (
+      <div className="w-full flex flex-col gap-4 pb-8">
+        <div className="page-header" style={{ marginBottom: 8 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>Active Delivery</h1>
+          <p className="muted" style={{ fontSize: 13, margin: '4px 0 0' }}>Your current in-route delivery, live.</p>
+        </div>
+        <EmptyState
+          icon={Navigation}
+          title="No active delivery right now"
+          message="You have no delivery in progress. Accept an assignment to start a route, or make sure you are online to receive dispatches."
+          action={
+            <Link to="/delivery/deliveries" className="btn btn-primary btn-sm">
+              View Assigned Deliveries
+            </Link>
+          }
+        />
+      </div>
+    )
+  }
+
+  const a = activeDelivery
+  const step = nextStep(a)
 
   return (
     <div className="w-full flex flex-col gap-4 pb-8">
-      {/* Header */}
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header" style={{ marginBottom: 8 }}>
         <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>
-            Active Route & Live GPS Waypoints
-          </h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Turn-by-turn waypoint navigation from artisan pickup workshop to customer delivery doorstep.
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>Active Delivery</h1>
+          <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
+            {a.vendor_order_number || a.id} · <strong className="text-success">+{money(a.delivery_fee)}</strong>
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="btn btn-primary btn-sm flex items-center gap-1"
-            onClick={() => openExternalMaps('Lazimpat Road, Kathmandu')}
-          >
-            <Navigation size={14} /> Open in GPS Navigation
-          </button>
-        </div>
+        <DeliveryStatusBadge status={a.status} />
       </div>
 
-      {/* Main Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 18 }}>
-        {/* Route Map Visualizer Card */}
-        <div className="card" style={{ padding: 0, overflow: 'hidden', margin: 0 }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span className="font-bold text-sm text-ink flex items-center gap-1.5">
-              <MapPin size={15} color="var(--primary)" /> Kathmandu Urban Corridor · Active Route
-            </span>
-            <span className="chip chip-sm font-bold" style={{ background: '#ecfdf5', color: '#10b981' }}>
-              ● 3.4 km Remaining (ETA: 18 Mins)
-            </span>
+      {/* Route Visual */}
+      <div className="card" style={{ padding: '18px 20px', margin: 0, border: '2px solid rgba(16, 185, 129, 0.25)' }}>
+        <div className="flex flex-col" style={{ gap: 0 }}>
+          {/* Pickup */}
+          <div className="flex" style={{ gap: 12 }}>
+            <div className="flex flex-col items-center" style={{ width: 22 }}>
+              <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#4f46e5', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Store size={10} />
+              </span>
+              <span style={{ width: 2, flex: 1, minHeight: 24, background: '#c7d2fe', borderLeft: '2px dashed #c7d2fe' }} />
+            </div>
+            <div style={{ paddingBottom: 10 }}>
+              <div className="muted font-bold text-xs mb-1" style={{ color: '#4338ca' }}>PICKUP FROM VENDOR</div>
+              <div className="font-bold text-ink text-sm">{a.pickup_address || '—'}</div>
+            </div>
           </div>
 
-          {/* Interactive Simulated Map Canvas */}
-          <div style={{ position: 'relative', width: '100%', height: 320, background: '#1e293b' }}>
-            <img
-              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1000&auto=format&fit=crop&q=80"
-              alt="Live Navigation Map"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }}
-            />
-
-            {/* Overlay Navigation HUD */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 14,
-                left: 14,
-                right: 14,
-                background: 'rgba(15, 23, 42, 0.85)',
-                backdropFilter: 'blur(8px)',
-                borderRadius: 8,
-                padding: '10px 14px',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="avatar" style={{ width: 32, height: 32, background: 'var(--primary)', color: '#ffffff' }}>
-                  <Navigation size={16} />
-                </span>
-                <div>
-                  <div className="font-bold text-xs">Turn Right onto Lazimpat Road in 400m</div>
-                  <div className="text-xs" style={{ color: '#94a3b8' }}>Next: Radisson Hotel Roundabout</div>
+          {/* Dropoff */}
+          <div className="flex" style={{ gap: 12 }}>
+            <div className="flex flex-col items-center" style={{ width: 22 }}>
+              <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <MapPin size={10} />
+              </span>
+            </div>
+            <div>
+              <div className="muted font-bold text-xs mb-1" style={{ color: '#059669' }}>DROP OFF TO CUSTOMER</div>
+              <div className="font-bold text-ink text-sm">{a.recipient_name || '—'}</div>
+              {a.recipient_phone && (
+                <a href={`tel:${a.recipient_phone}`} className="btn btn-ghost btn-xs text-success flex items-center gap-1" style={{ padding: '2px 6px', fontSize: 10 }}>
+                  <Phone size={10} /> {a.recipient_phone}
+                </a>
+              )}
+              <div className="muted text-xs mt-0.5">{a.dropoff_address || '—'}</div>
+              {a.cod_amount > 0 && (
+                <div className="chip chip-sm mt-2" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#d97706', fontWeight: 800 }}>
+                  Collect COD: {money(a.cod_amount)}
                 </div>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-sm" style={{ color: '#10b981' }}>18 min</div>
-                <div className="text-xs" style={{ color: '#94a3b8' }}>3.4 km</div>
-              </div>
-            </div>
-
-            {/* Waypoint Pin 1: Pickup Workshop */}
-            <div style={{ position: 'absolute', bottom: 30, left: 30, background: '#ffffff', padding: '6px 12px', borderRadius: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.3)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Store size={13} color="var(--primary)" /> Koshi Workshop (Picked Up)
-            </div>
-
-            {/* Waypoint Pin 2: Dropoff */}
-            <div style={{ position: 'absolute', top: 90, right: 30, background: '#10b981', color: '#ffffff', padding: '6px 12px', borderRadius: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.3)', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <User size={13} /> Kshitiz Acharya (Drop-off)
+              )}
             </div>
           </div>
         </div>
 
-        {/* Turn-by-Turn Waypoint Checklist */}
-        <div className="card flex flex-col justify-between" style={{ padding: 20, margin: 0 }}>
-          <div>
-            <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 14px 0', color: 'var(--ink)' }}>
-              Dispatch Waypoints (#DSP-2026-9901)
-            </h3>
-
-            {/* Step 1 */}
-            <div className="flex items-start gap-3 mb-4">
-              <span className="avatar" style={{ width: 28, height: 28, background: '#ecfdf5', color: '#10b981', flexShrink: 0, marginTop: 2 }}>
-                <CheckCircle2 size={15} />
-              </span>
-              <div className="flex-1 text-xs">
-                <div className="flex justify-between items-center">
-                  <strong className="text-ink">1. Workshop Pickup · COMPLETED</strong>
-                  <span className="muted font-mono">08:45 AM</span>
-                </div>
-                <div className="muted mt-0.5">Koshi Handicrafts Pvt. Ltd. · Biratnagar Hub</div>
-                <div className="font-medium text-ink mt-0.5">100% Pure Pashmina Cashmere Shawl (1 parcel)</div>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="flex items-start gap-3 mb-4">
-              <span className="avatar" style={{ width: 28, height: 28, background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', flexShrink: 0, marginTop: 2 }}>
-                <Navigation size={15} />
-              </span>
-              <div className="flex-1 text-xs">
-                <div className="flex justify-between items-center">
-                  <strong className="text-primary">2. In-Transit on Route · ACTIVE</strong>
-                  <span className="muted font-mono">Current Leg</span>
-                </div>
-                <div className="muted mt-0.5">Ring Road Corridor → Lazimpat Road</div>
-                <div className="text-xs font-semibold" style={{ color: '#4f46e5', marginTop: 2 }}>Speed: 38 km/h · ETA: 4:30 PM</div>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="flex items-start gap-3">
-              <span className="avatar" style={{ width: 28, height: 28, background: 'var(--bg)', color: 'var(--muted)', flexShrink: 0, marginTop: 2 }}>
-                <MapPin size={15} />
-              </span>
-              <div className="flex-1 text-xs">
-                <div className="flex justify-between items-center">
-                  <strong className="text-ink">3. Customer Drop-off · PENDING</strong>
-                  <span className="muted font-mono">Estimated 4:30 PM</span>
-                </div>
-                <div className="font-bold text-ink mt-0.5">Kshitiz Acharya (+977 980-1234567)</div>
-                <div className="muted mt-0.5">Ward No. 3, Lazimpat Road, Near Radisson Hotel, Kathmandu</div>
-                <div className="badge badge-success mt-1.5" style={{ width: 'fit-content', fontSize: 10 }}>
-                  Prepaid via eSewa (No Cash Collection)
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="flex items-center justify-between wrap gap-2 pt-3 mt-4" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between wrap gap-2 mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+          <Link to={`/delivery/deliveries/${a.id}`} className="btn btn-outline btn-xs flex items-center gap-1">
+            View Dossier <ChevronRight size={12} />
+          </Link>
+          {a.status === 'assigned' ? (
             <button
               type="button"
-              className="btn btn-outline btn-xs flex items-center gap-1"
-              disabled={trafficReported}
-              onClick={handleTrafficAlert}
+              className="btn btn-primary btn-xs flex items-center gap-1"
+              onClick={() => setConfirmAccept(a)}
+              disabled={busyId === a.id}
             >
-              <AlertTriangle size={12} color="#f59e0b" /> {trafficReported ? 'Traffic Alert Logged' : 'Report Traffic Delay'}
+              <Package size={12} /> {busyId === a.id ? 'Accepting…' : 'Accept & Start Route'}
             </button>
-
-            <a
-              href="tel:+9779801234567"
-              className="btn btn-success btn-xs flex items-center gap-1"
-            >
-              <Phone size={12} /> Call Customer Now
-            </a>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {step && step.to && (
+                <Link to={step.to} className={`btn btn-${step.color} btn-xs flex items-center gap-1`}>
+                  {step.label} <ChevronRight size={12} />
+                </Link>
+              )}
+              {(a.status === 'accepted' || a.status === 'picked_up' || a.status === 'out_for_delivery') && (
+                <Link to={`/delivery/deliveries/${a.id}/failure`} className="btn btn-outline btn-xs flex items-center gap-1">
+                  <AlertTriangle size={12} /> Mark Failed
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Status Timeline */}
+      <div className="card" style={{ padding: '18px 20px', margin: 0 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 16px', color: 'var(--ink)' }}>Delivery Progress</h3>
+        <DeliveryStatusTimeline assignment={a} />
+      </div>
+
+      <ConfirmDialog
+        open={!!confirmAccept}
+        onClose={() => setConfirmAccept(null)}
+        onConfirm={() => confirmAccept && handleAccept(confirmAccept)}
+        loading={busyId === confirmAccept?.id}
+        title="Accept this delivery?"
+        confirmText="Accept Delivery"
+        message="Accepting confirms you will pick up this parcel from the vendor and deliver it to the customer."
+      >
+        {confirmAccept && (
+          <div className="card" style={{ background: 'var(--bg)', padding: 12, margin: 0 }}>
+            <div className="font-bold text-sm text-ink">{confirmAccept.vendor_order_number}</div>
+            <div className="muted text-xs mt-0.5">
+              {confirmAccept.recipient_name} · {money(confirmAccept.delivery_fee)}
+            </div>
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   )
 }

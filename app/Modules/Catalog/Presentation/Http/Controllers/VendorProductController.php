@@ -11,6 +11,7 @@ use App\Modules\Catalog\Presentation\Http\Requests\BrandRequestCreateRequest;
 use App\Modules\Catalog\Presentation\Http\Requests\ProductRequest;
 use App\Modules\Catalog\Presentation\Resources\BrandRequestResource;
 use App\Modules\Catalog\Presentation\Resources\ProductResource;
+use App\Modules\Identity\Domain\Roles;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +23,7 @@ class VendorProductController extends Controller
     public function __construct(protected CatalogService $service)
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('role:'.Roles::VENDOR_ADMIN);
     }
 
     public function index(Request $request): JsonResponse

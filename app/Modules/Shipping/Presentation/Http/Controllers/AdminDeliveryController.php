@@ -3,6 +3,7 @@
 namespace App\Modules\Shipping\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
+use App\Modules\Identity\Domain\Roles;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
@@ -22,6 +23,7 @@ class AdminDeliveryController extends Controller
     public function __construct(protected DeliveryService $service)
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('role:'.Roles::SUPER_ADMIN);
         $this->middleware('permission:'.Permissions::DELIVERY_PARTNERS_MANAGE.'|'.Permissions::DELIVERIES_MANAGE);
         $this->middleware('permission:'.Permissions::DELIVERY_PARTNERS_MANAGE)->only(['partners', 'partner', 'approve', 'reject', 'suspend', 'activate']);
     }

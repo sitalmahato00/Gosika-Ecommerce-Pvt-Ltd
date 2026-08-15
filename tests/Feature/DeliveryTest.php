@@ -64,16 +64,18 @@ class DeliveryTest extends TestCase
         return $user;
     }
 
-    protected function approvedVendor(User $user, string $suffix = ''): Vendor
-    {
-        return Vendor::query()->create([
-            'user_id' => $user->id,
-            'company_name' => 'Delivery Vendor '.$suffix,
-            'business_email' => 'delivery'.$suffix.'@vendor.com.np',
-            'status' => VendorStatus::APPROVED,
-            'commission_rate' => 10,
-        ]);
-    }
+        protected function approvedVendor(User $user, string $suffix = ''): Vendor
+        {
+            $user->assignRole(Roles::VENDOR_ADMIN);
+
+            return Vendor::query()->create([
+                'user_id' => $user->id,
+                'company_name' => 'Delivery Vendor '.$suffix,
+                'business_email' => 'delivery'.$suffix.'@vendor.com.np',
+                'status' => VendorStatus::APPROVED,
+                'commission_rate' => 10,
+            ]);
+        }
 
     protected function productFor(Vendor $vendor, string $suffix, int $quantity = 10): Product
     {

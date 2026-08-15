@@ -3,6 +3,7 @@
 namespace App\Modules\Shipping\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
+use App\Modules\Identity\Domain\Roles;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Order\Presentation\Resources\VendorOrderResource;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
@@ -18,6 +19,7 @@ class VendorOrderController extends Controller
     public function __construct(protected DeliveryService $service)
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('role:'.Roles::VENDOR_ADMIN);
         $this->middleware('permission:'.Permissions::ORDERS_MANAGE);
     }
 

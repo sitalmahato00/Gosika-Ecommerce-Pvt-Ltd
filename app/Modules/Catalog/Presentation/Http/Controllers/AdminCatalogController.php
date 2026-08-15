@@ -13,6 +13,7 @@ use App\Modules\Catalog\Presentation\Resources\BrandRequestResource;
 use App\Modules\Catalog\Presentation\Resources\BrandResource;
 use App\Modules\Catalog\Presentation\Resources\CategoryResource;
 use App\Modules\Catalog\Presentation\Resources\ProductResource;
+use App\Modules\Identity\Domain\Roles;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,9 @@ class AdminCatalogController extends Controller
 {
     public function __construct(protected CatalogService $service)
     {
-        $this->middleware(['auth:sanctum', 'permission:products.approve|products.view|categories.manage|brands.manage']);
+        $this->middleware('auth:sanctum');
+        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('permission:products.approve|products.view|categories.manage|brands.manage');
     }
 
     public function pendingProducts(Request $request): JsonResponse

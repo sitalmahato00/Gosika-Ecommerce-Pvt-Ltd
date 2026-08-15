@@ -1,203 +1,171 @@
-import React, { useState } from 'react'
-import {
-  Wallet, Banknote, CheckCircle2, Clock, Upload,
-  Download, Building2, Store, Search, ShieldCheck, AlertTriangle
-} from 'lucide-react'
-import Modal from '../../components/ui/Modal'
-import { money } from '../../utils/format'
-import { useToast } from '../../context/ToastContext'
+﻿import React, { useMemo, useState } from 'react'
+import { Banknote, Package, Info, ChevronRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import api from '../../api/client'
+import { useApi } from '../../hooks/useApi'
+import { money, formatDateTime, errorMessage } from '../../utils/format'
+import { isSameDay, isThisWeek, isThisMonth } from '../../utils/delivery'
+import ErrorState from '../../components/ui/ErrorState'
+import EmptyState from '../../components/ui/EmptyState'
+import { Skeleton } from '../../components/ui/Skeleton'
 
-const COD_TRANSACTIONS = [
-  { id: 'COD-TX-9901', orderId: 'ORD-2026-98074', customer: 'Sita Kumari Rai', item: 'Palpali Dhaka Saree', amount: 6200, collectedAt: '15 Aug 2026 09:45 AM', status: 'in_hand' },
-  { id: 'COD-TX-9892', orderId: 'ORD-2026-98112', customer: 'Deepak KC', item: 'Ilam Orthodox Tea', amount: 2400, collectedAt: '15 Aug 2026 10:30 AM', status: 'in_hand' },
-  { id: 'COD-TX-9885', orderId: 'ORD-2026-98085', customer: 'Anil Thapa', item: 'Tibetan Singing Bowl', amount: 3400, collectedAt: '14 Aug 2026 06:15 PM', status: 'deposited', depositRef: 'DEP-HUB-KT-1104', depositedAt: '14 Aug 2026 07:30 PM' },
-  { id: 'COD-TX-9870', orderId: 'ORD-2026-98070', customer: 'Suman Shrestha', item: 'Dhaka Topi Set', amount: 1800, collectedAt: '14 Aug 2026 03:00 PM', status: 'deposited', depositRef: 'DEP-HUB-KT-1104', depositedAt: '14 Aug 2026 07:30 PM' },
+const PERIODS = [
+  { key: 'all', label: 'All Time' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'month', label: 'This Month' },
 ]
 
+const periodPredicate = {
+  all: () => true,
+  today: (iso) => isSameDay(iso),
+  week: (iso) => isThisWeek(iso),
+  month: (iso) => isThisMonth(iso),
+}
+
 export default function DeliveryCodLedger() {
-  const toast = useToast()
-  const [txns, setTxns] = useState(COD_TRANSACTIONS)
-  const [depositOpen, setDepositOpen] = useState(false)
-  const [depositBusy, setDepositBusy] = useState(false)
-  const [search, setSearch] = useState('')
-  const [depositMethod, setDepositMethod] = useState('Hub Counter Deposit')
-  const [depositSlip, setDepositSlip] = useState(null)
+  const [period, setPeriod] = useState('all')
+  const history = useApi(async () => {
+    const page1 = await api.get('/delivery-partner/history', { params: { per_page: 100 } })
+    let list = page1.data?.data?.data ?? []
+    const pag = page1.data?.meta?.pagination ?? {}
+    for (let p = 2; p <= (pag.last_page || 1); p++) {
+      const res = await api.get('/delivery-partner/history', { params: { per_page: 100, page: p } })
+      list = list.concat(res.data?.data?.data ?? [])
+    }
+    return list
+  })
 
-  const inHandTotal = txns.filter(t => t.status === 'in_hand').reduce((s, t) => s + t.amount, 0)
-  const settledTotal = txns.filter(t => t.status === 'deposited').reduce((s, t) => s + t.amount, 0)
+  const codEntries = useMemo(
+    () =>
+      (history.data ?? [])
+        .filter((a) => a.status === 'delivered' && Number(a.cod_amount || 0) > 0)
+        .sort((a, b) => new Date(b.delivered_at || 0) - new Date(a.delivered_at || 0)),
+    [history.data],
+  )
 
-  const handleDeposit = (e) => {
-    e.preventDefault()
-    setDepositBusy(true)
-    setTimeout(() => {
-      const ref = `DEP-HUB-${Math.floor(1000 + Math.random() * 9000)}`
-      setTxns(txns.map(t => t.status === 'in_hand' ? {
-        ...t,
-        status: 'deposited',
-        depositRef: ref,
-        depositedAt: 'Just now',
-      } : t))
-      setDepositBusy(false)
-      setDepositOpen(false)
-      toast.success(`COD Cash remittance of ${money(inHandTotal)} recorded with Ref: ${ref}!`)
-    }, 600)
+  const inPeriod = useMemo(() => codEntries.filter((a) => periodPredicate[period](a.delivered_at)), [codEntries, period])
+  const totalCod = codEntries.reduce((s, a) => s + Number(a.cod_amount || 0), 0)
+  const periodCod = inPeriod.reduce((s, a) => s + Number(a.cod_amount || 0), 0)
+
+  if (history.loading) {
+    return (
+      <div className="w-full flex flex-col gap-4 pb-8">
+        <div className="page-header" style={{ marginBottom: 8 }}>
+          <Skeleton width={220} height={28} />
+        </div>
+        <div className="card" style={{ padding: 18, margin: 0 }}>
+          <Skeleton height={120} />
+        </div>
+      </div>
+    )
   }
 
-  const filtered = txns.filter(t => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return t.id.toLowerCase().includes(q) || t.orderId.toLowerCase().includes(q) || t.customer.toLowerCase().includes(q)
-  })
+  if (history.error) {
+    return <ErrorState message={errorMessage(history.error)} onRetry={() => history.reload()} />
+  }
 
   return (
     <div className="w-full flex flex-col gap-4 pb-8">
-      {/* Header */}
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header" style={{ marginBottom: 8 }}>
         <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>
-            Cash on Delivery (COD) Ledger
-          </h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Monitor cash collections from doorstep deliveries and submit end-of-shift remittance deposits to GOSIKA Central Hub.
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>COD Cash Ledger</h1>
+          <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
+            Cash collected on {codEntries.length} cash-on-delivery order{codEntries.length === 1 ? '' : 's'}.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {inHandTotal > 0 && (
+        <div className="flex items-center gap-2" style={{ overflowX: 'auto', paddingBottom: 2 }}>
+          {PERIODS.map((p) => (
             <button
+              key={p.key}
               type="button"
-              className="btn btn-primary btn-sm flex items-center gap-1"
-              onClick={() => setDepositOpen(true)}
+              onClick={() => setPeriod(p.key)}
+              className="chip"
+              style={{
+                whiteSpace: 'nowrap',
+                fontWeight: 800,
+                fontSize: 11,
+                cursor: 'pointer',
+                border: period === p.key ? '1px solid var(--primary)' : '1px solid var(--border)',
+                background: period === p.key ? 'var(--primary-50)' : '#fff',
+                color: period === p.key ? 'var(--primary)' : 'var(--muted)',
+              }}
             >
-              <Banknote size={14} /> Deposit COD Cash ({money(inHandTotal)})
+              {p.label}
             </button>
-          )}
+          ))}
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-        <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0, border: inHandTotal > 0 ? '2px solid rgba(245, 158, 11, 0.3)' : '1px solid var(--border)' }}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+        <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="muted text-xs font-bold uppercase" style={{ color: '#92400e' }}>COD Cash in Hand</span>
+            <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em' }}>
+              {period === 'all' ? 'COD Collected' : `${PERIODS.find((p) => p.key === period)?.label} COD`}
+            </span>
             <span className="avatar" style={{ width: 34, height: 34, background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
               <Banknote size={18} />
             </span>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#d97706' }}>{money(inHandTotal)}</div>
-          <div className="muted text-xs mt-1">Pending deposit to hub</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: '#d97706' }}>{money(periodCod)}</div>
+          <div className="muted text-xs mt-1">{inPeriod.length} COD order{inPeriod.length === 1 ? '' : 's'}</div>
         </div>
-
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="muted text-xs font-bold uppercase">Total Settled Cash</span>
-            <span className="avatar" style={{ width: 34, height: 34, background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
-              <CheckCircle2 size={18} />
+            <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em' }}>All-Time COD</span>
+            <span className="avatar" style={{ width: 34, height: 34, background: 'rgba(79, 70, 229, 0.1)', color: '#4f46e5' }}>
+              <Banknote size={18} />
             </span>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#10b981' }}>{money(settledTotal)}</div>
-          <div className="muted text-xs mt-1">Remittance verified by finance</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: '#4f46e5' }}>{money(totalCod)}</div>
+          <div className="muted text-xs mt-1">Cash to be remitted to the hub</div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="card card-pad-none" style={{ overflow: 'hidden', margin: 0 }}>
-        <div className="flex items-center justify-between" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-          <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink)' }}>
-            <Wallet size={16} color="var(--primary)" /> COD Cash Collection Logs
-          </h3>
-        </div>
-        <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-          <table className="table" style={{ minWidth: 840 }}>
-            <thead>
-              <tr>
-                <th>Collection ID</th>
-                <th>Order Ref</th>
-                <th>Customer</th>
-                <th>Delivered Item</th>
-                <th>Cash Collected</th>
-                <th>Collection Time</th>
-                <th>Deposit Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((t) => (
-                <tr key={t.id}>
-                  <td>
-                    <span className="font-mono font-bold text-primary text-xs">{t.id}</span>
-                  </td>
-                  <td>
-                    <span className="font-mono text-xs font-bold text-ink">#{t.orderId}</span>
-                  </td>
-                  <td>
-                    <span className="font-bold text-sm text-ink">{t.customer}</span>
-                  </td>
-                  <td>
-                    <span className="muted text-xs">{t.item}</span>
-                  </td>
-                  <td>
-                    <span className="font-bold text-sm" style={{ color: '#d97706' }}>{money(t.amount)}</span>
-                  </td>
-                  <td className="muted text-xs">
-                    {t.collectedAt}
-                  </td>
-                  <td>
-                    {t.status === 'in_hand' ? (
-                      <span className="badge badge-warning">In Hand (Unsettled)</span>
-                    ) : (
-                      <div>
-                        <span className="badge badge-success">Deposited</span>
-                        <div className="muted text-xs font-mono" style={{ fontSize: 10 }}>{t.depositRef}</div>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="card" style={{ padding: '14px 18px', margin: 0, background: '#fffbeb', border: '1px solid rgba(245, 158, 11, 0.35)' }}>
+        <p className="m-0 text-xs" style={{ color: '#92400e', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <Info size={14} style={{ color: '#d97706', flexShrink: 0, marginTop: 1 }} />
+          <span>
+            Hand over collected COD cash to the GOSIKA dispatch hub at the end of your shift. Your ledger is reconciled against the orders you deliver.
+          </span>
+        </p>
       </div>
 
-      {/* Deposit Modal */}
-      {depositOpen && (
-        <Modal open={depositOpen} onClose={() => setDepositOpen(false)} title="Submit COD Cash Remittance">
-          <form onSubmit={handleDeposit} className="flex flex-col gap-3">
-            <div className="card" style={{ background: 'var(--bg)', padding: 16, margin: 0 }}>
-              <span className="muted text-xs uppercase font-bold">Total Cash in Hand to Deposit</span>
-              <div className="font-black text-3xl text-warning mt-1" style={{ color: '#d97706' }}>{money(inHandTotal)}</div>
-              <div className="muted text-xs mt-1">Designated Hub: <strong>Kathmandu Central Logistics Hub (Thamel)</strong></div>
-            </div>
-
-            <div className="form-group">
-              <label className="label">Remittance Method <span className="req">*</span></label>
-              <select
-                className="select"
-                value={depositMethod}
-                onChange={(e) => setDepositMethod(e.target.value)}
+      {codEntries.length === 0 ? (
+        <EmptyState
+          icon={Banknote}
+          title="No COD collected yet"
+          message="Cash-on-delivery orders you deliver will be recorded here for remittance."
+          action={<Link to="/delivery/deliveries" className="btn btn-outline btn-sm">View Assigned Deliveries</Link>}
+        />
+      ) : (
+        <div className="card card-pad-none" style={{ overflow: 'hidden', margin: 0 }}>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Banknote size={15} color="#d97706" />
+            <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>COD Entries</h3>
+          </div>
+          <div className="flex flex-col divide-y divide-slate-100">
+            {inPeriod.map((a) => (
+              <Link
+                key={a.id}
+                to={`/delivery/deliveries/${a.id}`}
+                style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}
               >
-                <option value="Hub Counter Deposit">Direct Hub Counter Cash Handover</option>
-                <option value="Bank Direct Deposit">Bank Cash Deposit (Nabil Bank Ltd)</option>
-                <option value="Fonepay Digital Deposit">Fonepay QR Direct Settlement</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="label">Attach Deposit Receipt / Stamp (Optional)</label>
-              <input
-                type="file"
-                className="input"
-                style={{ fontSize: 12, padding: 5 }}
-                onChange={(e) => setDepositSlip(e.target.files?.[0])}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setDepositOpen(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={depositBusy}>
-                {depositBusy ? 'Recording Deposit…' : `Confirm Remittance (${money(inHandTotal)})`}
-              </button>
-            </div>
-          </form>
-        </Modal>
+                <span className="avatar" style={{ width: 34, height: 34, background: '#fffbeb', color: '#d97706', flexShrink: 0 }}>
+                  <Banknote size={16} />
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="font-bold text-sm text-ink truncate">{a.vendor_order_number || a.id}</div>
+                  <div className="muted text-xs mt-0.5 truncate">{a.delivered_at ? formatDateTime(a.delivered_at) : '—'} · {a.recipient_name || '—'}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="font-bold text-sm" style={{ color: '#d97706' }}>{money(a.cod_amount)}</div>
+                  <ChevronRight size={14} color="#94a3b8" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

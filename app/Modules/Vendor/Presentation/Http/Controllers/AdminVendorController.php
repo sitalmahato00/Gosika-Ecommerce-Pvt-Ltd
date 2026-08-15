@@ -3,6 +3,7 @@
 namespace App\Modules\Vendor\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
+use App\Modules\Identity\Domain\Roles;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Application\Services\VendorOnboardingService;
@@ -20,6 +21,7 @@ class AdminVendorController extends Controller
     public function __construct(protected VendorOnboardingService $service)
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('role:'.Roles::SUPER_ADMIN);
         $this->middleware('permission:'.Permissions::VENDORS_APPROVE.'|'.Permissions::VENDORS_VIEW);
     }
 

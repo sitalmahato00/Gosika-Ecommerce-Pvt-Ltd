@@ -18,6 +18,7 @@ class BankAccountController extends Controller
     public function __construct(protected VendorOnboardingService $service)
     {
         $this->middleware('auth:sanctum');
+        $this->middleware('ensure:vendor');
     }
 
     public function index(Request $request): JsonResponse

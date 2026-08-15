@@ -2,6 +2,7 @@
 
 namespace App\Modules\Vendor\Application\Services;
 
+use App\Modules\Identity\Domain\Roles;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Shared\Domain\Enums\KycStatus;
 use App\Modules\Shared\Domain\Enums\StoreStatus;
@@ -144,6 +145,10 @@ class VendorOnboardingService
             'rejection_reason' => null,
         ]);
 
+        if ($vendor->user && ! $vendor->user->hasRole(Roles::VENDOR_ADMIN)) {
+            $vendor->user->assignRole(Roles::VENDOR_ADMIN);
+        }
+
         return $vendor;
     }
 
@@ -155,6 +160,10 @@ class VendorOnboardingService
             'approved_at' => now(),
             'rejection_reason' => $reason,
         ]);
+
+        if ($vendor->user && $vendor->user->hasRole(Roles::VENDOR_ADMIN)) {
+            $vendor->user->removeRole(Roles::VENDOR_ADMIN);
+        }
 
         return $vendor;
     }

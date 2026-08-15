@@ -157,17 +157,29 @@ export const DELIVERY_NAV = [
   { to: '/delivery', label: 'Rider Dashboard', icon: 'LayoutDashboard', end: true },
 
   { section: 'Deliveries' },
-  { to: '/delivery/tasks', label: 'Assigned Tasks', icon: 'Truck' },
-  { to: '/delivery/active', label: 'Active Route & Map', icon: 'MapPin' },
+  { to: '/delivery/deliveries', label: 'Assigned Deliveries', icon: 'Truck' },
+  { to: '/delivery/active', label: 'Active Delivery', icon: 'Navigation' },
   { to: '/delivery/history', label: 'Delivery History', icon: 'Clock' },
 
   { section: 'Finance' },
   { to: '/delivery/earnings', label: 'Earnings & Payouts', icon: 'TrendingUp' },
+  { to: '/delivery/transactions', label: 'Transactions', icon: 'Receipt' },
   { to: '/delivery/cod-collection', label: 'COD Cash Ledger', icon: 'Wallet' },
 
-  { section: 'Support & Profile' },
+  { section: 'Account' },
+  { to: '/delivery/notifications', label: 'Notifications', icon: 'Bell' },
   { to: '/delivery/profile', label: 'Rider & Vehicle Profile', icon: 'UserCircle' },
-  { to: '/delivery/support', label: 'Dispatch Hub Support', icon: 'Headphones' },
+  { to: '/delivery/vehicle', label: 'Vehicle Details', icon: 'Bike' },
+  { to: '/delivery/settings', label: 'Settings', icon: 'Settings' },
+  { to: '/delivery/support', label: 'Help & Support', icon: 'Headphones' },
+]
+
+export const DELIVERY_MOBILE_NAV = [
+  { to: '/delivery', label: 'Home', icon: 'LayoutDashboard', end: true },
+  { to: '/delivery/deliveries', label: 'Deliveries', icon: 'Truck' },
+  { to: '/delivery/active', label: 'Active', icon: 'Navigation' },
+  { to: '/delivery/earnings', label: 'Earnings', icon: 'TrendingUp' },
+  { to: '/delivery/profile', label: 'Profile', icon: 'UserCircle' },
 ]
 
 export const ADMIN_NAV = [
