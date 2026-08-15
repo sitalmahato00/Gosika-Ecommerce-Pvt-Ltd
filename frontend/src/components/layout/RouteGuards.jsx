@@ -42,3 +42,12 @@ export function AdminRoute({ children }) {
   if (!isSuperAdmin()) return <Navigate to="/account" replace />
   return children
 }
+
+export function DeliveryRoute({ children }) {
+  const { user, booted, isDeliveryPartner, isSuperAdmin } = useAuth()
+  if (!booted) return <FullPageLoading />
+  if (!user) return <Navigate to="/login" state={{ from: '/delivery' }} replace />
+  // Allow delivery partners or super admins (for testing/managing delivery operations)
+  if (!isDeliveryPartner() && !isSuperAdmin()) return <Navigate to="/account" replace />
+  return children
+}

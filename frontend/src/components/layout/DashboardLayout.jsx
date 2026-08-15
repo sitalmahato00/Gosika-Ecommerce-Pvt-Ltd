@@ -57,13 +57,28 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
   const userInitials = initials(user?.name || user?.email || 'A')
   const role = roleLabel || (isSuperAdmin() ? 'Super Admin' : 'Vendor')
   const isVendor = role.toLowerCase().includes('vendor')
+  const isDelivery = role.toLowerCase().includes('delivery') || role.toLowerCase().includes('rider')
 
   const handleGlobalSearch = (e) => {
     e.preventDefault()
     if (!searchQuery.trim()) return
     const q = searchQuery.trim().toLowerCase()
     
-    if (isVendor) {
+    if (isDelivery) {
+      if (q.includes('task') || q.includes('order') || q.includes('dsp-')) {
+        navigate('/delivery/tasks')
+      } else if (q.includes('map') || q.includes('route') || q.includes('gps')) {
+        navigate('/delivery/active')
+      } else if (q.includes('earning') || q.includes('payout')) {
+        navigate('/delivery/earnings')
+      } else if (q.includes('cod') || q.includes('cash')) {
+        navigate('/delivery/cod-collection')
+      } else if (q.includes('support') || q.includes('help')) {
+        navigate('/delivery/support')
+      } else {
+        navigate('/delivery/tasks')
+      }
+    } else if (isVendor) {
       if (q.includes('order') || q.startsWith('vo-')) {
         navigate('/vendor/orders')
       } else if (q.includes('product') || q.includes('shawl') || q.includes('tea') || q.includes('bowl')) {
@@ -121,18 +136,24 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 width: 34,
                 height: 34,
                 borderRadius: 8,
-                background: isVendor
+                background: isDelivery
+                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                  : isVendor
                   ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'
                   : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: isVendor ? '0 2px 8px rgba(37,99,235,0.4)' : '0 2px 8px rgba(99,102,241,0.4)',
+                boxShadow: isDelivery
+                  ? '0 2px 8px rgba(16,185,129,0.4)'
+                  : isVendor
+                  ? '0 2px 8px rgba(37,99,235,0.4)'
+                  : '0 2px 8px rgba(99,102,241,0.4)',
                 flexShrink: 0,
               }}
             >
-              {isVendor ? <ShoppingBag size={18} /> : <Shield size={18} />}
+              {isDelivery ? <Icons.Truck size={18} /> : isVendor ? <ShoppingBag size={18} /> : <Shield size={18} />}
             </span>
             <span style={{ letterSpacing: '0.04em' }}>GOSIKA</span>
           </Link>
@@ -228,6 +249,70 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 Koshi Hub
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Delivery Rider Identity Card (Delivery only) */}
+        {isDelivery && (
+          <div
+            className="store-identity-card"
+            style={{
+              margin: collapsed ? '8px 6px' : '12px 12px 6px',
+              padding: collapsed ? '8px 4px' : '12px',
+              borderRadius: 'var(--radius)',
+              background: 'rgba(30, 41, 59, 0.7)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+            }}
+            title="Bikash Shrestha (Kathmandu Central Hub Rider)"
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className="avatar"
+                style={{
+                  width: collapsed ? 36 : 40,
+                  height: collapsed ? 36 : 40,
+                  fontSize: 14,
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: '#fff',
+                  borderRadius: 'var(--radius-sm)',
+                  flexShrink: 0,
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Icons.Truck size={18} />
+              </span>
+              {!collapsed && (
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm text-white truncate">Bikash Shrestha</div>
+                  <div className="text-xs truncate font-mono" style={{ color: '#94a3b8' }}>BA 88 PA 4912</div>
+                </div>
+              )}
+            </div>
+
+            {!collapsed && (
+              <div className="store-details flex items-center justify-between mt-2.5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <span
+                  className="chip chip-sm"
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#34d399',
+                    fontSize: 10,
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                  }}
+                >
+                  ● Active On Duty
+                </span>
+                <span className="muted text-xs" style={{ color: '#64748b', fontSize: 10 }}>
+                  Kathmandu Hub
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -540,9 +625,52 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                     </span>
                   </div>
 
-                  {/* Dropdown Links for Vendor vs Admin */}
+                  {/* Dropdown Links for Vendor vs Admin vs Delivery */}
                   <div style={{ padding: '6px 8px' }}>
-                    {isVendor ? (
+                    {isDelivery ? (
+                      <>
+                        <Link
+                          to="/delivery"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <LayoutDashboard size={15} color="#10b981" /> Rider Dashboard
+                        </Link>
+                        <Link
+                          to="/delivery/tasks"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Icons.Truck size={15} color="#10b981" /> Assigned Tasks
+                        </Link>
+                        <Link
+                          to="/delivery/earnings"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <TrendingUp size={15} color="#10b981" /> Rider Earnings & Payouts
+                        </Link>
+                        <Link
+                          to="/delivery/cod-collection"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Wallet size={15} color="#10b981" /> COD Cash Ledger
+                        </Link>
+                        <Link
+                          to="/delivery/profile"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <User size={15} color="#10b981" /> Rider & Vehicle Profile
+                        </Link>
+                      </>
+                    ) : isVendor ? (
                       <>
                         <Link
                           to="/vendor/store-settings"
@@ -586,6 +714,14 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                           onClick={() => setUserDropdown(false)}
                         >
                           <LayoutDashboard size={15} color="#4f46e5" /> Admin Control Desk
+                        </Link>
+                        <Link
+                          to="/delivery"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Icons.Truck size={15} color="#10b981" /> Delivery Partner Portal
                         </Link>
                         <Link
                           to="/admin/vendors"

@@ -2,8 +2,8 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import CustomerHeader from './components/layout/CustomerHeader'
 import CustomerFooter from './components/layout/CustomerFooter'
 import DashboardLayout from './components/layout/DashboardLayout'
-import { AuthRoute, GuestRoute, VendorRoute, AdminRoute } from './components/layout/RouteGuards'
-import { VENDOR_NAV, ADMIN_NAV } from './utils/constants'
+import { AuthRoute, GuestRoute, VendorRoute, AdminRoute, DeliveryRoute } from './components/layout/RouteGuards'
+import { VENDOR_NAV, ADMIN_NAV, DELIVERY_NAV } from './utils/constants'
 
 import Home from './pages/Home'
 import Shop from './pages/Shop'
@@ -92,6 +92,15 @@ import AdminAnalytics from './pages/admin/AdminAnalytics'
 import AdminRoles from './pages/admin/AdminRoles'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminAuditLogs from './pages/admin/AdminAuditLogs'
+
+import DeliveryDashboard from './pages/delivery/DeliveryDashboard'
+import DeliveryTasks from './pages/delivery/DeliveryTasks'
+import DeliveryActiveRoute from './pages/delivery/DeliveryActiveRoute'
+import DeliveryHistory from './pages/delivery/DeliveryHistory'
+import DeliveryEarnings from './pages/delivery/DeliveryEarnings'
+import DeliveryCodLedger from './pages/delivery/DeliveryCodLedger'
+import DeliveryProfile from './pages/delivery/DeliveryProfile'
+import DeliverySupport from './pages/delivery/DeliverySupport'
 
 function CustomerLayout() {
   return (
@@ -219,6 +228,18 @@ export default function App() {
         <Route path="roles" element={<AdminRoles />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="audit-logs" element={<AdminAuditLogs />} />
+      </Route>
+
+      {/* Delivery Partner Portal */}
+      <Route path="/delivery" element={<DeliveryRoute><DashboardLayout nav={DELIVERY_NAV} title="Delivery Portal" roleLabel="Delivery Partner" /></DeliveryRoute>}>
+        <Route index element={<DeliveryDashboard />} />
+        <Route path="tasks" element={<DeliveryTasks />} />
+        <Route path="active" element={<DeliveryActiveRoute />} />
+        <Route path="history" element={<DeliveryHistory />} />
+        <Route path="earnings" element={<DeliveryEarnings />} />
+        <Route path="cod-collection" element={<DeliveryCodLedger />} />
+        <Route path="profile" element={<DeliveryProfile />} />
+        <Route path="support" element={<DeliverySupport />} />
       </Route>
     </Routes>
   )

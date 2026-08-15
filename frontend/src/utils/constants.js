@@ -152,6 +152,24 @@ export const VENDOR_NAV = [
   { to: '/vendor/notifications', label: 'Notifications', icon: 'Bell' },
 ]
 
+export const DELIVERY_NAV = [
+  { section: 'Dashboard' },
+  { to: '/delivery', label: 'Rider Dashboard', icon: 'LayoutDashboard', end: true },
+
+  { section: 'Deliveries' },
+  { to: '/delivery/tasks', label: 'Assigned Tasks', icon: 'Truck' },
+  { to: '/delivery/active', label: 'Active Route & Map', icon: 'MapPin' },
+  { to: '/delivery/history', label: 'Delivery History', icon: 'Clock' },
+
+  { section: 'Finance' },
+  { to: '/delivery/earnings', label: 'Earnings & Payouts', icon: 'TrendingUp' },
+  { to: '/delivery/cod-collection', label: 'COD Cash Ledger', icon: 'Wallet' },
+
+  { section: 'Support & Profile' },
+  { to: '/delivery/profile', label: 'Rider & Vehicle Profile', icon: 'UserCircle' },
+  { to: '/delivery/support', label: 'Dispatch Hub Support', icon: 'Headphones' },
+]
+
 export const ADMIN_NAV = [
   { section: 'Dashboard' },
   { to: '/admin', label: 'Dashboard', icon: 'LayoutDashboard', end: true },
