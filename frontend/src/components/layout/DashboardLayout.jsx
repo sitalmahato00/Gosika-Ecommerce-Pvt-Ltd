@@ -145,92 +145,91 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
           </button>
         </div>
 
-        {/* Store & Merchant / Admin Identity Profile Box */}
-        <div
-          className="store-identity-card"
-          style={{
-            margin: collapsed ? '8px 6px' : '12px 12px 6px',
-            padding: collapsed ? '8px 4px' : '12px',
-            borderRadius: 'var(--radius)',
-            background: 'rgba(30, 41, 59, 0.7)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-          }}
-          title={isVendor ? 'Koshi Handicrafts Pvt. Ltd. (Verified)' : 'GOSIKA Central HQ (Admin)'}
-        >
-          <div className="flex items-center gap-3">
-            <div style={{ position: 'relative' }}>
+        {/* Store & Merchant Identity Profile Box (Vendor only) */}
+        {isVendor && (
+          <div
+            className="store-identity-card"
+            style={{
+              margin: collapsed ? '8px 6px' : '12px 12px 6px',
+              padding: collapsed ? '8px 4px' : '12px',
+              borderRadius: 'var(--radius)',
+              background: 'rgba(30, 41, 59, 0.7)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+            }}
+            title="Koshi Handicrafts Pvt. Ltd. (Verified)"
+          >
+            <div className="flex items-center gap-3">
+              <div style={{ position: 'relative' }}>
+                <span
+                  className="avatar"
+                  style={{
+                    width: collapsed ? 36 : 40,
+                    height: collapsed ? 36 : 40,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                    color: '#fff',
+                    borderRadius: 'var(--radius-sm)',
+                    flexShrink: 0,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  K
+                </span>
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: -2,
+                    right: -2,
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    border: '2px solid #0f172a',
+                  }}
+                  title="Online"
+                />
+              </div>
+
+              <div className="store-details" style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{ color: '#fff', fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}
+                  className="truncate"
+                >
+                  Koshi Handicrafts
+                </div>
+                <div
+                  style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}
+                  className="truncate"
+                >
+                  hello@koshi.com.np
+                </div>
+              </div>
+            </div>
+
+            <div className="store-details flex items-center justify-between mt-2.5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <span
-                className="avatar"
+                className="chip chip-sm"
                 style={{
-                  width: collapsed ? 36 : 40,
-                  height: collapsed ? 36 : 40,
-                  fontSize: 14,
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  color: '#34d399',
+                  fontSize: 10,
                   fontWeight: 800,
-                  background: isVendor
-                    ? 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)'
-                    : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                  color: '#fff',
-                  borderRadius: 'var(--radius-sm)',
-                  flexShrink: 0,
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  padding: '2px 8px',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
                 }}
               >
-                {isVendor ? 'K' : 'A'}
+                <CheckCircle2 size={10} /> Verified Partner
               </span>
-              <span
-                style={{
-                  position: 'absolute',
-                  bottom: -2,
-                  right: -2,
-                  width: 10,
-                  height: 10,
-                  borderRadius: '50%',
-                  background: '#10b981',
-                  border: '2px solid #0f172a',
-                }}
-                title="Online"
-              />
-            </div>
-
-            <div className="store-details" style={{ minWidth: 0, flex: 1 }}>
-              <div
-                style={{ color: '#fff', fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}
-                className="truncate"
-              >
-                {isVendor ? 'Koshi Handicrafts' : user?.name || 'GOSIKA Platform HQ'}
-              </div>
-              <div
-                style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}
-                className="truncate"
-              >
-                {isVendor ? 'hello@koshi.com.np' : user?.email || 'admin@gosika.com.np'}
-              </div>
+              <span className="muted text-xs" style={{ color: '#64748b', fontSize: 10 }}>
+                Koshi Hub
+              </span>
             </div>
           </div>
-
-          <div className="store-details flex items-center justify-between mt-2.5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <span
-              className="chip chip-sm"
-              style={{
-                background: isVendor ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.15)',
-                color: isVendor ? '#34d399' : '#a5b4fc',
-                fontSize: 10,
-                fontWeight: 800,
-                padding: '2px 8px',
-                border: isVendor ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(99, 102, 241, 0.3)',
-              }}
-            >
-              {isVendor ? <CheckCircle2 size={10} /> : <ShieldCheck size={10} />}
-              {isVendor ? 'Verified Partner' : 'Platform Control'}
-            </span>
-            <span className="muted text-xs" style={{ color: '#64748b', fontSize: 10 }}>
-              {isVendor ? 'Koshi Hub' : 'Central Server'}
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* Sidebar Nav Links */}
         <nav className="dash-nav" aria-label="Dashboard menu">
