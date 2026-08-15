@@ -22,9 +22,29 @@ class RolePermissionSeeder extends Seeder
         $roles = [
             Roles::SUPER_ADMIN => Permissions::ALL,
             Roles::VENDOR_ADMIN => [
+                Permissions::VENDORS_VIEW,
+                Permissions::STORES_VIEW,
+                Permissions::STORES_MANAGE,
+                Permissions::PRODUCTS_VIEW,
+                Permissions::PRODUCTS_CREATE,
+                Permissions::PRODUCTS_UPDATE,
+                Permissions::PRODUCTS_DELETE,
+                Permissions::BRANDS_MANAGE,
+                Permissions::ORDERS_VIEW,
                 Permissions::ORDERS_MANAGE,
+                Permissions::ORDERS_CANCEL,
+                Permissions::ORDERS_REFUND,
+                Permissions::PAYMENTS_VIEW,
+                Permissions::WALLETS_VIEW,
+                Permissions::PAYOUTS_REQUEST,
+                Permissions::DELIVERIES_MANAGE,
+                Permissions::ANALYTICS_VIEW,
+                Permissions::TICKETS_VIEW,
             ],
-            Roles::DELIVERY_PARTNER => [],
+            Roles::DELIVERY_PARTNER => [
+                Permissions::ORDERS_VIEW,
+                Permissions::DELIVERIES_MANAGE,
+            ],
             Roles::CUSTOMER => [],
         ];
 
