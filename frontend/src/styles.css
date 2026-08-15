@@ -1184,12 +1184,14 @@ button {
 
 /* ---------- Dashboard layout ---------- */
 .dash-shell {
-  display: flex;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
   height: 100vh;
-  max-height: 100vh;
+  display: flex;
   overflow: hidden;
-  position: relative;
-  width: 100%;
+  background: var(--bg);
+  z-index: 1;
 }
 .dash-sidebar {
   width: var(--sidebar-width);
