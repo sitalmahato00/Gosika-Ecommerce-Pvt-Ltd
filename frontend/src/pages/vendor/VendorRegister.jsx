@@ -6,6 +6,7 @@ import Input from '../../components/ui/Input'
 import Textarea from '../../components/ui/Textarea'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
+import LocationMapPicker from '../../components/common/LocationMapPicker'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import { errorMessage } from '../../utils/format'
@@ -89,6 +90,30 @@ export default function VendorRegister() {
             <Input label="PAN / VAT number" value={form.pan_vat} onChange={(e) => setForm({ ...form, pan_vat: e.target.value })} />
             <Input label="Registration number" value={form.registration_number} onChange={(e) => setForm({ ...form, registration_number: e.target.value })} />
           </div>
+
+          <div style={{ margin: '14px 0' }}>
+            <LocationMapPicker
+              compact
+              title="Store / Workshop Location"
+              description="Pinpoint your business location on the Nepal map."
+              value={{
+                province: form.province || 'Bagmati Province',
+                district: form.district || 'Kathmandu',
+                municipality: form.municipality || 'Kathmandu',
+                street: form.address || '',
+              }}
+              onChange={(loc) => {
+                setForm((prev) => ({
+                  ...prev,
+                  province: loc.province,
+                  district: loc.district,
+                  municipality: loc.municipality,
+                  address: loc.street,
+                }))
+              }}
+            />
+          </div>
+
           <Textarea label="About your business" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What do you sell?" />
           <Button type="submit" block size="lg" disabled={loading}>
             {loading ? <Spinner size={16} color="#fff" /> : 'Submit application'}

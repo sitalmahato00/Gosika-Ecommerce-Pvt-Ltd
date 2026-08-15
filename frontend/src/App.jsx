@@ -42,6 +42,7 @@ import VendorWallet from './pages/vendor/VendorWallet'
 import VendorPayouts from './pages/vendor/VendorPayouts'
 import VendorSettlements from './pages/vendor/VendorSettlements'
 import VendorStores from './pages/vendor/VendorStores'
+import VendorStoreEdit from './pages/vendor/VendorStoreEdit'
 import VendorBankAccounts from './pages/vendor/VendorBankAccounts'
 import VendorBrandRequests from './pages/vendor/VendorBrandRequests'
 import VendorProfile from './pages/vendor/VendorProfile'
@@ -162,6 +163,9 @@ export default function App() {
         <Route path="payouts" element={<VendorPayouts />} />
         <Route path="settlements" element={<VendorSettlements />} />
         <Route path="stores" element={<VendorStores />} />
+        <Route path="stores/edit" element={<VendorStoreEdit />} />
+        <Route path="stores/:id/edit" element={<VendorStoreEdit />} />
+        <Route path="store/edit" element={<VendorStoreEdit />} />
         <Route path="bank-accounts" element={<VendorBankAccounts />} />
         <Route path="brand-requests" element={<VendorBrandRequests />} />
         <Route path="profile" element={<VendorProfile />} />

@@ -67,6 +67,44 @@ export function getProductImage(product, index = 0) {
   return apiImage(null, nameOrCategory || product.id || index)
 }
 
+export const FALLBACK_STORE_BANNERS = [
+  'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=80', // Artisan Shop / Boutique
+  'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&q=80', // Modern Retail Store
+  'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1200&q=80', // Cozy Storefront
+  'https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?w=1200&q=80', // Electronics & Gadgets Shop
+  'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=1200&q=80', // Organic Food & Tea Market
+]
+
+export const FALLBACK_STORE_LOGOS = [
+  'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&q=80',
+  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&q=80',
+  'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=300&q=80',
+  'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=300&q=80',
+  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&q=80',
+]
+
+export function getStoreImage(store) {
+  if (!store) return FALLBACK_STORE_LOGOS[0]
+  const explicit = store.logo_url || store.logo || store.image || store.avatar
+  if (explicit && typeof explicit === 'string' && explicit.trim()) {
+    return apiImage(explicit)
+  }
+  const name = store.name || store.company_name || store.store_name || ''
+  const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return FALLBACK_STORE_LOGOS[hash % FALLBACK_STORE_LOGOS.length]
+}
+
+export function getStoreBanner(store) {
+  if (!store) return FALLBACK_STORE_BANNERS[0]
+  const explicit = store.banner_url || store.banner || store.cover_image || store.cover
+  if (explicit && typeof explicit === 'string' && explicit.trim()) {
+    return apiImage(explicit)
+  }
+  const name = store.name || store.company_name || store.store_name || ''
+  const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return FALLBACK_STORE_BANNERS[hash % FALLBACK_STORE_BANNERS.length]
+}
+
 export function formatDate(value, opts = {}) {
   if (!value) return '—'
   const d = new Date(value)

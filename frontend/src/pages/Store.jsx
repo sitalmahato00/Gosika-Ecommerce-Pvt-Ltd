@@ -10,7 +10,7 @@ import ErrorState from '../components/ui/ErrorState'
 import EmptyState from '../components/ui/EmptyState'
 import Pagination from '../components/ui/Pagination'
 import { useList } from '../hooks/useApi'
-import { apiImage, errorMessage } from '../utils/format'
+import { apiImage, errorMessage, getStoreImage, getStoreBanner } from '../utils/format'
 
 export default function Store() {
   const { id } = useParams()
@@ -60,19 +60,19 @@ export default function Store() {
     return <div className="page-shell container"><ErrorState message={errorMessage(error, 'Store not found.')} /></div>
   }
 
+  const storeBanner = getStoreBanner(store)
+  const storeLogo = getStoreImage(store)
+
   return (
     <div className="page-shell container">
       <div className="card card-pad-none" style={{ overflow: 'hidden' }}>
-        <div style={{ height: 200, background: 'linear-gradient(120deg, var(--navy), var(--primary-darker))', position: 'relative' }}>
-          {store.banner && <img src={apiImage(store.banner)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} />}
+        <div style={{ height: 200, position: 'relative', overflow: 'hidden', background: 'var(--navy)' }}>
+          <img src={storeBanner} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,23,42,0.7) 0%, rgba(15,23,42,0.1) 60%)' }} />
         </div>
         <div style={{ padding: '0 20px 20px', position: 'relative' }}>
-          <div className="avatar" style={{ position: 'absolute', top: -36, width: 72, height: 72, border: '4px solid #fff', boxShadow: 'var(--shadow-md)' }}>
-            {store.logo ? (
-              <img src={apiImage(store.logo)} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <StoreIcon size={32} />
-            )}
+          <div className="avatar" style={{ position: 'absolute', top: -36, width: 72, height: 72, border: '4px solid #fff', boxShadow: 'var(--shadow-md)', overflow: 'hidden', background: '#fff' }}>
+            <img src={storeLogo} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ paddingTop: 44 }}>
             <div className="flex items-center gap-2 wrap">

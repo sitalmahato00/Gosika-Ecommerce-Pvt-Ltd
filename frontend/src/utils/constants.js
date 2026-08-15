@@ -70,6 +70,43 @@ export const NEPAL_PROVINCES = [
   'Sudurpashchim Province',
 ]
 
+export const NEPAL_DISTRICTS_BY_PROVINCE = {
+  'Koshi Province': ['Morang', 'Sunsari', 'Jhapa', 'Ilam', 'Dhankuta', 'Bhojpur', 'Terhathum', 'Sankhuwasabha', 'Taplejung', 'Panchthar', 'Udayapur', 'Okhaldhunga', 'Khotang', 'Solukhumbu'],
+  'Madhesh Province': ['Parsa', 'Bara', 'Rautahat', 'Sarlahi', 'Dhanusha', 'Mahottari', 'Siraha', 'Saptari'],
+  'Bagmati Province': ['Kathmandu', 'Lalitpur', 'Bhaktapur', 'Chitwan', 'Kavrepalanchok', 'Makwanpur', 'Nuwakot', 'Dhading', 'Sindhupalchok', 'Sindhuli', 'Ramechhap', 'Dolakha', 'Rasuwa'],
+  'Gandaki Province': ['Kaski', 'Tanahun', 'Syangja', 'Gorkha', 'Lamjung', 'Nawalpur', 'Baglung', 'Parbat', 'Myagdi', 'Mustang', 'Manang'],
+  'Lumbini Province': ['Rupandehi', 'Kapilvastu', 'Palpa', 'Arghakhanchi', 'Gulmi', 'Nawalparasi West', 'Dang', 'Banke', 'Bardiya', 'Pyuthan', 'Rolpa', 'Rukum East'],
+  'Karnali Province': ['Surkhet', 'Dailekh', 'Jajarkot', 'Salyan', 'Rukum West', 'Jumla', 'Kalikot', 'Mugu', 'Humla', 'Dolpa'],
+  'Sudurpashchim Province': ['Kailali', 'Kanchanpur', 'Dadeldhura', 'Baitadi', 'Darchula', 'Doti', 'Achham', 'Bajhang', 'Bajura'],
+}
+
+export const NEPAL_CITY_COORDINATES = {
+  'Kathmandu': { lat: 27.7172, lng: 85.3240, zoom: 14 },
+  'Lalitpur': { lat: 27.6588, lng: 85.3247, zoom: 14 },
+  'Bhaktapur': { lat: 27.6710, lng: 85.4298, zoom: 14 },
+  'Pokhara': { lat: 28.2096, lng: 83.9856, zoom: 14 },
+  'Biratnagar': { lat: 26.4525, lng: 87.2718, zoom: 14 },
+  'Dharan': { lat: 26.8124, lng: 87.2834, zoom: 14 },
+  'Bharatpur': { lat: 27.6833, lng: 84.4333, zoom: 14 },
+  'Butwal': { lat: 27.7006, lng: 83.4484, zoom: 14 },
+  'Nepalgunj': { lat: 28.0500, lng: 81.6167, zoom: 14 },
+  'Dhangadhi': { lat: 28.6833, lng: 80.6000, zoom: 14 },
+  'Birgunj': { lat: 27.0133, lng: 84.8778, zoom: 14 },
+  'Hetauda': { lat: 27.4286, lng: 85.0322, zoom: 14 },
+  'Janakpur': { lat: 26.7288, lng: 85.9244, zoom: 14 },
+}
+
+export const NEPAL_POPULAR_LOCATIONS = [
+  { name: 'Kathmandu - New Road / Durbar Square', province: 'Bagmati Province', district: 'Kathmandu', municipality: 'Kathmandu Metropolitan', address: 'New Road, Ward 22', lat: 27.7042, lng: 85.3120 },
+  { name: 'Kathmandu - Thamel / Lazimpat', province: 'Bagmati Province', district: 'Kathmandu', municipality: 'Kathmandu Metropolitan', address: 'Thamel Marg, Ward 26', lat: 27.7154, lng: 85.3123 },
+  { name: 'Lalitpur - Patan Durbar / Jhamsikhel', province: 'Bagmati Province', district: 'Lalitpur', municipality: 'Lalitpur Metropolitan', address: 'Jhamsikhel, Ward 3', lat: 27.6782, lng: 85.3140 },
+  { name: 'Pokhara - Lakeside / Baidam', province: 'Gandaki Province', district: 'Kaski', municipality: 'Pokhara Metropolitan', address: 'Lakeside Road, Ward 6', lat: 28.2096, lng: 83.9575 },
+  { name: 'Biratnagar - Main Bazaar / Traffic Chowk', province: 'Koshi Province', district: 'Morang', municipality: 'Biratnagar Metropolitan', address: 'Main Road, Ward 4', lat: 26.4525, lng: 87.2718 },
+  { name: 'Dharan - Bhanu Chowk / Putali Line', province: 'Koshi Province', district: 'Sunsari', municipality: 'Dharan Sub-Metropolitan', address: 'Bhanu Chowk, Ward 2', lat: 26.8124, lng: 87.2834 },
+  { name: 'Chitwan - Narayangarh / Lions Chowk', province: 'Bagmati Province', district: 'Chitwan', municipality: 'Bharatpur Metropolitan', address: 'Lions Chowk, Ward 1', lat: 27.6833, lng: 84.4333 },
+  { name: 'Butwal - Traffic Chowk / Golpark', province: 'Lumbini Province', district: 'Rupandehi', municipality: 'Butwal Sub-Metropolitan', address: 'Main Highway, Ward 4', lat: 27.7006, lng: 83.4484 },
+]
+
 export const PAYOUT_METHODS = ['bank_transfer', 'khalti', 'esewa']
 
 export const VENDOR_NAV = [

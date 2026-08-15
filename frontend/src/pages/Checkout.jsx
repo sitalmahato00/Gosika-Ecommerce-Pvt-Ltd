@@ -17,6 +17,7 @@ import Textarea from '../components/ui/Textarea'
 import Spinner from '../components/ui/Spinner'
 import { Skeleton } from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
+import LocationMapPicker from '../components/common/LocationMapPicker'
 import { NEPAL_PROVINCES } from '../utils/constants'
 
 const STEPS = [
@@ -534,30 +535,41 @@ export default function Checkout() {
       </div>
 
       {/* Add Address Modal */}
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Delivery Address">
-        <form onSubmit={saveAddress}>
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Delivery Address & Pin on Map" size="lg">
+        <form onSubmit={saveAddress} className="flex flex-col gap-3">
           <div className="form-row">
-            <Input label="Recipient Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Aarav Shrestha" />
-            <Input label="Phone Number" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="98XXXXXXXX" />
+            <Input label="Recipient Full Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Aarav Shrestha" />
+            <Input label="Mobile Phone (Nepal)" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="98XXXXXXXX" />
           </div>
-          <Input label="Address Label (optional)" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="e.g. Home, Office" />
-          <div className="form-row">
-            <Select label="Province" required value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })}>
-              <option value="">Select Province</option>
-              {NEPAL_PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </Select>
-            <Input label="District" required value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} placeholder="e.g. Kathmandu" />
-          </div>
-          <div className="form-row">
-            <Input label="Municipality / Local Body" required value={form.municipality} onChange={(e) => setForm({ ...form, municipality: e.target.value })} placeholder="e.g. Lalitpur Metropolitan" />
-            <Input label="Street / Tole / Area" value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} placeholder="e.g. Ward 4, Kumaripati" />
-          </div>
+          <Input label="Address Label (e.g. Home, Office)" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="e.g. Home" />
+
+          {/* Interactive Map & Location Picker */}
+          <LocationMapPicker
+            value={{
+              province: form.province,
+              district: form.district,
+              municipality: form.municipality,
+              street: form.street,
+            }}
+            onChange={(loc) => {
+              setForm((prev) => ({
+                ...prev,
+                province: loc.province,
+                district: loc.district,
+                municipality: loc.municipality,
+                street: loc.street,
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+              }))
+            }}
+          />
+
           <div className="checkbox-row mb-2">
             <input type="checkbox" id="defAddr" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} />
             <label htmlFor="defAddr" style={{ cursor: 'pointer' }}>Set as default shipping address</label>
           </div>
           <Button type="submit" block disabled={formSaving}>
-            {formSaving ? 'Saving Address…' : 'Save Address'}
+            {formSaving ? 'Saving Address…' : 'Save Delivery Address'}
           </Button>
         </form>
       </Modal>
