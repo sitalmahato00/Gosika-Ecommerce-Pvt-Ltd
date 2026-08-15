@@ -22,7 +22,9 @@ class PlatformTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJson([
                 'data' => [
-                    'commission.default_rate' => '10',
+                    'commission' => [
+                        'default_rate' => 10,
+                    ],
                 ],
             ])
             ->assertJsonMissingPath('data.internal.secret');

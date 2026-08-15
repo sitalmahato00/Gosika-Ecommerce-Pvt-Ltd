@@ -5,6 +5,7 @@ import api from '../api/client'
 import ErrorState from '../components/ui/ErrorState'
 import { Skeleton } from '../components/ui/Skeleton'
 import { money, formatDate, errorMessage } from '../utils/format'
+import { PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../utils/constants'
 
 export default function OrderSuccess() {
   const { state } = useLocation()
@@ -12,7 +13,7 @@ export default function OrderSuccess() {
   const [loading, setLoading] = useState(!state?.order && !!state?.orderId)
   const [error, setError] = useState(null)
   const orderId = state?.orderId || order?.id
-  const khalti = state?.khalti
+  const onlinePayment = state?.khalti || state?.esewa
 
   const load = () => {
     if (!orderId) return
@@ -66,20 +67,20 @@ export default function OrderSuccess() {
           Thank you for shopping on Gosika. Your order <strong className="text-primary">#{order.order_number || order.id}</strong> has been placed.
           {order.payment_method === 'cod' && ' Pay cash on delivery when your order arrives.'}
         </p>
-        {khalti && (
+        {onlinePayment && (
           <div className="alert alert-warning" style={{ textAlign: 'left' }}>
             <Clock size={18} />
             <div>
-              <strong>Complete your Khalti payment</strong>
+              <strong>Complete your {PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method} payment</strong>
               <br />
-              We opened a Khalti payment window. Your order will be confirmed once the payment is verified. You can also
-              check payment status on your order page.
+              We redirected you to {PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method} to complete the payment. Your
+              order will be confirmed once the payment is verified. You can also check payment status on your order page.
             </div>
           </div>
         )}
         <div className="card" style={{ background: 'var(--bg)', maxWidth: 360, margin: '20px auto' }}>
           <div className="flex justify-between text-sm"><span className="muted">Total paid</span><span className="font-bold">{money(order.grand_total)}</span></div>
-          <div className="flex justify-between text-sm mt-1"><span className="muted">Payment</span><span className="font-medium">{order.payment_method === 'cod' ? 'Cash on Delivery' : 'Khalti'}</span></div>
+          <div className="flex justify-between text-sm mt-1"><span className="muted">Payment</span><span className="font-medium flex items-center gap-1">{order.payment_method === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 16, width: 'auto' }} />}{PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method}</span></div>
           {(order.estimated_delivery || order.delivery_eta) && (
             <div className="flex justify-between text-sm mt-1"><span className="muted">Estimated delivery</span><span className="font-medium">{formatDate(order.estimated_delivery || order.delivery_eta)}</span></div>
           )}

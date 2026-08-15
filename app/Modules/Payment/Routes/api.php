@@ -13,6 +13,7 @@ Route::prefix('v1/payments')->group(function () {
     });
 
     Route::post('khalti/callback', [PaymentController::class, 'callback'])->middleware('throttle:payment');
+    Route::post('esewa/callback', [PaymentController::class, 'esewaCallback'])->middleware('throttle:payment');
 });
 
 Route::prefix('v1/admin')->group(function () {

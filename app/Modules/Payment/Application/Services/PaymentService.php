@@ -10,6 +10,8 @@ use App\Modules\Payment\Domain\Exceptions\PaymentProviderException;
 use App\Modules\Payment\Infrastructure\Models\Payment;
 use App\Modules\Payment\Infrastructure\Models\PaymentAttempt;
 use App\Modules\Payment\Infrastructure\Models\PaymentStatusHistory;
+use App\Modules\Payment\Infrastructure\Services\EsewaProvider;
+use App\Modules\Platform\Infrastructure\Models\Setting;
 use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Enums\PaymentMethod;
@@ -19,22 +21,19 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentService
 {
-    protected ?PaymentProviderContract $provider = null;
+    /** @var array<string, PaymentProviderContract> */
+    protected array $providers = [];
 
-    public function __construct()
+    public function setProvider(string $method, PaymentProviderContract $provider): self
     {
-    }
-
-    public function setProvider(PaymentProviderContract $provider): self
-    {
-        $this->provider = $provider;
+        $this->providers[$method] = $provider;
 
         return $this;
     }
 
-    public function provider(): ?PaymentProviderContract
+    public function provider(string $method): ?PaymentProviderContract
     {
-        return $this->provider;
+        return $this->providers[$method] ?? null;
     }
 
     public function forUser(User $user, string $uuid): ?Payment
@@ -47,13 +46,15 @@ class PaymentService
         return Payment::query()->forOrder($order->id)->orderByDesc('id')->first();
     }
 
-    public function initiate(Order $order, User $user, string $method): Payment
+    public function initiate(Order $order, User $user, string $method, array $options = []): Payment
     {
         if ($order->payment_status->value === OrderPaymentStatus::PAID->value) {
             throw new PaymentProviderException('Order has already been paid.', 422);
         }
 
-        $payment = DB::transaction(function () use ($order, $user, $method) {
+        $provider = $this->provider($method);
+
+        $payment = DB::transaction(function () use ($order, $user, $method, $provider) {
             $payment = new Payment();
             $payment->payment_number = ReferenceNumber::unique('PAY');
             $payment->order_id = $order->id;
@@ -61,7 +62,7 @@ class PaymentService
             $payment->amount = (float) $order->grand_total;
             $payment->currency = $order->currency ?? 'NPR';
             $payment->method = $method;
-            $payment->provider = $this->provider ? $this->provider->name() : $method;
+            $payment->provider = $provider?->name() ?? $method;
             $payment->status = PaymentStatus::INITIATED;
             $payment->payer_name = $user->name;
             $payment->payer_email = $user->email;
@@ -81,19 +82,29 @@ class PaymentService
         });
 
         if ($method === PaymentMethod::KHALTI->value) {
-            if (! $this->provider) {
+            if (! $provider) {
                 $this->fail($payment, PaymentStatus::FAILED, 'Khalti payment is not configured.', $user->id);
 
                 throw new PaymentProviderException('Khalti payment is not configured.', 422);
             }
 
-            $this->requestProviderPayment($payment, $user, $order);
+            $this->requestKhaltiPayment($payment, $user, $order);
+        }
+
+        if ($method === PaymentMethod::ESEWA->value) {
+            if (! $provider) {
+                $this->fail($payment, PaymentStatus::FAILED, 'eSewa payment is not configured.', $user->id);
+
+                throw new PaymentProviderException('eSewa payment is not configured.', 422);
+            }
+
+            $this->requestEsewaPayment($payment, $user, $order, $options);
         }
 
         return $payment->fresh(['order']);
     }
 
-    protected function requestProviderPayment(Payment $payment, User $user, Order $order): void
+    protected function requestKhaltiPayment(Payment $payment, User $user, Order $order): void
     {
         $amountPaisa = (int) round((float) $payment->amount * 100);
 
@@ -119,7 +130,7 @@ class PaymentService
         ]);
 
         try {
-            $result = $this->provider->initiate($payload);
+            $result = $this->provider(PaymentMethod::KHALTI->value)->initiate($payload);
 
             $payment->provider_pidx = $result['pidx'] ?? null;
             $payment->provider_response = $result;
@@ -133,7 +144,72 @@ class PaymentService
                 'completed_at' => now(),
             ]);
 
-            $this->recordStatus($payment, PaymentStatus::INITIATED, PaymentStatus::PROCESSING, 'Redirected to '.$this->provider->name().'.', $user->id);
+            $this->recordStatus($payment, PaymentStatus::INITIATED, PaymentStatus::PROCESSING, 'Redirected to Khalti.', $user->id);
+        } catch (\Throwable $e) {
+            $attempt->update([
+                'status' => PaymentStatus::EXCEPTION->value,
+                'response_payload' => ['error' => $e->getMessage()],
+                'error_message' => $e->getMessage(),
+                'completed_at' => now(),
+            ]);
+
+            $from = $payment->status;
+            $payment->status = PaymentStatus::EXCEPTION;
+            $payment->save();
+
+            $this->recordStatus($payment, $from, PaymentStatus::EXCEPTION, 'Provider initiate failed: '.$e->getMessage(), $user->id);
+
+            throw new PaymentProviderException('Unable to initiate payment. Please try again.', 502);
+        }
+    }
+
+    protected function requestEsewaPayment(Payment $payment, User $user, Order $order, array $options = []): void
+    {
+        $total = (float) $payment->amount;
+        $tax = (float) ($order->tax ?? 0);
+        $delivery = (float) ($order->delivery_charge ?? 0);
+        $amount = round($total - $tax - $delivery, 2);
+
+        $payload = [
+            'amount' => $amount,
+            'tax_amount' => $tax,
+            'total_amount' => $total,
+            'product_service_charge' => 0,
+            'product_delivery_charge' => $delivery,
+            'transaction_uuid' => $payment->payment_number,
+        ];
+
+        if (! empty($options['success_url'])) {
+            $payload['success_url'] = (string) $options['success_url'];
+        }
+
+        if (! empty($options['failure_url'])) {
+            $payload['failure_url'] = (string) $options['failure_url'];
+        }
+
+        $attempt = PaymentAttempt::create([
+            'payment_id' => $payment->id,
+            'attempt_number' => $payment->attempts()->count() + 1,
+            'status' => PaymentStatus::INITIATED->value,
+            'request_payload' => $payload,
+            'initiated_at' => now(),
+        ]);
+
+        try {
+            $result = $this->provider(PaymentMethod::ESEWA->value)->initiate($payload);
+
+            $payment->provider_transaction_id = $payload['transaction_uuid'];
+            $payment->provider_response = $result;
+            $payment->status = PaymentStatus::PROCESSING;
+            $payment->save();
+
+            $attempt->update([
+                'status' => PaymentStatus::PROCESSING->value,
+                'response_payload' => $result,
+                'completed_at' => now(),
+            ]);
+
+            $this->recordStatus($payment, PaymentStatus::INITIATED, PaymentStatus::PROCESSING, 'Redirected to eSewa.', $user->id);
         } catch (\Throwable $e) {
             $attempt->update([
                 'status' => PaymentStatus::EXCEPTION->value,
@@ -176,11 +252,13 @@ class PaymentService
             $this->fail($payment, PaymentStatus::EXPIRED, 'Payment link expired.');
         }
 
-        if (! $this->provider) {
+        $provider = $this->provider($payment->method);
+
+        if (! $provider) {
             return $payment;
         }
 
-        $result = $this->provider->lookup($pidx);
+        $result = $provider->lookup($pidx);
         $payment->provider_response = $result;
         $payment->provider_transaction_id = $result['transaction_id'] ?? null;
 
@@ -216,6 +294,89 @@ class PaymentService
         $from = $payment->status;
         $payment->provider_response = $result;
         $this->fail($payment, PaymentStatus::FAILED, 'Provider status: '.$providerStatus);
+
+        return $payment;
+    }
+
+    public function verifyFromEsewaCallback(array $decoded): Payment
+    {
+        $transactionUuid = $decoded['transaction_uuid'] ?? null;
+
+        if (! $transactionUuid) {
+            throw new PaymentProviderException('Invalid eSewa payment callback.', 422);
+        }
+
+        $payment = Payment::query()->where('provider_transaction_id', $transactionUuid)->first();
+
+        if (! $payment) {
+            throw new PaymentProviderException('Payment reference not found.', 404);
+        }
+
+        if ($payment->isPaid()) {
+            return $payment;
+        }
+
+        $payment->load('order');
+
+        $provider = $this->provider($payment->method);
+
+        if ($provider) {
+            $signedFieldNames = (string) ($decoded['signed_field_names'] ?? '');
+            $receivedSignature = (string) ($decoded['signature'] ?? '');
+
+            if ($signedFieldNames !== '' && $receivedSignature !== '') {
+                $signedFields = array_map('trim', explode(',', $signedFieldNames));
+                $parts = [];
+
+                foreach ($signedFields as $field) {
+                    $parts[] = $field.'='.($decoded[$field] ?? '');
+                }
+
+                $expected = EsewaProvider::sign(implode(',', $parts), (string) Setting::get('payment.esewa_secret_key', config('services.esewa.secret_key')));
+
+                if (! hash_equals($expected, $receivedSignature)) {
+                    $this->fail($payment, PaymentStatus::EXCEPTION, 'eSewa callback signature mismatch.');
+
+                    return $payment;
+                }
+            }
+
+            $result = $provider->lookup($transactionUuid, ['total_amount' => $payment->amount]);
+            $payment->provider_response = $result;
+
+            $providerStatus = strtoupper((string) ($result['status'] ?? ''));
+
+            if ($providerStatus === 'COMPLETE') {
+                $providerAmount = (float) ($result['total_amount'] ?? 0);
+                $expectedAmount = (float) $payment->amount;
+
+                if (abs($providerAmount - $expectedAmount) > 0.01) {
+                    $from = $payment->status;
+                    $payment->status = PaymentStatus::EXCEPTION;
+                    $payment->save();
+
+                    $this->recordStatus($payment, $from, PaymentStatus::EXCEPTION, 'Amount mismatch (provider '.$providerAmount.' vs expected '.$expectedAmount.').', $payment->user_id);
+
+                    return $payment;
+                }
+
+                return $this->markPaid($payment);
+            }
+
+            if (in_array($providerStatus, ['PENDING', 'AMBIGUOUS'], true)) {
+                $from = $payment->status;
+                $payment->status = PaymentStatus::PROCESSING;
+                $payment->save();
+
+                $this->recordStatus($payment, $from, PaymentStatus::PROCESSING, 'Payment pending at eSewa.', $payment->user_id);
+
+                return $payment;
+            }
+
+            $from = $payment->status;
+            $payment->provider_response = $result;
+            $this->fail($payment, PaymentStatus::FAILED, 'Provider status: '.$providerStatus);
+        }
 
         return $payment;
     }

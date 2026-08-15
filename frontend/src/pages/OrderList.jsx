@@ -9,6 +9,7 @@ import ErrorState from '../components/ui/ErrorState'
 import Pagination from '../components/ui/Pagination'
 import { ProductCardSkeletonMini } from '../components/ui/Skeleton'
 import { money, formatDateTime, apiImage, getProductImage } from '../utils/format'
+import { PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../utils/constants'
 
 const STATUS_TABS = [
   { value: '', label: 'All' },
@@ -123,7 +124,7 @@ export default function OrderList() {
               </div>
               <div className="text-right">
                 <div className="price-current" style={{ fontSize: 17 }}>{money(o.grand_total)}</div>
-                <div className="muted text-xs">{o.payment_method === 'cod' ? 'Cash on Delivery' : 'Khalti'}</div>
+                <div className="muted text-xs flex items-center justify-end gap-1">{o.payment_method === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 12, width: 'auto' }} />}{PAYMENT_METHOD_LABELS[o.payment_method] || o.payment_method}</div>
               </div>
             </div>
               <div className="flex gap-2 mt-2" style={{ overflow: 'hidden' }}>

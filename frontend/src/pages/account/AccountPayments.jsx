@@ -6,7 +6,7 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { money, formatDateTime, humanizeEnum, errorMessage } from '../../utils/format'
-import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from '../../utils/constants'
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, PAYMENT_BRAND_LOGOS } from '../../utils/constants'
 
 export default function AccountPayments() {
   const [orders, setOrders] = useState([])
@@ -49,7 +49,7 @@ export default function AccountPayments() {
                 <tr key={o.id}>
                   <td><Link to={`/orders/${o.id}`} className="font-medium">#{o.order_number}</Link></td>
                   <td>{formatDateTime(o.placed_at)}</td>
-                  <td>{PAYMENT_METHOD_LABELS[o.payment_method] || humanizeEnum(o.payment_method) || '—'}</td>
+                  <td className="flex items-center gap-1">{o.payment_method === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 13, width: 'auto' }} />}{PAYMENT_METHOD_LABELS[o.payment_method] || humanizeEnum(o.payment_method) || '—'}</td>
                   <td>{PAYMENT_STATUS_LABELS[o.payment_status] || humanizeEnum(o.payment_status) || '—'}</td>
                   <td className="font-semibold">{money(o.grand_total)}</td>
                 </tr>

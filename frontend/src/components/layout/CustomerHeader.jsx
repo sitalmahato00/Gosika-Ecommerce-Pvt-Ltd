@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext'
 import { initials } from '../../utils/format'
 import Drawer from '../ui/Drawer'
 import api from '../../api/client'
+import { getCategoryIcon } from '../../utils/icons'
 
 function Logo({ size = 'md' }) {
   const fontSize = size === 'sm' ? 18 : 22
@@ -282,12 +283,15 @@ export default function CustomerHeader() {
         <div className="container nav-bar-inner">
           <NavLink to="/shop" className="nav-link" end>All Products</NavLink>
           <NavLink to="/shop?sort=newest" className="nav-link">New Arrivals</NavLink>
-          {categories.map((c) => (
-            <NavLink key={c.id} to={`/shop?category=${c.slug}`} className="nav-link">
-              {c.icon && <span style={{ fontSize: 14 }}>{c.icon}</span>}
-              {c.name}
-            </NavLink>
-          ))}
+          {categories.map((c, i) => {
+            const Icon = getCategoryIcon(c, i)
+            return (
+              <NavLink key={c.id} to={`/shop?category=${c.slug}`} className="nav-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Icon size={14} color="var(--primary)" />
+                {c.name}
+              </NavLink>
+            )
+          })}
           <NavLink to="/shop?filter=deals" className="nav-link nav-link-deals" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <Flame size={14} color="var(--danger)" /> Deals
           </NavLink>
@@ -339,17 +343,20 @@ export default function CustomerHeader() {
           {categories.length > 0 && (
             <>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', padding: '12px 0 4px', letterSpacing: '0.06em' }}>Categories</div>
-              {categories.map((c) => (
-                <Link
-                  key={c.id}
-                  className="dash-nav-link"
-                  style={{ color: 'var(--ink)', background: 'none' }}
-                  to={`/shop?category=${c.slug}`}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {c.icon && <span>{c.icon}</span>} {c.name}
-                </Link>
-              ))}
+              {categories.map((c, i) => {
+                const Icon = getCategoryIcon(c, i)
+                return (
+                  <Link
+                    key={c.id}
+                    className="dash-nav-link"
+                    style={{ color: 'var(--ink)', background: 'none' }}
+                    to={`/shop?category=${c.slug}`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <Icon size={15} color="var(--primary)" /> {c.name}
+                  </Link>
+                )
+              })}
             </>
           )}
 

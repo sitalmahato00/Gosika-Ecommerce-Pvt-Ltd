@@ -8,7 +8,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Button from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
 import { money, formatDateTime, apiImage, errorMessage } from '../utils/format'
-import { ORDER_STATUS_FLOW, ORDER_STATUS_LABELS } from '../utils/constants'
+import { ORDER_STATUS_FLOW, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../utils/constants'
 import { useToast } from '../context/ToastContext'
 
 export default function OrderDetail() {
@@ -58,6 +58,49 @@ export default function OrderDetail() {
     }
   }
 
+  const [paying, setPaying] = useState(false)
+  const initiatePayment = async () => {
+    setPaying(true)
+    try {
+      if (order.payment_method === 'khalti') {
+        const payRes = await api.post('/payments/initiate', { order_id: order.id, method: 'khalti' })
+        const payment = payRes.data.data
+        if (payment?.payment_url) {
+          window.open(payment.payment_url, '_blank', 'noopener')
+          toast.info('Please complete payment in the opened tab.')
+        }
+      } else if (order.payment_method === 'esewa') {
+        const payRes = await api.post('/payments/initiate', {
+          order_id: order.id,
+          method: 'esewa',
+          success_url: `${window.location.origin}/payments/esewa/callback`,
+          failure_url: `${window.location.origin}/payments/esewa/callback?status=failure`,
+        })
+        const payment = payRes.data.data
+        if (payment?.payment_form?.action && payment?.payment_form?.fields) {
+          const formEl = document.createElement('form')
+          formEl.method = 'POST'
+          formEl.action = payment.payment_form.action
+          formEl.style.display = 'none'
+          Object.entries(payment.payment_form.fields).forEach(([key, value]) => {
+            const input = document.createElement('input')
+            input.type = 'hidden'
+            input.name = key
+            input.value = String(value)
+            formEl.appendChild(input)
+          })
+          document.body.appendChild(formEl)
+          toast.info('Redirecting to eSewa to complete payment…')
+          formEl.submit()
+        }
+      }
+    } catch (err) {
+      toast.error('Failed to initiate payment: ' + errorMessage(err))
+    } finally {
+      setPaying(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="page-shell container">
@@ -90,6 +133,11 @@ export default function OrderDetail() {
           <div className="flex items-center gap-2">
             <StatusBadge status={order.status} />
             <StatusBadge status={order.payment_status} />
+            {order.payment_status === 'payment_pending' && ['khalti', 'esewa'].includes(order.payment_method) && (
+               <Button variant="primary" size="sm" onClick={initiatePayment} disabled={paying}>
+                 {paying ? 'Processing...' : 'Pay Now'}
+               </Button>
+            )}
             {order.can_cancel && (
               <Button variant="danger-outline" size="sm" onClick={() => setCancelOpen(true)}>Cancel order</Button>
             )}
@@ -179,7 +227,7 @@ export default function OrderDetail() {
               <div className="flex justify-between mt-1" style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
                 <span className="font-bold">Total</span><span className="price-current">{money(order.grand_total)}</span>
               </div>
-              <div className="flex justify-between mt-1"><span className="muted">Payment</span><span className="font-medium">{order.payment_method === 'cod' ? 'Cash on Delivery' : 'Khalti'}</span></div>
+              <div className="flex justify-between mt-1"><span className="muted">Payment</span><span className="font-medium flex items-center gap-1">{order.payment_method === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 14, width: 'auto' }} />}{PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method}</span></div>
             </div>
           </div>
 

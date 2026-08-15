@@ -2,13 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   MapPin, Plus, CreditCard, Banknote, CheckCircle2,
-  Lock, ArrowRight, ArrowLeft, ChevronRight
+  Lock, ArrowRight, ArrowLeft, ChevronRight, Wallet
 } from 'lucide-react'
 import api from '../api/client'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { money, errorMessage, apiImage, getProductImage } from '../utils/format'
+import { PAYMENT_BRAND_LOGOS } from '../utils/constants'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import Input from '../components/ui/Input'
@@ -26,12 +27,13 @@ const STEPS = [
 export default function Checkout() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { cart, loading: cartLoading } = useCart()
+  const { cart, loading: cartLoading, fetchCart } = useCart()
   const toast = useToast()
 
   const [summary, setSummary] = useState(null)
   const [addresses, setAddresses] = useState([])
   const [config, setConfig] = useState(null)
+  const [provinces, setProvinces] = useState([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
@@ -56,8 +58,9 @@ export default function Checkout() {
       api.get('/checkout/summary'),
       api.get('/customer/addresses'),
       api.get('/platform/config'),
+      api.get('/platform/provinces'),
     ])
-      .then(([s, a, c]) => {
+      .then(([s, a, c, p]) => {
         setSummary(s.data.data)
         const list = a.data.data || a.data || []
         setAddresses(list)
@@ -67,7 +70,12 @@ export default function Checkout() {
           setBillingId(def.id)
         }
         setConfig(c.data.data)
-        setPaymentMethod(c.data.data?.checkout?.cod_enabled ? 'cod' : 'khalti')
+        setProvinces(p.data.data || [])
+        const cfg = c.data.data
+        const codOn = cfg?.checkout?.cod_enabled
+        const khaltiOn = cfg?.payment?.khalti_enabled
+        const esewaOn = cfg?.payment?.esewa_enabled
+        setPaymentMethod(codOn ? 'cod' : khaltiOn ? 'khalti' : esewaOn ? 'esewa' : 'cod')
       })
       .catch((e) => toast.error(errorMessage(e)))
       .finally(() => setLoading(false))
@@ -75,6 +83,7 @@ export default function Checkout() {
 
   const codEnabled = config?.checkout?.cod_enabled ?? true
   const khaltiEnabled = config?.payment?.khalti_enabled ?? true
+  const esewaEnabled = config?.payment?.esewa_enabled ?? false
   const codMax = Number(config?.checkout?.cod_max_amount || 50000)
   const total = Number(summary?.total || 0)
   const codAllowed = codEnabled && total <= codMax
@@ -100,14 +109,59 @@ export default function Checkout() {
         badge: 'Instant',
       })
     }
+    if (esewaEnabled) {
+      opts.push({
+        value: 'esewa',
+        label: 'eSewa Digital Wallet',
+        icon: Wallet,
+        logo: PAYMENT_BRAND_LOGOS.esewa,
+        desc: 'Pay securely with eSewa wallet, internet banking or mobile banking.',
+        badge: 'Instant',
+      })
+    }
     return opts
-  }, [codEnabled, khaltiEnabled, codAllowed])
+  }, [codEnabled, khaltiEnabled, esewaEnabled, codAllowed])
+
+  const resolveGeoIds = async (loc) => {
+    let provinceId = null
+    let districtId = null
+    let municipalityId = null
+    const prov = provinces.find((p) => p.name === loc.province)
+    if (prov) {
+      provinceId = prov.uuid
+      const dres = await api.get('/platform/districts', { params: { province_id: prov.id } })
+      const dist = (dres.data.data || []).find((d) => d.name === loc.district)
+      if (dist) {
+        districtId = dist.uuid
+        const mres = await api.get('/platform/municipalities', { params: { district_id: dist.id } })
+        const mun = (mres.data.data || []).find((m) => m.name === loc.municipality)
+        municipalityId = mun ? mun.uuid : null
+      }
+    }
+    return { provinceId, districtId, municipalityId }
+  }
 
   const saveAddress = async (e) => {
     e.preventDefault()
     setFormSaving(true)
     try {
-      await api.post('/customer/addresses', form)
+      const geo = await resolveGeoIds(form)
+      await api.post('/customer/addresses', {
+        address_type: 'shipping',
+        label: form.label || 'Home',
+        full_name: form.name,
+        phone: form.phone,
+        address_line_1: form.street,
+        address_line_2: '',
+        province_id: geo.provinceId,
+        district_id: geo.districtId,
+        municipality_id: geo.municipalityId,
+        postal_code: '',
+        landmark: form.landmark || '',
+        latitude: form.latitude != null ? String(form.latitude) : null,
+        longitude: form.longitude != null ? String(form.longitude) : null,
+        is_default: form.is_default,
+      })
       const res = await api.get('/customer/addresses')
       const list = res.data.data || res.data || []
       setAddresses(list)
@@ -140,13 +194,55 @@ export default function Checkout() {
         customer_notes: notes || undefined,
       })
       const order = orderRes.data.data
+      
+      // Order created successfully, cart is cleared on backend. Refresh frontend cart.
+      fetchCart()
+
       if (paymentMethod === 'khalti') {
-        const payRes = await api.post('/payments/initiate', { order_id: order.id, method: 'khalti' })
-        const payment = payRes.data.data
-        if (payment?.payment_url) {
-          window.open(payment.payment_url, '_blank', 'noopener')
-          toast.info('Please complete payment in the opened tab.')
-          navigate('/order-success', { state: { order, orderId: order?.id, khalti: true, paymentId: payment.id } })
+        try {
+          const payRes = await api.post('/payments/initiate', { order_id: order.id, method: 'khalti' })
+          const payment = payRes.data.data
+          if (payment?.payment_url) {
+            window.open(payment.payment_url, '_blank', 'noopener')
+            toast.info('Please complete payment in the opened tab.')
+            navigate('/order-success', { state: { order, orderId: order?.id, khalti: true, paymentId: payment.id } })
+            return
+          }
+        } catch (payErr) {
+          toast.error('Failed to initiate Khalti payment: ' + errorMessage(payErr))
+          navigate('/order-success', { state: { order, orderId: order?.id } })
+          return
+        }
+      }
+      if (paymentMethod === 'esewa') {
+        try {
+          const payRes = await api.post('/payments/initiate', {
+            order_id: order.id,
+            method: 'esewa',
+            success_url: `${window.location.origin}/payments/esewa/callback`,
+            failure_url: `${window.location.origin}/payments/esewa/callback?status=failure`,
+          })
+          const payment = payRes.data.data
+          if (payment?.payment_form?.action && payment?.payment_form?.fields) {
+            const formEl = document.createElement('form')
+            formEl.method = 'POST'
+            formEl.action = payment.payment_form.action
+            formEl.style.display = 'none'
+            Object.entries(payment.payment_form.fields).forEach(([key, value]) => {
+              const input = document.createElement('input')
+              input.type = 'hidden'
+              input.name = key
+              input.value = String(value)
+              formEl.appendChild(input)
+            })
+            document.body.appendChild(formEl)
+            toast.info('Redirecting to eSewa to complete payment…')
+            formEl.submit()
+            return
+          }
+        } catch (payErr) {
+          toast.error('Failed to initiate eSewa payment: ' + errorMessage(payErr))
+          navigate('/order-success', { state: { order, orderId: order?.id } })
           return
         }
       }
@@ -260,13 +356,13 @@ export default function Checkout() {
                             onChange={() => { setShippingId(a.id); if (sameAsBilling) setBillingId(a.id) }}
                             style={{ accentColor: 'var(--primary)' }}
                           />
-                          <span className="font-semibold" style={{ fontSize: 14 }}>{a.name}</span>
+                          <span className="font-semibold" style={{ fontSize: 14 }}>{a.full_name || a.name}</span>
                           {a.label && <span className="chip chip-sm">{a.label}</span>}
                           {a.is_default && <span className="badge badge-primary">Default</span>}
                         </div>
                       </div>
                       <div className="muted text-sm" style={{ marginTop: 6, paddingLeft: 24 }}>
-                        {a.street && `${a.street}, `}{a.municipality}, {a.district}, {a.province}
+                        {a.address_line_1 && `${a.address_line_1}, `}{a.municipality?.name || a.municipality || ''}{a.district?.name || a.district ? `, ${a.district?.name || a.district}` : ''}{a.province?.name || a.province ? `, ${a.province?.name || a.province}` : ''}
                       </div>
                       <div className="muted text-xs" style={{ marginTop: 4, paddingLeft: 24 }}>
                         Phone: <strong style={{ color: 'var(--ink)' }}>{a.phone}</strong>
@@ -313,10 +409,10 @@ export default function Checkout() {
                             onChange={() => setBillingId(a.id)}
                             style={{ accentColor: 'var(--primary)' }}
                           />
-                          <span className="font-semibold">{a.name}</span>
+                          <span className="font-semibold">{a.full_name || a.name}</span>
                         </div>
                         <div className="muted text-xs" style={{ marginTop: 4, paddingLeft: 24 }}>
-                          {a.municipality}, {a.district}, {a.province}
+                          {a.municipality?.name || a.municipality}{a.district?.name || a.district ? `, ${a.district?.name || a.district}` : ''}{a.province?.name || a.province ? `, ${a.province?.name || a.province}` : ''}
                         </div>
                       </div>
                     ))}
@@ -369,7 +465,11 @@ export default function Checkout() {
                       style={{ accentColor: 'var(--primary)' }}
                     />
                     <div className="payment-method-icon">
-                      <o.icon size={22} color="var(--primary)" />
+                      {o.logo ? (
+                        <img src={o.logo} alt={o.label} style={{ width: 64, height: 'auto', maxHeight: 34, objectFit: 'contain' }} />
+                      ) : (
+                        <o.icon size={22} color="var(--primary)" />
+                      )}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div className="flex items-center gap-2">
@@ -419,9 +519,9 @@ export default function Checkout() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <div>
                     <span className="muted text-xs uppercase font-semibold">Delivery To</span>
-                    <div className="font-semibold text-sm mt-1">{selectedAddress?.name}</div>
+                    <div className="font-semibold text-sm mt-1">{selectedAddress?.full_name || selectedAddress?.name}</div>
                     <div className="muted text-xs mt-1">
-                      {selectedAddress?.street && `${selectedAddress.street}, `}{selectedAddress?.municipality}, {selectedAddress?.district}, {selectedAddress?.province}
+                      {selectedAddress?.address_line_1 && `${selectedAddress.address_line_1}, `}{selectedAddress?.municipality?.name || selectedAddress?.municipality || ''}{selectedAddress?.district?.name || selectedAddress?.district ? `, ${selectedAddress?.district?.name || selectedAddress?.district}` : ''}{selectedAddress?.province?.name || selectedAddress?.province ? `, ${selectedAddress?.province?.name || selectedAddress?.province}` : ''}
                     </div>
                     <div className="muted text-xs mt-1">Phone: {selectedAddress?.phone}</div>
                   </div>
@@ -561,6 +661,7 @@ export default function Checkout() {
                 district: loc.district,
                 municipality: loc.municipality,
                 street: loc.street,
+                landmark: loc.landmark,
                 latitude: loc.latitude,
                 longitude: loc.longitude,
               }))

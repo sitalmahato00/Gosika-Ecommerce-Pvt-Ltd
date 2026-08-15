@@ -108,6 +108,19 @@ export default function ProductDetail() {
     }
   }
 
+  const handleCheckout = async () => {
+    if (!inStock) return
+    setBusy(true)
+    try {
+      await addItem({ productId: product.id, variantId: variant?.id || null, quantity: qty })
+      navigate('/checkout')
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handleWish = async () => {
     if (!user) {
       toast.info('Please login to save items to your wishlist')
@@ -297,14 +310,23 @@ export default function ProductDetail() {
           {/* Action Row */}
           <div className="flex items-center gap-3 wrap" style={{ margin: '20px 0' }}>
             <QtyStepper value={qty} onChange={setQty} min={1} max={Math.max(1, maxQty)} disabled={!inStock} />
-            <button
-              className="btn btn-primary btn-lg flex-1"
-              onClick={handleAdd}
-              disabled={!inStock || busy}
-              style={{ minWidth: 200 }}
-            >
-              <ShoppingCart size={18} /> {inStock ? 'Add to Cart' : 'Out of Stock'}
-            </button>
+            <div style={{ display: 'flex', gap: 10, flex: 1 }}>
+              <button
+                className="btn btn-lg flex-1"
+                style={{ background: 'var(--success)', color: '#fff', borderColor: 'var(--success)' }}
+                onClick={handleCheckout}
+                disabled={!inStock || busy}
+              >
+                Buy Now
+              </button>
+              <button
+                className="btn btn-primary btn-lg flex-1"
+                onClick={handleAdd}
+                disabled={!inStock || busy}
+              >
+                <ShoppingCart size={18} /> {inStock ? 'Add to Cart' : 'Out of Stock'}
+              </button>
+            </div>
             <button className="icon-btn icon-btn-lg" onClick={handleWish} aria-label="Toggle wishlist">
               <Heart size={20} fill={isWishlisted(product.id) ? 'var(--danger)' : 'none'} color={isWishlisted(product.id) ? 'var(--danger)' : 'var(--muted)'} />
             </button>

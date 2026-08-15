@@ -10,6 +10,7 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Pagination from '../../components/ui/Pagination'
 import { money, formatDateTime, errorMessage } from '../../utils/format'
+import { PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../../utils/constants'
 import { useToast } from '../../context/ToastContext'
 import { useList } from '../../hooks/useApi'
 
@@ -252,8 +253,9 @@ export default function AdminPayments() {
                 </td>
                 <td className="text-sm font-medium text-ink">{p.customer?.full_name || p.payer_name || '—'}</td>
                 <td>
-                  <span className="chip chip-sm" style={{ fontWeight: 700 }}>
-                    {p.provider || p.method || '—'}
+                  <span className="chip chip-sm" style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    {(p.provider || p.method) === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 12, width: 'auto' }} />}
+                    {PAYMENT_METHOD_LABELS[p.provider || p.method] || p.provider || p.method || '—'}
                   </span>
                 </td>
                 <td>
@@ -307,7 +309,7 @@ export default function AdminPayments() {
                   </div>
                   <div>
                     <span className="muted text-xs block">Payment Method</span>
-                    <span className="font-semibold">{selectedTxn.method || selectedTxn.provider || '—'}</span>
+                    <span className="font-semibold" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{(selectedTxn.method || selectedTxn.provider) === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 13, width: 'auto' }} />}{PAYMENT_METHOD_LABELS[selectedTxn.method || selectedTxn.provider] || selectedTxn.method || selectedTxn.provider || '—'}</span>
                   </div>
                   <div>
                     <span className="muted text-xs block">Customer Name</span>

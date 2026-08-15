@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             NepalGeoSchemaSeeder::class,
             SettingsSeeder::class,
             CatalogSeeder::class,
+            ProductSeeder::class,
             DeliveryPartnerSeeder::class,
         ]);
 

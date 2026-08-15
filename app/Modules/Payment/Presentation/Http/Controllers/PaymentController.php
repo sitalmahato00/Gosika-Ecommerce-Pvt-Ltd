@@ -34,7 +34,8 @@ class PaymentController extends Controller
             $payment = $this->paymentService->initiate(
                 $order,
                 request()->user(),
-                $request->input('method', 'khalti')
+                $request->input('method', 'khalti'),
+                $request->only(['success_url', 'failure_url'])
             );
 
             return Response::created(new PaymentResource($payment), 'Payment initiated.');
@@ -47,6 +48,24 @@ class PaymentController extends Controller
     {
         try {
             $payment = $this->paymentService->verifyFromCallback($request->only(['pidx', 'status', 'transaction_id', 'total_amount', 'purchase_order_id']));
+
+            return Response::success(new PaymentResource($payment), 'Payment verified.');
+        } catch (PaymentProviderException $e) {
+            return Response::error($e->getMessage(), [], $e->getCode() ?: 422);
+        }
+    }
+
+    public function esewaCallback(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $encoded = (string) $request->input('data');
+        $decoded = json_decode(base64_decode($encoded, true) ?: '', true);
+
+        if (! is_array($decoded)) {
+            return Response::error('Invalid eSewa callback.', [], 422);
+        }
+
+        try {
+            $payment = $this->paymentService->verifyFromEsewaCallback($decoded);
 
             return Response::success(new PaymentResource($payment), 'Payment verified.');
         } catch (PaymentProviderException $e) {

@@ -32,7 +32,7 @@ class Setting extends BaseModel
     {
         return static::updateOrCreate(['key' => $key], [
             'uuid' => (string) \Illuminate\Support\Str::uuid(),
-            'value' => is_scalar($value) ? $value : json_encode($value),
+            'value' => $value === null ? '' : (is_scalar($value) ? $value : json_encode($value)),
             'group' => $group,
             'type' => $type,
             'is_public' => $isPublic,

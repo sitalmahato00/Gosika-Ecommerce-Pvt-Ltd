@@ -43,4 +43,14 @@ return [
         'expiry_minutes' => env('KHALTI_EXPIRY_MINUTES', 60),
     ],
 
+    'esewa' => [
+        'environment' => env('ESEWA_ENVIRONMENT', 'uat'),
+        'form_url' => env('ESEWA_FORM_URL', 'https://rc-epay.esewa.com.np/api/epay/main/v2/form'),
+        'status_url' => env('ESEWA_STATUS_URL', 'https://rc.esewa.com.np/api/epay/transaction/status/'),
+        'secret_key' => env('ESEWA_SECRET_KEY', ''),
+        'product_code' => env('ESEWA_PRODUCT_CODE', 'EPAYTEST'),
+        'success_url' => env('ESEWA_SUCCESS_URL', ''),
+        'failure_url' => env('ESEWA_FAILURE_URL', ''),
+    ],
+
 ];

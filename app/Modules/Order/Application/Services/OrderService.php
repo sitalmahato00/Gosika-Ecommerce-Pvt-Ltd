@@ -78,9 +78,9 @@ class OrderService
                 'trackable_id' => $order->id,
                 'from_status' => null,
                 'to_status' => $order->status->value,
-                'reason' => $order->payment_method === 'khalti'
-                    ? 'Order placed, awaiting Khalti payment.'
-                    : 'Order placed via Cash on Delivery.',
+                'reason' => $order->payment_method === 'cod'
+                    ? 'Order placed via Cash on Delivery.'
+                    : 'Order placed, awaiting '.strtoupper($order->payment_method).' payment.',
                 'actor_user_id' => $user->id,
             ]);
 
@@ -139,7 +139,7 @@ class OrderService
         $order->shipping_address_snapshot = $this->addressSnapshot($session->shippingAddress);
         $order->payment_method = $session->payment_method;
         $order->payment_status = OrderPaymentStatus::PENDING;
-        $order->status = $session->payment_method === 'khalti'
+        $order->status = in_array($session->payment_method, ['khalti', 'esewa'], true)
             ? OrderStatus::PAYMENT_PENDING
             : OrderStatus::PENDING;
         $order->subtotal = $session->subtotal;

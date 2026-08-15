@@ -41,6 +41,12 @@ export const PAYMENT_METHOD_LABELS = {
   bank_transfer: 'Bank Transfer',
 }
 
+export const PAYMENT_BRAND_LOGOS = {
+  esewa: '/payments/esewa/esewa-green.png',
+  esewaWhite: '/payments/esewa/esewa-white.png',
+  esewaMark: '/payments/esewa/esewa-e-green.png',
+}
+
 export const PAYMENT_STATUS_LABELS = {
   pending: 'Pending',
   initiated: 'Initiated',

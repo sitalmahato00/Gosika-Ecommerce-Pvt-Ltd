@@ -16,7 +16,7 @@ class CheckoutRequest extends FormRequest
         return [
             'shipping_address_id' => ['required', 'string', 'exists:customer_addresses,uuid'],
             'billing_address_id' => ['nullable', 'string', 'exists:customer_addresses,uuid'],
-            'payment_method' => ['sometimes', 'string', 'in:cod,khalti'],
+            'payment_method' => ['sometimes', 'string', 'in:cod,khalti,esewa'],
         ];
     }
 }

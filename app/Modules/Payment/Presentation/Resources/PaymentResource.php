@@ -21,6 +21,10 @@ class PaymentResource extends JsonResource
             'provider_pidx' => $this->provider_pidx,
             'provider_transaction_id' => $this->provider_transaction_id,
             'payment_url' => $this->provider_response['payment_url'] ?? null,
+            'payment_form' => $this->provider === 'esewa' ? [
+                'action' => $this->provider_response['action'] ?? null,
+                'fields' => $this->provider_response['fields'] ?? [],
+            ] : null,
             'expires_at' => $this->expires_at?->toISOString(),
             'initiated_at' => $this->initiated_at?->toISOString(),
             'verified_at' => $this->verified_at?->toISOString(),

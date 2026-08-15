@@ -15,7 +15,7 @@ class InitiatePaymentRequest extends FormRequest
     {
         return [
             'order_id' => ['required', 'string', 'exists:orders,uuid'],
-            'method' => ['required', 'string', 'in:khalti,cod'],
+            'method' => ['required', 'string', 'in:khalti,esewa,cod'],
         ];
     }
 }

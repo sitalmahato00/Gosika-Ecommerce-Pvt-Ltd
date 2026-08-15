@@ -12,6 +12,7 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Pagination from '../../components/ui/Pagination'
 import { money, formatDateTime, errorMessage } from '../../utils/format'
+import { PAYMENT_BRAND_LOGOS } from '../../utils/constants'
 import { useToast } from '../../context/ToastContext'
 import { useList } from '../../hooks/useApi'
 
@@ -297,9 +298,10 @@ export default function AdminOrders() {
               <tbody>
                 {items.map((order) => {
                   const paymentIcon = order.payment_method === 'khalti' ? Wallet :
-                    order.payment_method === 'esewa' ? CreditCard :
+                    order.payment_method === 'esewa' ? null :
                     order.payment_method === 'fonepay' ? Smartphone : Banknote
                   const PaymentIconComp = paymentIcon
+                  const isEsewa = order.payment_method === 'esewa'
                   const vo = (order.vendor_orders && order.vendor_orders[0]) || null
                   const commission = (order.vendor_orders || []).reduce((s, v) => s + Number(v.commission_amount || 0), 0)
                   const itemCount = order.item_count != null ? order.item_count : (order.items || []).length
@@ -353,7 +355,11 @@ export default function AdminOrders() {
                             fontWeight: 700,
                           }}
                         >
-                          <PaymentIconComp size={11} color="var(--primary)" />
+                          {isEsewa ? (
+                            <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 14, width: 'auto' }} />
+                          ) : (
+                            <PaymentIconComp size={11} color="var(--primary)" />
+                          )}
                           {order.payment_method || 'N/A'}
                         </span>
                         <div className="muted text-xs" style={{ fontSize: 10, marginTop: 2 }}>
@@ -424,7 +430,10 @@ export default function AdminOrders() {
                   </div>
                   <div>
                     <span className="muted block text-xs">Payment Method:</span>
-                    <strong className="text-ink uppercase">{orderDetail.payment_method || 'N/A'}</strong>
+                    <strong className="text-ink uppercase flex items-center gap-1">
+                      {orderDetail.payment_method === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 13, width: 'auto' }} />}
+                      {orderDetail.payment_method || 'N/A'}
+                    </strong>
                   </div>
                   <div>
                     <span className="muted block text-xs">Gateway Ref ID:</span>

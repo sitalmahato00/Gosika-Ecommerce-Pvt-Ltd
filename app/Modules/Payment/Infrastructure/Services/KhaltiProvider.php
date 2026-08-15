@@ -32,7 +32,7 @@ class KhaltiProvider implements PaymentProviderContract
         return $this->decode($response, 'initiate');
     }
 
-    public function lookup(string $pidx): array
+    public function lookup(string $pidx, ?array $params = null): array
     {
         $response = Http::withHeaders(['Authorization' => 'Key '.$this->secretKey])
             ->timeout(20)

@@ -4,6 +4,7 @@ import { ShoppingBag, Clock, Check, XCircle, Eye, Edit, Trash, ArrowPath, Calend
 import api from '../../api/client'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDate } from '../../utils/format'
+import { PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../../utils/constants'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
@@ -58,7 +59,10 @@ export default function VendorOrders() {
 
               <div className="mt-3">
                 <span style={{ fontSize: 10, color: 'var(--muted)' }}>Payment:</span>
-                <span style={{ fontWeight: 500 }}>{o.payment_method}</span>
+                <span style={{ fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {o.payment_method === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 12, width: 'auto' }} />}
+                  {PAYMENT_METHOD_LABELS[o.payment_method] || o.payment_method}
+                </span>
               </div>
               <div className="mt-3">
                 <span style={{ fontSize: 10, color: 'var(--muted)' }}>Delivery:</span>

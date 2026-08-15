@@ -333,4 +333,216 @@ class PaymentTest extends TestCase
             ->assertJsonPath('data.payment.status', 'processing')
             ->assertJsonPath('data.order.id', $orderId);
     }
+
+    protected function esewaSecret(): string
+    {
+        return '8gBm/:&EnhH.1/q';
+    }
+
+    protected function fakeEsewaStatus(string $status = 'COMPLETE', float $amount = 1080.0): void
+    {
+        Http::fake([
+            'rc.esewa.com.np/api/epay/transaction/status/*' => Http::response([
+                'product_code' => 'EPAYTEST',
+                'transaction_uuid' => 'PAY-ESEWA',
+                'total_amount' => $amount,
+                'status' => $status,
+                'ref_id' => $status === 'COMPLETE' ? '0001TS9' : null,
+            ]),
+        ]);
+    }
+
+    protected function esewaCallbackData(string $transactionUuid, string $status = 'COMPLETE', float $amount = 1080.0): array
+    {
+        $decoded = [
+            'transaction_code' => '000AWEO',
+            'status' => $status,
+            'total_amount' => (string) $amount,
+            'transaction_uuid' => $transactionUuid,
+            'product_code' => 'EPAYTEST',
+            'signed_field_names' => 'transaction_code,status,total_amount,transaction_uuid,product_code,signed_field_names',
+        ];
+
+        $parts = [];
+
+        foreach (array_map('trim', explode(',', $decoded['signed_field_names'])) as $field) {
+            $parts[] = $field.'='.$decoded[$field];
+        }
+
+        $decoded['signature'] = base64_encode(hash_hmac('sha256', implode(',', $parts), $this->esewaSecret(), true));
+
+        return $decoded;
+    }
+
+    public function test_esewa_order_starts_in_payment_pending(): void
+    {
+        Setting::set('payment.esewa_enabled', 'true', 'payment', 'boolean');
+
+        [, , $product] = $this->vendorWithProduct();
+        $user = $this->customer();
+        [$address, $sessionId] = $this->checkout($user, $product, 'esewa');
+        $orderId = $this->placeOrder($user, $sessionId);
+
+        $this->actingAs($user, 'sanctum')->getJson("/api/v1/orders/{$orderId}")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'payment_pending')
+            ->assertJsonPath('data.payment_status', 'pending')
+            ->assertJsonPath('data.payment_method', 'esewa');
+    }
+
+    public function test_esewa_payment_initiate_returns_payment_form(): void
+    {
+        Setting::set('payment.esewa_enabled', 'true', 'payment', 'boolean');
+
+        [, , $product] = $this->vendorWithProduct();
+        $user = $this->customer();
+        [$address, $sessionId] = $this->checkout($user, $product, 'esewa');
+        $orderId = $this->placeOrder($user, $sessionId);
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/payments/initiate', ['order_id' => $orderId, 'method' => 'esewa']);
+
+        $response->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'processing')
+            ->assertJsonPath('data.payment_form.action', 'https://rc-epay.esewa.com.np/api/epay/main/v2/form');
+
+        $fields = $response->json('data.payment_form.fields');
+        $this->assertSame('1080.00', $fields['total_amount']);
+        $this->assertSame('1000.00', $fields['amount']);
+        $this->assertSame('0.00', $fields['tax_amount']);
+        $this->assertSame('80.00', $fields['product_delivery_charge']);
+        $this->assertSame('EPAYTEST', $fields['product_code']);
+        $this->assertSame('total_amount,transaction_uuid,product_code', $fields['signed_field_names']);
+
+        $expected = base64_encode(hash_hmac('sha256', 'total_amount='.$fields['total_amount'].',transaction_uuid='.$fields['transaction_uuid'].',product_code=EPAYTEST', $this->esewaSecret(), true));
+        $this->assertSame($expected, $fields['signature']);
+
+        $payment = Payment::where('uuid', $response->json('data.id'))->first();
+        $this->assertSame($fields['transaction_uuid'], $payment->provider_transaction_id);
+    }
+
+    public function test_esewa_callback_confirms_order_when_complete(): void
+    {
+        Setting::set('payment.esewa_enabled', 'true', 'payment', 'boolean');
+
+        [, , $product] = $this->vendorWithProduct();
+        $user = $this->customer();
+        [$address, $sessionId] = $this->checkout($user, $product, 'esewa');
+        $orderId = $this->placeOrder($user, $sessionId);
+
+        $payment = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/payments/initiate', ['order_id' => $orderId, 'method' => 'esewa'])
+            ->json('data');
+
+        $this->fakeEsewaStatus('COMPLETE', 1080.0);
+        $callback = $this->esewaCallbackData($payment['payment_form']['fields']['transaction_uuid'], 'COMPLETE', 1080.0);
+
+        $response = $this->postJson('/api/v1/payments/esewa/callback', [
+            'data' => base64_encode(json_encode($callback)),
+        ]);
+
+        $response->assertOk()->assertJsonPath('data.status', 'paid');
+
+        $order = Order::where('uuid', $orderId)->first();
+        $this->assertEquals('confirmed', $order->status->value);
+        $this->assertEquals('paid', $order->payment_status->value);
+        $this->assertNotNull($order->confirmed_at);
+    }
+
+    public function test_esewa_callback_rejects_amount_mismatch(): void
+    {
+        Setting::set('payment.esewa_enabled', 'true', 'payment', 'boolean');
+
+        [, , $product] = $this->vendorWithProduct();
+        $user = $this->customer();
+        [$address, $sessionId] = $this->checkout($user, $product, 'esewa');
+        $orderId = $this->placeOrder($user, $sessionId);
+
+        $payment = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/payments/initiate', ['order_id' => $orderId, 'method' => 'esewa'])
+            ->json('data');
+
+        $this->fakeEsewaStatus('COMPLETE', 500.0);
+        $callback = $this->esewaCallbackData($payment['payment_form']['fields']['transaction_uuid'], 'COMPLETE', 500.0);
+
+        $this->postJson('/api/v1/payments/esewa/callback', [
+            'data' => base64_encode(json_encode($callback)),
+        ])->assertOk()->assertJsonPath('data.status', 'exception');
+
+        $order = Order::where('uuid', $orderId)->first();
+        $this->assertEquals('payment_pending', $order->status->value);
+        $this->assertEquals('pending', $order->payment_status->value);
+    }
+
+    public function test_esewa_callback_pending_keeps_processing(): void
+    {
+        Setting::set('payment.esewa_enabled', 'true', 'payment', 'boolean');
+
+        [, , $product] = $this->vendorWithProduct();
+        $user = $this->customer();
+        [$address, $sessionId] = $this->checkout($user, $product, 'esewa');
+        $orderId = $this->placeOrder($user, $sessionId);
+
+        $payment = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/payments/initiate', ['order_id' => $orderId, 'method' => 'esewa'])
+            ->json('data');
+
+        $this->fakeEsewaStatus('PENDING', 1080.0);
+        $callback = $this->esewaCallbackData($payment['payment_form']['fields']['transaction_uuid'], 'PENDING', 1080.0);
+
+        $this->postJson('/api/v1/payments/esewa/callback', [
+            'data' => base64_encode(json_encode($callback)),
+        ])->assertOk()->assertJsonPath('data.status', 'processing');
+    }
+
+    public function test_esewa_callback_rejects_invalid_signature(): void
+    {
+        Setting::set('payment.esewa_enabled', 'true', 'payment', 'boolean');
+
+        [, , $product] = $this->vendorWithProduct();
+        $user = $this->customer();
+        [$address, $sessionId] = $this->checkout($user, $product, 'esewa');
+        $orderId = $this->placeOrder($user, $sessionId);
+
+        $payment = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/payments/initiate', ['order_id' => $orderId, 'method' => 'esewa'])
+            ->json('data');
+
+        $callback = $this->esewaCallbackData($payment['payment_form']['fields']['transaction_uuid'], 'COMPLETE', 1080.0);
+        $callback['signature'] = 'AAAAinvalid';
+
+        $this->postJson('/api/v1/payments/esewa/callback', [
+            'data' => base64_encode(json_encode($callback)),
+        ])->assertOk()->assertJsonPath('data.status', 'exception');
+
+        $order = Order::where('uuid', $orderId)->first();
+        $this->assertEquals('payment_pending', $order->status->value);
+    }
+
+    public function test_esewa_disabled_rejects_checkout(): void
+    {
+        Setting::set('payment.esewa_enabled', 'false', 'payment', 'boolean');
+
+        [, , $product] = $this->vendorWithProduct();
+        $user = $this->customer();
+
+        $address = CustomerAddress::query()->create([
+            'user_id' => $user->id,
+            'address_type' => 'shipping',
+            'label' => 'Home',
+            'full_name' => 'Payment Customer',
+            'phone' => '9812345678',
+            'address_line_1' => 'Baluwatar',
+            'postal_code' => '44600',
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/cart/items', ['product_id' => $product->uuid, 'quantity' => 1])
+            ->assertOk();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/checkout/', ['shipping_address_id' => $address->uuid, 'payment_method' => 'esewa'])
+            ->assertStatus(422);
+    }
 }

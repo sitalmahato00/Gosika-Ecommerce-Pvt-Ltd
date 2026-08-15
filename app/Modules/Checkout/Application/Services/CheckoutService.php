@@ -68,9 +68,14 @@ class CheckoutService
         $minOrder = (float) Setting::get('checkout.min_order_amount', 0);
         $paymentMethod = $data['payment_method'] ?? PaymentMethod::COD->value;
         $khaltiEnabled = Setting::get('payment.khalti_enabled', 'false') === 'true';
+        $esewaEnabled = Setting::get('payment.esewa_enabled', 'false') === 'true';
 
         if ($paymentMethod === PaymentMethod::KHALTI->value && ! $khaltiEnabled) {
             throw new DomainException('Khalti payment is currently unavailable.', 422);
+        }
+
+        if ($paymentMethod === PaymentMethod::ESEWA->value && ! $esewaEnabled) {
+            throw new DomainException('eSewa payment is currently unavailable.', 422);
         }
 
         if ($paymentMethod === PaymentMethod::COD->value && ! $codEnabled) {

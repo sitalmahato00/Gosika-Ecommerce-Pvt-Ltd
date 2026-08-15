@@ -8,5 +8,5 @@ interface PaymentProviderContract
 
     public function initiate(array $payload): array;
 
-    public function lookup(string $pidx): array;
+    public function lookup(string $reference, ?array $params = null): array;
 }

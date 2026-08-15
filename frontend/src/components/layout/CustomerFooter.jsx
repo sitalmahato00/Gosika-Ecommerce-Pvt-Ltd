@@ -1,10 +1,9 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ShoppingBag, Phone, Mail, MapPin,
-  Shield, Truck, Star, Headphones,
-  Banknote, CreditCard, Smartphone, Wallet
+  ShoppingBag, Banknote, Wallet, CreditCard, Smartphone, Truck, Shield, Star, Headphones, ChevronRight, Mail, Phone, MapPin
 } from 'lucide-react'
+import { PAYMENT_BRAND_LOGOS } from '../../utils/constants'
 
 const Facebook = ({ size = 15, ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
@@ -66,7 +65,7 @@ const HELP_LINKS = [
 const PAYMENT_METHODS = [
   { label: 'Cash on Delivery', icon: Banknote },
   { label: 'Khalti', icon: Wallet },
-  { label: 'eSewa', icon: CreditCard },
+  { label: 'eSewa', logo: PAYMENT_BRAND_LOGOS.esewaWhite },
   { label: 'Fonepay', icon: Smartphone },
 ]
 
@@ -145,7 +144,11 @@ export default function CustomerFooter() {
               <div className="footer-payment-badges">
                 {PAYMENT_METHODS.map((m) => (
                   <span key={m.label} className="payment-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <m.icon size={13} color="var(--primary)" /> {m.label}
+                    {m.logo ? (
+                      <img src={m.logo} alt={m.label} style={{ height: 18, width: 'auto' }} />
+                    ) : (
+                      <m.icon size={13} color="var(--primary)" />
+                    )}
                   </span>
                 ))}
               </div>
