@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { PackageOpen } from 'lucide-react'
 import api from '../api/client'
 import { useList } from '../hooks/useApi'
@@ -10,9 +10,48 @@ import Pagination from '../components/ui/Pagination'
 import { ProductCardSkeletonMini } from '../components/ui/Skeleton'
 import { money, formatDateTime, apiImage, getProductImage } from '../utils/format'
 
+const STATUS_TABS = [
+  { value: '', label: 'All' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'out_for_delivery', label: 'Out for Delivery' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
+
 export default function OrderList() {
-  const fetcher = useCallback(async (page) => api.get('/orders', { params: { page, per_page: 10 } }), [])
-  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { pageSize: 10 })
+  const [searchParams, setSearchParams] = useSearchParams()
+  const status = searchParams.get('status') || ''
+
+  const fetcher = useCallback(
+    async (page) => {
+      const res = await api.get('/orders', { params: { page, per_page: 10, ...(status ? { status } : {}) } })
+      const payload = res.data
+      const raw = payload?.data?.data ?? payload?.data ?? payload
+      const pag = payload?.meta?.pagination ?? payload?.data?.meta?.pagination ?? payload?.meta ?? {}
+      return {
+        data: {
+          data: Array.isArray(raw) ? raw : [],
+          meta: {
+            total: pag.total ?? pag.current ?? 0,
+            current_page: pag.current_page ?? page,
+            last_page: pag.last_page ?? pag.lastPage ?? 1,
+            per_page: pag.per_page ?? 10,
+          },
+        },
+      }
+    },
+    [status],
+  )
+
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { pageSize: 10, deps: [status] })
+
+  const changeStatus = (value) => {
+    setSearchParams(value ? { status: value } : {}, { replace: true })
+    setPage(1)
+  }
 
   if (loading) {
     return (
@@ -30,9 +69,22 @@ export default function OrderList() {
   if (!items.length) {
     return (
       <div className="page-shell container">
+        <h1 style={{ fontSize: 24 }}>My Orders</h1>
+        <div className="tabs" style={{ marginBottom: 8 }}>
+          {STATUS_TABS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              className={`tab ${status === t.value ? 'active' : ''}`}
+              onClick={() => changeStatus(t.value)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         <EmptyState
           icon={PackageOpen}
-          title="No orders yet"
+          title={status ? 'No orders with this status' : 'No orders yet'}
           message="When you place an order, it will appear here with live tracking."
           action={<Link to="/shop" className="btn btn-primary">Start shopping</Link>}
         />
@@ -42,7 +94,21 @@ export default function OrderList() {
 
   return (
     <div className="page-shell container">
-      <h1 style={{ fontSize: 24 }}>My Orders</h1>
+      <div className="flex items-center justify-between wrap gap-2">
+        <h1 style={{ fontSize: 24 }}>My Orders</h1>
+      </div>
+      <div className="tabs" style={{ marginBottom: 8 }}>
+        {STATUS_TABS.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            className={`tab ${status === t.value ? 'active' : ''}`}
+            onClick={() => changeStatus(t.value)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
       <div className="flex flex-col gap-3 mt-2">
         {items.map((o) => (
           <Link key={o.id} to={`/orders/${o.id}`} className="card card-hover" style={{ display: 'block' }}>

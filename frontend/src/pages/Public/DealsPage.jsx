@@ -1,33 +1,47 @@
 import React, { useEffect, useState } from 'react'
-import { Calendar, Trash, Zap as Flash, Check, XCircle, Clock } from 'lucide-react'
+import { Zap as Flash } from 'lucide-react'
 import api from '../../api/client'
-import { useToast } from '../../context/ToastContext'
-import { money, formatDate } from '../../utils/format'
 import ProductCard from '../../components/commerce/ProductCard'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
-import { useList } from '../../hooks/useApi'
 
 export default function DealsPage() {
-  const toast = useToast()
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    api.get('/deals/active').then((res) => {
-      const data = res.data.data || []
-      setDeals(data.map((d) => ({
-        ...d,
-        discount: d.discount_percentage || (d.compare_at_price && d.price && Math.round(((d.compare_at_price - d.price) / d.compare_at_price) * 100)),
-        original_price: d.compare_at_price || d.price,
-        sale_price: d.price,
-      })))
-    }).catch(() => {}).finally(() => setLoading(false))
+    let alive = true
+    setLoading(true)
+    setError(null)
+    api
+      .get('/deals/active')
+      .then((res) => {
+        if (!alive) return
+        const data = res.data.data || []
+        setDeals(data.map((d) => ({
+          ...d,
+          discount: d.discount_percentage || (d.compare_at_price && d.price && Math.round(((d.compare_at_price - d.price) / d.compare_at_price) * 100)),
+          original_price: d.compare_at_price || d.price,
+          sale_price: d.price,
+        })))
+      })
+      .catch((e) => {
+        if (alive) setError(e)
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
+      })
+    return () => { alive = false }
   }, [])
 
   if (loading) {
     return <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}><Skeleton height={180} /><Skeleton height={180} /></div>
+  }
+
+  if (error) {
+    return <ErrorState message="Could not load today's deals. Please try again." />
   }
 
   if (!deals.length) return <EmptyState icon={Flash} title="No active deals" message="No current deals." />

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag, Trash2, Store, ArrowRight, Lock,
-  ShoppingCart, Tag, ChevronRight, Package, Banknote,
+  ShoppingCart, ChevronRight, Banknote,
   Wallet, CreditCard, Smartphone
 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
@@ -14,12 +14,11 @@ import QtyStepper from '../components/commerce/QtyStepper'
 import { Skeleton } from '../components/ui/Skeleton'
 
 export default function Cart() {
-  const { cart, loading, updateItem, removeItem } = useCart()
+  const { cart, loading, updateItem, removeItem, clearCart } = useCart()
   const { user } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
 
-  // Group items by store/vendor
   const groups = useMemo(() => {
     const g = []
     const map = new Map()
@@ -49,6 +48,15 @@ export default function Cart() {
       toast.success('Item removed from cart')
     } catch {
       toast.error('Could not remove item')
+    }
+  }
+
+  const handleClear = async () => {
+    try {
+      await clearCart()
+      toast.success('Cart cleared')
+    } catch {
+      toast.error('Could not clear cart')
     }
   }
 
@@ -91,16 +99,21 @@ export default function Cart() {
         <span style={{ color: 'var(--ink)', fontWeight: 600 }}>Shopping Cart</span>
       </nav>
 
-      <h1 style={{ fontSize: 26, marginBottom: 20 }}>
-        Shopping Cart
-        <span style={{ fontSize: 16, fontWeight: 400, color: 'var(--muted)', marginLeft: 10 }}>
-          ({cart.item_count} item{cart.item_count !== 1 ? 's' : ''})
-        </span>
-      </h1>
-
-
-
-
+      <div className="flex items-center justify-between wrap gap-2" style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 26, margin: 0 }}>
+          Shopping Cart
+          <span style={{ fontSize: 16, fontWeight: 400, color: 'var(--muted)', marginLeft: 10 }}>
+            ({cart.item_count} item{cart.item_count !== 1 ? 's' : ''})
+          </span>
+        </h1>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={handleClear}
+          disabled={!cart.item_count}
+        >
+          <Trash2 size={14} /> Clear cart
+        </button>
+      </div>
       <div
         style={{
           display: 'grid',

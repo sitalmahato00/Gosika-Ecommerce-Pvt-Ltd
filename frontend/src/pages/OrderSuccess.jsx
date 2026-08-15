@@ -1,12 +1,50 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { CheckCircle2, Clock } from 'lucide-react'
-import { money } from '../utils/format'
+import api from '../api/client'
+import ErrorState from '../components/ui/ErrorState'
+import { Skeleton } from '../components/ui/Skeleton'
+import { money, formatDate, errorMessage } from '../utils/format'
 
 export default function OrderSuccess() {
   const { state } = useLocation()
-  const order = state?.order
+  const [order, setOrder] = useState(state?.order || null)
+  const [loading, setLoading] = useState(!state?.order && !!state?.orderId)
+  const [error, setError] = useState(null)
+  const orderId = state?.orderId || order?.id
   const khalti = state?.khalti
+
+  const load = () => {
+    if (!orderId) return
+    setLoading(true)
+    setError(null)
+    api
+      .get(`/orders/${orderId}`)
+      .then((res) => setOrder(res.data.data))
+      .catch((e) => setError(e))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    if (!order && orderId) load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId])
+
+  if (loading) {
+    return (
+      <div className="page-shell container container-narrow">
+        <Skeleton height={220} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="page-shell container">
+        <ErrorState message={errorMessage(error, 'Could not load your order.')} onRetry={load} />
+      </div>
+    )
+  }
 
   if (!order) {
     return (
@@ -42,6 +80,9 @@ export default function OrderSuccess() {
         <div className="card" style={{ background: 'var(--bg)', maxWidth: 360, margin: '20px auto' }}>
           <div className="flex justify-between text-sm"><span className="muted">Total paid</span><span className="font-bold">{money(order.grand_total)}</span></div>
           <div className="flex justify-between text-sm mt-1"><span className="muted">Payment</span><span className="font-medium">{order.payment_method === 'cod' ? 'Cash on Delivery' : 'Khalti'}</span></div>
+          {(order.estimated_delivery || order.delivery_eta) && (
+            <div className="flex justify-between text-sm mt-1"><span className="muted">Estimated delivery</span><span className="font-medium">{formatDate(order.estimated_delivery || order.delivery_eta)}</span></div>
+          )}
         </div>
         <div className="flex items-center justify-center gap-2 wrap">
           <Link to={`/orders/${order.id}`} className="btn btn-primary">Track your order</Link>

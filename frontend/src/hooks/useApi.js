@@ -52,8 +52,9 @@ export function useList(fetcher, { deps = [], pageSize = 12 } = {}) {
         const payload = res?.data
         const list = payload?.data?.data ?? payload?.data ?? payload
         const m =
-          payload?.data?.meta ||
           payload?.meta?.pagination ||
+          payload?.data?.meta ||
+          payload?.meta ||
           payload?.pagination || {
             total: 0,
             current_page: targetPage,

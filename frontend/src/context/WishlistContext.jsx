@@ -18,7 +18,8 @@ export function WishlistProvider({ children }) {
     setLoading(true)
     try {
       const res = await api.get('/wishlist')
-      const items = res.data.data || res.data
+      const data = res.data.data || res.data
+      const items = data?.items || []
       setIds(Array.isArray(items) ? items.map((i) => i.product?.id || i.product_id) : [])
     } catch {
       setIds([])

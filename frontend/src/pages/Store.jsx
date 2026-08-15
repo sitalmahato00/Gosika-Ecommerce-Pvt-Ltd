@@ -35,7 +35,7 @@ export default function Store() {
     [id, sort],
   )
 
-  const { items, meta, page, setPage, loading, error: listError } = useList(fetcher, { deps: [sort], pageSize: 12 })
+  const { items, meta, page, setPage, loading, error: listError } = useList(fetcher, { deps: [id, sort], pageSize: 12 })
 
   if (storeLoading) {
     return (

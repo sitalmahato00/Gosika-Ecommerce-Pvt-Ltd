@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class PublicCatalogController extends Controller
 {
@@ -61,13 +62,16 @@ class PublicCatalogController extends Controller
                         ->orWhere('description', 'like', '%'.$request->search.'%');
                 });
             })
-            ->when($request->boolean('featured'), fn ($q) => $q->where('is_featured', true))
+            ->when($request->boolean('featured') || $request->boolean('is_featured'), fn ($q) => $q->where('is_featured', true))
+            ->when($request->boolean('discount'), fn ($q) => $q->whereColumn('compare_at_price', '>', 'price'))
             ->when($request->filled('sort'), function ($q) use ($request) {
                 match ($request->sort) {
                     'price_asc' => $q->orderBy('price'),
                     'price_desc' => $q->orderByDesc('price'),
                     'newest' => $q->orderByDesc('created_at'),
                     'rating' => $q->orderByDesc('rating_avg'),
+                    'top' => $q->orderByDesc('rating_avg')->orderByDesc('views_count'),
+                    'discount' => $q->orderByDesc(DB::raw('(COALESCE(compare_at_price, price) - price)')),
                     default => $q->orderByDesc('created_at'),
                 };
             }, fn ($q) => $q->orderByDesc('created_at'))
@@ -78,6 +82,21 @@ class PublicCatalogController extends Controller
             'Products retrieved.',
             $this->paginatorMeta($products)
         );
+    }
+
+    public function deals(Request $request): JsonResponse
+    {
+        $deals = Product::query()
+            ->available()
+            ->with(['store', 'brand', 'primaryImage', 'variants' => fn ($q) => $q->orderBy('is_default', 'desc')])
+            ->whereColumn('compare_at_price', '>', 'price')
+            ->when($request->filled('category'), fn ($q) => $q->whereHas('category', function ($q) use ($request) {
+                $q->where('slug', $request->category)->orWhere('uuid', $request->category);
+            }))
+            ->orderByDesc(DB::raw('(COALESCE(compare_at_price, price) - price)'))
+            ->paginate($request->integer('per_page', 12));
+
+        return Response::success(ProductResource::collection($deals), 'Deals retrieved.', $this->paginatorMeta($deals));
     }
 
     public function show(Request $request, string $productId): JsonResponse

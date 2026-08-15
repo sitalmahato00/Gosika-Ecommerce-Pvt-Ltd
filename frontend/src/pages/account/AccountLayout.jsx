@@ -2,7 +2,7 @@ import React from 'react'
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Heart, MapPin, CreditCard,
-  User, Star, Headphones, Settings, LogOut, ChevronRight
+  User, Headphones, RotateCcw, LogOut, ChevronRight
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { initials } from '../../utils/format'
@@ -13,9 +13,9 @@ const NAV_ITEMS = [
   { to: '/wishlist', label: 'Wishlist', icon: Heart },
   { to: '/account/addresses', label: 'Addresses', icon: MapPin },
   { to: '/account/payments', label: 'Payment Methods', icon: CreditCard },
+  { to: '/account/returns', label: 'Returns', icon: RotateCcw },
   { to: '/account/profile', label: 'Profile', icon: User },
   { to: '/help', label: 'Support', icon: Headphones },
-  { to: '/account/settings', label: 'Settings', icon: Settings },
 ]
 
 export default function AccountLayout() {

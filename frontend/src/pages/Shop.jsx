@@ -21,7 +21,8 @@ const SORTS = [
   { value: 'price_asc', label: 'Price: Low to High' },
   { value: 'price_desc', label: 'Price: High to Low' },
   { value: 'rating', label: 'Top Rated' },
-  { value: 'popular', label: 'Most Popular' },
+  { value: 'top', label: 'Best Selling' },
+  { value: 'discount', label: 'Biggest Discount' },
 ]
 
 const RATINGS = [
@@ -296,23 +297,6 @@ export default function Shop() {
             ))}
           </select>
 
-          {/* Mobile filter button */}
-          <button
-            className="btn btn-outline btn-sm hide-md"
-            style={{ display: 'none' }}
-            onClick={() => setFilterOpen(true)}
-            aria-label={`Open filters${activeFilters ? ` (${activeFilters} active)` : ''}`}
-          >
-            <SlidersHorizontal size={15} /> Filters {activeFilters > 0 && `(${activeFilters})`}
-          </button>
-          <button
-            className="btn btn-outline btn-sm"
-            style={{ display: 'none' }}
-            onClick={() => setFilterOpen(true)}
-            aria-expanded={filterOpen}
-          >
-            <SlidersHorizontal size={15} /> Filters {activeFilters > 0 && `(${activeFilters})`}
-          </button>
         </div>
       </div>
 

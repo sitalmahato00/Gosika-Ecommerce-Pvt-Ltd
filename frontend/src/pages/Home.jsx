@@ -11,7 +11,7 @@ import api from '../api/client'
 import ProductCard, { ProductCardSkeletonMini } from '../components/commerce/ProductCard'
 import SectionHeader from '../components/commerce/SectionHeader'
 import ProductQuickView from '../components/commerce/ProductQuickView'
-import { apiImage } from '../utils/format'
+import { apiImage, getStoreImage } from '../utils/format'
 
 function useProducts(params, deps) {
   const [data, setData] = useState(null)
@@ -95,10 +95,10 @@ export default function Home() {
   const [slide, setSlide] = useState(0)
   const [categories, setCategories] = useState([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
-  const featured = useProducts({ is_featured: true, per_page: 10, load: 'brand,store,images' }, [])
-  const newest = useProducts({ sort: 'newest', per_page: 10, load: 'brand,store,images' }, [])
-  const topRated = useProducts({ sort: 'top', per_page: 10, load: 'brand,store,images' }, [])
-  const deals = useProducts({ discount: true, sort: 'discount', per_page: 10, load: 'brand,store,images' }, [])
+  const featured = useProducts({ is_featured: true, per_page: 10 }, [])
+  const newest = useProducts({ sort: 'newest', per_page: 10 }, [])
+  const topRated = useProducts({ sort: 'top', per_page: 10 }, [])
+  const deals = useProducts({ discount: true, per_page: 10 }, [])
   const [stores, setStores] = useState([])
   const [storesLoading, setStoresLoading] = useState(true)
   const [quickView, setQuickView] = useState(null)
@@ -407,12 +407,7 @@ function ProductRow({ items, loading, onQuickView, empty }) {
 }
 
 function StoreCard({ store }) {
-  const defaultBanners = [
-    'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600&q=80',
-    'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&q=80',
-    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&q=80',
-  ]
-  const banner = store.banner ? apiImage(store.banner) : defaultBanners[(store.id || 0) % defaultBanners.length]
+  const banner = getStoreImage(store)
   const logo = store.logo ? apiImage(store.logo) : null
   return (
     <Link to={`/store/${store.id}`} className="vendor-card" aria-label={`Visit ${store.name} store`}>

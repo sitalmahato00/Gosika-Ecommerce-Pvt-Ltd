@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  MapPin, Plus, CreditCard, Banknote, Wallet, CheckCircle2,
-  Lock, ArrowRight, ArrowLeft, ShieldCheck, ChevronRight
+  MapPin, Plus, CreditCard, Banknote, CheckCircle2,
+  Lock, ArrowRight, ArrowLeft, ChevronRight
 } from 'lucide-react'
 import api from '../api/client'
 import { useCart } from '../context/CartContext'
@@ -12,13 +12,10 @@ import { money, errorMessage, apiImage, getProductImage } from '../utils/format'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import Input from '../components/ui/Input'
-import Select from '../components/ui/Select'
-import Textarea from '../components/ui/Textarea'
 import Spinner from '../components/ui/Spinner'
 import { Skeleton } from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 import LocationMapPicker from '../components/common/LocationMapPicker'
-import { NEPAL_PROVINCES } from '../utils/constants'
 
 const STEPS = [
   { id: 1, label: 'Delivery Address' },
@@ -149,11 +146,11 @@ export default function Checkout() {
         if (payment?.payment_url) {
           window.open(payment.payment_url, '_blank', 'noopener')
           toast.info('Please complete payment in the opened tab.')
-          navigate('/order-success', { state: { order, khalti: true, paymentId: payment.id } })
+          navigate('/order-success', { state: { order, orderId: order?.id, khalti: true, paymentId: payment.id } })
           return
         }
       }
-      navigate('/order-success', { state: { order } })
+      navigate('/order-success', { state: { order, orderId: order?.id } })
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -350,6 +347,12 @@ export default function Checkout() {
               </h2>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {!paymentOptions.length && (
+                  <div className="alert alert-warning" style={{ margin: 0 }}>
+                    No payment methods are currently available. Please try again later or contact support.
+                  </div>
+                )}
+
                 {paymentOptions.map((o) => (
                   <div
                     key={o.value}
@@ -400,7 +403,7 @@ export default function Checkout() {
                 <button className="btn btn-ghost btn-sm" onClick={() => setStep(1)}>
                   <ArrowLeft size={14} /> Back to Address
                 </button>
-                <button className="btn btn-primary" onClick={() => setStep(3)}>
+                <button className="btn btn-primary" onClick={() => setStep(3)} disabled={!paymentOptions.length}>
                   Review Order <ArrowRight size={15} />
                 </button>
               </div>

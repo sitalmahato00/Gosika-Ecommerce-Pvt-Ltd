@@ -1,51 +1,90 @@
-import React, { useEffect, useState, useParams } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Tag, Box, Check, Trash, Eye, Edit } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { Tag } from 'lucide-react'
 import api from '../../api/client'
-import { useToast } from '../../context/ToastContext'
-import { money, formatDate } from '../../utils/format'
 import ProductCard from '../../components/commerce/ProductCard'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
+import Pagination from '../../components/ui/Pagination'
 import { useList } from '../../hooks/useApi'
 
 export default function BrandPage() {
   const { brand } = useParams()
-  const toast = useToast()
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [brands, setBrands] = useState([])
+  const [brandsLoading, setBrandsLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/brands', { params: { brand } }).then((res) => {
-      setProducts(res.data.data || [])
-    }).catch(() => {}).finally(() => setLoading(false))
+    setBrandsLoading(true)
+    api
+      .get('/brands')
+      .then((res) => setBrands(res.data.data || []))
+      .catch(() => setBrands([]))
+      .finally(() => setBrandsLoading(false))
   }, [])
 
-  if (loading) {
-    return <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}><Skeleton height={180} /><Skeleton height={180} /></div>
+  const fetcher = (page, pageSize) => api.get('/products', { params: { brand, page, per_page: pageSize } })
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { deps: [brand], pageSize: 20 })
+
+  const selectedBrand = brands.find((b) => b.slug === brand)
+  const title = selectedBrand?.name || brand || 'Brand'
+
+  if (brandsLoading || loading) {
+    return (
+      <div className="py-8">
+        <div className="container">
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+            <Skeleton height={180} />
+            <Skeleton height={180} />
+            <Skeleton height={180} />
+            <Skeleton height={180} />
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  if (!products.length) return <EmptyState icon={Tag} title="No products" message="No products from this brand." />
+  if (error) {
+    return (
+      <div className="py-8">
+        <div className="container">
+          <ErrorState message="Could not load products for this brand." onRetry={reload} />
+        </div>
+      </div>
+    )
+  }
+
+  if (!items.length) {
+    return (
+      <div className="py-8">
+        <div className="container">
+          <h2 style={{ fontSize: 24 }}>Brand: {title}</h2>
+          <EmptyState icon={Tag} title="No products" message={`No products from ${title} yet.`} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="py-8">
       <div className="container">
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div>
-            <h1 style={{ fontSize: 32, marginBottom: 8 }}>{brand}</h1>
-            <p style={{ color: '#6b7280', marginBottom: 8 }}>Products from {brand}</p>
+            <h1 style={{ fontSize: 32, marginBottom: 8 }}>{title}</h1>
+            <p style={{ color: '#6b7280', marginBottom: 8 }}>Products from {title}</p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <small>Product count: {products.length}</small>
+            <small>Product count: {meta.total || 0}</small>
           </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {products.map((p) => (
+          {items.map((p) => (
             <ProductCard key={p.id} product={p} showRating />
           ))}
         </div>
+
+        <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
       </div>
     </div>
   )

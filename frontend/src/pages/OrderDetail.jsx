@@ -6,9 +6,8 @@ import StatusBadge from '../components/commerce/StatusBadge'
 import ErrorState from '../components/ui/ErrorState'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Button from '../components/ui/Button'
-import Spinner from '../components/ui/Spinner'
 import { Skeleton } from '../components/ui/Skeleton'
-import { money, formatDateTime, apiImage, errorMessage, getProductImage } from '../utils/format'
+import { money, formatDateTime, apiImage, errorMessage } from '../utils/format'
 import { ORDER_STATUS_FLOW, ORDER_STATUS_LABELS } from '../utils/constants'
 import { useToast } from '../context/ToastContext'
 
@@ -21,6 +20,7 @@ export default function OrderDetail() {
   const [tracking, setTracking] = useState([])
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
 
   const load = () => {
     setLoading(true)
@@ -46,9 +46,10 @@ export default function OrderDetail() {
   const cancelOrder = async () => {
     setCancelling(true)
     try {
-      await api.post(`/orders/${id}/cancel`)
+      await api.post(`/orders/${id}/cancel`, { reason: cancelReason || undefined })
       toast.success('Order cancelled')
       setCancelOpen(false)
+      setCancelReason('')
       load()
     } catch (e) {
       toast.error(errorMessage(e))
@@ -133,10 +134,9 @@ export default function OrderDetail() {
                 <div key={it.id} className="flex items-center gap-3" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                   <Link to={`/product/${it.product_id}`} className="thumb" style={{ width: 56, height: 56 }}>
                     <img
-                      src={it.image ? apiImage(it.image) : getProductImage(it)}
+                      src={apiImage(it.image, it.product_name || it.name)}
                       alt=""
                       className="thumb-img"
-                      onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' }}
                     />
                   </Link>
                   <div className="flex-1 min-w-0">
@@ -208,7 +208,17 @@ export default function OrderDetail() {
         title="Cancel this order?"
         message="Once cancelled, this order cannot be restored. Any pending payments will be refunded."
         confirmText="Yes, cancel order"
-      />
+      >
+        <textarea
+          className="textarea"
+          rows={3}
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          disabled={cancelling}
+          placeholder="Optional: tell us why you are cancelling this order (e.g. changed my mind, wrong address, duplicate order)"
+          style={{ marginTop: 10 }}
+        />
+      </ConfirmDialog>
     </div>
   )
 }

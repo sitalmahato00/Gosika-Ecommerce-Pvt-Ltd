@@ -5,13 +5,11 @@ import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import api from '../api/client'
-import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { errorMessage } from '../utils/format'
 
 export default function Register() {
   const navigate = useNavigate()
-  const { login } = useAuth()
   const toast = useToast()
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', password: '', password_confirmation: '' })
   const [fieldErrors, setFieldErrors] = useState({})

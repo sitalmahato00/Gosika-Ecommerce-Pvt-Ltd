@@ -11,6 +11,7 @@ use App\Modules\Order\Presentation\Resources\OrderResource;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 class OrderController extends Controller
@@ -21,11 +22,27 @@ class OrderController extends Controller
     ) {
     }
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $orders = $this->orderService->listFor(request()->user());
+        $perPage = min(max($request->integer('per_page', 15), 1), 50);
 
-        return Response::success(OrderResource::collection($orders), 'Orders retrieved.');
+        $orders = Order::query()
+            ->where('user_id', $request->user()->id)
+            ->with(['items'])
+            ->when($request->filled('status'), fn ($query, $status) => $query->where('status', $status))
+            ->latest()
+            ->paginate($perPage);
+
+        return Response::success(
+            OrderResource::collection($orders),
+            'Orders retrieved.',
+            ['pagination' => [
+                'total' => $orders->total(),
+                'per_page' => $orders->perPage(),
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+            ]]
+        );
     }
 
     public function store(PlaceOrderRequest $request): JsonResponse

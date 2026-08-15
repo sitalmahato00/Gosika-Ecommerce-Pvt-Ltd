@@ -13,6 +13,8 @@ Route::prefix('v1')->group(function () {
     Route::get('brands', [PublicCatalogController::class, 'brands']);
     Route::get('products', [PublicCatalogController::class, 'products']);
     Route::get('products/{product}', [PublicCatalogController::class, 'show']);
+    Route::get('deals', [PublicCatalogController::class, 'deals']);
+    Route::get('deals/active', [PublicCatalogController::class, 'deals']);
 });
 
 Route::prefix('v1/vendor')->group(function () {

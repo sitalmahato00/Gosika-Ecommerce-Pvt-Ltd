@@ -6,13 +6,11 @@ import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import api from '../api/client'
 import { useToast } from '../context/ToastContext'
-import { useAuth } from '../context/AuthContext'
 import { errorMessage } from '../utils/format'
 
 export default function Verify() {
   const toast = useToast()
   const navigate = useNavigate()
-  const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)

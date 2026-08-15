@@ -47,8 +47,8 @@ export function apiImage(path, fallbackKey = 0) {
   }
   if (/^https?:\/\//.test(path)) return path
   if (/^data:/.test(path)) return path
-  if (path.startsWith('/storage/')) return `http://127.0.0.1:8000${path}`
-  return `http://127.0.0.1:8000/storage/${path}`
+  if (path.startsWith('/storage/')) return path
+  return `/storage/${path}`
 }
 
 export function getProductImage(product, index = 0) {

@@ -13,4 +13,5 @@ enum ReturnStatus: string
     case REFUND_PENDING = 'refund_pending';
     case REFUNDED = 'refunded';
     case COMPLETED = 'completed';
+    case CANCELLED = 'cancelled';
 }

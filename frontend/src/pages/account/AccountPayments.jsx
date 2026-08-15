@@ -2,21 +2,27 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CreditCard } from 'lucide-react'
 import api from '../../api/client'
-import StatusBadge from '../../components/commerce/StatusBadge'
 import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
-import { money, formatDateTime } from '../../utils/format'
+import { money, formatDateTime, humanizeEnum, errorMessage } from '../../utils/format'
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from '../../utils/constants'
 
 export default function AccountPayments() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
+    setError(null)
     api.get('/orders', { params: { per_page: 20 } })
-      .then((r) => setOrders(r.data.data || []))
-      .catch(() => {})
+      .then((r) => setOrders(r.data?.data?.data || []))
+      .catch((err) => setError(err))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(load, [])
 
   return (
     <div className="card">
@@ -24,6 +30,8 @@ export default function AccountPayments() {
       <p className="muted text-sm">A summary of payments across your orders.</p>
       {loading ? (
         <div className="flex flex-col gap-2"><Skeleton height={50} /><Skeleton height={50} /></div>
+      ) : error ? (
+        <ErrorState message={errorMessage(error)} onRetry={load} />
       ) : orders.length ? (
         <div className="table-wrap">
           <table className="table">
@@ -41,8 +49,8 @@ export default function AccountPayments() {
                 <tr key={o.id}>
                   <td><Link to={`/orders/${o.id}`} className="font-medium">#{o.order_number}</Link></td>
                   <td>{formatDateTime(o.placed_at)}</td>
-                  <td>{o.payment_method === 'cod' ? 'Cash on Delivery' : 'Khalti'}</td>
-                  <td><StatusBadge status={o.payment_status} /></td>
+                  <td>{PAYMENT_METHOD_LABELS[o.payment_method] || humanizeEnum(o.payment_method) || '—'}</td>
+                  <td>{PAYMENT_STATUS_LABELS[o.payment_status] || humanizeEnum(o.payment_status) || '—'}</td>
                   <td className="font-semibold">{money(o.grand_total)}</td>
                 </tr>
               ))}
