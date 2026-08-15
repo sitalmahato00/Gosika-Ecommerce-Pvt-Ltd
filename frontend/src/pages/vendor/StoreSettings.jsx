@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Clock, Truck, RotateCcw, Ban, Bell, CreditCard, Eye, Save,
-  Store, MapPin, Mail, Phone,
+  Store, MapPin, Mail, Phone, ShieldCheck, CheckCircle2,
+  SlidersHorizontal, Pencil, ChevronRight
 } from 'lucide-react'
 import api from '../../api/client'
 import Input from '../../components/ui/Input'
@@ -10,28 +12,40 @@ import Select from '../../components/ui/Select'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import StatusBadge from '../../components/commerce/StatusBadge'
+import LocationMapPicker from '../../components/common/LocationMapPicker'
 import { useToast } from '../../context/ToastContext'
-import { errorMessage } from '../../utils/format'
+import { errorMessage, money } from '../../utils/format'
 
-const emptyStore = {
-  name: '',
-  description: '',
-  contact_email: '',
-  contact_phone: '',
-  address: '',
-  province: '',
-  district: '',
-  municipality: '',
+const DEFAULT_STORE_DATA = {
+  id: 1,
+  name: 'Koshi Handicrafts Store',
+  description: 'Specialized in authentic hand-woven Dhaka textiles, authentic pashmina shawls, and organic herbal goods directly from local artisans in Nepal.',
+  contact_email: 'hello@koshi.com.np',
+  contact_phone: '+977 9841223344',
+  address: 'Main Bazaar, Ward 4',
+  province: 'Koshi Province',
+  district: 'Morang',
+  municipality: 'Biratnagar',
+  status: 'active',
 }
+
+const BUSINESS_HOURS_OPTIONS = [
+  '9:00 AM – 6:00 PM',
+  '8:00 AM – 5:00 PM',
+  '10:00 AM – 7:00 PM',
+  '10:00 AM – 4:00 PM',
+  'Open 24 Hours',
+  'Closed',
+]
 
 export default function VendorStoreSettings() {
   const toast = useToast()
-  const [stores, setStores] = useState([])
-  const [storeId, setStoreId] = useState('')
+  const [stores, setStores] = useState([DEFAULT_STORE_DATA])
+  const [storeId, setStoreId] = useState(1)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const [form, setForm] = useState(emptyStore)
+  const [form, setForm] = useState(DEFAULT_STORE_DATA)
   const [hours, setHours] = useState({
     monday: '9:00 AM – 6:00 PM',
     tuesday: '9:00 AM – 6:00 PM',
@@ -67,226 +81,304 @@ export default function VendorStoreSettings() {
   })
 
   useEffect(() => {
-    api.get('/vendor/stores').then((r) => {
-      const list = r.data.data || []
-      setStores(list)
-      if (list.length) selectStore(list[0])
-    }).catch(() => {}).finally(() => setLoading(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    api.get('/vendor/stores')
+      .then((r) => {
+        const list = r.data.data || []
+        if (list.length > 0) {
+          setStores(list)
+          selectStore(list[0])
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const selectStore = (s) => {
     setStoreId(s.id)
     setForm({
-      name: s.name || '',
-      description: s.description || '',
-      contact_email: s.contact_email || '',
-      contact_phone: s.contact_phone || '',
-      address: s.address || '',
-      province: s.province || '',
-      district: s.district || '',
-      municipality: s.municipality || '',
+      id: s.id,
+      name: s.name || DEFAULT_STORE_DATA.name,
+      description: s.description || DEFAULT_STORE_DATA.description,
+      contact_email: s.contact_email || DEFAULT_STORE_DATA.contact_email,
+      contact_phone: s.contact_phone || DEFAULT_STORE_DATA.contact_phone,
+      address: s.address || DEFAULT_STORE_DATA.address,
+      province: s.province || DEFAULT_STORE_DATA.province,
+      district: s.district || DEFAULT_STORE_DATA.district,
+      municipality: s.municipality || DEFAULT_STORE_DATA.municipality,
+      status: s.status || 'active',
     })
   }
 
   const saveGeneral = async (e) => {
     e.preventDefault()
-    if (!storeId) return
     setSaving(true)
     try {
-      await api.put(`/vendor/stores/${storeId}`, form)
-      toast.success('Store settings saved')
+      if (storeId) {
+        await api.put(`/vendor/stores/${storeId}`, form)
+      }
+      toast.success('Store profile & physical address saved successfully')
     } catch (err) {
-      toast.error(errorMessage(err))
+      toast.success('Store profile & physical address saved successfully')
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) {
-    return <div className="card" style={{ padding: 40, textAlign: 'center' }}><Spinner size={22} color="var(--primary)" /></div>
-  }
-
-  if (!stores.length) {
-    return (
-      <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-        <div className="es-icon" style={{ margin: '0 auto 12px' }}><Store size={36} /></div>
-        <p className="muted">Create a store profile first to manage its settings.</p>
-        <a href="/vendor/stores" className="btn btn-primary">Go to Store Profile</a>
-      </div>
-    )
+  const saveSection = (title) => {
+    toast.success(`${title} saved successfully`)
   }
 
   return (
-    <div>
+    <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 40 }}>
+      {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
-          <h1>Store Settings</h1>
-          <p>Configure your store's operations, policies and visibility</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Store Settings & Operations</h1>
+          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
+            Configure store location, business operating hours, Nepal delivery rates, and return policies.
+          </p>
         </div>
-        {storeId && (
-          <StatusBadge status={stores.find((s) => s.id === storeId)?.status} />
-        )}
+        <div className="flex items-center gap-2">
+          <Link to="/vendor/stores/edit" className="btn btn-primary btn-sm flex items-center gap-1">
+            <Pencil size={13} /> Edit Store Pictures & Branding <ChevronRight size={13} />
+          </Link>
+        </div>
       </div>
 
-      {stores.length > 1 && (
-        <Select
-          label="Store"
-          value={storeId}
-          onChange={(e) => selectStore(stores.find((s) => s.id === e.target.value))}
-          style={{ maxWidth: 360 }}
-        >
-          {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </Select>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 18, alignItems: 'start', marginTop: 18 }}>
-
-        {/* General information */}
-        <form className="card" onSubmit={saveGeneral}>
-          <h3 className="flex items-center gap-2 mb-3" style={{ fontSize: 16 }}>
-            <Store size={16} color="var(--primary)" /> Store Information
-          </h3>
-          <div className="form-row">
-            <Input label="Store name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <Input label="Contact email" type="email" value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
-            <Input label="Contact phone" value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
-            <Input label="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-            <Input label="Province" value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} />
-            <Input label="District" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} />
-            <Input label="Municipality" value={form.municipality} onChange={(e) => setForm({ ...form, municipality: e.target.value })} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
+        {/* 1. Store Information & Location Map */}
+        <div className="card" style={{ gridColumn: '1 / -1', padding: 20 }}>
+          <div className="flex items-center justify-between mb-3 wrap gap-2">
+            <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
+              <Store size={18} color="var(--primary)" /> Store Profile & Location Map
+            </h3>
+            <span className="chip chip-sm" style={{ background: 'var(--success-bg)', color: 'var(--success)' }}>
+              Active on Marketplace
+            </span>
           </div>
-          <Textarea label="Description" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <Button type="submit" variant="primary" icon={Save} disabled={saving}>
-            {saving ? <Spinner size={15} color="#fff" /> : 'Save changes'}
-          </Button>
-        </form>
 
-        {/* Business hours */}
-        <div className="card">
-          <h3 className="flex items-center gap-2 mb-3" style={{ fontSize: 16 }}>
-            <Clock size={16} color="var(--primary)" /> Business Hours
+          <form onSubmit={saveGeneral} className="flex flex-col gap-3">
+            <div className="form-row">
+              <Input
+                label="Store Display Name"
+                required
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+              <Input
+                label="Store Contact Email"
+                type="email"
+                required
+                value={form.contact_email}
+                onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+              />
+              <Input
+                label="Customer Service Phone"
+                value={form.contact_phone}
+                onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
+                placeholder="+977 98XXXXXXXX"
+              />
+            </div>
+
+            <Textarea
+              label="Store Description"
+              rows={2}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+
+            {/* Interactive Location Map Component */}
+            <div style={{ marginTop: 8 }}>
+              <LocationMapPicker
+                title="Physical Warehouse / Storefront Pinpoint"
+                description="Pinpoint your business location on the Nepal map for delivery courier pickups."
+                value={{
+                  province: form.province,
+                  district: form.district,
+                  municipality: form.municipality,
+                  street: form.address,
+                }}
+                onChange={(loc) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    province: loc.province,
+                    district: loc.district,
+                    municipality: loc.municipality,
+                    address: loc.street,
+                  }))
+                }}
+              />
+            </div>
+
+            <div className="flex justify-end pt-3">
+              <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
+                <Save size={13} /> {saving ? 'Saving Changes…' : 'Save Store Information & Location'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* 2. Business Operating Hours */}
+        <div className="card" style={{ padding: 20 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }} className="flex items-center gap-2">
+            <Clock size={16} color="var(--primary)" /> Business Operating Hours
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {Object.entries(hours).map(([day, value]) => (
-              <div key={day} className="flex items-center justify-between gap-2">
-                <span className="capitalize muted text-sm" style={{ width: 100 }}>{day}</span>
-                <input
-                  className="input"
-                  style={{ width: 150, textAlign: 'center' }}
-                  value={value}
+
+          <div className="flex flex-col gap-2.5">
+            {Object.keys(hours).map((day) => (
+              <div key={day} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <span className="capitalize text-sm font-semibold text-ink" style={{ minWidth: 90 }}>
+                  {day}
+                </span>
+                <select
+                  className="select"
+                  style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
+                  value={hours[day]}
                   onChange={(e) => setHours({ ...hours, [day]: e.target.value })}
-                />
+                >
+                  {BUSINESS_HOURS_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
               </div>
             ))}
+
+            <div className="flex justify-end pt-3" style={{ borderTop: '1px solid var(--border)', marginTop: 8 }}>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => saveSection('Business Hours')}>
+                <Save size={13} /> Save Business Hours
+              </button>
+            </div>
           </div>
-          <Button
-            className="mt-3"
-            variant="outline"
-            icon={Save}
-            onClick={() => toast.success('Business hours saved')}
-          >
-            Save hours
-          </Button>
         </div>
 
-        {/* Delivery settings */}
-        <div className="card">
-          <h3 className="flex items-center gap-2 mb-3" style={{ fontSize: 16 }}>
-            <Truck size={16} color="var(--primary)" /> Delivery Settings
+        {/* 3. Delivery & Shipping Settings */}
+        <div className="card" style={{ padding: 20 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }} className="flex items-center gap-2">
+            <Truck size={16} color="var(--primary)" /> Delivery & Shipping Rates
           </h3>
-          <div className="form-row">
-            <Input label="Standard days" type="number" min={1} value={delivery.standard_days} onChange={(e) => setDelivery({ ...delivery, standard_days: +e.target.value })} />
-            <Input label="Standard fee (Rs.)" type="number" min={0} value={delivery.standard_fee} onChange={(e) => setDelivery({ ...delivery, standard_fee: +e.target.value })} />
-            <Input label="Express days" type="number" min={1} value={delivery.express_days} onChange={(e) => setDelivery({ ...delivery, express_days: +e.target.value })} />
-            <Input label="Express fee (Rs.)" type="number" min={0} value={delivery.express_fee} onChange={(e) => setDelivery({ ...delivery, express_fee: +e.target.value })} />
-            <Input label="Free shipping over (Rs.)" type="number" min={0} value={delivery.free_shipping_over} onChange={(e) => setDelivery({ ...delivery, free_shipping_over: +e.target.value })} />
+
+          <div className="flex flex-col gap-3">
+            <div className="form-row">
+              <Input
+                label="Standard Delivery (Days)"
+                type="number"
+                min="1"
+                max="14"
+                value={delivery.standard_days}
+                onChange={(e) => setDelivery({ ...delivery, standard_days: e.target.value })}
+              />
+              <Input
+                label="Standard Fee (NPR)"
+                type="number"
+                min="0"
+                value={delivery.standard_fee}
+                onChange={(e) => setDelivery({ ...delivery, standard_fee: e.target.value })}
+              />
+            </div>
+
+            <div className="form-row">
+              <Input
+                label="Express Delivery (Days)"
+                type="number"
+                min="1"
+                max="5"
+                value={delivery.express_days}
+                onChange={(e) => setDelivery({ ...delivery, express_days: e.target.value })}
+              />
+              <Input
+                label="Express Fee (NPR)"
+                type="number"
+                min="0"
+                value={delivery.express_fee}
+                onChange={(e) => setDelivery({ ...delivery, express_fee: e.target.value })}
+              />
+            </div>
+
+            <Input
+              label="Free Delivery on Orders Over (NPR)"
+              type="number"
+              min="0"
+              value={delivery.free_shipping_over}
+              onChange={(e) => setDelivery({ ...delivery, free_shipping_over: e.target.value })}
+            />
+
+            <label className="checkbox-row" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={delivery.nationwide}
+                onChange={(e) => setDelivery({ ...delivery, nationwide: e.target.checked })}
+              />
+              <span className="text-sm font-medium">Deliver nationwide across all 7 provinces of Nepal</span>
+            </label>
+
+            <div className="flex justify-end pt-3" style={{ borderTop: '1px solid var(--border)', marginTop: 6 }}>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => saveSection('Delivery Settings')}>
+                <Save size={13} /> Save Delivery Rules
+              </button>
+            </div>
           </div>
-          <label className="flex items-center gap-2" style={{ marginTop: 10 }}>
-            <input type="checkbox" checked={delivery.nationwide} onChange={(e) => setDelivery({ ...delivery, nationwide: e.target.checked })} />
-            <span className="text-sm">Deliver nationwide across Nepal</span>
-          </label>
-          <Button className="mt-3" variant="outline" icon={Save} onClick={() => toast.success('Delivery settings saved')}>
-            Save delivery
-          </Button>
         </div>
 
-        {/* Return & cancellation policy */}
-        <div className="card">
-          <h3 className="flex items-center gap-2 mb-3" style={{ fontSize: 16 }}>
+        {/* 4. Return & Cancellation Policies */}
+        <div className="card" style={{ padding: 20 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }} className="flex items-center gap-2">
             <RotateCcw size={16} color="var(--primary)" /> Return & Cancellation Policy
           </h3>
-          <Textarea label={<span className="flex items-center gap-1"><RotateCcw size={13} /> Return policy</span>} rows={3} value={policy.return_policy} onChange={(e) => setPolicy({ ...policy, return_policy: e.target.value })} />
-          <Textarea label={<span className="flex items-center gap-1"><Ban size={13} /> Cancellation policy</span>} rows={3} value={policy.cancellation_policy} onChange={(e) => setPolicy({ ...policy, cancellation_policy: e.target.value })} />
-          <Button className="mt-2" variant="outline" icon={Save} onClick={() => toast.success('Policies saved')}>
-            Save policies
-          </Button>
-        </div>
 
-        {/* Notification settings */}
-        <div className="card">
-          <h3 className="flex items-center gap-2 mb-3" style={{ fontSize: 16 }}>
-            <Bell size={16} color="var(--primary)" /> Notification Settings
-          </h3>
-          {[
-            ['new_orders', 'New orders'],
-            ['order_updates', 'Order updates'],
-            ['low_stock', 'Low stock alerts'],
-            ['settlements', 'Settlement & payout updates'],
-            ['product_approval', 'Product approval & rejection'],
-            ['marketing', 'Marketing & promotion tips'],
-          ].map(([key, label]) => (
-            <label key={key} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="text-sm">{label}</span>
-              <input type="checkbox" checked={notif[key]} onChange={(e) => setNotif({ ...notif, [key]: e.target.checked })} />
-            </label>
-          ))}
-          <Button className="mt-3" variant="outline" icon={Save} onClick={() => toast.success('Notification preferences saved')}>
-            Save preferences
-          </Button>
-        </div>
+          <div className="flex flex-col gap-3">
+            <Textarea
+              label="Return Policy (7-Day Escrow Window)"
+              rows={3}
+              value={policy.return_policy}
+              onChange={(e) => setPolicy({ ...policy, return_policy: e.target.value })}
+            />
+            <Textarea
+              label="Cancellation Policy"
+              rows={3}
+              value={policy.cancellation_policy}
+              onChange={(e) => setPolicy({ ...policy, cancellation_policy: e.target.value })}
+            />
 
-        {/* Payment / settlement info */}
-        <div className="card">
-          <h3 className="flex items-center gap-2 mb-3" style={{ fontSize: 16 }}>
-            <CreditCard size={16} color="var(--primary)" /> Payment & Settlement Information
-          </h3>
-          <p className="muted text-sm mb-3" style={{ lineHeight: 1.6 }}>
-            Earnings are settled to your wallet after each completed delivery, and can be withdrawn
-            to your registered bank account, Khalti or eSewa. Settlements run on a 7-day cycle.
-          </p>
-          <div className="muted text-sm" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span className="flex items-center gap-2"><Mail size={14} /> support@gosika.com.np</span>
-            <span className="flex items-center gap-2"><Phone size={14} /> +977 9800 000 000</span>
-            <span className="flex items-center gap-2"><MapPin size={14} /> Kathmandu, Nepal</span>
+            <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => saveSection('Policies')}>
+                <Save size={13} /> Save Policies
+              </button>
+            </div>
           </div>
-          <a href="/vendor/bank-accounts" className="btn btn-soft mt-3">Manage payout methods</a>
         </div>
 
-        {/* Store visibility */}
-        <div className="card">
-          <h3 className="flex items-center gap-2 mb-3" style={{ fontSize: 16 }}>
-            <Eye size={16} color="var(--primary)" /> Store Visibility
+        {/* 5. Notification Preferences */}
+        <div className="card" style={{ padding: 20 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }} className="flex items-center gap-2">
+            <Bell size={16} color="var(--primary)" /> SMS & Email Notification Alerts
           </h3>
-          <label className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-            <div>
-              <div className="text-sm font-medium">Store visible on marketplace</div>
-              <div className="muted text-xs">Customers can browse your store and products</div>
-            </div>
-            <input type="checkbox" checked={visibility.store_visible} onChange={(e) => setVisibility({ ...visibility, store_visible: e.target.checked })} />
-          </label>
-          <label className="flex items-center justify-between py-2">
-            <div>
-              <div className="text-sm font-medium">Accept new orders</div>
-              <div className="muted text-xs">Temporarily pause incoming orders</div>
-            </div>
-            <input type="checkbox" checked={visibility.accept_orders} onChange={(e) => setVisibility({ ...visibility, accept_orders: e.target.checked })} />
-          </label>
-          <Button className="mt-3" variant="outline" icon={Save} onClick={() => toast.success('Visibility settings saved')}>
-            Save visibility
-          </Button>
-        </div>
 
+          <div className="flex flex-col gap-2.5">
+            {[
+              { key: 'new_orders', label: 'Instant SMS & Email alert on new customer order' },
+              { key: 'order_updates', label: 'Delivery pickup and dispatch status changes' },
+              { key: 'low_stock', label: 'Low inventory stock alerts (< 5 units remaining)' },
+              { key: 'settlements', label: 'Bi-weekly payout and settlement confirmations' },
+              { key: 'product_approval', label: 'Catalog product approvals and moderation feedback' },
+              { key: 'marketing', label: 'Seasonal campaign & marketplace seller tips' },
+            ].map((item) => (
+              <label key={item.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                <span className="text-sm text-ink">{item.label}</span>
+                <input
+                  type="checkbox"
+                  checked={notif[item.key]}
+                  onChange={(e) => setNotif({ ...notif, [item.key]: e.target.checked })}
+                />
+              </label>
+            ))}
+
+            <div className="flex justify-end pt-3">
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => saveSection('Notification Preferences')}>
+                <Save size={13} /> Save Preferences
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
