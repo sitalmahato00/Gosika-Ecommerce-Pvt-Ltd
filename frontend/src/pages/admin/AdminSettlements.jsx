@@ -7,6 +7,7 @@ import {
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import Modal from '../../components/ui/Modal'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Skeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
@@ -166,6 +167,7 @@ export default function AdminSettlements() {
   const [search, setSearch] = useState('')
   const [generating, setGenerating] = useState(false)
   const [selectedSettlement, setSelectedSettlement] = useState(null)
+  const [payoutConfirmTarget, setPayoutConfirmTarget] = useState(null)
   const [actionBusy, setActionBusy] = useState(false)
 
   useEffect(() => {
@@ -485,8 +487,7 @@ export default function AdminSettlements() {
                             <button
                               type="button"
                               className="btn btn-primary btn-xs flex items-center gap-1"
-                              onClick={() => doReleasePayout(s)}
-                              disabled={actionBusy}
+                              onClick={() => setPayoutConfirmTarget(s)}
                             >
                               <CheckCircle2 size={12} /> Release Payout
                             </button>
@@ -582,8 +583,11 @@ export default function AdminSettlements() {
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
-                  onClick={() => doReleasePayout(selectedSettlement)}
-                  disabled={actionBusy}
+                  onClick={() => {
+                    const target = selectedSettlement
+                    setSelectedSettlement(null)
+                    setPayoutConfirmTarget(target)
+                  }}
                 >
                   <CheckCircle2 size={13} /> Confirm & Release Payout
                 </button>
@@ -594,6 +598,23 @@ export default function AdminSettlements() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Payout Release Confirmation Modal */}
+      {payoutConfirmTarget && (
+        <ConfirmDialog
+          open={!!payoutConfirmTarget}
+          onClose={() => setPayoutConfirmTarget(null)}
+          onConfirm={() => {
+            const target = payoutConfirmTarget
+            setPayoutConfirmTarget(null)
+            doReleasePayout(target)
+          }}
+          loading={actionBusy}
+          title={`Authorize Payout: ${money(payoutConfirmTarget.amount)}?`}
+          message={`Are you sure you want to authorize and disburse ${money(payoutConfirmTarget.amount)} to ${payoutConfirmTarget.vendor?.company_name} at ${payoutConfirmTarget.vendor?.bank_name} (Account: ${payoutConfirmTarget.vendor?.account_number}) for settlement cycle ${payoutConfirmTarget.payout_number}? This will initiate an electronic ConnectIPS bank transfer.`}
+          confirmText="Authorize & Disburse Funds"
+        />
       )}
     </div>
   )
