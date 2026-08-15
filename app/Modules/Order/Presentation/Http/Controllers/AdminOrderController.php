@@ -1,0 +1,80 @@
+<?php
+
+namespace App\Modules\Order\Presentation\Http\Controllers;
+
+use App\Modules\Identity\Domain\Permissions;
+use App\Modules\Identity\Domain\Roles;
+use App\Modules\Order\Application\Services\OrderService;
+use App\Modules\Order\Infrastructure\Models\Order;
+use App\Modules\Order\Presentation\Resources\AdminOrderResource;
+use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Response;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+
+class AdminOrderController extends Controller
+{
+    public function __construct(protected OrderService $orderService)
+    {
+        $this->middleware('auth:sanctum');
+        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('permission:'.Permissions::ORDERS_VIEW.'|'.Permissions::ORDERS_MANAGE);
+    }
+
+    public function index(Request $request): JsonResponse
+    {
+        $orders = Order::query()
+            ->with(['user', 'items', 'vendorOrders'])
+            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
+            ->when($request->input('payment_status'), fn ($q, $s) => $q->where('payment_status', $s))
+            ->when($request->input('payment_method'), fn ($q, $s) => $q->where('payment_method', $s))
+            ->when($request->input('search'), function ($q, $search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('order_number', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->input('date_from'), fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
+            ->when($request->input('date_to'), fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
+            ->latest()
+            ->paginate($request->integer('per_page', 15));
+
+        return Response::success(
+            AdminOrderResource::collection($orders),
+            'Orders retrieved.',
+            ['pagination' => [
+                'total' => $orders->total(),
+                'per_page' => $orders->perPage(),
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+            ]]
+        );
+    }
+
+    public function show(string $orderId): JsonResponse
+    {
+        $order = Order::query()
+            ->with(['user', 'items', 'vendorOrders.items', 'vendorOrders.store', 'vendorOrders.deliveryAssignment', 'payments', 'shippingAddress'])
+            ->where('uuid', $orderId)
+            ->firstOrFail();
+
+        return Response::success(new AdminOrderResource($order), 'Order retrieved.');
+    }
+
+    public function cancel(Request $request, string $orderId): JsonResponse
+    {
+        $order = Order::where('uuid', $orderId)->firstOrFail();
+
+        $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        try {
+            $order = $this->orderService->cancel($request->user(), $order, $request->input('reason'));
+
+            return Response::success(new AdminOrderResource($order), 'Order cancelled.');
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+}
