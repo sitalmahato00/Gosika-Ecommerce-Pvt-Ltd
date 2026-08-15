@@ -53,7 +53,7 @@ export default function AccountLayout() {
         `}</style>
 
         {/* Sidebar */}
-        <aside>
+        <aside style={{ position: 'sticky', top: 80, alignSelf: 'start' }}>
           {/* User card */}
           {user && (
             <div className="card" style={{ marginBottom: 12, padding: 16 }}>
