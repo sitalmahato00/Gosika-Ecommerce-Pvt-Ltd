@@ -4,7 +4,8 @@ import {
   ShoppingBag, Menu, X, LogOut, Home, Bell, ChevronRight,
   Store, Wallet, Search, CheckCircle2, ShieldCheck, User,
   Settings, KeyRound, Headphones, ExternalLink, HelpCircle,
-  Sparkles, Layers, PanelLeftClose, PanelLeftOpen, ChevronLeft
+  Sparkles, Layers, PanelLeftClose, PanelLeftOpen, ChevronLeft,
+  LayoutDashboard, UserCheck, Percent, CreditCard, Shield
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -53,29 +54,49 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
     navigate('/')
   }
 
+  const userInitials = initials(user?.name || user?.email || 'A')
+  const role = roleLabel || (isSuperAdmin() ? 'Super Admin' : 'Vendor')
+  const isVendor = role.toLowerCase().includes('vendor')
+
   const handleGlobalSearch = (e) => {
     e.preventDefault()
     if (!searchQuery.trim()) return
     const q = searchQuery.trim().toLowerCase()
-    if (q.includes('order') || q.startsWith('vo-')) {
-      navigate('/vendor/orders')
-    } else if (q.includes('product') || q.includes('shawl') || q.includes('tea') || q.includes('bowl')) {
-      navigate('/vendor/products')
-    } else if (q.includes('wallet') || q.includes('payout') || q.includes('earning')) {
-      navigate('/vendor/wallet')
-    } else if (q.includes('coupon') || q.includes('promo')) {
-      navigate('/vendor/coupons')
-    } else if (q.includes('support') || q.includes('ticket') || q.startsWith('tck-')) {
-      navigate('/vendor/support')
+    
+    if (isVendor) {
+      if (q.includes('order') || q.startsWith('vo-')) {
+        navigate('/vendor/orders')
+      } else if (q.includes('product') || q.includes('shawl') || q.includes('tea') || q.includes('bowl')) {
+        navigate('/vendor/products')
+      } else if (q.includes('wallet') || q.includes('payout') || q.includes('earning')) {
+        navigate('/vendor/wallet')
+      } else if (q.includes('coupon') || q.includes('promo')) {
+        navigate('/vendor/coupons')
+      } else if (q.includes('support') || q.includes('ticket') || q.startsWith('tck-')) {
+        navigate('/vendor/support')
+      } else {
+        navigate('/vendor/orders')
+      }
     } else {
-      navigate('/vendor/orders')
+      // Admin Search Router
+      if (q.includes('vendor') || q.includes('koshi') || q.includes('store')) {
+        navigate('/admin/vendors')
+      } else if (q.includes('order')) {
+        navigate('/admin/orders')
+      } else if (q.includes('product') || q.includes('category')) {
+        navigate('/admin/products')
+      } else if (q.includes('user') || q.includes('customer')) {
+        navigate('/admin/users')
+      } else if (q.includes('commission') || q.includes('payout') || q.includes('settlement')) {
+        navigate('/admin/commissions')
+      } else if (q.includes('support') || q.includes('ticket')) {
+        navigate('/admin/support')
+      } else {
+        navigate('/admin/orders')
+      }
     }
     setSearchQuery('')
   }
-
-  const userInitials = initials(user?.name || user?.email || 'K')
-  const role = roleLabel || (isSuperAdmin() ? 'Super Admin' : 'Verified Vendor')
-  const isVendor = role.toLowerCase().includes('vendor')
 
   return (
     <div className="dash-shell">
@@ -100,16 +121,18 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 width: 34,
                 height: 34,
                 borderRadius: 8,
-                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                background: isVendor
+                  ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'
+                  : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(37,99,235,0.4)',
+                boxShadow: isVendor ? '0 2px 8px rgba(37,99,235,0.4)' : '0 2px 8px rgba(99,102,241,0.4)',
                 flexShrink: 0,
               }}
             >
-              <ShoppingBag size={18} />
+              {isVendor ? <ShoppingBag size={18} /> : <Shield size={18} />}
             </span>
             <span style={{ letterSpacing: '0.04em' }}>GOSIKA</span>
           </Link>
@@ -122,7 +145,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
           </button>
         </div>
 
-        {/* Store & Merchant Identity Profile Box */}
+        {/* Store & Merchant / Admin Identity Profile Box */}
         <div
           className="store-identity-card"
           style={{
@@ -132,7 +155,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
             background: 'rgba(30, 41, 59, 0.7)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
-          title={isVendor ? 'Koshi Handicrafts Pvt. Ltd. (Verified)' : user?.name}
+          title={isVendor ? 'Koshi Handicrafts Pvt. Ltd. (Verified)' : 'GOSIKA Central HQ (Admin)'}
         >
           <div className="flex items-center gap-3">
             <div style={{ position: 'relative' }}>
@@ -143,7 +166,9 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                   height: collapsed ? 36 : 40,
                   fontSize: 14,
                   fontWeight: 800,
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                  background: isVendor
+                    ? 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)'
+                    : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
                   color: '#fff',
                   borderRadius: 'var(--radius-sm)',
                   flexShrink: 0,
@@ -153,7 +178,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                   justifyContent: 'center',
                 }}
               >
-                {isVendor ? 'K' : userInitials}
+                {isVendor ? 'K' : 'A'}
               </span>
               <span
                 style={{
@@ -175,13 +200,13 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 style={{ color: '#fff', fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}
                 className="truncate"
               >
-                {isVendor ? 'Koshi Handicrafts' : user?.name || 'Administrator'}
+                {isVendor ? 'Koshi Handicrafts' : user?.name || 'GOSIKA Platform HQ'}
               </div>
               <div
                 style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}
                 className="truncate"
               >
-                {isVendor ? 'hello@koshi.com.np' : user?.email}
+                {isVendor ? 'hello@koshi.com.np' : user?.email || 'admin@gosika.com.np'}
               </div>
             </div>
           </div>
@@ -190,17 +215,20 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
             <span
               className="chip chip-sm"
               style={{
-                background: 'rgba(16, 185, 129, 0.15)',
-                color: '#34d399',
+                background: isVendor ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+                color: isVendor ? '#34d399' : '#a5b4fc',
                 fontSize: 10,
                 fontWeight: 800,
                 padding: '2px 8px',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
+                border: isVendor ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(99, 102, 241, 0.3)',
               }}
             >
-              <CheckCircle2 size={10} /> Verified Partner
+              {isVendor ? <CheckCircle2 size={10} /> : <ShieldCheck size={10} />}
+              {isVendor ? 'Verified Partner' : 'Platform Control'}
             </span>
-            <span className="muted text-xs" style={{ color: '#64748b', fontSize: 10 }}>Koshi Hub</span>
+            <span className="muted text-xs" style={{ color: '#64748b', fontSize: 10 }}>
+              {isVendor ? 'Koshi Hub' : 'Central Server'}
+            </span>
           </div>
         </div>
 
@@ -218,8 +246,9 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
             // Real-time Badge indicators for key menu items
             let badge = null
             if (item.label === 'Orders') badge = { text: '1', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.2)' }
+            if (item.label === 'Vendors') badge = { text: '3', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' }
             if (item.label === 'Notifications') badge = { text: '3', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)' }
-            if (item.label === 'Support Tickets') badge = { text: '1', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' }
+            if (item.label === 'Support Tickets' || item.label === 'Support') badge = { text: '1', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' }
 
             const Ic = Icons[item.icon] || Icons.Circle
 
@@ -315,14 +344,14 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
               <span
                 className="chip chip-sm hide-sm"
                 style={{
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  color: '#10b981',
+                  background: isVendor ? 'rgba(16, 185, 129, 0.1)' : 'rgba(99, 102, 241, 0.1)',
+                  color: isVendor ? '#10b981' : '#6366f1',
                   fontWeight: 800,
                   fontSize: 10,
                   padding: '2px 8px',
                 }}
               >
-                ● Live & Online
+                ● {isVendor ? 'Live & Online' : 'Super Admin Active'}
               </span>
             </div>
           </div>
@@ -349,7 +378,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 background: 'var(--bg)',
                 borderRadius: 'var(--radius)',
               }}
-              placeholder="Quick search orders, SKUs, tickets…"
+              placeholder={isVendor ? 'Quick search orders, SKUs, tickets…' : 'Search vendors, orders, users, payouts…'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -382,8 +411,8 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
               <Store size={12} /> Live Store
             </Link>
 
-            {/* Wallet Balance Pill */}
-            {isVendor && (
+            {/* Wallet / Platform Status Pill */}
+            {isVendor ? (
               <Link
                 to="/vendor/wallet"
                 className="chip chip-sm hide-sm flex items-center gap-1"
@@ -399,6 +428,23 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
               >
                 <Wallet size={13} />
                 <span>Rs. 18,470</span>
+              </Link>
+            ) : (
+              <Link
+                to="/admin/commissions"
+                className="chip chip-sm hide-sm flex items-center gap-1"
+                style={{
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  color: '#6366f1',
+                  fontWeight: 800,
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  textDecoration: 'none',
+                }}
+                title="Platform Governance"
+              >
+                <ShieldCheck size={13} />
+                <span>System Normal</span>
               </Link>
             )}
 
@@ -442,10 +488,12 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                   height: 36,
                   fontSize: 13,
                   fontWeight: 800,
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  background: isVendor
+                    ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'
+                    : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
                   color: '#fff',
                   cursor: 'pointer',
-                  border: '2px solid rgba(37,99,235,0.2)',
+                  border: isVendor ? '2px solid rgba(37,99,235,0.2)' : '2px solid rgba(99,102,241,0.2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -453,7 +501,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 onClick={() => setUserDropdown(!userDropdown)}
                 aria-label="User profile menu"
               >
-                {isVendor ? 'K' : userInitials}
+                {isVendor ? 'K' : 'A'}
               </button>
 
               {/* Interactive User Dropdown Menu */}
@@ -464,7 +512,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                     position: 'absolute',
                     top: 'calc(100% + 8px)',
                     right: 0,
-                    width: 240,
+                    width: 250,
                     padding: 0,
                     zIndex: 100,
                     boxShadow: 'var(--shadow-xl)',
@@ -475,53 +523,105 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                   {/* Dropdown Header */}
                   <div style={{ padding: '14px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
                     <div className="font-bold text-sm text-ink truncate">
-                      {isVendor ? 'Koshi Handicrafts Pvt. Ltd.' : user?.name}
+                      {isVendor ? 'Koshi Handicrafts Pvt. Ltd.' : user?.name || 'GOSIKA Platform HQ'}
                     </div>
                     <div className="muted text-xs truncate mt-0.5" style={{ fontSize: 11 }}>
-                      {isVendor ? 'hello@koshi.com.np' : user?.email}
+                      {isVendor ? 'hello@koshi.com.np' : user?.email || 'admin@gosika.com.np'}
                     </div>
                     <span
                       className="chip chip-sm mt-1.5"
-                      style={{ background: 'var(--primary-50)', color: 'var(--primary)', fontWeight: 800, fontSize: 10 }}
+                      style={{
+                        background: isVendor ? 'var(--primary-50)' : 'rgba(99,102,241,0.15)',
+                        color: isVendor ? 'var(--primary)' : '#4f46e5',
+                        fontWeight: 800,
+                        fontSize: 10,
+                      }}
                     >
                       {role}
                     </span>
                   </div>
 
-                  {/* Dropdown Links */}
+                  {/* Dropdown Links for Vendor vs Admin */}
                   <div style={{ padding: '6px 8px' }}>
-                    <Link
-                      to={isVendor ? '/vendor/store-settings' : '/admin'}
-                      className="dash-nav-link"
-                      style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
-                      onClick={() => setUserDropdown(false)}
-                    >
-                      <Settings size={15} color="var(--primary)" /> Store Operations
-                    </Link>
-                    <Link
-                      to={isVendor ? '/vendor/profile' : '/admin/profile'}
-                      className="dash-nav-link"
-                      style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
-                      onClick={() => setUserDropdown(false)}
-                    >
-                      <User size={15} color="var(--primary)" /> KYC & Merchant Profile
-                    </Link>
-                    <Link
-                      to={isVendor ? '/vendor/security' : '/admin/security'}
-                      className="dash-nav-link"
-                      style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
-                      onClick={() => setUserDropdown(false)}
-                    >
-                      <KeyRound size={15} color="var(--primary)" /> Security & 2FA
-                    </Link>
-                    <Link
-                      to={isVendor ? '/vendor/support' : '/admin/support'}
-                      className="dash-nav-link"
-                      style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
-                      onClick={() => setUserDropdown(false)}
-                    >
-                      <Headphones size={15} color="var(--primary)" /> Merchant Helpdesk
-                    </Link>
+                    {isVendor ? (
+                      <>
+                        <Link
+                          to="/vendor/store-settings"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Settings size={15} color="var(--primary)" /> Store Operations
+                        </Link>
+                        <Link
+                          to="/vendor/profile"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <User size={15} color="var(--primary)" /> KYC & Merchant Profile
+                        </Link>
+                        <Link
+                          to="/vendor/security"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <KeyRound size={15} color="var(--primary)" /> Security & 2FA
+                        </Link>
+                        <Link
+                          to="/vendor/support"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Headphones size={15} color="var(--primary)" /> Merchant Helpdesk
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          to="/admin"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <LayoutDashboard size={15} color="#4f46e5" /> Admin Control Desk
+                        </Link>
+                        <Link
+                          to="/admin/vendors"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Store size={15} color="#4f46e5" /> Vendor Approvals & KYC
+                        </Link>
+                        <Link
+                          to="/admin/users"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <UserCheck size={15} color="#4f46e5" /> System Users & Roles
+                        </Link>
+                        <Link
+                          to="/admin/commissions"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Percent size={15} color="#4f46e5" /> Platform Commissions
+                        </Link>
+                        <Link
+                          to="/admin/support"
+                          className="dash-nav-link"
+                          style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }}
+                          onClick={() => setUserDropdown(false)}
+                        >
+                          <Headphones size={15} color="#4f46e5" /> Central Support Desk
+                        </Link>
+                      </>
+                    )}
                   </div>
 
                   {/* Dropdown Logout */}
