@@ -1271,6 +1271,48 @@ button {
   border-top: 1px solid rgba(148,163,184,0.15);
   flex-shrink: 0;
 }
+.dash-sidebar.collapsed {
+  width: 72px;
+}
+.dash-sidebar.collapsed .brand span:not(.brand-mark) {
+  display: none;
+}
+.dash-sidebar.collapsed .dash-sidebar-header {
+  justify-content: center;
+  padding: 16px 8px;
+}
+.dash-sidebar.collapsed .store-identity-card {
+  padding: 8px 4px;
+  display: flex;
+  justify-content: center;
+}
+.dash-sidebar.collapsed .store-identity-card .store-details {
+  display: none;
+}
+.dash-sidebar.collapsed .dash-nav-section {
+  height: 1px;
+  background: rgba(148, 163, 184, 0.1);
+  margin: 10px 8px;
+  padding: 0;
+  font-size: 0;
+}
+.dash-sidebar.collapsed .dash-nav-link {
+  justify-content: center;
+  padding: 11px 0;
+  gap: 0;
+}
+.dash-sidebar.collapsed .dash-nav-link span {
+  display: none;
+}
+.dash-sidebar.collapsed .dash-nav-footer .dash-nav-link {
+  justify-content: center;
+  padding: 10px 0;
+  gap: 0;
+}
+.dash-sidebar.collapsed .dash-nav-footer .dash-nav-link span {
+  display: none;
+}
+
 .dash-main {
   flex: 1;
   min-width: 0;
@@ -1289,13 +1331,13 @@ button {
   z-index: 40;
   background: #fff;
   border-bottom: 1px solid var(--border);
-  padding: 0 24px;
+  padding: 0 32px;
   height: var(--topbar-height);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 .dash-topbar-title {
   font-size: 16px;
@@ -1305,10 +1347,11 @@ button {
   margin: 0;
 }
 .dash-content {
-  padding: 24px;
+  padding: 24px 32px;
   flex: 1;
   min-width: 0;
   max-width: 100%;
+  width: 100%;
 }
 .page-header {
   display: flex;
@@ -1325,6 +1368,11 @@ button {
 .page-header-left { min-width: 0; }
 .page-header-left p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 
+@media (max-width: 1024px) {
+  .dash-content { padding: 20px 24px; }
+  .dash-topbar { padding: 0 24px; }
+}
+
 @media (max-width: 900px) {
   .dash-sidebar {
     position: fixed;
@@ -1336,7 +1384,7 @@ button {
     transition: transform 0.22s ease;
     height: 100vh;
     box-shadow: var(--shadow-xl);
-    width: 280px;
+    width: 280px !important;
   }
   .dash-sidebar.open { transform: translateX(0); }
   .dash-sidebar-close { display: flex; }

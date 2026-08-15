@@ -132,7 +132,7 @@ export default function VendorProfile() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 50 }}>
+    <div style={{ width: '100%', paddingBottom: 50 }}>
       {/* Top Header Card */}
       <div className="card" style={{ padding: 22, marginBottom: 20, background: '#fff' }}>
         <div className="flex items-center justify-between wrap gap-4">

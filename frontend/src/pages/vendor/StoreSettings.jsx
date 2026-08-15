@@ -129,7 +129,7 @@ export default function VendorStoreSettings() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 40 }}>
+    <div style={{ width: '100%', paddingBottom: 40 }}>
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">

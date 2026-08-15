@@ -168,7 +168,7 @@ export default function VendorNotifications() {
   }, [notifications, tab])
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 50 }}>
+    <div style={{ width: '100%', paddingBottom: 50 }}>
       {/* Page Header */}
       <div className="page-header" style={{ marginBottom: 20 }}>
         <div className="page-header-left">

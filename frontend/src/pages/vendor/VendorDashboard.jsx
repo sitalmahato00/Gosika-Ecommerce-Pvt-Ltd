@@ -176,7 +176,7 @@ export default function VendorDashboard() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1200, margin: '0 auto', paddingBottom: 40 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, width: '100%', paddingBottom: 40 }}>
       {/* Header Bar */}
       <div className="flex items-center justify-between wrap gap-3">
         <div>

@@ -168,7 +168,7 @@ export default function VendorNewTicket() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 50 }}>
+    <div style={{ width: '100%', paddingBottom: 50 }}>
       {/* Breadcrumb & Navigation */}
       <div className="flex items-center justify-between mb-4">
         <Link to="/vendor/support" className="btn btn-ghost btn-sm flex items-center gap-1 text-ink">

@@ -4,7 +4,7 @@ import {
   ShoppingBag, Menu, X, LogOut, Home, Bell, ChevronRight,
   Store, Wallet, Search, CheckCircle2, ShieldCheck, User,
   Settings, KeyRound, Headphones, ExternalLink, HelpCircle,
-  Sparkles, Layers
+  Sparkles, Layers, PanelLeftClose, PanelLeftOpen, ChevronLeft
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -15,13 +15,14 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
   const toast = useToast()
   const { user, logout, isSuperAdmin } = useAuth()
   const [open, setOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
   const [userDropdown, setUserDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Close sidebar on route change
+  // Close sidebar on route change on mobile
   useEffect(() => {
     setOpen(false)
     setUserDropdown(false)
@@ -78,7 +79,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
 
   return (
     <div className="dash-shell">
-      {/* Mobile Overlay */}
+      {/* Mobile Drawer Overlay */}
       {open && (
         <div
           className="overlay dash-sidebar-overlay"
@@ -89,7 +90,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
       )}
 
       {/* Modern Dashboard Sidebar */}
-      <aside className={`dash-sidebar ${open ? 'open' : ''}`} aria-label={`${title} navigation`}>
+      <aside className={`dash-sidebar ${open ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`} aria-label={`${title} navigation`}>
         {/* Sidebar Header Brand */}
         <div className="dash-sidebar-header">
           <Link to="/" className="brand" style={{ color: '#fff', fontSize: 18, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -105,6 +106,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: '0 2px 8px rgba(37,99,235,0.4)',
+                flexShrink: 0,
               }}
             >
               <ShoppingBag size={18} />
@@ -122,21 +124,23 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
 
         {/* Store & Merchant Identity Profile Box */}
         <div
+          className="store-identity-card"
           style={{
-            margin: '12px 12px 6px',
-            padding: '12px',
+            margin: collapsed ? '8px 6px' : '12px 12px 6px',
+            padding: collapsed ? '8px 4px' : '12px',
             borderRadius: 'var(--radius)',
             background: 'rgba(30, 41, 59, 0.7)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
+          title={isVendor ? 'Koshi Handicrafts Pvt. Ltd. (Verified)' : user?.name}
         >
           <div className="flex items-center gap-3">
             <div style={{ position: 'relative' }}>
               <span
                 className="avatar"
                 style={{
-                  width: 40,
-                  height: 40,
+                  width: collapsed ? 36 : 40,
+                  height: collapsed ? 36 : 40,
                   fontSize: 14,
                   fontWeight: 800,
                   background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
@@ -166,7 +170,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
               />
             </div>
 
-            <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="store-details" style={{ minWidth: 0, flex: 1 }}>
               <div
                 style={{ color: '#fff', fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}
                 className="truncate"
@@ -182,7 +186,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-2.5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="store-details flex items-center justify-between mt-2.5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <span
               className="chip chip-sm"
               style={{
@@ -227,10 +231,11 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
                 className={({ isActive }) => `dash-nav-link ${isActive ? 'active' : ''}`}
                 onClick={() => setOpen(false)}
                 aria-label={item.label}
+                title={collapsed ? item.label : undefined}
               >
                 <Ic size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
                 <span style={{ flex: 1 }}>{item.label}</span>
-                {badge && (
+                {badge && !collapsed && (
                   <span
                     style={{
                       background: badge.bg,
@@ -255,6 +260,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
             to={homePath || '/shop'}
             className="dash-nav-link"
             style={{ marginBottom: 4, background: 'rgba(255,255,255,0.04)', color: '#cbd5e1' }}
+            title={collapsed ? 'View Customer Store' : undefined}
           >
             <Store size={15} color="#38bdf8" />
             <span style={{ flex: 1, fontSize: 13 }}>View Customer Store</span>
@@ -266,6 +272,7 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
             style={{ color: '#f87171' }}
             onClick={handleLogout}
             aria-label="Logout"
+            title={collapsed ? 'Sign Out' : undefined}
           >
             <LogOut size={15} />
             <span>Sign Out</span>
@@ -276,17 +283,29 @@ export default function DashboardLayout({ nav, title, roleLabel, homePath }) {
       {/* Main Content Shell */}
       <div className="dash-main">
         {/* Modern Topbar Header */}
-        <header className="dash-topbar" role="banner" style={{ background: '#fff', borderBottom: '1px solid var(--border)' }}>
-          {/* Left: Mobile Toggle & Store Title Breadcrumb */}
+        <header className="dash-topbar" role="banner">
+          {/* Left: Mobile Toggle, Desktop Collapse Toggle & Store Title */}
           <div className="flex items-center gap-3">
+            {/* Mobile Drawer Toggle */}
             <button
-              className="icon-btn"
+              className="icon-btn hide-md-up"
               onClick={() => setOpen(true)}
               aria-label="Open navigation menu"
               aria-expanded={open}
               style={{ flexShrink: 0 }}
             >
               <Menu size={19} />
+            </button>
+
+            {/* Desktop Sidebar Collapse Toggle */}
+            <button
+              type="button"
+              className="icon-btn hide-sm"
+              onClick={() => setCollapsed(!collapsed)}
+              title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+              style={{ flexShrink: 0 }}
+            >
+              {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
             </button>
 
             <div className="flex items-center gap-2">

@@ -166,7 +166,7 @@ export default function VendorEarnings() {
   }
 
   return (
-    <div style={{ paddingBottom: 40, maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ paddingBottom: 40, width: '100%' }}>
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
