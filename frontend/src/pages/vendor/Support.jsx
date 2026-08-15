@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Headphones, Plus, MessageSquare, Send, Paperclip, ChevronRight,
   Clock, ShieldCheck, PhoneCall, Sparkles, CheckCircle2, AlertCircle,
@@ -296,9 +297,9 @@ export default function VendorSupport() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="primary" icon={Plus} onClick={() => setModalOpen(true)}>
-            + Open Support Ticket
-          </Button>
+          <Link to="/vendor/support/new" className="btn btn-primary btn-sm flex items-center gap-1">
+            <Plus size={14} /> Open Support Ticket (with Attachments)
+          </Link>
         </div>
       </div>
 

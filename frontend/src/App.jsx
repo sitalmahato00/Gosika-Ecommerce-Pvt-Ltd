@@ -60,6 +60,7 @@ import VendorTransactions from './pages/vendor/Transactions'
 import VendorCoupons from './pages/vendor/Coupons'
 import VendorNotifications from './pages/vendor/Notifications'
 import VendorSupport from './pages/vendor/Support'
+import VendorNewTicket from './pages/vendor/VendorNewTicket'
 import VendorSecurity from './pages/vendor/Security'
 
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -159,6 +160,7 @@ export default function App() {
         <Route path="store-settings" element={<VendorStoreSettings />} />
         <Route path="notifications" element={<VendorNotifications />} />
         <Route path="support" element={<VendorSupport />} />
+        <Route path="support/new" element={<VendorNewTicket />} />
         <Route path="security" element={<VendorSecurity />} />
         <Route path="payouts" element={<VendorPayouts />} />
         <Route path="settlements" element={<VendorSettlements />} />
