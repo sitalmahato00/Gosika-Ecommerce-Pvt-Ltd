@@ -1,55 +1,103 @@
 import React, { useState, useMemo } from 'react'
 import {
-  CreditCard, Search, CheckCircle2, XCircle, Clock, RotateCcw,
-  AlertTriangle, Eye, ShieldCheck, Download, DollarSign, Wallet, ArrowUpRight
+  Search, CheckCircle2, Clock, RotateCcw, Eye, DollarSign, Download
 } from 'lucide-react'
+import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import Modal from '../../components/ui/Modal'
-import { money, formatDateTime } from '../../utils/format'
+import { Skeleton } from '../../components/ui/Skeleton'
+import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import Pagination from '../../components/ui/Pagination'
+import { money, formatDateTime, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useList } from '../../hooks/useApi'
 
-const SAMPLE_PAYMENTS = [
-  { id: 'TXN-90281', orderId: 'ORD-8942', customer: 'Aarav Shrestha', provider: 'Khalti', amount: 4500, fee: 90, status: 'paid', reference: 'KHL-98234190', date: '2026-08-15 11:15' },
-  { id: 'TXN-90280', orderId: 'ORD-8941', customer: 'Bikash Tamang', provider: 'Cash on Delivery', amount: 2800, fee: 0, status: 'pending', reference: 'COD-N/A', date: '2026-08-15 10:48' },
-  { id: 'TXN-90279', orderId: 'ORD-8940', customer: 'Suman Rai', provider: 'eSewa', amount: 12500, fee: 250, status: 'paid', reference: 'ESW-84729104', date: '2026-08-15 09:30' },
-  { id: 'TXN-90278', orderId: 'ORD-8939', customer: 'Anita Adhikari', provider: 'Khalti', amount: 6200, fee: 0, status: 'failed', reference: 'KHL-ERR-301', date: '2026-08-15 08:20', failureReason: 'Insufficient wallet balance' },
-  { id: 'TXN-90277', orderId: 'ORD-8938', customer: 'Deepak KC', provider: 'Fonepay', amount: 8900, fee: 178, status: 'paid', reference: 'FP-74829104', date: '2026-08-14 18:10' },
-  { id: 'TXN-90276', orderId: 'ORD-8937', customer: 'Pooja Thapa', provider: 'Khalti', amount: 3400, fee: 68, status: 'refunded', reference: 'KHL-REF-1092', date: '2026-08-14 15:45' },
-  { id: 'TXN-90275', orderId: 'ORD-8936', customer: 'Rohan Sharma', provider: 'eSewa', amount: 9600, fee: 192, status: 'paid', reference: 'ESW-84729088', date: '2026-08-14 12:20' },
-  { id: 'TXN-90274', orderId: 'ORD-8935', customer: 'Sunita Gurung', provider: 'Cash on Delivery', amount: 3100, fee: 0, status: 'paid', reference: 'COD-SETTLED', date: '2026-08-14 09:15' },
+const STATUS_OPTIONS = [
+  'initiated',
+  'processing',
+  'verification',
+  'paid',
+  'failed',
+  'cancelled',
+  'expired',
+  'refunded',
+  'partially_refunded',
+  'exception',
 ]
-
-const GATEWAY_STYLES = {
-  'Khalti': { bg: 'rgba(92, 45, 145, 0.12)', color: '#5c2d91', border: 'rgba(92, 45, 145, 0.3)' },
-  'eSewa': { bg: 'rgba(96, 187, 70, 0.12)', color: '#2e7d32', border: 'rgba(96, 187, 70, 0.3)' },
-  'Fonepay': { bg: 'rgba(211, 47, 47, 0.12)', color: '#d32f2f', border: 'rgba(211, 47, 47, 0.3)' },
-  'Cash on Delivery': { bg: 'rgba(30, 41, 59, 0.08)', color: '#1e293b', border: 'rgba(30, 41, 59, 0.2)' },
-}
 
 export default function AdminPayments() {
   const toast = useToast()
-  const [payments, setPayments] = useState(SAMPLE_PAYMENTS)
   const [providerFilter, setProviderFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
   const [selectedTxn, setSelectedTxn] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [refundOpen, setRefundOpen] = useState(null)
+  const [refundAmount, setRefundAmount] = useState('')
   const [refundReason, setRefundReason] = useState('')
+  const [refundSaving, setRefundSaving] = useState(false)
 
-  const handleRefund = (e) => {
-    e.preventDefault()
-    setPayments(payments.map((p) => p.id === refundOpen.id ? { ...p, status: 'refunded' } : p))
-    toast.success(`Refund of ${money(refundOpen.amount)} processed via ${refundOpen.provider}`)
-    setRefundOpen(null)
+  const fetcher = (page) => {
+    const params = { page, per_page: 15 }
+    if (statusFilter) params.status = statusFilter
+    if (providerFilter) params.provider = providerFilter
+    if (search) params.search = search
+    return api.get('/admin/payments', { params })
+  }
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { deps: [search, statusFilter, providerFilter] })
+
+  const openDetails = async (p) => {
+    setSelectedTxn(p)
+    setDetailLoading(true)
+    try {
+      const res = await api.get(`/admin/payments/${p.id}`)
+      setSelectedTxn(res.data.data)
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const openRefund = (p) => {
+    setRefundOpen(p)
+    setRefundAmount(p.amount)
     setRefundReason('')
+  }
+
+  const handleRefund = async (e) => {
+    e.preventDefault()
+    setRefundSaving(true)
+    try {
+      await api.post(`/admin/payments/${refundOpen.id}/refund`, {
+        amount: Number(refundAmount),
+        reason: refundReason || null,
+      })
+      toast.success(`Refund of ${money(refundAmount)} requested`)
+      setRefundOpen(null)
+      reload()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setRefundSaving(false)
+    }
   }
 
   const exportCSV = () => {
     const rows = [
-      ['Transaction ID', 'Order ID', 'Customer', 'Gateway', 'Amount (NPR)', 'Fee (NPR)', 'Gateway Reference', 'Status', 'Date & Time'],
-      ...payments.map((p) => [p.id, p.orderId, p.customer, p.provider, p.amount, p.fee, p.reference, p.status, p.date])
+      ['Payment Number', 'Order Number', 'Customer', 'Gateway', 'Amount (NPR)', 'Status', 'Initiated At'],
+      ...items.map((p) => [
+        p.payment_number,
+        p.order_number,
+        p.customer?.full_name || p.payer_name || '—',
+        p.provider || p.method,
+        p.amount,
+        p.status,
+        p.initiated_at || p.created_at,
+      ]),
     ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
+    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement('a')
     link.setAttribute('href', encodedUri)
@@ -60,33 +108,37 @@ export default function AdminPayments() {
     toast.success('Payment transactions exported to CSV')
   }
 
-  const totals = useMemo(() => {
-    const totalVolume = payments.reduce((sum, p) => sum + p.amount, 0)
-    const paidVolume = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0)
-    const pendingVolume = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0)
-    const refundVolume = payments.filter(p => p.status === 'refunded').reduce((sum, p) => sum + p.amount, 0)
-    return { totalVolume, paidVolume, pendingVolume, refundVolume }
-  }, [payments])
+  const providers = Array.from(new Set(items.map((p) => p.provider).filter(Boolean)))
 
-  const filtered = payments.filter((p) => {
-    const matchesProvider = !providerFilter || p.provider.toLowerCase() === providerFilter.toLowerCase()
-    const matchesStatus = !statusFilter || p.status === statusFilter
-    const matchesSearch = !search ||
-      p.id.toLowerCase().includes(search.toLowerCase()) ||
-      p.orderId.toLowerCase().includes(search.toLowerCase()) ||
-      p.customer.toLowerCase().includes(search.toLowerCase()) ||
-      p.reference.toLowerCase().includes(search.toLowerCase())
-    return matchesProvider && matchesStatus && matchesSearch
-  })
+  const totals = useMemo(() => {
+    const totalVolume = items.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    const paidVolume = items.filter((p) => p.status === 'paid').reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    const pendingVolume = items.filter((p) => ['initiated', 'processing', 'verification'].includes(p.status)).reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    const refundVolume = items.filter((p) => ['refunded', 'partially_refunded'].includes(p.status)).reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    return { totalVolume, paidVolume, pendingVolume, refundVolume }
+  }, [items])
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={70} />)}
+      </div>
+    )
+  }
+
+  if (error) return <ErrorState onRetry={reload} />
+
+  if (!items.length) {
+    return <EmptyState icon={DollarSign} title="No payments" message="No payment transactions found." />
+  }
 
   return (
     <div>
-      {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Payment & Gateway Management</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Monitor transactions, settlements, and refunds across Cash on Delivery, Khalti, eSewa, and Fonepay.
+            Monitor transactions, settlements, and refunds across payment gateways.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -96,7 +148,6 @@ export default function AdminPayments() {
         </div>
       </div>
 
-      {/* KPI Metric Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
         <div className="card" style={{ padding: 16 }}>
           <div className="flex items-center justify-between">
@@ -104,7 +155,7 @@ export default function AdminPayments() {
             <DollarSign size={16} color="var(--primary)" />
           </div>
           <div className="font-extrabold text-xl mt-1 text-ink">{money(totals.totalVolume)}</div>
-          <span className="muted text-xs mt-1 block">{payments.length} transactions processed</span>
+          <span className="muted text-xs mt-1 block">{meta.total} transactions</span>
         </div>
 
         <div className="card" style={{ padding: 16 }}>
@@ -118,11 +169,11 @@ export default function AdminPayments() {
 
         <div className="card" style={{ padding: 16 }}>
           <div className="flex items-center justify-between">
-            <span className="muted text-xs uppercase font-bold">Pending COD</span>
+            <span className="muted text-xs uppercase font-bold">Pending</span>
             <Clock size={16} color="var(--warning)" />
           </div>
           <div className="font-extrabold text-xl mt-1 text-warning">{money(totals.pendingVolume)}</div>
-          <span className="muted text-xs mt-1 block">Awaiting delivery handover</span>
+          <span className="muted text-xs mt-1 block">Awaiting completion</span>
         </div>
 
         <div className="card" style={{ padding: 16 }}>
@@ -131,40 +182,32 @@ export default function AdminPayments() {
             <RotateCcw size={16} color="var(--danger)" />
           </div>
           <div className="font-extrabold text-xl mt-1 text-danger">{money(totals.refundVolume)}</div>
-          <span className="muted text-xs mt-1 block">Returned to buyer wallets</span>
+          <span className="muted text-xs mt-1 block">Returned to buyers</span>
         </div>
       </div>
 
-      {/* Gateway Tabs */}
       <div className="tabs" style={{ marginBottom: 16 }}>
-        <button
-          className={`tab ${providerFilter === '' ? 'active' : ''}`}
-          onClick={() => setProviderFilter('')}
-        >
-          All Gateways ({payments.length})
+        <button className={`tab ${providerFilter === '' ? 'active' : ''}`} onClick={() => setProviderFilter('')}>
+          All Gateways ({meta.total})
         </button>
-        {['Khalti', 'Cash on Delivery', 'eSewa', 'Fonepay'].map((g) => {
-          const count = payments.filter(p => p.provider.toLowerCase() === g.toLowerCase()).length
-          return (
-            <button
-              key={g}
-              className={`tab ${providerFilter.toLowerCase() === g.toLowerCase() ? 'active' : ''}`}
-              onClick={() => setProviderFilter(g)}
-            >
-              {g} ({count})
-            </button>
-          )
-        })}
+        {providers.map((g) => (
+          <button
+            key={g}
+            className={`tab ${providerFilter === g ? 'active' : ''}`}
+            onClick={() => setProviderFilter(g)}
+          >
+            {g}
+          </button>
+        ))}
       </div>
 
-      {/* Search & Filter Row */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
           <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
           <input
             className="input"
             style={{ paddingLeft: 32 }}
-            placeholder="Search by Txn ID, Order, or Reference…"
+            placeholder="Search by payment number or reference…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -177,145 +220,166 @@ export default function AdminPayments() {
           onChange={(e) => setStatusFilter(e.target.value)}
         >
           <option value="">All Statuses</option>
-          <option value="paid">Paid</option>
-          <option value="pending">Pending</option>
-          <option value="failed">Failed</option>
-          <option value="refunded">Refunded</option>
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
         </select>
       </div>
 
-      {/* Table */}
       <div className="table-wrap">
         <table className="table">
           <thead>
             <tr>
-              <th>Transaction ID</th>
-              <th>Order ID</th>
+              <th>Payment Number</th>
+              <th>Order</th>
               <th>Customer</th>
               <th>Gateway</th>
               <th>Amount</th>
               <th>Gateway Ref</th>
               <th>Status</th>
-              <th>Date & Time</th>
+              <th>Initiated</th>
               <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p) => {
-              const gwStyle = GATEWAY_STYLES[p.provider] || { bg: 'var(--bg)', color: 'var(--ink)', border: 'var(--border)' }
-              return (
-                <tr key={p.id}>
-                  <td>
-                    <span className="font-bold text-sm text-ink">{p.id}</span>
-                  </td>
-                  <td>
-                    <span className="font-semibold text-primary">#{p.orderId}</span>
-                  </td>
-                  <td className="text-sm font-medium text-ink">{p.customer}</td>
-                  <td>
-                    <span
-                      className="chip chip-sm"
-                      style={{
-                        background: gwStyle.bg,
-                        color: gwStyle.color,
-                        border: `1px solid ${gwStyle.border}`,
-                        fontWeight: 700
-                      }}
-                    >
-                      {p.provider}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="font-bold text-ink text-sm">{money(p.amount)}</span>
-                  </td>
-                  <td className="muted text-xs font-mono">{p.reference}</td>
-                  <td>
-                    <StatusBadge status={p.status} />
-                  </td>
-                  <td className="muted text-xs font-mono">{p.date}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
-                      <button
-                        className="btn btn-outline btn-xs"
-                        onClick={() => setSelectedTxn(p)}
-                      >
-                        <Eye size={12} /> Details
+            {items.map((p) => (
+              <tr key={p.id}>
+                <td>
+                  <span className="font-bold text-sm text-ink font-mono">{p.payment_number}</span>
+                </td>
+                <td>
+                  <span className="font-semibold text-primary font-mono text-xs">{p.order_number || '—'}</span>
+                </td>
+                <td className="text-sm font-medium text-ink">{p.customer?.full_name || p.payer_name || '—'}</td>
+                <td>
+                  <span className="chip chip-sm" style={{ fontWeight: 700 }}>
+                    {p.provider || p.method || '—'}
+                  </span>
+                </td>
+                <td>
+                  <span className="font-bold text-ink text-sm">{money(p.amount)}</span>
+                </td>
+                <td className="muted text-xs font-mono">{p.provider_transaction_id || '—'}</td>
+                <td>
+                  <StatusBadge status={p.status} />
+                </td>
+                <td className="muted text-xs">{formatDateTime(p.initiated_at || p.created_at)}</td>
+                <td style={{ textAlign: 'right' }}>
+                  <div style={{ display: 'inline-flex', gap: 6 }}>
+                    <button className="btn btn-outline btn-xs" onClick={() => openDetails(p)}>
+                      <Eye size={12} /> Details
+                    </button>
+                    {p.status === 'paid' && (
+                      <button className="btn btn-danger-outline btn-xs" onClick={() => openRefund(p)}>
+                        <RotateCcw size={12} /> Refund
                       </button>
-                      {p.status === 'paid' && (
-                        <button
-                          className="btn btn-danger-outline btn-xs"
-                          onClick={() => setRefundOpen(p)}
-                        >
-                          <RotateCcw size={12} /> Refund
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
-      {/* Transaction Details Modal */}
+      <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
+
       {selectedTxn && (
-        <Modal open={!!selectedTxn} onClose={() => setSelectedTxn(null)} title={`Transaction: ${selectedTxn.id}`}>
+        <Modal open={!!selectedTxn} onClose={() => setSelectedTxn(null)} title={`Payment: ${selectedTxn.payment_number || selectedTxn.id}`}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div className="card" style={{ background: 'var(--bg)', padding: 16 }}>
-              <div className="flex justify-between items-center mb-2">
-                <span className="muted text-xs uppercase font-semibold">Payment Status</span>
-                <StatusBadge status={selectedTxn.status} />
-              </div>
-              <div className="font-extrabold text-2xl text-primary">{money(selectedTxn.amount)}</div>
-              <div className="muted text-xs mt-1">Platform Processing Fee: {money(selectedTxn.fee || 0)}</div>
-            </div>
+            {detailLoading ? (
+              <Skeleton height={80} />
+            ) : (
+              <>
+                <div className="card" style={{ background: 'var(--bg)', padding: 16 }}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="muted text-xs uppercase font-semibold">Payment Status</span>
+                    <StatusBadge status={selectedTxn.status} />
+                  </div>
+                  <div className="font-extrabold text-2xl text-primary">{money(selectedTxn.amount)}</div>
+                  <div className="muted text-xs mt-1">Currency: {selectedTxn.currency}</div>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
-              <div>
-                <span className="muted text-xs block">Order ID</span>
-                <span className="font-semibold text-primary">#{selectedTxn.orderId}</span>
-              </div>
-              <div>
-                <span className="muted text-xs block">Payment Method</span>
-                <span className="font-semibold">{selectedTxn.provider}</span>
-              </div>
-              <div>
-                <span className="muted text-xs block">Customer Name</span>
-                <span className="font-semibold">{selectedTxn.customer}</span>
-              </div>
-              <div>
-                <span className="muted text-xs block">Gateway Reference</span>
-                <span className="font-mono text-xs">{selectedTxn.reference}</span>
-              </div>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
+                  <div>
+                    <span className="muted text-xs block">Order Number</span>
+                    <span className="font-semibold text-primary">{selectedTxn.order_number || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="muted text-xs block">Payment Method</span>
+                    <span className="font-semibold">{selectedTxn.method || selectedTxn.provider || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="muted text-xs block">Customer Name</span>
+                    <span className="font-semibold">{selectedTxn.customer?.full_name || selectedTxn.payer_name || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="muted text-xs block">Gateway Reference</span>
+                    <span className="font-mono text-xs">{selectedTxn.provider_transaction_id || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="muted text-xs block">Payer Email</span>
+                    <span className="font-mono text-xs">{selectedTxn.payer_email || selectedTxn.customer?.email || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="muted text-xs block">Payer Phone</span>
+                    <span className="font-mono text-xs">{selectedTxn.payer_phone || selectedTxn.customer?.phone || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="muted text-xs block">Initiated At</span>
+                    <span className="font-semibold text-xs">{formatDateTime(selectedTxn.initiated_at)}</span>
+                  </div>
+                  <div>
+                    <span className="muted text-xs block">Verified At</span>
+                    <span className="font-semibold text-xs">{formatDateTime(selectedTxn.verified_at)}</span>
+                  </div>
+                </div>
 
-            {selectedTxn.failureReason && (
-              <div className="alert alert-error" style={{ margin: 0, fontSize: 13 }}>
-                <strong>Failure Reason:</strong> {selectedTxn.failureReason}
-              </div>
+                {(selectedTxn.refunds || []).length > 0 && (
+                  <div className="card" style={{ padding: 14 }}>
+                    <div className="font-bold text-sm mb-2">Refunds</div>
+                    {(selectedTxn.refunds || []).map((r) => (
+                      <div key={r.id} className="flex justify-between items-center text-xs py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                        <span className="font-mono font-bold">{r.refund_number}</span>
+                        <span className="font-bold">{money(r.amount)}</span>
+                        <StatusBadge status={r.status} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                  <button className="btn btn-outline btn-sm" onClick={() => setSelectedTxn(null)}>Close</button>
+                </div>
+              </>
             )}
-
-            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-              <button className="btn btn-outline btn-sm" onClick={() => setSelectedTxn(null)}>Close</button>
-            </div>
           </div>
         </Modal>
       )}
 
-      {/* Refund Modal */}
       {refundOpen && (
-        <Modal open={!!refundOpen} onClose={() => setRefundOpen(null)} title={`Process Refund: ${refundOpen.id}`}>
+        <Modal open={!!refundOpen} onClose={() => setRefundOpen(null)} title={`Process Refund: ${refundOpen.payment_number}`}>
           <form onSubmit={handleRefund} className="flex flex-col gap-3">
             <p className="text-sm muted m-0">
-              You are about to issue a refund of <strong>{money(refundOpen.amount)}</strong> to customer <strong>{refundOpen.customer}</strong> via {refundOpen.provider}.
+              Issue a refund of <strong>{money(refundOpen.amount)}</strong> to <strong>{refundOpen.customer?.full_name || refundOpen.payer_name || 'customer'}</strong>.
             </p>
+            <div className="form-group">
+              <label className="label">Refund Amount (NPR) <span className="req">*</span></label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                className="input"
+                required
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+              />
+            </div>
             <div className="form-group">
               <label className="label">Refund Reason</label>
               <textarea
                 className="textarea"
                 rows={3}
-                required
                 value={refundReason}
                 onChange={(e) => setRefundReason(e.target.value)}
                 placeholder="e.g. Order cancelled by customer or defective item returned."
@@ -323,7 +387,9 @@ export default function AdminPayments() {
             </div>
             <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setRefundOpen(null)}>Cancel</button>
-              <button type="submit" className="btn btn-danger btn-sm">Confirm & Process Refund</button>
+              <button type="submit" className="btn btn-danger btn-sm" disabled={refundSaving}>
+                {refundSaving ? 'Processing…' : 'Confirm & Process Refund'}
+              </button>
             </div>
           </form>
         </Modal>

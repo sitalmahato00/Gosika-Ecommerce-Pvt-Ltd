@@ -3,6 +3,7 @@
 namespace App\Modules\Vendor\Infrastructure\Models;
 
 use App\Modules\Identity\Infrastructure\Models\User;
+use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
 use App\Modules\Shared\Infrastructure\Models\BaseModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -65,6 +66,11 @@ class Vendor extends BaseModel
     public function wallet()
     {
         return $this->hasOne(\App\Modules\Wallet\Infrastructure\Models\VendorWallet::class);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(VendorOrder::class);
     }
 
     public function scopePending($query)

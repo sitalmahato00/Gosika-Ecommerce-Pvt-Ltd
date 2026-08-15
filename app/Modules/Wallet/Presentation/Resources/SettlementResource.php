@@ -13,6 +13,7 @@ class SettlementResource extends JsonResource
             'id' => $this->uuid,
             'settlement_number' => $this->settlement_number,
             'vendor_id' => $this->vendor?->uuid,
+            'vendor_name' => $this->whenLoaded('vendor', fn () => $this->vendor?->company_name),
             'period_start' => $this->period_start?->toDateString(),
             'period_end' => $this->period_end?->toDateString(),
             'gross_sales' => number_format((float) $this->gross_sales, 2, '.', ''),

@@ -79,6 +79,11 @@ class Payment extends BaseModel
         return $this->hasMany(PaymentStatusHistory::class);
     }
 
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+
     public function scopeForUser($query, int $userId)
     {
         return $query->where('user_id', $userId);

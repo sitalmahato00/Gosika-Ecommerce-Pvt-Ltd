@@ -12,6 +12,7 @@ class WalletResource extends JsonResource
         return [
             'id' => $this->uuid,
             'vendor_id' => $this->vendor?->uuid,
+            'vendor_name' => $this->whenLoaded('vendor', fn () => $this->vendor?->company_name),
             'balance' => number_format((float) $this->balance, 2, '.', ''),
             'available_balance' => number_format((float) $this->available_balance, 2, '.', ''),
             'pending_balance' => number_format((float) $this->pending_balance, 2, '.', ''),

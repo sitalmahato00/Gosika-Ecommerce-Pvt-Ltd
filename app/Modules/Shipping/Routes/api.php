@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Shipping\Presentation\Http\Controllers\AdminDeliveryController;
+use App\Modules\Shipping\Presentation\Http\Controllers\AdminShippingController;
 use App\Modules\Shipping\Presentation\Http\Controllers\DeliveryPartnerController;
 use App\Modules\Shipping\Presentation\Http\Controllers\DeliveryTrackingController;
 use App\Modules\Shipping\Presentation\Http\Controllers\VendorOrderController;
@@ -50,4 +51,16 @@ Route::prefix('v1/vendor/orders')->group(function () {
 
 Route::prefix('v1')->group(function () {
     Route::get('orders/{order}/tracking', [DeliveryTrackingController::class, 'orderTracking']);
+});
+
+Route::prefix('v1/admin/shipping')->group(function () {
+    Route::get('zones', [AdminShippingController::class, 'zones']);
+    Route::post('zones', [AdminShippingController::class, 'storeZone']);
+    Route::put('zones/{zone}', [AdminShippingController::class, 'updateZone']);
+    Route::delete('zones/{zone}', [AdminShippingController::class, 'deleteZone']);
+
+    Route::get('couriers', [AdminShippingController::class, 'couriers']);
+    Route::post('couriers', [AdminShippingController::class, 'storeCourier']);
+    Route::put('couriers/{courier}', [AdminShippingController::class, 'updateCourier']);
+    Route::delete('couriers/{courier}', [AdminShippingController::class, 'deleteCourier']);
 });

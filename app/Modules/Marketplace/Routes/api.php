@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Marketplace\Presentation\Http\Controllers\AdminReviewController;
 use App\Modules\Marketplace\Presentation\Http\Controllers\MarketplaceController;
 use App\Modules\Marketplace\Presentation\Http\Controllers\WishlistController;
 use Illuminate\Support\Facades\Route;
@@ -24,4 +25,11 @@ Route::prefix('v1/marketplace')->group(function () {
         Route::post('stores/{store}/reviews', [MarketplaceController::class, 'submitStoreReview']);
         Route::post('products/{product}/reviews', [MarketplaceController::class, 'submitProductReview']);
     });
+});
+
+Route::prefix('v1/admin')->group(function () {
+    Route::get('reviews', [AdminReviewController::class, 'index']);
+    Route::post('reviews/{type}/{review}/approve', [AdminReviewController::class, 'approve']);
+    Route::post('reviews/{type}/{review}/reject', [AdminReviewController::class, 'reject']);
+    Route::delete('reviews/{type}/{review}', [AdminReviewController::class, 'destroy']);
 });

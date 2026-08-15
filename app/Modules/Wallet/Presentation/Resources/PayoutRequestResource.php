@@ -13,6 +13,7 @@ class PayoutRequestResource extends JsonResource
             'id' => $this->uuid,
             'payout_number' => $this->payout_number,
             'vendor_id' => $this->vendor?->uuid,
+            'vendor_name' => $this->whenLoaded('vendor', fn () => $this->vendor?->company_name),
             'settlement_id' => $this->settlement?->uuid,
             'bank_account_id' => $this->bankAccount?->uuid,
             'bank_name' => $this->bankAccount?->bank_name,

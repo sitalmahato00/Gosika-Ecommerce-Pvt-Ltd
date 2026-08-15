@@ -51,11 +51,14 @@ export function useList(fetcher, { deps = [], pageSize = 12 } = {}) {
         const res = await fetcher(targetPage, pageSize)
         const payload = res?.data
         const list = payload?.data?.data ?? payload?.data ?? payload
-        const m = payload?.meta || payload?.pagination || {
-          total: 0,
-          current_page: targetPage,
-          last_page: 1,
-        }
+        const m =
+          payload?.data?.meta ||
+          payload?.meta?.pagination ||
+          payload?.pagination || {
+            total: 0,
+            current_page: targetPage,
+            last_page: 1,
+          }
         setItems(Array.isArray(list) ? list : [])
         setMeta({
           total: m.total ?? m.current ?? 0,

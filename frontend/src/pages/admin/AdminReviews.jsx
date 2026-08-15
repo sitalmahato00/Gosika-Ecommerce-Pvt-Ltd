@@ -1,147 +1,110 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState } from 'react'
 import {
-  Star, Search, Eye, Trash2, CheckCircle2, EyeOff, AlertTriangle,
-  MessageSquare, Award, ShieldCheck, ThumbsUp, Filter, MapPin,
-  Check, User, CornerDownRight, Flag
+  Star, Search, CheckCircle2, XCircle, Trash2, MessageSquare, ThumbsUp, Flag, Check
 } from 'lucide-react'
+import api from '../../api/client'
+import { useList } from '../../hooks/useApi'
 import RatingStars from '../../components/commerce/RatingStars'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import Modal from '../../components/ui/Modal'
-import { formatDate } from '../../utils/format'
+import Textarea from '../../components/ui/Textarea'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import { Skeleton } from '../../components/ui/Skeleton'
+import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import Pagination from '../../components/ui/Pagination'
+import { formatDate, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 
-const SAMPLE_REVIEWS = [
-  {
-    id: 1,
-    type: 'product',
-    target: '100% Pure Pashmina Cashmere Shawl (Handwoven)',
-    customer: 'Aarav Shrestha',
-    location: 'Kathmandu, Bagmati',
-    rating: 5,
-    title: 'Outstanding warmth, authentic Himalayan Cashmere',
-    body: 'The authentic Nepali craft quality is noticeable immediately. Lightweight yet provides unmatched warmth. Very satisfied with Koshi Handicrafts!',
-    status: 'published',
-    verified_buyer: true,
-    date: '2026-08-15',
-    admin_note: 'Verified with Order #ORD-2026-98101',
-  },
-  {
-    id: 2,
-    type: 'product',
-    target: 'Handcrafted Tibetan Singing Bowl (7 Sacred Metals)',
-    customer: 'Dr. Maya Karki',
-    location: 'Patan, Bagmati',
-    rating: 5,
-    title: 'Deep harmonic resonance and acoustic clarity',
-    body: 'The sustaining vibration and handmade acoustic chime is extraordinary for meditation sessions. Shipped with fragile packaging and rosewood striker.',
-    status: 'published',
-    verified_buyer: true,
-    date: '2026-08-14',
-    admin_note: 'Quality approved by Lalitpur Artisan Desk',
-  },
-  {
-    id: 3,
-    type: 'vendor',
-    target: 'Koshi Handicrafts Pvt. Ltd.',
-    customer: 'Sita Sharma',
-    location: 'Pokhara, Gandaki',
-    rating: 5,
-    title: 'Super fast delivery to Pokhara Lakeside',
-    body: 'Seller dispatched within 2 hours of order placement. Received via Pathao courier in flawless condition with authentic craft certification.',
-    status: 'published',
-    verified_buyer: true,
-    date: '2026-08-13',
-    admin_note: '5-star vendor SLA compliance',
-  },
-  {
-    id: 4,
-    type: 'product',
-    target: 'Organic Ilam Orthodox Black Tea (500g Tin)',
-    customer: 'Pooja Thapa',
-    location: 'Biratnagar, Koshi',
-    rating: 4,
-    title: 'Very aromatic and fresh first-flush leaves',
-    body: 'Good airtight tin packaging, aroma and golden liquor taste is authentic Ilam tea. Would appreciate faster delivery to Morang district.',
-    status: 'published',
-    verified_buyer: true,
-    date: '2026-08-12',
-    admin_note: null,
-  },
-  {
-    id: 5,
-    type: 'product',
-    target: 'Traditional Carved Wooden Peacock Window',
-    customer: 'Bikash Gurung',
-    location: 'Butwal, Lumbini',
-    rating: 5,
-    title: 'Exquisite Bhaktapur Newari Woodcarving',
-    body: 'Masterpiece craftsmanship! Installed at our entrance lobby and everyone compliments the intricate feather carvings.',
-    status: 'published',
-    verified_buyer: true,
-    date: '2026-08-11',
-    admin_note: null,
-  },
-  {
-    id: 6,
-    type: 'vendor',
-    target: 'Eastern Dhaka Textile Works',
-    customer: 'Rohan Tamang',
-    location: 'Dharan, Koshi',
-    rating: 2,
-    title: 'Delayed courier dispatch by 3 days',
-    body: 'The saree quality is good, but seller took over 3 business days to pack and hand over parcel to Pathao rider.',
-    status: 'reported',
-    verified_buyer: true,
-    date: '2026-08-10',
-    admin_note: 'Vendor notified regarding dispatch SLA bottleneck',
-  },
-]
+const STATUS_TABS = ['', 'pending', 'approved', 'hidden', 'rejected']
 
 export default function AdminReviews() {
   const toast = useToast()
-  const [reviews, setReviews] = useState(SAMPLE_REVIEWS)
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [starFilter, setStarFilter] = useState(null)
   const [search, setSearch] = useState('')
-  const [selectedReview, setSelectedReview] = useState(null)
+  const [rejectTarget, setRejectTarget] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [actionBusy, setActionBusy] = useState(false)
 
-  const toggleStatus = (id, newStatus) => {
-    setReviews(reviews.map((r) => r.id === id ? { ...r, status: newStatus } : r))
-    toast.success(`Review marked as "${newStatus}"`)
+  const fetcher = async (page) => api.get('/admin/reviews', {
+    params: {
+      page,
+      per_page: 15,
+      type: typeFilter || undefined,
+      status: statusFilter || undefined,
+      search: search || undefined,
+    },
+  })
+
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
+    deps: [typeFilter, statusFilter, search],
+    pageSize: 15,
+  })
+
+  const doApprove = async (r) => {
+    setActionBusy(true)
+    try {
+      await api.post(`/admin/reviews/${r.type}/${r.id}/approve`)
+      toast.success('Review approved & published')
+      reload()
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setActionBusy(false)
+    }
   }
 
-  const deleteReview = (id) => {
-    if (!window.confirm('Permanently delete this customer review?')) return
-    setReviews(reviews.filter((r) => r.id !== id))
-    toast.success('Review deleted')
+  const doReject = async () => {
+    if (!rejectTarget) return
+    setActionBusy(true)
+    try {
+      await api.post(`/admin/reviews/${rejectTarget.type}/${rejectTarget.id}/reject`, { reason: rejectReason || undefined })
+      toast.success('Review rejected')
+      setRejectTarget(null)
+      setRejectReason('')
+      reload()
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setActionBusy(false)
+    }
   }
 
-  const filtered = useMemo(() => {
-    return reviews.filter((r) => {
-      if (typeFilter && r.type !== typeFilter) return false
-      if (statusFilter && r.status !== statusFilter) return false
-      if (starFilter && r.rating !== starFilter) return false
-      if (search) {
-        const q = search.toLowerCase()
-        const matchTarget = (r.target || '').toLowerCase().includes(q)
-        const matchCust = (r.customer || '').toLowerCase().includes(q)
-        const matchBody = (r.body || '').toLowerCase().includes(q)
-        if (!matchTarget && !matchCust && !matchBody) return false
-      }
-      return true
-    })
-  }, [reviews, typeFilter, statusFilter, starFilter, search])
+  const doDelete = async () => {
+    if (!deleteTarget) return
+    setActionBusy(true)
+    try {
+      await api.delete(`/admin/reviews/${deleteTarget.type}/${deleteTarget.id}`)
+      toast.success('Review deleted')
+      setDeleteTarget(null)
+      reload()
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setActionBusy(false)
+    }
+  }
 
-  // Aggregate metrics
-  const totalReviews = reviews.length
-  const avgRating = (reviews.reduce((s, r) => s + r.rating, 0) / totalReviews).toFixed(2)
-  const fiveStarsCount = reviews.filter((r) => r.rating === 5).length
-  const reportedCount = reviews.filter((r) => r.status === 'reported').length
+  const totalReviews = items.length
+  const avgRating = totalReviews ? (items.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / totalReviews).toFixed(2) : '0.00'
+  const fiveStars = items.filter((r) => Number(r.rating) === 5).length
+  const reported = items.filter((r) => r.status === 'pending' || r.status === 'rejected').length
+
+  if (loading) {
+    return (
+      <div className="w-full flex flex-col gap-3">
+        <Skeleton height={120} />
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={90} />)}
+      </div>
+    )
+  }
+
+  if (error) return <ErrorState message={errorMessage(error)} onRetry={reload} />
 
   return (
     <div className="w-full flex flex-col gap-4 pb-8">
-      {/* Page Header */}
       <div className="page-header" style={{ marginBottom: 16 }}>
         <div className="page-header-left">
           <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>
@@ -153,7 +116,6 @@ export default function AdminReviews() {
         </div>
       </div>
 
-      {/* 4 KPI Metric Cards */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
           <div className="flex items-center justify-between mb-2">
@@ -163,7 +125,7 @@ export default function AdminReviews() {
             </span>
           </div>
           <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>{totalReviews} Reviews</div>
-          <div className="muted text-xs mt-1">100% verified buyers</div>
+          <div className="muted text-xs mt-1">Across product & store feedback</div>
         </div>
 
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
@@ -173,8 +135,8 @@ export default function AdminReviews() {
               <Star size={18} fill="#f59e0b" />
             </span>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#f59e0b' }}>{avgRating} ★ (Excellent)</div>
-          <div className="muted text-xs mt-1">High customer satisfaction</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: '#f59e0b' }}>{avgRating} ★</div>
+          <div className="muted text-xs mt-1">From loaded reviews</div>
         </div>
 
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
@@ -185,31 +147,30 @@ export default function AdminReviews() {
             </span>
           </div>
           <div style={{ fontSize: 22, fontWeight: 900, color: '#10b981' }}>
-            {((fiveStarsCount / totalReviews) * 100).toFixed(1)}%
+            {totalReviews ? ((fiveStars / totalReviews) * 100).toFixed(1) : '0.0'}%
           </div>
-          <div className="muted text-xs mt-1">{fiveStarsCount} perfect score reviews</div>
+          <div className="muted text-xs mt-1">{fiveStars} perfect score reviews</div>
         </div>
 
-        <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0, border: reportedCount > 0 ? '2px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border)' }}>
+        <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0, border: reported > 0 ? '2px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border)' }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em', color: reportedCount > 0 ? '#991b1b' : 'var(--muted)' }}>Reported / Flagged</span>
+            <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em', color: reported > 0 ? '#991b1b' : 'var(--muted)' }}>Reported / Flagged</span>
             <span className="avatar" style={{ width: 34, height: 34, background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' }}>
               <Flag size={18} />
             </span>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: reportedCount > 0 ? '#ef4444' : 'var(--ink)' }}>
-            {reportedCount} Flagged
+          <div style={{ fontSize: 22, fontWeight: 900, color: reported > 0 ? '#ef4444' : 'var(--ink)' }}>
+            {reported} Flagged
           </div>
           <div className="muted text-xs mt-1">Awaiting admin decision</div>
         </div>
       </div>
 
-      {/* Review Type Tabs */}
       <div className="tabs" style={{ marginBottom: 8 }}>
         {[
-          { value: '', label: `All Reviews (${reviews.length})` },
-          { value: 'product', label: `Product Reviews (${reviews.filter(r => r.type === 'product').length})` },
-          { value: 'vendor', label: `Vendor Store Reviews (${reviews.filter(r => r.type === 'vendor').length})` },
+          { value: '', label: `All Reviews (${meta.total})` },
+          { value: 'product', label: `Product Reviews (${items.filter(r => r.type === 'product').length})` },
+          { value: 'store', label: `Vendor Store Reviews (${items.filter(r => r.type === 'store').length})` },
         ].map((t) => (
           <button
             key={t.value}
@@ -222,7 +183,6 @@ export default function AdminReviews() {
         ))}
       </div>
 
-      {/* Filter Row */}
       <div className="card flex items-center justify-between wrap gap-3" style={{ padding: '12px 18px', margin: 0 }}>
         <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
@@ -235,9 +195,8 @@ export default function AdminReviews() {
           />
         </div>
 
-        {/* Status Pills */}
         <div className="flex gap-1 wrap">
-          {['', 'published', 'reported', 'hidden'].map((st) => (
+          {STATUS_TABS.map((st) => (
             <button
               key={st}
               type="button"
@@ -251,100 +210,130 @@ export default function AdminReviews() {
         </div>
       </div>
 
-      {/* Reviews List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {filtered.map((r) => (
-          <div
-            key={r.id}
-            className="card"
-            style={{
-              padding: 18,
-              margin: 0,
-              border: r.status === 'reported' ? '2px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border)',
-            }}
+        {!items.length ? (
+          <EmptyState icon={Star} title="No reviews" message="No reviews match the current filters." />
+        ) : (
+          items.map((r) => (
+            <div
+              key={r.id}
+              className="card"
+              style={{
+                padding: 18,
+                margin: 0,
+                border: (r.status === 'pending' || r.status === 'rejected') ? '2px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border)',
+              }}
+            >
+              <div className="flex items-center justify-between wrap gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="chip chip-sm"
+                    style={{
+                      background: r.type === 'store' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(37, 99, 235, 0.12)',
+                      color: r.type === 'store' ? '#6366f1' : '#2563eb',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      fontSize: 10,
+                    }}
+                  >
+                    {r.type === 'store' ? 'Vendor Review' : 'Product Review'}
+                  </span>
+                  <span className="font-bold text-sm text-ink">{r.target?.name || '—'}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={r.status} />
+                  <span className="muted text-xs">{formatDate(r.created_at)}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mb-2 wrap">
+                <RatingStars value={r.rating} size={15} showValue={false} />
+                {r.title && <span className="font-bold text-sm text-ink">{r.title}</span>}
+                <span className="muted text-xs">· by <strong>{r.customer?.name || 'Unknown'}</strong></span>
+                {r.verified_buyer && (
+                  <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontSize: 10, fontWeight: 800 }}>
+                    <Check size={10} /> Verified Purchase
+                  </span>
+                )}
+              </div>
+
+              <p className="text-sm text-ink" style={{ lineHeight: 1.5, margin: '0 0 10px' }}>
+                "{r.body}"
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                {r.status !== 'approved' && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-xs flex items-center gap-1"
+                    onClick={() => doApprove(r)}
+                    disabled={actionBusy}
+                  >
+                    <CheckCircle2 size={12} /> Approve & Publish
+                  </button>
+                )}
+                {r.status !== 'rejected' && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-xs flex items-center gap-1"
+                    onClick={() => { setRejectTarget(r); setRejectReason('') }}
+                    disabled={actionBusy}
+                  >
+                    <XCircle size={12} /> Reject
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-danger-outline btn-xs flex items-center gap-1"
+                  onClick={() => setDeleteTarget(r)}
+                  disabled={actionBusy}
+                >
+                  <Trash2 size={12} /> Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
+
+      {rejectTarget && (
+        <Modal open={!!rejectTarget} onClose={() => setRejectTarget(null)} title="Reject Review">
+          <form
+            onSubmit={(e) => { e.preventDefault(); doReject() }}
+            className="flex flex-col gap-3"
           >
-            {/* Top Review Metadata */}
-            <div className="flex items-center justify-between wrap gap-2 mb-2">
-              <div className="flex items-center gap-2">
-                <span
-                  className="chip chip-sm"
-                  style={{
-                    background: r.type === 'vendor' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(37, 99, 235, 0.12)',
-                    color: r.type === 'vendor' ? '#6366f1' : '#2563eb',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    fontSize: 10,
-                  }}
-                >
-                  {r.type === 'vendor' ? 'Vendor Review' : 'Product Review'}
-                </span>
-                <span className="font-bold text-sm text-ink">{r.target}</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <StatusBadge status={r.status} />
-                <span className="muted text-xs">{formatDate(r.date)}</span>
-              </div>
-            </div>
-
-            {/* Stars, Title & Author */}
-            <div className="flex items-center gap-2 mb-2 wrap">
-              <RatingStars value={r.rating} size={15} showValue={false} />
-              <span className="font-bold text-sm text-ink">{r.title}</span>
-              <span className="muted text-xs">· by <strong>{r.customer}</strong></span>
-              <span className="muted text-xs flex items-center gap-0.5">
-                <MapPin size={10} /> ({r.location})
-              </span>
-              {r.verified_buyer && (
-                <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontSize: 10, fontWeight: 800 }}>
-                  <Check size={10} /> Verified Purchase
-                </span>
-              )}
-            </div>
-
-            {/* Review Body */}
-            <p className="text-sm text-ink" style={{ lineHeight: 1.5, margin: '0 0 10px' }}>
-              "{r.body}"
-            </p>
-
-            {/* Internal Admin Note if present */}
-            {r.admin_note && (
-              <div className="p-2 mb-2" style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', fontSize: 11, color: 'var(--muted)' }}>
-                <span className="font-bold text-ink">Admin Audit Note:</span> {r.admin_note}
-              </div>
-            )}
-
-            {/* Moderation Controls */}
-            <div className="flex items-center justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-              {r.status !== 'published' && (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-xs flex items-center gap-1"
-                  onClick={() => toggleStatus(r.id, 'published')}
-                >
-                  <CheckCircle2 size={12} /> Approve & Publish
-                </button>
-              )}
-              {r.status !== 'hidden' && (
-                <button
-                  type="button"
-                  className="btn btn-outline btn-xs flex items-center gap-1"
-                  onClick={() => toggleStatus(r.id, 'hidden')}
-                >
-                  <EyeOff size={12} /> Hide from Store
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn btn-danger-outline btn-xs flex items-center gap-1"
-                onClick={() => deleteReview(r.id)}
-              >
-                <Trash2 size={12} /> Delete
+            <Textarea
+              label="Rejection Reason"
+              rows={3}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Optional reason recorded in the audit trail."
+            />
+            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setRejectTarget(null)} disabled={actionBusy}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-danger btn-sm" disabled={actionBusy}>
+                Confirm Rejection
               </button>
             </div>
-          </div>
-        ))}
-      </div>
+          </form>
+        </Modal>
+      )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={doDelete}
+        title="Delete review?"
+        message={`This will permanently delete the review for "${deleteTarget?.target?.name || 'this item'}".`}
+        confirmText="Delete"
+        danger
+        loading={actionBusy}
+      />
     </div>
   )
 }

@@ -1,16 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Store, Package, ShoppingBag, DollarSign, Users, Clock,
-  TrendingUp, AlertTriangle, CheckCircle2, XCircle, ArrowRight,
-  CreditCard, ShieldCheck, ChevronRight, Eye, RefreshCw,
-  Banknote, Wallet, Smartphone, Plus, ArrowUpRight
+  Store, Clock, TrendingUp, CheckCircle2, XCircle, ArrowRight,
+  ChevronRight, RefreshCw
 } from 'lucide-react'
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { Skeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
-import { money, formatDateTime, formatDate, errorMessage } from '../../utils/format'
+import { money, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 
 export default function AdminDashboard() {
@@ -20,6 +18,9 @@ export default function AdminDashboard() {
   const [pendingVendors, setPendingVendors] = useState([])
   const [recentOrders, setRecentOrders] = useState([])
   const [payouts, setPayouts] = useState([])
+  const [summary, setSummary] = useState(null)
+  const [ordersByStatus, setOrdersByStatus] = useState([])
+  const [paymentMethods, setPaymentMethods] = useState([])
   const [timeframe, setTimeframe] = useState('30d')
   const [actionBusy, setActionBusy] = useState(false)
 
@@ -28,18 +29,24 @@ export default function AdminDashboard() {
     Promise.allSettled([
       api.get('/admin/vendors', { params: { per_page: 50 } }),
       api.get('/admin/vendors', { params: { per_page: 10, status: 'pending' } }),
-      api.get('/orders', { params: { per_page: 6 } }),
+      api.get('/admin/orders', { params: { per_page: 6 } }),
       api.get('/admin/wallet/payouts', { params: { per_page: 50 } }),
-    ]).then(([v, pv, o, p]) => {
+      api.get('/admin/analytics/summary', { params: { range: timeframe } }),
+      api.get('/admin/analytics/orders-by-status', { params: { range: timeframe } }),
+      api.get('/admin/analytics/payment-methods', { params: { range: timeframe } }),
+    ]).then(([v, pv, o, p, s, obs, pm]) => {
       if (v.status === 'fulfilled') setVendors(v.value.data.data || [])
       if (pv.status === 'fulfilled') setPendingVendors(pv.value.data.data || [])
       if (o.status === 'fulfilled') setRecentOrders(o.value.data.data || [])
       if (p.status === 'fulfilled') setPayouts(p.value.data.data || [])
+      if (s.status === 'fulfilled') setSummary(s.value.data.data || null)
+      if (obs.status === 'fulfilled') setOrdersByStatus(obs.value.data.data || [])
+      if (pm.status === 'fulfilled') setPaymentMethods(pm.value.data.data || [])
       setLoading(false)
     })
   }
 
-  useEffect(loadData, [])
+  useEffect(loadData, [timeframe])
 
   const doApproveVendor = async (vendorId, name) => {
     setActionBusy(true)
@@ -69,28 +76,44 @@ export default function AdminDashboard() {
     }
   }
 
-  // Calculations
+  // Calculations from real analytics summary
   const stats = useMemo(() => {
-    const totalSales = vendors.reduce((s, v) => s + Number(v?.total_sales || 185000), 0)
-    const totalOrders = vendors.reduce((s, v) => s + Number(v?.orders_count || 14), 0)
-    const pendingSettlements = payouts.filter((p) => p.status === 'pending').reduce((s, p) => s + Number(p.amount || 0), 450000)
+    const s = summary || {}
+    const pendingSettlements = payouts.filter((p) => p.status === 'pending').reduce((acc, p) => acc + Number(p.amount || 0), 0)
 
     return {
-      totalSales: 1245000,
-      totalOrders: 8437,
-      activeCustomers: 45200,
-      totalVendors: 1204,
-      pendingSettlements: 450000,
+      totalSales: Number(s.gross_revenue || 0),
+      totalOrders: Number(s.orders_count || 0),
+      avgOrderValue: Number(s.avg_order_value || 0),
+      commissionTotal: Number(s.commission_total || 0),
+      activeCustomers: Number(s.new_customers || 0),
+      totalVendors: Number(s.active_vendors || 0),
+      deliveryFees: Number(s.delivery_fees || 0),
+      refundsTotal: Number(s.refunds_total || 0),
+      pendingSettlements,
     }
-  }, [vendors, payouts])
+  }, [summary, payouts])
 
-  // Payment Breakdown
-  const paymentMethods = [
-    { name: 'COD', label: 'Cash on Delivery', share: 55, color: '#16a34a', icon: Banknote },
-    { name: 'Khalti', label: 'Khalti Wallet', share: 25, color: '#7c3aed', icon: Wallet },
-    { name: 'eSewa', label: 'eSewa', share: 15, color: '#15803d', icon: CreditCard },
-    { name: 'Fonepay', label: 'Fonepay', share: 5, color: '#2563eb', icon: Smartphone },
-  ]
+  // Payment Breakdown from analytics
+  const PAYMENT_COLORS = { cod: '#16a34a', khalti: '#7c3aed', esewa: '#15803d', fonepay: '#2563eb', cod_esewa: '#2563eb', bank_transfer: '#d97706', wallet: '#7c3aed', other: '#64748b' }
+  const paymentShare = useMemo(() => {
+    const total = paymentMethods.reduce((acc, m) => acc + Number(m.count || 0), 0)
+    if (!total) return []
+    return paymentMethods.map((m) => ({
+      name: m.method || 'other',
+      share: total ? Math.round((Number(m.count) / total) * 100) : 0,
+      color: PAYMENT_COLORS[m.method] || '#64748b',
+    }))
+  }, [paymentMethods])
+
+  const statusBars = useMemo(() => {
+    const total = ordersByStatus.reduce((acc, s) => acc + Number(s.count || 0), 0) || 1
+    return ordersByStatus.map((s) => ({
+      status: s.status,
+      count: Number(s.count || 0),
+      pct: Math.round((Number(s.count || 0) / total) * 100),
+    }))
+  }, [ordersByStatus])
 
   if (loading) {
     return (
@@ -118,13 +141,13 @@ export default function AdminDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <div className="date-filter-group">
-            {['Today', '7 Days', '30 Days', '90 Days'].map((tf) => (
+            {[{ label: '7 Days', value: '7d' }, { label: '30 Days', value: '30d' }, { label: '90 Days', value: '90d' }, { label: 'Year', value: 'year' }].map((tf) => (
               <button
-                key={tf}
-                className={`date-filter-btn ${timeframe === tf ? 'active' : ''}`}
-                onClick={() => setTimeframe(tf)}
+                key={tf.value}
+                className={`date-filter-btn ${timeframe === tf.value ? 'active' : ''}`}
+                onClick={() => setTimeframe(tf.value)}
               >
-                {tf}
+                {tf.label}
               </button>
             ))}
           </div>
@@ -137,42 +160,42 @@ export default function AdminDashboard() {
       {/* 5 KPI Cards in single row matching screenshot */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
         <div className="kpi-card kpi-blue">
-          <div className="kpi-label">Total Sales</div>
-          <div className="kpi-value">NPR 1.2M</div>
+          <div className="kpi-label">Total Sales (GMV)</div>
+          <div className="kpi-value">{money(stats.totalSales)}</div>
           <div className="kpi-sub" style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <TrendingUp size={13} /> +12.5% from last month
+            <TrendingUp size={13} /> Avg order {money(stats.avgOrderValue)}
           </div>
         </div>
 
         <div className="kpi-card kpi-green">
           <div className="kpi-label">Total Orders</div>
           <div className="kpi-value">{stats.totalOrders.toLocaleString()}</div>
-          <div className="kpi-sub" style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <TrendingUp size={13} /> +8.2% new volume
+          <div className="kpi-sub" style={{ color: 'var(--muted)' }}>
+            Commission {money(stats.commissionTotal)}
           </div>
         </div>
 
         <div className="kpi-card kpi-purple">
-          <div className="kpi-label">Active Customers</div>
-          <div className="kpi-value">{(stats.activeCustomers / 1000).toFixed(1)}K</div>
+          <div className="kpi-label">New Customers</div>
+          <div className="kpi-value">{stats.activeCustomers.toLocaleString()}</div>
           <div className="kpi-sub" style={{ color: 'var(--muted)' }}>
-            Across all 7 provinces
+            Registered this period
           </div>
         </div>
 
         <div className="kpi-card kpi-amber">
-          <div className="kpi-label">Total Vendors</div>
+          <div className="kpi-label">Active Vendors</div>
           <div className="kpi-value">{stats.totalVendors.toLocaleString()}</div>
           <div className="kpi-sub" style={{ color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Clock size={13} /> {pendingVendors.length || 3} awaiting approval
+            <Clock size={13} /> {pendingVendors.length} awaiting approval
           </div>
         </div>
 
         <div className="kpi-card kpi-red">
           <div className="kpi-label">Pending Settlements</div>
-          <div className="kpi-value">NPR 450K</div>
+          <div className="kpi-value">{money(stats.pendingSettlements)}</div>
           <div className="kpi-sub" style={{ color: 'var(--danger)' }}>
-            Due this cycle
+            Refunds {money(stats.refundsTotal)}
           </div>
         </div>
       </div>
@@ -185,75 +208,31 @@ export default function AdminDashboard() {
           }
         `}</style>
 
-        {/* Sales Overview Area Line Chart */}
+        {/* Sales Overview: Orders by Status */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 style={{ fontSize: 16, margin: 0, fontWeight: 700 }}>Sales Overview</h3>
-              <p className="muted text-xs m-0 mt-1">Daily gross revenue trajectory across all orders</p>
+              <h3 style={{ fontSize: 16, margin: 0, fontWeight: 700 }}>Orders by Status</h3>
+              <p className="muted text-xs m-0 mt-1">Order volume distribution across the selected period</p>
             </div>
             <Link to="/admin/analytics" className="btn btn-ghost btn-xs">
               View Analytics <ArrowRight size={12} />
             </Link>
           </div>
 
-          <div style={{ padding: '10px 0' }}>
-            <svg viewBox="0 0 520 200" width="100%" height={200} style={{ overflow: 'visible' }}>
-              <defs>
-                <linearGradient id="salesTrajGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2563eb" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-
-              {/* Gridlines */}
-              {[0, 0.25, 0.5, 0.75, 1].map((f) => (
-                <line
-                  key={f}
-                  x1={30} x2={500}
-                  y1={170 - 140 * f} y2={170 - 140 * f}
-                  stroke="var(--border)"
-                  strokeDasharray="4,4"
-                />
-              ))}
-
-              {/* Gradient Area Fill */}
-              <path
-                d="M 40 140 Q 110 110, 180 80 T 320 60 T 430 35 T 490 20 L 490 170 L 40 170 Z"
-                fill="url(#salesTrajGrad)"
-              />
-
-              {/* Smooth Curved Line */}
-              <path
-                d="M 40 140 Q 110 110, 180 80 T 320 60 T 430 35 T 490 20"
-                fill="none"
-                stroke="#2563eb"
-                strokeWidth={3.5}
-                strokeLinecap="round"
-              />
-
-              {/* Highlight Nodes */}
-              {[
-                { x: 40, y: 140, val: 'Rs. 42k' },
-                { x: 180, y: 80, val: 'Rs. 85k' },
-                { x: 320, y: 60, val: 'Rs. 98k' },
-                { x: 490, y: 20, val: 'Rs. 145k' },
-              ].map((p, idx) => (
-                <g key={idx}>
-                  <circle cx={p.x} cy={p.y} r={5} fill="#fff" stroke="#2563eb" strokeWidth={3} />
-                  <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--ink)">
-                    {p.val}
-                  </text>
-                </g>
-              ))}
-            </svg>
-
-            <div className="flex justify-between text-xs muted mt-2 px-4">
-              <span>Week 1</span>
-              <span>Week 2</span>
-              <span>Week 3</span>
-              <span>Week 4 (Current)</span>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '6px 0' }}>
+            {statusBars.length === 0 && <p className="muted text-sm">No order data for this period.</p>}
+            {statusBars.map((s) => (
+              <div key={s.status}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="font-semibold text-ink">{humanizeEnum(s.status)}</span>
+                  <span className="muted">{s.count.toLocaleString()} ({s.pct}%)</span>
+                </div>
+                <div style={{ background: 'var(--border)', borderRadius: 999, height: 8, overflow: 'hidden' }}>
+                  <div style={{ width: `${s.pct}%`, background: 'var(--primary)', height: '100%', borderRadius: 999 }} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -268,62 +247,49 @@ export default function AdminDashboard() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px 0' }}>
-            {/* SVG Donut Chart */}
-            <svg viewBox="0 0 160 160" width={140} height={140}>
-              {/* Ring slices */}
-              <circle cx="80" cy="80" r="54" fill="none" stroke="#f1f5f9" strokeWidth="22" />
-              {/* COD: 55% */}
-              <circle
-                cx="80" cy="80" r="54" fill="none"
-                stroke="#16a34a" strokeWidth="22"
-                strokeDasharray={`${55 * 3.39} ${100 * 3.39}`}
-                strokeDashoffset="0"
-                transform="rotate(-90 80 80)"
-              />
-              {/* Khalti: 25% */}
-              <circle
-                cx="80" cy="80" r="54" fill="none"
-                stroke="#7c3aed" strokeWidth="22"
-                strokeDasharray={`${25 * 3.39} ${100 * 3.39}`}
-                strokeDashoffset={`${-55 * 3.39}`}
-                transform="rotate(-90 80 80)"
-              />
-              {/* eSewa: 15% */}
-              <circle
-                cx="80" cy="80" r="54" fill="none"
-                stroke="#15803d" strokeWidth="22"
-                strokeDasharray={`${15 * 3.39} ${100 * 3.39}`}
-                strokeDashoffset={`${-80 * 3.39}`}
-                transform="rotate(-90 80 80)"
-              />
-              {/* Fonepay: 5% */}
-              <circle
-                cx="80" cy="80" r="54" fill="none"
-                stroke="#2563eb" strokeWidth="22"
-                strokeDasharray={`${5 * 3.39} ${100 * 3.39}`}
-                strokeDashoffset={`${-95 * 3.39}`}
-                transform="rotate(-90 80 80)"
-              />
-              <text x="80" y="76" textAnchor="middle" fontSize="15" fontWeight="800" fill="var(--ink)">
-                55%
-              </text>
-              <text x="80" y="92" textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--muted)">
-                COD Share
-              </text>
-            </svg>
+            {paymentShare.length === 0 ? (
+              <p className="muted text-sm" style={{ padding: '30px 0' }}>No payment data for this period.</p>
+            ) : (
+              <>
+                {/* SVG Donut Chart */}
+                <svg viewBox="0 0 160 160" width={140} height={140}>
+                  <circle cx="80" cy="80" r="54" fill="none" stroke="#f1f5f9" strokeWidth="22" />
+                  {paymentShare.reduce((acc, m, i) => {
+                    const offset = acc * 3.39
+                    acc += m.share
+                    return [...acc, { ...m, offset, prev: acc }]
+                  }, [0]).filter((m) => typeof m === 'object').map((m, i) => (
+                    <circle
+                      key={m.name + i}
+                      cx="80" cy="80" r="54" fill="none"
+                      stroke={m.color} strokeWidth="22"
+                      strokeDasharray={`${m.share * 3.39} ${100 * 3.39}`}
+                      strokeDashoffset={`${-m.offset}`}
+                      transform="rotate(-90 80 80)"
+                    />
+                  ))}
+                  <text x="80" y="76" textAnchor="middle" fontSize="15" fontWeight="800" fill="var(--ink)">
+                    {paymentShare.length ? `${paymentShare[0].share}%` : '—'}
+                  </text>
+                  <text x="80" y="92" textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--muted)">
+                    {paymentShare.length ? humanizeEnum(paymentShare[0].name) : ''}
+                  </text>
+                </svg>
 
-            {/* Legend */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, width: '100%', marginTop: 14 }}>
-              {paymentMethods.map((pm) => (
-                <div key={pm.name} className="flex items-center gap-2">
-                  <span style={{ width: 10, height: 10, borderRadius: 999, background: pm.color, flexShrink: 0 }} />
-                  <div className="flex-1 min-w-0 text-xs">
-                    <span className="font-semibold text-ink">{pm.name}</span>
-                    <span className="muted ml-1">({pm.share}%)</span>
-                  </div>
+                {/* Legend */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, width: '100%', marginTop: 14 }}>
+                  {paymentShare.map((pm) => (
+                    <div key={pm.name} className="flex items-center gap-2">
+                      <span style={{ width: 10, height: 10, borderRadius: 999, background: pm.color, flexShrink: 0 }} />
+                      <div className="flex-1 min-w-0 text-xs">
+                        <span className="font-semibold text-ink">{humanizeEnum(pm.name)}</span>
+                        <span className="muted ml-1">({pm.share}%)</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -359,12 +325,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {(recentOrders.length ? recentOrders : [
-                  { id: 'ORD-9841', order_number: '9841', user: { name: 'Aarav Sharma' }, grand_total: 4500, status: 'pending' },
-                  { id: 'ORD-9840', order_number: '9840', user: { name: 'Priya Thapa' }, grand_total: 12500, status: 'delivered' },
-                  { id: 'ORD-9839', order_number: '9839', user: { name: 'Bikash Rai' }, grand_total: 3200, status: 'processing' },
-                  { id: 'ORD-9838', order_number: '9838', user: { name: 'Sunita Gurung' }, grand_total: 8900, status: 'delivered' },
-                ]).slice(0, 5).map((ord) => (
+                {recentOrders.slice(0, 5).map((ord) => (
                   <tr key={ord.id}>
                     <td>
                       <Link to={`/admin/orders`} className="font-semibold text-primary text-xs">
@@ -400,11 +361,8 @@ export default function AdminDashboard() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {(pendingVendors.length ? pendingVendors : [
-              { id: '101', company_name: 'Himalayan Organic Teas', business_type: 'Agro & Tea', location: 'Ilam, Koshi' },
-              { id: '102', company_name: 'Kathmandu Brass Crafts', business_type: 'Handicrafts', location: 'Patan, Bagmati' },
-              { id: '103', company_name: 'Pokhara Gear Hub', business_type: 'Trekking & Outdoor', location: 'Pokhara, Gandaki' },
-            ]).slice(0, 4).map((v) => (
+            {pendingVendors.length === 0 && <p className="muted text-sm" style={{ padding: '20px' }}>No vendors awaiting approval.</p>}
+            {pendingVendors.slice(0, 4).map((v) => (
               <div
                 key={v.id}
                 style={{
@@ -422,7 +380,7 @@ export default function AdminDashboard() {
                   </span>
                   <div style={{ minWidth: 0 }}>
                     <div className="font-semibold text-sm truncate text-ink">{v.company_name}</div>
-                    <div className="muted text-xs truncate">{v.business_type || 'Retail'} · {v.location || 'Nepal'}</div>
+                    <div className="muted text-xs truncate">{v.business_email || 'Nepal'}</div>
                   </div>
                 </div>
 

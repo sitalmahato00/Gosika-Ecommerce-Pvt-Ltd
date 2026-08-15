@@ -2,6 +2,7 @@
 
 namespace App\Modules\Wallet\Presentation\Http\Controllers;
 
+use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
@@ -9,6 +10,8 @@ use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use App\Modules\Wallet\Application\Services\WalletService;
 use App\Modules\Wallet\Infrastructure\Models\PayoutRequest;
+use App\Modules\Wallet\Infrastructure\Models\Settlement;
+use App\Modules\Wallet\Infrastructure\Models\VendorWallet;
 use App\Modules\Wallet\Presentation\Http\Requests\AdjustBalanceRequest;
 use App\Modules\Wallet\Presentation\Http\Requests\GenerateSettlementRequest;
 use App\Modules\Wallet\Presentation\Http\Requests\MarkPayoutPaidRequest;
@@ -75,6 +78,78 @@ class AdminWalletController extends Controller
         );
     }
 
+    public function wallets(Request $request): JsonResponse
+    {
+        $wallets = VendorWallet::query()
+            ->with('vendor')
+            ->when($request->input('search'), function ($q, $s) {
+                $q->whereHas('vendor', fn ($v) => $v->where('company_name', 'like', "%{$s}%"));
+            })
+            ->latest()
+            ->paginate($request->integer('per_page', 15));
+
+        return Response::success(
+            WalletResource::collection($wallets),
+            'Wallets retrieved.',
+            ['pagination' => [
+                'total' => $wallets->total(),
+                'per_page' => $wallets->perPage(),
+                'current_page' => $wallets->currentPage(),
+                'last_page' => $wallets->lastPage(),
+            ]]
+        );
+    }
+
+    public function allPayouts(Request $request): JsonResponse
+    {
+        $payouts = PayoutRequest::query()
+            ->with(['vendor', 'bankAccount', 'settlement'])
+            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
+            ->when($request->input('search'), function ($q, $s) {
+                $q->where('payout_number', 'like', "%{$s}%")
+                    ->orWhereHas('vendor', fn ($v) => $v->where('company_name', 'like', "%{$s}%"));
+            })
+            ->when($request->input('date_from'), fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
+            ->when($request->input('date_to'), fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
+            ->latest()
+            ->paginate($request->integer('per_page', 15));
+
+        return Response::success(
+            PayoutRequestResource::collection($payouts),
+            'Payout requests retrieved.',
+            ['pagination' => [
+                'total' => $payouts->total(),
+                'per_page' => $payouts->perPage(),
+                'current_page' => $payouts->currentPage(),
+                'last_page' => $payouts->lastPage(),
+            ]]
+        );
+    }
+
+    public function allSettlements(Request $request): JsonResponse
+    {
+        $settlements = Settlement::query()
+            ->with('vendor')
+            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
+            ->when($request->input('search'), function ($q, $s) {
+                $q->where('settlement_number', 'like', "%{$s}%")
+                    ->orWhereHas('vendor', fn ($v) => $v->where('company_name', 'like', "%{$s}%"));
+            })
+            ->latest()
+            ->paginate($request->integer('per_page', 15));
+
+        return Response::success(
+            SettlementResource::collection($settlements),
+            'Settlements retrieved.',
+            ['pagination' => [
+                'total' => $settlements->total(),
+                'per_page' => $settlements->perPage(),
+                'current_page' => $settlements->currentPage(),
+                'last_page' => $settlements->lastPage(),
+            ]]
+        );
+    }
+
     public function generateSettlement(GenerateSettlementRequest $request): JsonResponse
     {
         $vendor = $this->vendor($request->input('vendor_id'));
@@ -84,6 +159,8 @@ class AdminWalletController extends Controller
             \Illuminate\Support\Carbon::parse($request->input('period_start')),
             \Illuminate\Support\Carbon::parse($request->input('period_end'))->endOfDay()
         );
+
+        app(AuditLogService::class)->record(request()->user(), 'settlement.generated', 'settlement', $settlement->uuid, null, ['vendor' => $vendor->uuid]);
 
         return Response::created(new SettlementResource($settlement), 'Settlement generated.');
     }
@@ -103,6 +180,8 @@ class AdminWalletController extends Controller
         $payout = $this->payout($payoutId);
         $payout = $this->service->approvePayout($payout, request()->user());
 
+        app(AuditLogService::class)->record(request()->user(), 'payout.approved', 'payout', $payout->uuid, ['status' => 'requested'], ['status' => $payout->status->value]);
+
         return Response::success(new PayoutRequestResource($payout), 'Payout approved.');
     }
 
@@ -110,6 +189,8 @@ class AdminWalletController extends Controller
     {
         $payout = $this->payout($payoutId);
         $payout = $this->service->rejectPayout($payout, request()->user(), $request->input('reason'));
+
+        app(AuditLogService::class)->record(request()->user(), 'payout.rejected', 'payout', $payout->uuid, ['status' => 'requested'], ['status' => 'rejected', 'reason' => $request->input('reason')]);
 
         return Response::success(new PayoutRequestResource($payout), 'Payout rejected.');
     }
@@ -124,6 +205,8 @@ class AdminWalletController extends Controller
             (float) $request->input('fee', 0)
         );
 
+        app(AuditLogService::class)->record(request()->user(), 'payout.marked_paid', 'payout', $payout->uuid, ['status' => 'approved'], ['status' => 'paid', 'provider_reference' => $request->input('provider_reference')]);
+
         return Response::success(new PayoutRequestResource($payout), 'Payout marked as paid.');
     }
 
@@ -131,6 +214,8 @@ class AdminWalletController extends Controller
     {
         $payout = $this->payout($payoutId);
         $payout = $this->service->cancelPayout($payout, request()->user());
+
+        app(AuditLogService::class)->record(request()->user(), 'payout.cancelled', 'payout', $payout->uuid, null, ['status' => 'cancelled']);
 
         return Response::success(new PayoutRequestResource($payout), 'Payout cancelled.');
     }
@@ -145,6 +230,8 @@ class AdminWalletController extends Controller
             $request->input('reason'),
             request()->user()
         );
+
+        app(AuditLogService::class)->record(request()->user(), 'wallet.adjusted', 'wallet', $wallet->uuid, null, ['vendor' => $vendor->uuid, 'amount' => $request->input('amount'), 'reason' => $request->input('reason')]);
 
         return Response::success(new WalletResource($wallet), 'Balance adjusted.');
     }

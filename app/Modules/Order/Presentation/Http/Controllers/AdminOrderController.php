@@ -2,6 +2,7 @@
 
 namespace App\Modules\Order\Presentation\Http\Controllers;
 
+use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
 use App\Modules\Order\Application\Services\OrderService;
@@ -70,7 +71,16 @@ class AdminOrderController extends Controller
         ]);
 
         try {
+            $oldStatus = $order->status->value;
             $order = $this->orderService->cancel($request->user(), $order, $request->input('reason'));
+            app(AuditLogService::class)->record(
+                $request->user(),
+                'order.cancelled',
+                'order',
+                $order->uuid,
+                ['status' => $oldStatus],
+                ['status' => 'cancelled', 'reason' => $request->input('reason')]
+            );
 
             return Response::success(new AdminOrderResource($order), 'Order cancelled.');
         } catch (DomainException $e) {

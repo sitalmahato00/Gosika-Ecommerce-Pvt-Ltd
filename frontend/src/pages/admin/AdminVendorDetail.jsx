@@ -1,122 +1,44 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import {
-  User, Building2, Package, Wallet, Clock, CheckCircle2,
-  XCircle, Eye, Edit, Trash2, ArrowLeft, Store, MapPin, Mail,
-  Phone, ShieldCheck, DollarSign, ExternalLink, SlidersHorizontal
-} from 'lucide-react'
+import { ArrowLeft, CheckCircle2, XCircle, Store, Wallet, Building2, ShieldCheck, Banknote } from 'lucide-react'
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import Modal from '../../components/ui/Modal'
 import { Skeleton } from '../../components/ui/Skeleton'
-import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
-import { money, formatDateTime, formatDate, errorMessage, apiImage, getStoreImage, getStoreBanner } from '../../utils/format'
+import { money, formatDate, formatDateTime, errorMessage, getStoreImage, getStoreBanner } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
-
-const SAMPLE_VENDORS_MAP = {
-  '1': {
-    id: 1,
-    company_name: 'Koshi Handicrafts & Weaving',
-    owner_name: 'Suman Shrestha',
-    business_email: 'hello@koshi.com.np',
-    business_phone: '+977 9841223344',
-    business_type: 'Handicrafts & Art',
-    province: 'Koshi',
-    city: 'Biratnagar',
-    logo: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&q=80',
-    banner: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=80',
-    products_count: 28,
-    total_sales: 185000,
-    status: 'approved',
-    commission_rate: 10,
-    created_at: '2026-08-01',
-    description: 'Specialized in authentic hand-woven Dhaka fabric, Nepali pashmina shawls, and organic bamboo woodcrafts.',
-    pan_vat_number: '601928471',
-    bank_name: 'Nabil Bank Ltd',
-    account_number: '01901017500123',
-    account_holder: 'Koshi Handicrafts Pvt Ltd',
-  },
-  'VND-101': {
-    id: 'VND-101',
-    company_name: 'Koshi Handicrafts & Weaving',
-    owner_name: 'Suman Shrestha',
-    business_email: 'hello@koshi.com.np',
-    business_phone: '+977 9841223344',
-    business_type: 'Handicrafts & Art',
-    province: 'Koshi',
-    city: 'Biratnagar',
-    logo: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&q=80',
-    banner: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=80',
-    products_count: 28,
-    total_sales: 185000,
-    status: 'approved',
-    commission_rate: 10,
-    created_at: '2026-08-01',
-    description: 'Specialized in authentic hand-woven Dhaka fabric, Nepali pashmina shawls, and organic bamboo woodcrafts.',
-    pan_vat_number: '601928471',
-    bank_name: 'Nabil Bank Ltd',
-    account_number: '01901017500123',
-    account_holder: 'Koshi Handicrafts Pvt Ltd',
-  },
-  'VND-102': {
-    id: 'VND-102',
-    company_name: 'Kathmandu Electronics & Tech',
-    owner_name: 'Pradeep Adhikari',
-    business_email: 'sales@ktmelectronics.np',
-    business_phone: '+977 9801887766',
-    business_type: 'Electronics & Tech',
-    province: 'Bagmati',
-    city: 'Kathmandu',
-    logo: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&q=80',
-    banner: 'https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?w=1200&q=80',
-    products_count: 42,
-    total_sales: 342000,
-    status: 'approved',
-    commission_rate: 8,
-    created_at: '2026-07-20',
-    description: 'Authorized retailer for audio gear, smartwatches, power banks, and modern lifestyle tech accessories.',
-    pan_vat_number: '302918475',
-    bank_name: 'Global IME Bank',
-    account_number: '04201019800456',
-    account_holder: 'Kathmandu Tech Hub',
-  },
-}
+import { useApi } from '../../hooks/useApi'
 
 export default function AdminVendorDetail() {
   const { id } = useParams()
   const toast = useToast()
-  const [vendor, setVendor] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [actionModal, setActionModal] = useState(null) // 'approve' | 'reject' | 'suspend'
+  const [actionModal, setActionModal] = useState(null)
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const loadVendor = () => {
-    setLoading(true)
-    api.get(`/admin/vendors/${id}`)
-      .then((r) => setVendor(r.data.data))
-      .catch(() => {
-        // Fallback to rich vendor mock if backend has partial data
-        const fallback = SAMPLE_VENDORS_MAP[id] || SAMPLE_VENDORS_MAP['1']
-        setVendor({ ...fallback, id: id || fallback.id })
-      })
-      .finally(() => setLoading(false))
-  }
+  const { data: vendor, loading, error, reload } = useApi(() => api.get(`/admin/vendors/${id}`), { deps: [id] })
+  const { data: wallet } = useApi(() => api.get(`/admin/wallet/vendors/${id}/wallet`), { deps: [id] })
+  const { data: commissions } = useApi(() => api.get(`/admin/wallet/vendors/${id}/commissions`), { deps: [id] })
 
-  useEffect(loadVendor, [id])
+  const isPending = vendor?.status === 'pending' || vendor?.status === 'under_review'
 
-  const doAction = async (act) => {
+  const doAction = async () => {
+    if (!actionModal) return
     setSaving(true)
     try {
-      await api.post(`/admin/vendors/${id}/${act}`, reason ? { reason } : {})
-      toast.success(`Vendor ${vendor.company_name} status updated`)
-      setVendor({ ...vendor, status: act === 'approve' ? 'approved' : act === 'suspend' ? 'suspended' : 'rejected' })
+      if (actionModal === 'approve') {
+        await api.post(`/admin/vendors/${id}/approve`)
+        toast.success(`Vendor ${vendor.company_name} approved`)
+      } else {
+        await api.post(`/admin/vendors/${id}/reject`, { reason: reason || 'Application rejected by administrator.' })
+        toast.success(`Vendor ${vendor.company_name} rejected`)
+      }
       setActionModal(null)
-    } catch (e) {
-      setVendor({ ...vendor, status: act === 'approve' ? 'approved' : act === 'suspend' ? 'suspended' : 'rejected' })
-      toast.success(`Vendor status updated to ${act}`)
-      setActionModal(null)
+      setReason('')
+      reload()
+    } catch (err) {
+      toast.error(errorMessage(err, 'Failed to update vendor status.'))
     } finally {
       setSaving(false)
     }
@@ -131,49 +53,40 @@ export default function AdminVendorDetail() {
     )
   }
 
-  if (!vendor) {
-    return (
-      <EmptyState
-        icon={Store}
-        title="Vendor not found"
-        message="The requested vendor profile does not exist."
-        action={
-          <Link to="/admin/vendors" className="btn btn-primary">
-            <ArrowLeft size={14} /> Back to Vendors
-          </Link>
-        }
-      />
-    )
+  if (error || !vendor) {
+    return <ErrorState message={errorMessage(error, 'Vendor not found.')} onRetry={reload} />
   }
 
-  const storeLogo = getStoreImage(vendor)
-  const storeBanner = getStoreBanner(vendor)
+  const primaryStore = Array.isArray(vendor.stores) && vendor.stores.length > 0 ? vendor.stores[0] : null
+  const storeBanner = getStoreBanner(primaryStore || vendor)
+  const storeLogo = getStoreImage(primaryStore || vendor)
+  const kyc = vendor.kyc || null
+  const stores = Array.isArray(vendor.stores) ? vendor.stores : []
+  const bankAccounts = Array.isArray(vendor.bank_accounts) ? vendor.bank_accounts : []
+  const commissionList = Array.isArray(commissions) ? commissions : []
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Top Breadcrumb */}
       <div className="flex items-center justify-between">
         <Link to="/admin/vendors" className="btn btn-outline btn-xs flex items-center gap-1">
           <ArrowLeft size={14} /> Back to All Vendors
         </Link>
 
         <div className="flex items-center gap-2">
-          {vendor.status !== 'approved' && (
-            <button className="btn btn-success btn-sm" onClick={() => setActionModal('approve')}>
-              <CheckCircle2 size={14} /> Approve Store
-            </button>
-          )}
-          {vendor.status === 'approved' && (
-            <button className="btn btn-danger-outline btn-sm" onClick={() => setActionModal('suspend')}>
-              Suspend Store
-            </button>
+          {isPending && (
+            <>
+              <button className="btn btn-success btn-sm" onClick={() => setActionModal('approve')}>
+                <CheckCircle2 size={14} /> Approve
+              </button>
+              <button className="btn btn-danger-outline btn-sm" onClick={() => setActionModal('reject')}>
+                <XCircle size={14} /> Reject
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      {/* Store Banner & Profile Header Card */}
       <div className="card card-pad-none" style={{ overflow: 'hidden' }}>
-        {/* Banner Cover Picture */}
         <div style={{ height: 180, position: 'relative', overflow: 'hidden', background: 'var(--bg)' }}>
           <img
             src={storeBanner}
@@ -186,7 +99,6 @@ export default function AdminVendorDetail() {
           }} />
         </div>
 
-        {/* Store Profile Info */}
         <div style={{ padding: '0 24px 24px', position: 'relative' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: -40, marginBottom: 16, flexWrap: 'wrap', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
@@ -214,132 +126,273 @@ export default function AdminVendorDetail() {
                   {vendor.company_name}
                 </h1>
                 <div className="muted text-xs flex items-center gap-2 mt-1">
-                  <span className="flex items-center gap-1"><MapPin size={12} color="var(--primary)" /> {vendor.city || 'Kathmandu'}, {vendor.province || 'Bagmati'}</span>
-                  <span>·</span>
                   <span>ID: #{vendor.id}</span>
+                  <span>·</span>
+                  <span>{kyc?.business_type || 'Retail Store'}</span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <StatusBadge status={vendor.status} />
-              <span className="chip chip-sm" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
-                {vendor.business_type || 'Retail Store'}
-              </span>
             </div>
           </div>
-
-          <p className="muted text-sm" style={{ lineHeight: 1.6, maxWidth: 800 }}>
-            {vendor.description || 'Verified merchant offering high quality goods and authentic products on GOSIKA marketplace.'}
-          </p>
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
         <div className="card" style={{ padding: 16 }}>
           <div className="flex items-center justify-between">
-            <span className="muted text-xs uppercase font-bold">Total Gross Sales</span>
-            <DollarSign size={16} color="var(--success)" />
-          </div>
-          <div className="font-extrabold text-xl mt-1 text-success">{money(vendor.total_sales || 185000)}</div>
-          <span className="muted text-xs mt-1 block">Lifetime volume</span>
-        </div>
-
-        <div className="card" style={{ padding: 16 }}>
-          <div className="flex items-center justify-between">
-            <span className="muted text-xs uppercase font-bold">Catalog Products</span>
-            <Package size={16} color="var(--primary)" />
-          </div>
-          <div className="font-extrabold text-xl mt-1 text-ink">{vendor.products_count || 28} Items</div>
-          <span className="muted text-xs mt-1 block">Listed on marketplace</span>
-        </div>
-
-        <div className="card" style={{ padding: 16 }}>
-          <div className="flex items-center justify-between">
             <span className="muted text-xs uppercase font-bold">Commission Rate</span>
-            <SlidersHorizontal size={16} color="#7c3aed" />
+            <Building2 size={16} color="var(--primary)" />
           </div>
-          <div className="font-extrabold text-xl mt-1" style={{ color: '#7c3aed' }}>{vendor.commission_rate ?? 10}%</div>
+          <div className="font-extrabold text-xl mt-1" style={{ color: 'var(--primary)' }}>{vendor.commission_rate ?? '—'}%</div>
           <span className="muted text-xs mt-1 block">Platform service fee</span>
+        </div>
+
+        <div className="card" style={{ padding: 16 }}>
+          <div className="flex items-center justify-between">
+            <span className="muted text-xs uppercase font-bold">Wallet Balance</span>
+            <Wallet size={16} color="var(--success)" />
+          </div>
+          <div className="font-extrabold text-xl mt-1 text-success">{wallet?.balance ? money(wallet.balance) : '—'}</div>
+          <span className="muted text-xs mt-1 block">Available: {wallet?.available_balance ? money(wallet.available_balance) : '—'}</span>
+        </div>
+
+        <div className="card" style={{ padding: 16 }}>
+          <div className="flex items-center justify-between">
+            <span className="muted text-xs uppercase font-bold">Stores</span>
+            <Store size={16} color="#7c3aed" />
+          </div>
+          <div className="font-extrabold text-xl mt-1 text-ink">{stores.length} Store{stores.length !== 1 ? 's' : ''}</div>
+          <span className="muted text-xs mt-1 block">Linked to this vendor</span>
+        </div>
+
+        <div className="card" style={{ padding: 16 }}>
+          <div className="flex items-center justify-between">
+            <span className="muted text-xs uppercase font-bold">Bank Accounts</span>
+            <Banknote size={16} color="#f59e0b" />
+          </div>
+          <div className="font-extrabold text-xl mt-1 text-ink">{bankAccounts.length} Account{bankAccounts.length !== 1 ? 's' : ''}</div>
+          <span className="muted text-xs mt-1 block">For settlements</span>
         </div>
       </div>
 
-      {/* Business Details & KYC Information */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        {/* Contact & Registration */}
         <div className="card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }}>Business & Contact Profile</h3>
           <div className="flex flex-col gap-3 text-sm">
             <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
               <span className="muted">Owner / Contact:</span>
-              <span className="font-semibold text-ink">{vendor.owner_name || 'Store Owner'}</span>
+              <span className="font-semibold text-ink">{kyc?.owner_full_name || '—'}</span>
             </div>
             <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
               <span className="muted">Email Address:</span>
-              <span className="font-semibold text-ink">{vendor.business_email}</span>
+              <span className="font-semibold text-ink">{vendor.business_email || '—'}</span>
             </div>
             <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
               <span className="muted">Phone Number:</span>
-              <span className="font-semibold text-ink">{vendor.business_phone}</span>
+              <span className="font-semibold text-ink">{vendor.business_phone || '—'}</span>
             </div>
             <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
               <span className="muted">PAN / VAT Number:</span>
-              <span className="font-mono font-bold text-ink">{vendor.pan_vat_number || '601928471'}</span>
+              <span className="font-mono font-bold text-ink">{vendor.pan_vat || '—'}</span>
             </div>
-            <div className="flex justify-between py-1">
+            <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
               <span className="muted">Registration Date:</span>
               <span className="muted">{formatDate(vendor.created_at)}</span>
             </div>
+            <div className="flex justify-between py-1">
+              <span className="muted">Approved Date:</span>
+              <span className="muted">{formatDate(vendor.approved_at)}</span>
+            </div>
           </div>
         </div>
 
-        {/* Bank & Settlement Details */}
         <div className="card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }}>Settlement & Bank Details</h3>
-          <div className="flex flex-col gap-3 text-sm">
-            <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="muted">Bank Name:</span>
-              <span className="font-semibold text-ink">{vendor.bank_name || 'Nabil Bank Ltd'}</span>
+          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <ShieldCheck size={16} color="var(--primary)" /> KYC Information
+          </h3>
+          {kyc ? (
+            <div className="flex flex-col gap-3 text-sm">
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span className="muted">Citizenship Number:</span>
+                <span className="font-mono font-bold text-ink">{kyc.owner_citizenship_number || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span className="muted">KYC Email:</span>
+                <span className="font-semibold text-ink">{kyc.owner_email || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span className="muted">KYC Phone:</span>
+                <span className="font-semibold text-ink">{kyc.owner_phone || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span className="muted">Business Type:</span>
+                <span className="font-semibold text-ink">{kyc.business_type || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span className="muted">Address:</span>
+                <span className="font-semibold text-ink">{kyc.address || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span className="muted">KYC Status:</span>
+                <span><StatusBadge status={kyc.status} /></span>
+              </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span className="muted">Review Notes:</span>
+                <span className="font-semibold text-ink">{kyc.review_notes || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="muted">Reviewed At:</span>
+                <span className="muted">{formatDateTime(kyc.reviewed_at)}</span>
+              </div>
             </div>
-            <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="muted">Account Holder:</span>
-              <span className="font-semibold text-ink">{vendor.account_holder || vendor.company_name}</span>
-            </div>
-            <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="muted">Account Number:</span>
-              <span className="font-mono font-bold text-ink">{vendor.account_number || '01901017500123'}</span>
-            </div>
-            <div className="flex justify-between py-1">
-              <span className="muted">Disbursement Cycle:</span>
-              <span className="font-semibold text-primary">Bi-Weekly (1st & 15th)</span>
-            </div>
-          </div>
+          ) : (
+            <div className="muted text-sm">No KYC submission recorded.</div>
+          )}
         </div>
       </div>
 
-      {/* Action Modal */}
+      {wallet && (
+        <div className="card" style={{ padding: 20 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Wallet size={16} color="var(--success)" /> Wallet
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+            <div className="card" style={{ padding: 14, margin: 0, background: 'var(--bg)' }}>
+              <div className="muted text-xs font-semibold">Total Balance</div>
+              <div className="font-extrabold text-lg mt-1 text-ink">{money(wallet.balance)}</div>
+            </div>
+            <div className="card" style={{ padding: 14, margin: 0, background: 'var(--bg)' }}>
+              <div className="muted text-xs font-semibold">Available Balance</div>
+              <div className="font-extrabold text-lg mt-1 text-success">{money(wallet.available_balance)}</div>
+            </div>
+            <div className="card" style={{ padding: 14, margin: 0, background: 'var(--bg)' }}>
+              <div className="muted text-xs font-semibold">Pending Balance</div>
+              <div className="font-extrabold text-lg mt-1" style={{ color: '#d97706' }}>{money(wallet.pending_balance)}</div>
+            </div>
+            <div className="card" style={{ padding: 14, margin: 0, background: 'var(--bg)' }}>
+              <div className="muted text-xs font-semibold">Currency</div>
+              <div className="font-extrabold text-lg mt-1 text-ink">{wallet.currency || 'NPR'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {stores.length > 0 && (
+        <div className="card" style={{ padding: 20 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Store size={16} color="#7c3aed" /> Stores
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {stores.map((s) => (
+              <div key={s.id} className="card" style={{ padding: 14, margin: 0, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                  <span className="avatar" style={{ width: 44, height: 44, borderRadius: 'var(--radius)', overflow: 'hidden', flexShrink: 0, background: '#fff' }}>
+                    <img src={getStoreImage(s)} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="font-bold text-sm text-ink">{s.name}</div>
+                    <div className="muted text-xs truncate">Slug: {s.slug} {s.contact_email ? `· ${s.contact_email}` : ''}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={s.status} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {bankAccounts.length > 0 && (
+        <div className="card" style={{ padding: 20 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }}>Settlement & Bank Details</h3>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Bank</th>
+                  <th>Branch</th>
+                  <th>Account Holder</th>
+                  <th>Account Number</th>
+                  <th>Type</th>
+                  <th>Verified</th>
+                  <th>Default</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bankAccounts.map((a) => (
+                  <tr key={a.id}>
+                    <td className="font-semibold text-sm">{a.bank_name || '—'}</td>
+                    <td className="muted">{a.branch_name || '—'}</td>
+                    <td>{a.account_name || '—'}</td>
+                    <td className="font-mono text-xs">{a.account_number || '—'}</td>
+                    <td className="muted">{a.account_type || '—'}</td>
+                    <td>{a.is_verified ? 'Yes' : 'No'}</td>
+                    <td>{a.is_default ? 'Yes' : 'No'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {commissionList.length > 0 && (
+        <div className="card" style={{ padding: 20 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }}>Commissions</h3>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Rate</th>
+                  <th>Basis Amount</th>
+                  <th>Commission</th>
+                  <th>Status</th>
+                  <th>Calculated At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {commissionList.map((c) => (
+                  <tr key={c.id}>
+                    <td className="font-mono text-xs">{c.vendor_order_id || c.order_id || '—'}</td>
+                    <td>{c.rate}%</td>
+                    <td>{money(c.basis_amount)}</td>
+                    <td className="font-bold text-success">{money(c.amount)}</td>
+                    <td><StatusBadge status={c.status} /></td>
+                    <td className="muted text-xs">{formatDateTime(c.calculated_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {actionModal && (
         <Modal
           open={!!actionModal}
           onClose={() => setActionModal(null)}
-          title={actionModal === 'approve' ? 'Approve Vendor Application' : 'Suspend Vendor Account'}
+          title={actionModal === 'approve' ? 'Approve Vendor Application' : 'Reject Vendor Application'}
         >
           <div className="flex flex-col gap-3">
             <p className="text-sm muted m-0">
               {actionModal === 'approve'
                 ? `Are you sure you want to approve "${vendor.company_name}" for full marketplace selling privileges?`
-                : `Are you sure you want to temporarily suspend "${vendor.company_name}"? Their products will be hidden from the storefront.`}
+                : `Are you sure you want to reject "${vendor.company_name}"? A rejection reason is required.`}
             </p>
-            {actionModal === 'suspend' && (
+            {actionModal === 'reject' && (
               <div className="form-group">
-                <label className="label">Reason for Suspension</label>
+                <label className="label">Rejection Reason *</label>
                 <textarea
                   className="textarea"
-                  rows={2}
+                  rows={3}
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g. Repeated delivery delays or policy violation."
+                  placeholder="e.g. Incomplete KYC documentation or unverified business registration number."
                 />
               </div>
             )}
@@ -347,10 +400,10 @@ export default function AdminVendorDetail() {
               <button className="btn btn-outline btn-sm" onClick={() => setActionModal(null)}>Cancel</button>
               <button
                 className={`btn ${actionModal === 'approve' ? 'btn-success' : 'btn-danger'} btn-sm`}
-                onClick={() => doAction(actionModal)}
+                onClick={doAction}
                 disabled={saving}
               >
-                {saving ? 'Processing…' : actionModal === 'approve' ? 'Confirm Approval' : 'Confirm Suspension'}
+                {saving ? 'Processing…' : actionModal === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
               </button>
             </div>
           </div>
