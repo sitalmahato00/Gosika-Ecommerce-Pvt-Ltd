@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import {
   MapPin, Truck, Plus, Edit, CheckCircle2, DollarSign, Layers,
-  Globe, ShieldCheck, Clock, Settings, ArrowRight, Zap, RefreshCw
+  Globe, ShieldCheck, Clock, Settings, ArrowRight, Zap, RefreshCw,
+  SlidersHorizontal, Trash2, Power, Check, ExternalLink
 } from 'lucide-react'
 import Modal from '../../components/ui/Modal'
 import { money } from '../../utils/format'
@@ -15,50 +16,68 @@ const INITIAL_ZONES = [
   { id: 5, name: 'Karnali & Sudurpashchim', provinces: ['Surkhet, Kailali (Dhangadhi), Kanchanpur, Jumla, Doti'], standardCharge: 220, expressCharge: 380, estimatedDays: '3–6 Days', status: 'active' },
 ]
 
-const COURIER_INTEGRATIONS = [
+const INITIAL_COURIERS = [
   {
+    id: 1,
     name: 'Pathao Logistics Express',
     type: 'Primary Fast Delivery Partner',
     coverage: 'Kathmandu Valley, Pokhara, Biratnagar, Butwal, Chitwan',
-    status: 'Connected & Live',
-    api_status: 'Synced',
-    logo_bg: '#ef4444',
+    status: 'active',
+    api_status: 'Connected & Synced',
+    endpoint: 'https://api.pathao.com/v2/gosika',
+    contact_phone: '+977 1-4422334',
   },
   {
+    id: 2,
     name: 'Nepal Post EMS (Dak Sewa)',
     type: 'Government Registered Postal Network',
     coverage: 'Remote & Mountain Districts (Karnali, Mustang, Solukhumbu)',
-    status: 'Connected & Live',
-    api_status: 'Synced',
-    logo_bg: '#2563eb',
+    status: 'active',
+    api_status: 'Connected & Synced',
+    endpoint: 'https://api.nepalpost.gov.np/ems',
+    contact_phone: '+977 1-4221144',
   },
   {
+    id: 3,
     name: 'Sundar Courier Express',
     type: 'Highway Commercial Freight',
     coverage: 'East-West Mahendra Highway Corridor (Jhapa to Banke)',
-    status: 'Connected & Live',
-    api_status: 'Synced',
-    logo_bg: '#10b981',
+    status: 'active',
+    api_status: 'Connected & Synced',
+    endpoint: 'https://api.sundarcourier.com/dispatch',
+    contact_phone: '+977 21-523456',
   },
   {
+    id: 4,
     name: 'GOSIKA In-City Rapid Fleet',
     type: 'Same-day Local Dispatch',
     coverage: 'Biratnagar Central & Kathmandu Urban Core',
-    status: 'Active',
-    api_status: 'Direct Dispatch',
-    logo_bg: '#7c3aed',
+    status: 'active',
+    api_status: 'Direct Internal Fleet',
+    endpoint: 'Internal Telemetry API',
+    contact_phone: '+977 980-1234560',
   },
 ]
 
 export default function AdminShipping() {
   const toast = useToast()
   const [zones, setZones] = useState(INITIAL_ZONES)
+  const [couriers, setCouriers] = useState(INITIAL_COURIERS)
   const [freeThreshold, setFreeThreshold] = useState(2000)
   const [editZone, setEditZone] = useState(null)
   const [addZoneOpen, setAddZoneOpen] = useState(false)
+  const [addPartnerOpen, setAddPartnerOpen] = useState(false)
+  const [editPartner, setEditPartner] = useState(null)
   const [chargeForm, setChargeForm] = useState({ name: '', provinces: '', standardCharge: 150, expressCharge: 250, estimatedDays: '2–3 Days' })
+  const [partnerForm, setPartnerForm] = useState({
+    name: '',
+    type: 'Primary Fast Delivery Partner',
+    coverage: '',
+    endpoint: '',
+    contact_phone: '',
+  })
 
-  const handleUpdate = (e) => {
+  const handleUpdateZone = (e) => {
     e.preventDefault()
     setZones(zones.map((z) => z.id === editZone.id ? { ...z, ...chargeForm } : z))
     toast.success(`Shipping rates for "${editZone.name}" updated successfully`)
@@ -81,6 +100,36 @@ export default function AdminShipping() {
     setAddZoneOpen(false)
   }
 
+  const handleSavePartner = (e) => {
+    e.preventDefault()
+    if (editPartner) {
+      setCouriers(couriers.map((c) => c.id === editPartner.id ? { ...c, ...partnerForm } : c))
+      toast.success(`Delivery partner "${partnerForm.name}" updated`)
+      setEditPartner(null)
+    } else {
+      const newP = {
+        id: Date.now(),
+        ...partnerForm,
+        status: 'active',
+        api_status: 'Connected & Synced',
+      }
+      setCouriers([...couriers, newP])
+      toast.success(`Delivery partner "${partnerForm.name}" integrated successfully`)
+      setAddPartnerOpen(false)
+    }
+  }
+
+  const togglePartnerStatus = (id) => {
+    setCouriers(couriers.map((c) => c.id === id ? { ...c, status: c.status === 'active' ? 'paused' : 'active' } : c))
+    toast.success('Courier partner status updated')
+  }
+
+  const deletePartner = (id, name) => {
+    if (!window.confirm(`Remove delivery partner "${name}"?`)) return
+    setCouriers(couriers.filter((c) => c.id !== id))
+    toast.success(`Delivery partner "${name}" removed`)
+  }
+
   const saveThreshold = (e) => {
     e.preventDefault()
     toast.success(`Free delivery threshold updated to ${money(freeThreshold)}`)
@@ -99,6 +148,16 @@ export default function AdminShipping() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm flex items-center gap-1"
+            onClick={() => {
+              setPartnerForm({ name: '', type: 'Primary Fast Delivery Partner', coverage: '', endpoint: '', contact_phone: '' })
+              setAddPartnerOpen(true)
+            }}
+          >
+            <Truck size={14} /> Add Delivery Partner
+          </button>
           <button
             type="button"
             className="btn btn-primary btn-sm flex items-center gap-1"
@@ -132,8 +191,8 @@ export default function AdminShipping() {
               <Truck size={18} />
             </span>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>4 Active Partners</div>
-          <div className="muted text-xs mt-1">Pathao, Nepal Post, Sundar</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>{couriers.length} Active Partners</div>
+          <div className="muted text-xs mt-1">Live webhook telemetry</div>
         </div>
 
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
@@ -246,34 +305,108 @@ export default function AdminShipping() {
         </div>
       </div>
 
-      {/* Courier Partner Integrations Grid */}
+      {/* Integrated Courier Partners Grid with Add / Edit Partner Controls */}
       <div className="card" style={{ padding: 18, margin: 0 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink)' }}>
-          <Truck size={16} color="var(--primary)" /> Integrated Courier Partners (Nepal)
-        </h3>
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
-          {COURIER_INTEGRATIONS.map((c, i) => (
-            <div key={i} className="card" style={{ padding: 14, margin: 0, background: 'var(--bg)', border: '1px solid var(--border)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-sm text-ink">{c.name}</span>
-                <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 800, fontSize: 10 }}>
-                  <CheckCircle2 size={10} /> {c.status}
-                </span>
+        <div className="flex items-center justify-between mb-3">
+          <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink)' }}>
+            <Truck size={16} color="var(--primary)" /> Integrated Courier Partners (Nepal)
+          </h3>
+          <button
+            type="button"
+            className="btn btn-outline btn-xs flex items-center gap-1"
+            onClick={() => {
+              setPartnerForm({ name: '', type: 'Primary Fast Delivery Partner', coverage: '', endpoint: '', contact_phone: '' })
+              setAddPartnerOpen(true)
+            }}
+          >
+            <Plus size={12} /> Add Partner
+          </button>
+        </div>
+
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+          {couriers.map((c) => {
+            const isActive = c.status === 'active'
+            return (
+              <div
+                key={c.id}
+                className="card flex flex-col justify-between"
+                style={{
+                  padding: 16,
+                  margin: 0,
+                  background: 'var(--bg)',
+                  border: isActive ? '1px solid var(--border)' : '1px dashed var(--border)',
+                  opacity: isActive ? 1 : 0.7,
+                }}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-sm text-ink">{c.name}</span>
+                    <span
+                      className="chip chip-sm"
+                      style={{
+                        background: isActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: isActive ? '#10b981' : '#ef4444',
+                        fontWeight: 800,
+                        fontSize: 10,
+                      }}
+                    >
+                      ● {isActive ? 'Live' : 'Paused'}
+                    </span>
+                  </div>
+                  <p className="muted text-xs m-0 mb-2">{c.coverage}</p>
+                  <div className="text-xs muted mb-2">
+                    Phone: <strong className="text-ink">{c.contact_phone || '+977 1-4000000'}</strong>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-2.5" style={{ borderTop: '1px solid var(--border)' }}>
+                  <span className="font-mono text-primary font-bold text-xs truncate" style={{ maxWidth: 140 }}>
+                    {c.api_status}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      title={isActive ? 'Pause Partner' : 'Activate Partner'}
+                      onClick={() => togglePartnerStatus(c.id)}
+                    >
+                      <Power size={12} color={isActive ? '#10b981' : '#94a3b8'} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-xs"
+                      onClick={() => {
+                        setEditPartner(c)
+                        setPartnerForm({
+                          name: c.name,
+                          type: c.type,
+                          coverage: c.coverage,
+                          endpoint: c.endpoint || '',
+                          contact_phone: c.contact_phone || '',
+                        })
+                      }}
+                    >
+                      <Edit size={11} /> Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger-outline btn-xs"
+                      onClick={() => deletePartner(c.id, c.name)}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <p className="muted text-xs m-0 mb-2">{c.coverage}</p>
-              <div className="flex items-center justify-between text-xs pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-                <span className="muted">Type: <strong>{c.type}</strong></span>
-                <span className="font-mono text-primary font-bold">{c.api_status}</span>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
       {/* Edit Rates Modal */}
       {editZone && (
         <Modal open={!!editZone} onClose={() => setEditZone(null)} title={`Edit Shipping Rates: ${editZone.name}`}>
-          <form onSubmit={handleUpdate} className="flex flex-col gap-3">
+          <form onSubmit={handleUpdateZone} className="flex flex-col gap-3">
             <div className="form-row">
               <div className="form-group">
                 <label className="label">Standard Shipping Rate (NPR) <span className="req">*</span></label>
@@ -373,6 +506,89 @@ export default function AdminShipping() {
             <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setAddZoneOpen(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary btn-sm">Create Zone</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Add / Edit Delivery Partner Modal */}
+      {(addPartnerOpen || editPartner) && (
+        <Modal
+          open={addPartnerOpen || !!editPartner}
+          onClose={() => { setAddPartnerOpen(false); setEditPartner(null); }}
+          title={editPartner ? `Configure Partner: ${editPartner.name}` : 'Integrate New Delivery Partner'}
+        >
+          <form onSubmit={handleSavePartner} className="flex flex-col gap-3">
+            <div className="form-group">
+              <label className="label">Courier / Logistics Company Name <span className="req">*</span></label>
+              <input
+                className="input"
+                required
+                value={partnerForm.name}
+                onChange={(e) => setPartnerForm({ ...partnerForm, name: e.target.value })}
+                placeholder="e.g. Nepal Can Move Logistics"
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="label">Partner Category</label>
+                <select
+                  className="select"
+                  value={partnerForm.type}
+                  onChange={(e) => setPartnerForm({ ...partnerForm, type: e.target.value })}
+                >
+                  <option value="Primary Fast Delivery Partner">Primary Fast Delivery Partner</option>
+                  <option value="Government Registered Postal Network">Government Registered Postal Network</option>
+                  <option value="Highway Commercial Freight">Highway Commercial Freight</option>
+                  <option value="Same-day Local Dispatch">Same-day Local Dispatch</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="label">Support Contact Phone <span className="req">*</span></label>
+                <input
+                  className="input"
+                  required
+                  value={partnerForm.contact_phone}
+                  onChange={(e) => setPartnerForm({ ...partnerForm, contact_phone: e.target.value })}
+                  placeholder="+977 1-XXXXXXX"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="label">Operational Coverage Districts & Corridors <span className="req">*</span></label>
+              <textarea
+                className="textarea"
+                rows={2}
+                required
+                value={partnerForm.coverage}
+                onChange={(e) => setPartnerForm({ ...partnerForm, coverage: e.target.value })}
+                placeholder="e.g. Western Corridor (Butwal, Bhairahawa, Nepalgunj, Dhangadhi, Mahendranagar)"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="label">API Webhook / Tracking Endpoint (Optional)</label>
+              <input
+                className="input"
+                value={partnerForm.endpoint}
+                onChange={(e) => setPartnerForm({ ...partnerForm, endpoint: e.target.value })}
+                placeholder="https://api.partner.com/v1/shipments"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => { setAddPartnerOpen(false); setEditPartner(null); }}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary btn-sm">
+                {editPartner ? 'Save Changes' : 'Integrate Partner'}
+              </button>
             </div>
           </form>
         </Modal>
