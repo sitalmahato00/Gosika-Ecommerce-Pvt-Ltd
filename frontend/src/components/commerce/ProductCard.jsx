@@ -67,7 +67,8 @@ export default function ProductCard({ product, onQuickView }) {
             loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={(e) => {
-              e.target.src = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80'
+              e.target.onerror = null;
+              e.target.src = getProductImage(product)
             }}
           />
         </div>

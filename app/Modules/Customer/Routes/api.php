@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1/customer')->middleware('auth:sanctum')->group(function () {
     Route::get('profile', [CustomerProfileController::class, 'show']);
     Route::put('profile', [CustomerProfileController::class, 'update']);
+    Route::put('profile/password', [CustomerProfileController::class, 'updatePassword']);
+    Route::post('profile/avatar', [CustomerProfileController::class, 'uploadAvatar']);
 
     Route::get('addresses', [CustomerAddressController::class, 'index']);
     Route::post('addresses', [CustomerAddressController::class, 'store']);

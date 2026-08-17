@@ -18,6 +18,7 @@ class CustomerProfileResource extends JsonResource
             'full_name' => $user?->full_name,
             'email' => $user?->email,
             'phone' => $user?->phone,
+            'avatar' => $user?->avatar ? (str_starts_with($user->avatar, 'http') ? $user->avatar : '/storage/' . $user->avatar) : null,
             'gender' => $this->gender,
             'date_of_birth' => $this->date_of_birth?->toDateString(),
             'preferences' => $this->preferences,

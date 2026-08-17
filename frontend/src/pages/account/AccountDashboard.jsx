@@ -28,7 +28,11 @@ export default function AccountDashboard() {
     setLoading(true)
     setError(null)
     api.get('/orders', { params: { per_page: 50 } })
-      .then((res) => setOrders(res.data?.data?.data || []))
+      .then((res) => {
+        const payload = res.data
+        const raw = payload?.data?.data ?? payload?.data ?? payload
+        setOrders(Array.isArray(raw) ? raw : [])
+      })
       .catch((err) => setError(err))
       .finally(() => setLoading(false))
   }

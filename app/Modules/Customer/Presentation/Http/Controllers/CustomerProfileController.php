@@ -32,4 +32,39 @@ class CustomerProfileController extends Controller
 
         return Response::success(new CustomerProfileResource($profile), 'Profile updated.');
     }
+
+    public function updatePassword(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = $request->user();
+
+        if (!\Illuminate\Support\Facades\Hash::check($data['current_password'], $user->password)) {
+            return Response::error('Current password does not match our records.', 422);
+        }
+
+        $user->password = \Illuminate\Support\Facades\Hash::make($data['password']);
+        $user->save();
+
+        return Response::success(null, 'Password updated successfully.');
+    }
+
+    public function uploadAvatar(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $request->validate([
+            'avatar' => ['required', 'image', 'max:2048'],
+        ]);
+
+        $user = $request->user();
+        $path = $request->file('avatar')->store('avatars', 'public');
+        $user->avatar = $path;
+        $user->save();
+
+        return Response::success([
+            'avatar' => '/storage/' . $path,
+        ], 'Avatar uploaded successfully.');
+    }
 }

@@ -54,15 +54,35 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
-  const hasRole = (role) => !!user?.roles?.some((r) => r === role || r === 'super_admin')
+  const hasRole = (role) => !!user?.roles?.includes(role)
   const isVendor = () => hasRole('vendor_admin')
   const isSuperAdmin = () => hasRole('super_admin')
   const isDeliveryPartner = () => hasRole('delivery_partner')
-  const isCustomer = () => !!user && !hasRole('vendor_admin')
+  const isCustomer = () => !!user && (hasRole('customer') || isVendor())
+
+  const updateUser = (patch) => {
+    setUser((prev) => {
+      const updated = typeof patch === 'function' ? patch(prev) : { ...prev, ...patch }
+      localStorage.setItem('gosika_user', JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  const refreshUser = async () => {
+    try {
+      const res = await api.get('/auth/me')
+      const u = res.data.data
+      setUser(u)
+      localStorage.setItem('gosika_user', JSON.stringify(u))
+      return u
+    } catch {
+      return null
+    }
+  }
 
   return (
     <AuthContext.Provider
-      value={{ user, booted, login, logout, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer }}
+      value={{ user, booted, login, logout, updateUser, refreshUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer }}
     >
       {children}
     </AuthContext.Provider>

@@ -216,7 +216,7 @@ export default function ProductDetail() {
               src={apiImage(activeImage) || defaultImg}
               alt={product.name}
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' }}
+              onError={(e) => { e.target.onerror = null; e.target.src = defaultImg }}
             />
             {compareAt > price && (
               <span className="discount-tag" style={{ position: 'absolute', top: 12, left: 12, fontSize: 13 }}>
@@ -233,7 +233,7 @@ export default function ProductDetail() {
                   className={`product-thumb ${imageIdx === i ? 'active' : ''}`}
                   aria-label={`Thumbnail ${i + 1}`}
                 >
-                  <img src={apiImage(img.url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={apiImage(img.url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.onerror = null; e.target.src = defaultImg }} />
                 </button>
               ))}
             </div>

@@ -128,17 +128,36 @@ export default function OrderList() {
               </div>
             </div>
               <div className="flex gap-2 mt-2" style={{ overflow: 'hidden' }}>
-                {o.items.slice(0, 4).map((it) => (
-                  <span key={it.id} className="thumb" style={{ width: 44, height: 44 }}>
-                    <img
-                      src={it.image ? apiImage(it.image) : getProductImage(it)}
-                      alt=""
-                      className="thumb-img"
-                      onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' }}
-                    />
-                  </span>
-                ))}
+                {o.items?.slice(0, 4).map((it) => {
+                  const fallback = getProductImage(it)
+                  const src = it.image ? apiImage(it.image, it.product_name || it.name) : fallback
+                  return (
+                    <span key={it.id} className="thumb" style={{ width: 44, height: 44, borderRadius: 6, overflow: 'hidden', display: 'inline-block', background: 'var(--bg)' }}>
+                      <img
+                        src={src}
+                        alt={it.product_name || ''}
+                        className="thumb-img"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => { e.target.onerror = null; e.target.src = fallback }}
+                      />
+                    </span>
+                  )
+                })}
               </div>
+              {o.payment_status === 'pending' && ['khalti', 'esewa'].includes(o.payment_method) && !['cancelled', 'refunded', 'delivered', 'completed'].includes(o.status) && (
+                <div className="mt-3">
+                  <button 
+                    className="btn btn-primary btn-sm"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      window.location.href = `/orders/${o.id}`
+                    }}
+                  >
+                    Pay Now
+                  </button>
+                </div>
+              )}
           </Link>
         ))}
       </div>

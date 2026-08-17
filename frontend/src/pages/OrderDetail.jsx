@@ -133,7 +133,7 @@ export default function OrderDetail() {
           <div className="flex items-center gap-2">
             <StatusBadge status={order.status} />
             <StatusBadge status={order.payment_status} />
-            {order.payment_status === 'payment_pending' && ['khalti', 'esewa'].includes(order.payment_method) && (
+            {order.payment_status === 'pending' && ['khalti', 'esewa'].includes(order.payment_method) && (
                <Button variant="primary" size="sm" onClick={initiatePayment} disabled={paying}>
                  {paying ? 'Processing...' : 'Pay Now'}
                </Button>
@@ -145,7 +145,12 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, alignItems: 'start' }}>
+      <style>{`
+        @media (min-width: 900px) {
+          #order-detail-layout { grid-template-columns: 1fr 340px !important; }
+        }
+      `}</style>
+      <div id="order-detail-layout" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, alignItems: 'start' }}>
         <div className="flex flex-col gap-4">
           {/* Status timeline */}
           <div className="card">
@@ -185,6 +190,7 @@ export default function OrderDetail() {
                       src={apiImage(it.image, it.product_name || it.name)}
                       alt=""
                       className="thumb-img"
+                      onError={(e) => { e.target.onerror = null; e.target.src = getProductImage(it) }}
                     />
                   </Link>
                   <div className="flex-1 min-w-0">

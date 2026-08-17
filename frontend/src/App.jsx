@@ -33,6 +33,7 @@ import AccountProfile from './pages/account/AccountProfile'
 import AccountAddresses from './pages/account/AccountAddresses'
 import AccountPayments from './pages/account/AccountPayments'
 import AccountReturns from './pages/account/Returns'
+import AccountSupport from './pages/account/AccountSupport'
 
 import VendorRegister from './pages/vendor/VendorRegister'
 import VendorDashboard from './pages/vendor/VendorDashboard'
@@ -145,6 +146,7 @@ function CustomerLayout() {
             <Route path="addresses" element={<AccountAddresses />} />
             <Route path="payments" element={<AccountPayments />} />
             <Route path="returns" element={<AccountReturns />} />
+            <Route path="support" element={<AccountSupport />} />
             <Route path="orders" element={<Navigate to="/orders" replace />} />
           </Route>
           <Route path="*" element={<NotFound />} />

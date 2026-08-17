@@ -63,7 +63,7 @@ export function getProductImage(product, index = 0) {
     return apiImage(explicit)
   }
 
-  const nameOrCategory = `${product.name || ''} ${product.category?.name || ''} ${product.category?.slug || ''}`
+  const nameOrCategory = `${product.product_name || ''} ${product.name || ''} ${product.title || ''} ${product.category?.name || ''} ${product.category?.slug || ''}`
   return apiImage(null, nameOrCategory || product.id || index)
 }
 

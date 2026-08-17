@@ -25,7 +25,15 @@ class CustomerService
     {
         $profile = $this->getOrCreateProfile($user);
 
-        $profile->fill(array_filter($data, fn ($value) => $value !== null));
+        $userFields = ['first_name', 'last_name', 'phone', 'avatar'];
+        $userData = array_intersect_key($data, array_flip($userFields));
+        if (!empty($userData)) {
+            $user->fill(array_filter($userData, fn ($v) => $v !== null));
+            $user->save();
+        }
+
+        $profileData = array_diff_key($data, array_flip($userFields));
+        $profile->fill(array_filter($profileData, fn ($value) => $value !== null));
         $profile->save();
 
         return $profile;

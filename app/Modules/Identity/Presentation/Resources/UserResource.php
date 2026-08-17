@@ -16,7 +16,7 @@ class UserResource extends JsonResource
             'full_name' => $this->full_name,
             'email' => $this->email,
             'phone' => $this->phone,
-            'avatar' => $this->avatar,
+            'avatar' => $this->avatar ? (str_starts_with($this->avatar, 'http') ? $this->avatar : '/storage/' . ltrim($this->avatar, '/')) : null,
             'status' => $this->status,
             'email_verified_at' => $this->email_verified_at?->toISOString(),
             'phone_verified_at' => $this->phone_verified_at?->toISOString(),

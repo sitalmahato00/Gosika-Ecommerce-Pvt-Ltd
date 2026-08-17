@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
-import { initials } from '../../utils/format'
+import { initials, apiImage } from '../../utils/format'
 import Drawer from '../ui/Drawer'
 import api from '../../api/client'
 import { getCategoryIcon } from '../../utils/icons'
@@ -73,6 +73,8 @@ export default function CustomerHeader() {
   }
 
   const userInitials = initials(user?.name || user?.email || 'U')
+  const isAdminUser = isSuperAdmin()
+  const showCustomerOptions = !!user && !isAdminUser
 
   return (
     <header className="customer-header" role="banner">
@@ -156,15 +158,19 @@ export default function CustomerHeader() {
             <Search size={20} />
           </button>
 
-          <Link to="/orders" className="header-action hide-sm" aria-label="My orders">
-            <span className="h-icon"><Package size={21} /></span>
-            <span>Orders</span>
-          </Link>
+          {!isAdminUser && (
+            <Link to="/orders" className="header-action hide-sm" aria-label="My orders">
+              <span className="h-icon"><Package size={21} /></span>
+              <span>Orders</span>
+            </Link>
+          )}
 
-          <Link to="/wishlist" className="header-action" aria-label="My wishlist">
-            <span className="h-icon"><Heart size={21} /></span>
-            <span className="hide-sm">Wishlist</span>
-          </Link>
+          {!isAdminUser && (
+            <Link to="/wishlist" className="header-action" aria-label="My wishlist">
+              <span className="h-icon"><Heart size={21} /></span>
+              <span className="hide-sm">Wishlist</span>
+            </Link>
+          )}
 
           <Link to="/cart" className="header-action" aria-label={`Shopping cart, ${itemCount} items`}>
             <span className="h-icon" style={{ position: 'relative' }}>
@@ -188,12 +194,20 @@ export default function CustomerHeader() {
               aria-label={user ? `Account menu for ${user.name}` : 'Login or create account'}
             >
               {user ? (
-                <span
-                  className="avatar"
-                  style={{ width: 28, height: 28, fontSize: 11, background: 'var(--primary)', color: '#fff' }}
-                >
-                  {userInitials}
-                </span>
+                user.avatar ? (
+                  <img
+                    src={apiImage(user.avatar)}
+                    alt=""
+                    style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }}
+                  />
+                ) : (
+                  <span
+                    className="avatar"
+                    style={{ width: 28, height: 28, fontSize: 11, background: 'var(--primary)', color: '#fff' }}
+                  >
+                    {userInitials}
+                  </span>
+                )
               ) : (
                 <span className="h-icon"><User size={21} /></span>
               )}
@@ -207,29 +221,46 @@ export default function CustomerHeader() {
               <div className="account-dropdown" role="menu">
                 {user ? (
                   <>
-                    <div className="account-dropdown-header">
-                      <div className="font-semibold truncate" style={{ fontSize: 14 }}>{user.name}</div>
-                      <div className="muted text-xs truncate">{user.email}</div>
-                      {isVendor() && (
-                        <span className="chip chip-sm" style={{ marginTop: 6 }}>Vendor</span>
+                    <div className="account-dropdown-header" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {user.avatar ? (
+                        <img
+                          src={apiImage(user.avatar)}
+                          alt=""
+                          style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <span className="avatar" style={{ width: 36, height: 36, fontSize: 13, background: 'var(--primary)', color: '#fff' }}>
+                          {userInitials}
+                        </span>
                       )}
-                      {isSuperAdmin() && (
-                        <span className="chip chip-sm" style={{ marginTop: 6, background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>Admin</span>
-                      )}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="font-semibold truncate" style={{ fontSize: 14 }}>{user.name}</div>
+                        <div className="muted text-xs truncate">{user.email}</div>
+                      </div>
                     </div>
+                    {isVendor() && (
+                      <span className="chip chip-sm" style={{ marginTop: 6 }}>Vendor</span>
+                    )}
+                    {isSuperAdmin() && (
+                      <span className="chip chip-sm" style={{ marginTop: 6, background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>Admin</span>
+                    )}
                     <div className="account-dropdown-links">
-                      <Link className="account-dropdown-link" to="/account" onClick={() => setAccountOpen(false)} role="menuitem">
-                        <User size={15} /> My Account
-                      </Link>
-                      <Link className="account-dropdown-link" to="/orders" onClick={() => setAccountOpen(false)} role="menuitem">
-                        <Package size={15} /> My Orders
-                      </Link>
-                      <Link className="account-dropdown-link" to="/wishlist" onClick={() => setAccountOpen(false)} role="menuitem">
-                        <Heart size={15} /> Wishlist
-                      </Link>
-                      <Link className="account-dropdown-link" to="/account/addresses" onClick={() => setAccountOpen(false)} role="menuitem">
-                        <MapPin size={15} /> Addresses
-                      </Link>
+                      {showCustomerOptions && (
+                        <>
+                          <Link className="account-dropdown-link" to="/account" onClick={() => setAccountOpen(false)} role="menuitem">
+                            <User size={15} /> My Account
+                          </Link>
+                          <Link className="account-dropdown-link" to="/orders" onClick={() => setAccountOpen(false)} role="menuitem">
+                            <Package size={15} /> My Orders
+                          </Link>
+                          <Link className="account-dropdown-link" to="/wishlist" onClick={() => setAccountOpen(false)} role="menuitem">
+                            <Heart size={15} /> Wishlist
+                          </Link>
+                          <Link className="account-dropdown-link" to="/account/addresses" onClick={() => setAccountOpen(false)} role="menuitem">
+                            <MapPin size={15} /> Addresses
+                          </Link>
+                        </>
+                      )}
                       {isVendor() && (
                         <>
                           <div className="account-dropdown-divider" />
@@ -364,22 +395,28 @@ export default function CustomerHeader() {
           <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/cart" onClick={() => setMenuOpen(false)}>
             <ShoppingBag size={15} /> Cart {itemCount > 0 && `(${itemCount})`}
           </Link>
-          <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/orders" onClick={() => setMenuOpen(false)}>
-            <Package size={15} /> My Orders
-          </Link>
-          <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/wishlist" onClick={() => setMenuOpen(false)}>
-            <Heart size={15} /> Wishlist
-          </Link>
-          {user && (
-            <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/account" onClick={() => setMenuOpen(false)}>
-              <User size={15} /> My Account
-            </Link>
+          {!isAdminUser && (
+            <>
+              <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/orders" onClick={() => setMenuOpen(false)}>
+                <Package size={15} /> My Orders
+              </Link>
+              <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/wishlist" onClick={() => setMenuOpen(false)}>
+                <Heart size={15} /> Wishlist
+              </Link>
+              {user && (
+                <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/account" onClick={() => setMenuOpen(false)}>
+                  <User size={15} /> My Account
+                </Link>
+              )}
+            </>
           )}
 
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', padding: '12px 0 4px', letterSpacing: '0.06em' }}>Sell on GOSIKA</div>
-          <Link className="dash-nav-link" style={{ color: 'var(--primary)', background: 'none', fontWeight: 600 }} to="/vendor/register" onClick={() => setMenuOpen(false)}>
-            <Store size={15} /> Become a Seller
-          </Link>
+          {!isAdminUser && (
+            <Link className="dash-nav-link" style={{ color: 'var(--primary)', background: 'none', fontWeight: 600 }} to="/vendor/register" onClick={() => setMenuOpen(false)}>
+              <Store size={15} /> Become a Seller
+            </Link>
+          )}
           {isVendor() && (
             <Link className="dash-nav-link" style={{ color: 'var(--primary)', background: 'none' }} to="/vendor" onClick={() => setMenuOpen(false)}>
               <LayoutDashboard size={15} /> Vendor Dashboard

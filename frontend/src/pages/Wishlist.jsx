@@ -93,14 +93,18 @@ export default function Wishlist() {
                 </Link>
                 <span className="price-current" style={{ fontSize: 15 }}>{money(product.price)}</span>
               </div>
-              <div style={{ padding: '0 12px 12px', marginTop: 'auto' }}>
+              <div style={{ padding: '0 12px 12px', marginTop: 'auto', display: 'flex', gap: 6 }}>
+                <Link to={`/product/${productId}`} className="btn btn-primary btn-sm flex-1">
+                  View Product
+                </Link>
                 <button
                   type="button"
-                  className="btn btn-outline btn-sm btn-block"
+                  className="btn btn-outline btn-sm"
                   onClick={() => handleRemove(item)}
                   disabled={removing === productId}
+                  title="Remove from wishlist"
                 >
-                  <X size={13} /> {removing === productId ? 'Removing…' : 'Remove'}
+                  <X size={13} />
                 </button>
               </div>
             </div>

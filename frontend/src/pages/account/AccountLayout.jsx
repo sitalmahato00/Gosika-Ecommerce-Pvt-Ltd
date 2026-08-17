@@ -5,7 +5,7 @@ import {
   User, Headphones, RotateCcw, LogOut, ChevronRight
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { initials } from '../../utils/format'
+import { initials, apiImage } from '../../utils/format'
 
 const NAV_ITEMS = [
   { to: '/account', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   { to: '/account/payments', label: 'Payment Methods', icon: CreditCard },
   { to: '/account/returns', label: 'Returns', icon: RotateCcw },
   { to: '/account/profile', label: 'Profile', icon: User },
-  { to: '/help', label: 'Support', icon: Headphones },
+  { to: '/account/support', label: 'Support', icon: Headphones },
 ]
 
 export default function AccountLayout() {
@@ -58,12 +58,20 @@ export default function AccountLayout() {
           {user && (
             <div className="card" style={{ marginBottom: 12, padding: 16 }}>
               <div className="flex items-center gap-3">
-                <span
-                  className="avatar"
-                  style={{ width: 48, height: 48, fontSize: 18, background: 'var(--primary)', color: '#fff' }}
-                >
-                  {userInitials}
-                </span>
+                {user.avatar ? (
+                  <img
+                    src={apiImage(user.avatar)}
+                    alt=""
+                    style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }}
+                  />
+                ) : (
+                  <span
+                    className="avatar"
+                    style={{ width: 48, height: 48, fontSize: 18, background: 'var(--primary)', color: '#fff' }}
+                  >
+                    {userInitials}
+                  </span>
+                )}
                 <div style={{ minWidth: 0 }}>
                   <div className="font-semibold truncate" style={{ fontSize: 14 }}>{user.name}</div>
                   <div className="muted text-xs truncate">{user.email}</div>

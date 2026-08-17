@@ -601,7 +601,7 @@ export default function Checkout() {
                       src={item.image ? apiImage(item.image) : getProductImage(item)}
                       alt=""
                       className="thumb-img"
-                      onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' }}
+                      onError={(e) => { e.target.onerror = null; e.target.src = getProductImage(item) }}
                     />
                   </span>
                   <div style={{ minWidth: 0 }}>

@@ -297,7 +297,58 @@ export default function AccountAddresses() {
               <Input label="Landmark (Optional)" value={form.landmark} onChange={(e) => setForm({ ...form, landmark: e.target.value })} />
             </div>
 
-            <label className="checkbox-row mb-2" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ padding: '14px 18px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <MapPin size={14} color="var(--primary)" /> Pinpoint Delivery Location
+                </div>
+                <div className="muted text-xs mt-0.5">Click the map to place the delivery pin precisely.</div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-outline btn-xs"
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => setForm({ ...form, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) }),
+                      () => setForm({ ...form, latitude: 27.7172, longitude: 85.3240 })
+                    )
+                  }
+                }}
+                style={{ background: '#fff', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                Use My GPS Location
+              </button>
+            </div>
+
+            <div
+              style={{ position: 'relative', height: 180, background: '#e2e8f0', overflow: 'hidden', cursor: 'crosshair', borderRadius: 'var(--radius-md)' }}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect()
+                const x = ((e.clientX - rect.left) / rect.width) * 100
+                const y = ((e.clientY - rect.top) / rect.height) * 100
+                const baseLat = parseFloat(form.latitude) || 27.7172
+                const baseLng = parseFloat(form.longitude) || 85.3240
+                const deltaLat = ((50 - y) / 1000).toFixed(6)
+                const deltaLng = ((x - 50) / 1000).toFixed(6)
+                setForm({ ...form, latitude: (baseLat + parseFloat(deltaLat)).toFixed(6), longitude: (baseLng + parseFloat(deltaLng)).toFixed(6) })
+              }}
+            >
+              <iframe
+                title="Nepal Delivery Location Map"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${((parseFloat(form.longitude) || 85.3240) - 0.015).toFixed(4)}%2C${((parseFloat(form.latitude) || 27.7172) - 0.010).toFixed(4)}%2C${((parseFloat(form.longitude) || 85.3240) + 0.015).toFixed(4)}%2C${((parseFloat(form.latitude) || 27.7172) + 0.010).toFixed(4)}&layer=mapnik&marker=${(parseFloat(form.latitude) || 27.7172)}%2C${(parseFloat(form.longitude) || 85.3240)}`}
+                style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
+              />
+              <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
+                <div style={{ background: 'var(--primary)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: 10, fontWeight: 700, marginBottom: 2 }}>Pinpoint Location</div>
+                <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', border: '2px solid #fff', boxShadow: '0 0 10px var(--primary)' }} />
+              </div>
+              <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(15, 23, 42, 0.85)', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: 10, fontFamily: 'monospace' }}>
+                Lat: {parseFloat(form.latitude || 27.7172).toFixed(4)}, Lng: {parseFloat(form.longitude || 85.3240).toFixed(4)}
+              </div>
+            </div>
+
+            <label className="checkbox-row mb-2 mt-2" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
               <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} />
               <span className="text-sm">Set as default shipping address</span>
             </label>
