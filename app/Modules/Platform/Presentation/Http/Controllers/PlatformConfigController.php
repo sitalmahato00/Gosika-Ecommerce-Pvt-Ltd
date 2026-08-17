@@ -30,6 +30,16 @@ class PlatformConfigController extends Controller
             data_set($config, $setting->key, $value);
         }
 
+        $esewaSecret = Setting::get('payment.esewa_secret_key') ?: config('services.esewa.secret_key', '');
+        if (! empty($esewaSecret)) {
+            data_set($config, 'payment.esewa_enabled', true);
+        }
+
+        $khaltiSecret = Setting::get('payment.khalti_secret_key') ?: config('services.khalti.secret_key', '');
+        if (! empty($khaltiSecret)) {
+            data_set($config, 'payment.khalti_enabled', true);
+        }
+
         return Response::success($config, 'Platform configuration.');
     }
 
