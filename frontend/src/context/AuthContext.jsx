@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react'
 import api from '../api/client'
 
 const AuthContext = createContext(null)
@@ -34,16 +34,22 @@ export function AuthProvider({ children }) {
       .finally(() => setBooted(true))
   }, [])
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const res = await api.post('/auth/login', { identifier: email, password, device_name: 'web' })
     const { token, user: u } = res.data.data
     localStorage.setItem('gosika_token', token)
     localStorage.setItem('gosika_user', JSON.stringify(u))
     setUser(u)
     return u
-  }
+  }, [])
 
-  const logout = async () => {
+  const saveSession = useCallback((token, userData) => {
+    localStorage.setItem('gosika_token', token)
+    localStorage.setItem('gosika_user', JSON.stringify(userData))
+    setUser(userData)
+  }, [])
+
+  const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout')
     } catch {
@@ -52,23 +58,23 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('gosika_token')
     localStorage.removeItem('gosika_user')
     setUser(null)
-  }
+  }, [])
 
-  const hasRole = (role) => !!user?.roles?.includes(role)
-  const isVendor = () => hasRole('vendor_admin')
-  const isSuperAdmin = () => hasRole('super_admin')
-  const isDeliveryPartner = () => hasRole('delivery_partner')
-  const isCustomer = () => !!user && (hasRole('customer') || isVendor())
+  const hasRole = useCallback((role) => !!user?.roles?.includes(role), [user])
+  const isVendor = useCallback(() => hasRole('vendor_admin'), [hasRole])
+  const isSuperAdmin = useCallback(() => hasRole('super_admin'), [hasRole])
+  const isDeliveryPartner = useCallback(() => hasRole('delivery_partner'), [hasRole])
+  const isCustomer = useCallback(() => !!user && (hasRole('customer') || isVendor()), [user, hasRole, isVendor])
 
-  const updateUser = (patch) => {
+  const updateUser = useCallback((patch) => {
     setUser((prev) => {
       const updated = typeof patch === 'function' ? patch(prev) : { ...prev, ...patch }
       localStorage.setItem('gosika_user', JSON.stringify(updated))
       return updated
     })
-  }
+  }, [])
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const res = await api.get('/auth/me')
       const u = res.data.data
@@ -78,12 +84,14 @@ export function AuthProvider({ children }) {
     } catch {
       return null
     }
-  }
+  }, [])
+
+  const value = useMemo(() => ({
+    user, booted, login, saveSession, logout, updateUser, refreshUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer
+  }), [user, booted, login, saveSession, logout, updateUser, refreshUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer])
 
   return (
-    <AuthContext.Provider
-      value={{ user, booted, login, logout, updateUser, refreshUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

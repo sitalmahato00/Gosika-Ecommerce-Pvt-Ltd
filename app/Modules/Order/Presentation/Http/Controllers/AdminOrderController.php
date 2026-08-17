@@ -55,7 +55,7 @@ class AdminOrderController extends Controller
     public function show(string $orderId): JsonResponse
     {
         $order = Order::query()
-            ->with(['user', 'items', 'vendorOrders.items', 'vendorOrders.store', 'vendorOrders.deliveryAssignment', 'payments', 'shippingAddress'])
+            ->with(['user', 'items', 'vendorOrders.items', 'vendorOrders.store', 'vendorOrders.assignments', 'payments', 'shippingAddress'])
             ->where('uuid', $orderId)
             ->firstOrFail();
 

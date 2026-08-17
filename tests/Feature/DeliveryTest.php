@@ -204,6 +204,44 @@ class DeliveryTest extends TestCase
         return [$order, $vendorOrder, DeliveryAssignment::where('uuid', $response->json('data.id'))->firstOrFail()];
     }
 
+    public function test_admin_can_auto_assign_delivery_based_on_order_zone_and_partner_coverage(): void
+    {
+        $vendor = $this->approvedVendor($this->vendorUser());
+        $product = $this->productFor($vendor, 'Z');
+        [$order, $vendorOrder] = $this->pendingVendorOrder($vendor, $product);
+        $partner = $this->approvedPartner($this->partnerUser(), 'Z');
+        $partner->update(['service_areas' => ['Province 1']]);
+
+        $this->actingAs($vendor->user, 'sanctum')
+            ->postJson('/api/v1/vendor/orders/'.$vendorOrder->uuid.'/accept')
+            ->assertOk();
+
+        $this->actingAs($vendor->user, 'sanctum')
+            ->postJson('/api/v1/vendor/orders/'.$vendorOrder->uuid.'/ready-for-pickup')
+            ->assertOk();
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/v1/admin/shipping/zones', [
+                'name' => 'Eastern Hubs',
+                'provinces' => ['Province 1'],
+                'standard_charge' => 180,
+                'express_charge' => 260,
+                'estimated_days' => 2,
+                'is_active' => true,
+            ])->assertCreated();
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/v1/admin/deliveries', [
+                'vendor_order_id' => $vendorOrder->uuid,
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('delivery_assignments', [
+            'vendor_order_id' => $vendorOrder->id,
+            'delivery_partner_id' => $partner->id,
+        ]);
+    }
+
     public function test_delivery_partner_can_apply(): void
     {
         $this->actingAs($this->partnerUser(), 'sanctum')
@@ -221,6 +259,31 @@ class DeliveryTest extends TestCase
             'name' => 'Hari Bahadur',
             'status' => 'pending',
         ]);
+    }
+
+    public function test_admin_can_create_delivery_user_account_with_zone_assignment(): void
+    {
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/v1/admin/delivery-partners', [
+                'name' => 'Sita Rai',
+                'email' => 'sita.rider@gosika.com.np',
+                'phone' => '9807654321',
+                'vehicle_type' => 'motorcycle',
+                'vehicle_number' => 'BA 4 KHA 1234',
+                'service_areas' => ['Bagmati', 'Gandaki'],
+                'password' => 'Password@123',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Sita Rai')
+            ->assertJsonPath('data.service_areas.0', 'Bagmati');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'sita.rider@gosika.com.np',
+        ]);
+
+        $partner = DeliveryPartner::query()->where('name', 'Sita Rai')->firstOrFail();
+
+        $this->assertSame(['Bagmati', 'Gandaki'], $partner->service_areas);
     }
 
     public function test_admin_can_approve_delivery_partner(): void

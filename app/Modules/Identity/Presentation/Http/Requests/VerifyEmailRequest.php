@@ -15,7 +15,7 @@ class VerifyEmailRequest extends FormRequest
     {
         return [
             'email' => ['required', 'string', 'email', 'max:255'],
-            'token' => ['required', 'string'],
+            'code' => ['required', 'string', 'min:6', 'max:6'],
         ];
     }
 }

@@ -11,9 +11,31 @@ import Pagination from '../../components/ui/Pagination'
 import { money, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useList } from '../../hooks/useApi'
+import { NEPAL_DISTRICTS as NEPAL_DISTRICTS_MAP } from '../../utils/nepalLocations'
 
 const EMPTY_ZONE = { name: '', provinces: '', standard_charge: 150, express_charge: 250, estimated_days: 2 }
 const EMPTY_COURIER = { name: '', type: 'Primary Fast Delivery Partner', coverage: '', contact_phone: '', endpoint: '' }
+const NEPAL_PROVINCES = Object.entries(NEPAL_DISTRICTS_MAP).map(([name, districts]) => ({
+  name: name.replace(' Province', ''),
+  districts: districts.slice(0, 6),
+})).sort((a, b) => a.name.localeCompare(b.name))
+
+function parseProvinceList(value) {
+  return String(value || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+function toggleProvinceSelection(currentValue, nextProvince) {
+  const selected = new Set(parseProvinceList(currentValue))
+  if (selected.has(nextProvince)) {
+    selected.delete(nextProvince)
+  } else {
+    selected.add(nextProvince)
+  }
+  return [...selected].join(', ')
+}
 
 export default function AdminShipping() {
   const toast = useToast()
@@ -50,6 +72,13 @@ export default function AdminShipping() {
       estimated_days: z.estimated_days != null ? Number(z.estimated_days) : 2,
     })
     setZoneModal({ mode: 'edit', zone: z })
+  }
+
+  const handleMapProvinceToggle = (provinceName) => {
+    setZoneForm((current) => ({
+      ...current,
+      provinces: toggleProvinceSelection(current.provinces, provinceName),
+    }))
   }
 
   const saveZone = async (e) => {
@@ -230,6 +259,46 @@ export default function AdminShipping() {
           </div>
           <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>{pausedCouriersCount} Paused</div>
           <div className="muted text-xs mt-1">Not accepting dispatches</div>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 18, margin: 0 }}>
+        <div className="flex items-center justify-between wrap gap-3 mb-3">
+          <div>
+            <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink)' }}>
+              <MapPin size={15} color="var(--primary)" /> Delivery Coverage Map
+            </h3>
+            <p className="muted text-xs mt-1 mb-0">Set regional coverage by province and district so the right delivery rider is assigned for each order location.</p>
+          </div>
+          <div className="chip chip-sm" style={{ background: 'rgba(99, 102, 241, 0.12)', color: '#4338ca', fontWeight: 800 }}>
+            Coverage synced with shipping zones
+          </div>
+        </div>
+
+        <div style={{
+          minHeight: 182,
+          borderRadius: 16,
+          border: '1px solid var(--border)',
+          background: 'linear-gradient(135deg, rgba(14,116,144,0.10), rgba(79,70,229,0.10), rgba(15,118,110,0.10))',
+          position: 'relative',
+          overflow: 'hidden',
+          padding: 16,
+        }}>
+          <div style={{ position: 'absolute', inset: 0, opacity: 0.22, background: 'radial-gradient(circle at 25% 25%, rgba(34,197,94,0.8), transparent 20%), radial-gradient(circle at 60% 45%, rgba(59,130,246,0.8), transparent 25%), radial-gradient(circle at 80% 30%, rgba(168,85,247,0.7), transparent 18%)' }} />
+          <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+            {['Koshi', 'Bagmati', 'Gandaki', 'Lumbini', 'Madhesh', 'Karnali', 'Sudurpashchim'].map((p) => (
+              <div key={p} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 38, borderRadius: 12, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(148, 163, 184, 0.6)', fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>
+                {p}
+              </div>
+            ))}
+          </div>
+          <div style={{ position: 'relative', marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {(zones.length ? zones : [{ name: 'Eastern Zone', provinces: ['Province 1', 'Bagmati'] }, { name: 'Central Zone', provinces: ['Bagmati', 'Lumbini'] }]).slice(0, 4).map((z) => (
+              <span key={z.id || z.name} className="chip chip-sm" style={{ background: 'rgba(15, 118, 110, 0.12)', color: '#0f766e', fontWeight: 800 }}>
+                {z.name}: {(z.provinces || []).slice(0, 2).join(', ')}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -440,15 +509,43 @@ export default function AdminShipping() {
               />
             </div>
             <div className="form-group">
-              <label className="label">Covered Districts (Comma-separated) <span className="req">*</span></label>
+              <label className="label">Covered Provinces / Delivery Region <span className="req">*</span></label>
               <input
                 className="input"
                 required
                 value={zoneForm.provinces}
                 onChange={(e) => setZoneForm({ ...zoneForm, provinces: e.target.value })}
-                placeholder="e.g. Siraha, Saptari, Dhanusha, Mahottari"
+                placeholder="e.g. Province 1, Bagmati"
               />
             </div>
+
+            <div className="form-group">
+              <label className="label">Map Coverage Picker</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                {NEPAL_PROVINCES.map((province) => {
+                  const selected = parseProvinceList(zoneForm.provinces).includes(province.name)
+                  return (
+                    <button
+                      key={province.name}
+                      type="button"
+                      onClick={() => handleMapProvinceToggle(province.name)}
+                      className={`btn btn-xs ${selected ? 'btn-primary' : 'btn-outline'}`}
+                      style={{
+                        justifyContent: 'space-between',
+                        textAlign: 'left',
+                        padding: '8px 10px',
+                        minHeight: 42,
+                        borderColor: selected ? 'transparent' : 'var(--border)',
+                      }}
+                    >
+                      <span>{province.name}</span>
+                      <span className="muted text-xs">{province.districts.length} hubs</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
             <div className="form-row">
               <div className="form-group">
                 <label className="label">Standard Delivery (NPR) <span className="req">*</span></label>

@@ -32,4 +32,16 @@ class PlatformConfigController extends Controller
 
         return Response::success($config, 'Platform configuration.');
     }
+
+    public function socialProviders(): JsonResponse
+    {
+        $providers = [];
+
+        foreach (['google'] as $provider) {
+            $clientId = config("services.{$provider}.client_id");
+            $providers[$provider] = ! empty($clientId) && ! str_starts_with((string) $clientId, 'your-');
+        }
+
+        return Response::success($providers, 'Available social login providers.');
+    }
 }

@@ -248,6 +248,29 @@ class OrderTest extends TestCase
             ->assertStatus(404);
     }
 
+    public function test_admin_can_fetch_order_detail_for_vendor_orders(): void
+    {
+        $user = $this->customer();
+        [$vendor, , $product] = $this->vendorWithProduct(price: 800, tag: 'detail');
+        [$address, $sessionId] = $this->checkout($user, $product);
+
+        $this->actingAs($user, 'sanctum')->postJson('/api/v1/orders/', [
+            'checkout_session_id' => $sessionId,
+        ])->assertCreated();
+
+        $order = Order::first();
+        $vendorOrder = VendorOrder::first();
+
+        $admin = User::factory()->create();
+        $admin->assignRole(Roles::SUPER_ADMIN);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/admin/orders/'.$order->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.order_number', $order->order_number)
+            ->assertJsonPath('data.vendor_orders.0.vendor_order_number', $vendorOrder->vendor_order_number);
+    }
+
     public function test_customer_can_cancel_pending_order_and_stock_is_restored(): void
     {
         $user = $this->customer();

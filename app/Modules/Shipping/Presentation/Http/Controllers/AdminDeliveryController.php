@@ -4,7 +4,9 @@ namespace App\Modules\Shipping\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
+use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
+use App\Modules\Shared\Domain\Enums\DeliveryPartnerStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Shipping\Application\Services\DeliveryService;
@@ -47,6 +49,49 @@ class AdminDeliveryController extends Controller
                 'last_page' => $partners->lastPage(),
             ]]
         );
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:180'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'phone' => ['required', 'string', 'regex:/^[0-9+\- ]{7,20}$/', 'unique:delivery_partners,phone'],
+            'vehicle_type' => ['nullable', 'string', 'max:40'],
+            'vehicle_number' => ['nullable', 'string', 'max:30'],
+            'service_areas' => ['nullable', 'array'],
+            'service_areas.*' => ['string', 'max:120'],
+            'password' => ['required', 'string', 'min:8'],
+            'province' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $user = User::query()->create([
+            'first_name' => explode(' ', trim((string) $data['name']))[0] ?? trim((string) $data['name']),
+            'last_name' => trim(substr((string) $data['name'], strlen(explode(' ', trim((string) $data['name']))[0] ?? ''))),
+            'email' => $data['email'],
+            'phone' => $data['phone'],
+            'password' => bcrypt($data['password']),
+            'status' => 'active',
+        ]);
+
+        $user->assignRole(Roles::DELIVERY_PARTNER);
+
+        $areas = array_values(array_filter(array_map('trim', (array) ($data['service_areas'] ?? []))));
+
+        $partner = DeliveryPartner::query()->create([
+            'user_id' => $user->id,
+            'name' => $data['name'],
+            'phone' => $data['phone'],
+            'email' => $data['email'],
+            'vehicle_type' => $data['vehicle_type'] ?? null,
+            'vehicle_number' => $data['vehicle_number'] ?? null,
+            'service_areas' => $areas,
+            'status' => DeliveryPartnerStatus::APPROVED,
+            'is_online' => false,
+            'meta' => ['assigned_province' => $data['province'] ?? null],
+        ]);
+
+        return Response::created(new DeliveryPartnerResource($partner->load('user')), 'Delivery partner account created.');
     }
 
     public function partner(string $partnerId): JsonResponse
@@ -130,7 +175,9 @@ class AdminDeliveryController extends Controller
     public function assign(AssignDeliveryRequest $request): JsonResponse
     {
         $vendorOrder = VendorOrder::where('uuid', $request->input('vendor_order_id'))->firstOrFail();
-        $partner = DeliveryPartner::where('uuid', $request->input('delivery_partner_id'))->firstOrFail();
+        $partner = $request->filled('delivery_partner_id')
+            ? DeliveryPartner::where('uuid', $request->input('delivery_partner_id'))->firstOrFail()
+            : $this->service->resolvePartnerForOrder($vendorOrder);
 
         try {
             $assignment = $this->service->assign(

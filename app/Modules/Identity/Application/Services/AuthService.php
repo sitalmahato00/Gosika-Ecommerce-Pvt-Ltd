@@ -83,14 +83,14 @@ class AuthService
         }
     }
 
-    public function verifyEmail(string $email, string $token): User
+    public function verifyEmail(string $email, string $code): User
     {
         $user = User::where('email', $email)->firstOrFail();
 
         if (! $user->email_verified_at) {
             $expected = cache("email_verify:{$email}");
-            if (! $expected || ! hash_equals($expected, hash('sha256', $token))) {
-                throw new DomainException('Invalid or expired verification token.', 422);
+            if (! $expected || ! hash_equals($expected, hash('sha256', $code))) {
+                throw new DomainException('Invalid or expired verification code.', 422);
             }
 
             $user->forceFill(['email_verified_at' => now()])->save();

@@ -23,6 +23,33 @@ const STATUS_TABS = [
   { value: 'suspended', label: 'Suspended' },
 ]
 
+const DELIVERY_MAP_PROVINCES = [
+  { name: 'Province 1', districts: ['Ilam', 'Jhapa', 'Morang', 'Sunsari'] },
+  { name: 'Province 2', districts: ['Dhanusha', 'Saptari', 'Siraha', 'Mahottari'] },
+  { name: 'Bagmati', districts: ['Kathmandu', 'Lalitpur', 'Bhaktapur', 'Chitwan'] },
+  { name: 'Gandaki', districts: ['Pokhara', 'Kaski', 'Lamjung', 'Tanahun'] },
+  { name: 'Lumbini', districts: ['Butwal', 'Dang', 'Rupandehi', 'Banke'] },
+  { name: 'Karnali', districts: ['Surkhet', 'Dailekh', 'Jajarkot', 'Salyan'] },
+  { name: 'Sudurpashchim', districts: ['Dhangadhi', 'Kailai', 'Kanchanpur', 'Dadeldhura'] },
+]
+
+function parseAreaList(value) {
+  return String(value || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+function toggleAreaSelection(currentValue, nextArea) {
+  const selected = new Set(parseAreaList(currentValue))
+  if (selected.has(nextArea)) {
+    selected.delete(nextArea)
+  } else {
+    selected.add(nextArea)
+  }
+  return [...selected].join(', ')
+}
+
 export default function AdminDeliveryPartners() {
   const toast = useToast()
   const [partners, setPartners] = useState([])
@@ -38,6 +65,8 @@ export default function AdminDeliveryPartners() {
     vehicle_type: 'Motorcycle',
     province: 'Bagmati',
     license_number: '',
+    service_areas: '',
+    password: '',
   })
 
   const load = () => {
@@ -68,18 +97,47 @@ export default function AdminDeliveryPartners() {
     }
   }
 
+  const handleMapAreaToggle = (area) => {
+    setForm((current) => ({
+      ...current,
+      service_areas: toggleAreaSelection(current.service_areas || '', area),
+    }))
+  }
+
   const handleCreate = async (e) => {
     e.preventDefault()
     setCreating(true)
     try {
-      await api.post('/admin/delivery-partners', form)
+      const payload = {
+        ...form,
+        service_areas: form.service_areas
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+        password: form.password || undefined,
+      }
+      await api.post('/admin/delivery-partners', payload)
       toast.success(`Delivery partner "${form.name}" registered successfully`)
       setCreateOpen(false)
+      setForm({
+        name: '',
+        email: '',
+        phone: '',
+        vehicle_type: 'Motorcycle',
+        province: 'Bagmati',
+        license_number: '',
+        service_areas: '',
+        password: '',
+      })
       load()
     } catch (err) {
       const newP = {
         id: partners.length + 1,
         ...form,
+        service_areas: form.service_areas
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
         completed_deliveries: 0,
         status: 'active',
         created_at: new Date().toISOString(),
@@ -296,6 +354,49 @@ export default function AdminDeliveryPartners() {
                 {NEPAL_PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
               </Select>
             </div>
+
+            <Input
+              label="Password"
+              type="password"
+              required
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="Create a secure password"
+            />
+
+            <div className="form-group">
+              <label className="label">Shipping Zones / Service Areas</label>
+              <input
+                className="input"
+                placeholder="e.g. Bagmati, Gandaki"
+                value={form.service_areas || ''}
+                onChange={(e) => setForm({ ...form, service_areas: e.target.value })}
+              />
+              <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                {DELIVERY_MAP_PROVINCES.map((province) => {
+                  const selected = parseAreaList(form.service_areas || '').includes(province.name)
+                  return (
+                    <button
+                      key={province.name}
+                      type="button"
+                      onClick={() => handleMapAreaToggle(province.name)}
+                      className={`btn btn-xs ${selected ? 'btn-primary' : 'btn-outline'}`}
+                      style={{
+                        justifyContent: 'space-between',
+                        textAlign: 'left',
+                        padding: '8px 10px',
+                        minHeight: 42,
+                        borderColor: selected ? 'transparent' : 'var(--border)',
+                      }}
+                    >
+                      <span>{province.name}</span>
+                      <span className="muted text-xs">{province.districts.length} hubs</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
             <Input
               label="Driving License Number"
               value={form.license_number}

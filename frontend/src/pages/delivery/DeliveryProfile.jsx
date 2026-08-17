@@ -6,8 +6,30 @@ import { useToast } from '../../context/ToastContext'
 import { errorMessage } from '../../utils/format'
 import { Skeleton } from '../../components/ui/Skeleton'
 import ErrorState from '../../components/ui/ErrorState'
+import { NEPAL_DISTRICTS as NEPAL_DISTRICTS_MAP } from '../../utils/nepalLocations'
 
 const VEHICLE_TYPES = ['motorcycle', 'scooter', 'bicycle', 'e-bike', 'car', 'van', 'truck']
+const DELIVERY_MAP_PROVINCES = Object.entries(NEPAL_DISTRICTS_MAP).map(([name, districts]) => ({
+  name: name.replace(' Province', ''),
+  districts: districts.slice(0, 6),
+})).sort((a, b) => a.name.localeCompare(b.name))
+
+function parseAreaList(value) {
+  return String(value || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+function toggleAreaSelection(currentValue, nextArea) {
+  const selected = new Set(parseAreaList(currentValue))
+  if (selected.has(nextArea)) {
+    selected.delete(nextArea)
+  } else {
+    selected.add(nextArea)
+  }
+  return [...selected].join(', ')
+}
 
 const label = (s) => (s || '')
   .split('-')
@@ -36,6 +58,13 @@ export default function DeliveryProfile() {
   }, [rider])
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+
+  const handleMapAreaToggle = (area) => {
+    setForm((current) => ({
+      ...current,
+      service_areas: toggleAreaSelection(current.service_areas || '', area),
+    }))
+  }
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -161,6 +190,33 @@ export default function DeliveryProfile() {
             onChange={set('service_areas')}
           />
           <span className="muted text-xs mt-1 block">Separate areas with a comma.</span>
+        </div>
+
+        <div className="form-group">
+          <label className="label">Coverage Map</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+            {DELIVERY_MAP_PROVINCES.map((province) => {
+              const selected = parseAreaList(form.service_areas || '').includes(province.name)
+              return (
+                <button
+                  key={province.name}
+                  type="button"
+                  onClick={() => handleMapAreaToggle(province.name)}
+                  className={`btn btn-xs ${selected ? 'btn-primary' : 'btn-outline'}`}
+                  style={{
+                    justifyContent: 'space-between',
+                    textAlign: 'left',
+                    padding: '8px 10px',
+                    minHeight: 42,
+                    borderColor: selected ? 'transparent' : 'var(--border)',
+                  }}
+                >
+                  <span>{province.name}</span>
+                  <span className="muted text-xs">{province.districts.length} centers</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>

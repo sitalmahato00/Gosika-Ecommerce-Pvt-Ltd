@@ -67,7 +67,7 @@ class AuthController extends Controller
 
     public function verifyEmail(VerifyEmailRequest $request): JsonResponse
     {
-        $user = $this->auth->verifyEmail($request->input('email'), $request->input('token'));
+        $user = $this->auth->verifyEmail($request->input('email'), $request->input('code'));
 
         return Response::success(new UserResource($user), 'Email verified successfully.');
     }

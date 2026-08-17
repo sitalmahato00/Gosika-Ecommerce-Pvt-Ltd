@@ -18,9 +18,11 @@ use App\Modules\Wallet\Providers\WalletServiceProvider;
 use App\Modules\Shared\Providers\SharedServiceProvider;
 use App\Modules\Vendor\Providers\VendorServiceProvider;
 use App\Providers\AppServiceProvider;
+use Laravel\Socialite\SocialiteServiceProvider;
 
 return [
     AppServiceProvider::class,
+    SocialiteServiceProvider::class,
     SharedServiceProvider::class,
     IdentityServiceProvider::class,
     PlatformServiceProvider::class,

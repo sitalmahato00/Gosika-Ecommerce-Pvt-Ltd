@@ -29,4 +29,29 @@ class ShippingZone extends BaseModel
             'is_active' => 'boolean',
         ];
     }
+
+    public function matchesLocation(?string $province = null, ?string $district = null, ?string $municipality = null): bool
+    {
+        if (empty($this->provinces)) {
+            return false;
+        }
+
+        $values = array_filter(array_map(fn ($value) => trim((string) $value), [$province, $district, $municipality]));
+
+        if ($values === []) {
+            return false;
+        }
+
+        foreach ($values as $value) {
+            $needle = mb_strtolower($value);
+            foreach ($this->provinces as $provinceName) {
+                $area = mb_strtolower((string) $provinceName);
+                if ($area === $needle || str_contains($area, $needle) || str_contains($needle, $area)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

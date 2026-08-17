@@ -19,6 +19,7 @@ use App\Modules\Shipping\Application\DataTransferObjects\UpdateDeliveryPartnerPr
 use App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryPartner;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryTracking;
+use App\Modules\Shipping\Infrastructure\Models\ShippingZone;
 use App\Modules\Catalog\Infrastructure\Models\Product;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -406,6 +407,64 @@ class DeliveryService
         $this->transitionVendorOrder($vendorOrder, OrderStatus::READY_FOR_PICKUP, $actor);
 
         return $vendorOrder;
+    }
+
+    public function resolvePartnerForOrder(VendorOrder $vendorOrder): DeliveryPartner
+    {
+        $order = $vendorOrder->order()->first();
+        if (! $order) {
+            throw new DomainException('The vendor order is not linked to a valid order.', 404);
+        }
+
+        $snapshot = json_decode((string) $order->shipping_address_snapshot, true);
+        $province = trim((string) ($snapshot['province'] ?? $snapshot['state'] ?? ''));
+        $district = trim((string) ($snapshot['district'] ?? $snapshot['city'] ?? ''));
+        $municipality = trim((string) ($snapshot['municipality'] ?? ''));
+
+        $zoneMatches = ShippingZone::query()
+            ->where('is_active', true)
+            ->get()
+            ->filter(fn (ShippingZone $zone) => $zone->matchesLocation($province, $district, $municipality));
+
+        $candidateAreas = array_values(array_filter(array_unique([
+            $province,
+            $district,
+            $municipality,
+            ...$zoneMatches->flatMap(fn (ShippingZone $zone) => $zone->provinces ?? [])->all(),
+        ])));
+
+        $partners = DeliveryPartner::query()
+            ->approved()
+            ->where('is_online', true)
+            ->get();
+
+        $bestPartner = $partners->filter(function (DeliveryPartner $partner) use ($candidateAreas) {
+            $areas = array_filter(array_map('trim', (array) ($partner->service_areas ?? [])));
+            if ($areas === []) {
+                return false;
+            }
+
+            foreach ($candidateAreas as $area) {
+                $needle = mb_strtolower((string) $area);
+                foreach ($areas as $serviceArea) {
+                    $value = mb_strtolower((string) $serviceArea);
+                    if ($needle === $value || str_contains($value, $needle) || str_contains($needle, $value)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        })->sortByDesc(function (DeliveryPartner $partner) {
+            $areas = array_filter(array_map('trim', (array) ($partner->service_areas ?? [])));
+            return count($areas);
+        })->first();
+
+        if (! $bestPartner) {
+            throw new DomainException('No approved delivery partner is available for this order location. Please assign a rider manually.', 422);
+        }
+
+        return $bestPartner;
     }
 
     protected function partnerFor(User $user): DeliveryPartner

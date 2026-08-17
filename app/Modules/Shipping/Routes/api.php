@@ -28,6 +28,7 @@ Route::prefix('v1/delivery-partner')->group(function () {
 
 Route::prefix('v1/admin/delivery-partners')->group(function () {
     Route::get('/', [AdminDeliveryController::class, 'partners']);
+    Route::post('/', [AdminDeliveryController::class, 'store']);
     Route::get('{partner}', [AdminDeliveryController::class, 'partner']);
     Route::post('{partner}/approve', [AdminDeliveryController::class, 'approve']);
     Route::post('{partner}/reject', [AdminDeliveryController::class, 'reject']);

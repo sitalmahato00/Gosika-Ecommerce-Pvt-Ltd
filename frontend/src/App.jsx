@@ -19,6 +19,9 @@ import Wishlist from './pages/Wishlist'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Verify from './pages/Verify'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
+import SocialAuth from './pages/SocialAuth'
 import Help from './pages/Help'
 import NotFound from './pages/NotFound'
 
@@ -139,7 +142,10 @@ function CustomerLayout() {
           <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
           <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
           <Route path="/verify" element={<GuestRoute><Verify /></GuestRoute>} />
-          <Route path="/vendor/register" element={<AuthRoute><VendorRegister /></AuthRoute>} />
+          <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
+          <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
+          <Route path="/social-auth" element={<SocialAuth />} />
+          <Route path="/vendor/register" element={<VendorRegister />} />
           <Route path="/account" element={<AuthRoute><AccountLayout /></AuthRoute>}>
             <Route index element={<AccountDashboard />} />
             <Route path="profile" element={<AccountProfile />} />

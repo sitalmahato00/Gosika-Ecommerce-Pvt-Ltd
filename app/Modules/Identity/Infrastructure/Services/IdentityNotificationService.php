@@ -10,14 +10,13 @@ class IdentityNotificationService
 {
     public function sendEmailVerification(User $user): void
     {
-        $token = \Illuminate\Support\Str::random(64);
-        cache(['email_verify:'.$user->email => hash('sha256', $token)], now()->addHour());
+        $code = (string) random_int(100000, 999999);
+        cache(['email_verify:'.$user->email => hash('sha256', $code)], now()->addHour());
 
-        $url = config('app.url').'/verify-email?email='.$user->email.'&token='.$token;
-
-        Log::channel('notification')->info('Email verification link', [
+        Log::channel('notification')->info('Email verification OTP', [
             'user' => $user->uuid,
-            'url' => $url,
+            'email' => $user->email,
+            'code' => $code,
         ]);
     }
 

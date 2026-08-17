@@ -3,6 +3,7 @@
 use App\Modules\Identity\Presentation\Http\Controllers\AdminRoleController;
 use App\Modules\Identity\Presentation\Http\Controllers\AdminUserController;
 use App\Modules\Identity\Presentation\Http\Controllers\AuthController;
+use App\Modules\Identity\Presentation\Http\Controllers\SocialAuthController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/auth')->group(function () {
@@ -12,6 +13,10 @@ Route::prefix('v1/auth')->group(function () {
     Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:password');
     Route::post('email/verify', [AuthController::class, 'verifyEmail'])->middleware('throttle:auth');
     Route::post('email/resend', [AuthController::class, 'resendEmailVerification'])->middleware('throttle:otp');
+
+    // Social login (OAuth)
+    Route::get('/{provider}/redirect', [SocialAuthController::class, 'redirect'])->name('social.redirect');
+    Route::get('/{provider}/callback', [SocialAuthController::class, 'callback'])->name('social.callback');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('me', [AuthController::class, 'me']);

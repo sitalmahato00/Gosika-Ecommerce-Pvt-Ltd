@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import api from '../api/client'
 import { useAuth } from './AuthContext'
 
@@ -9,9 +9,11 @@ export function WishlistProvider({ children }) {
   const [ids, setIds] = useState([])
   const [loading, setLoading] = useState(false)
   const [busyId, setBusyId] = useState(null)
+  const userRef = useRef(user)
+  userRef.current = user
 
   const fetchWishlist = useCallback(async () => {
-    if (!user) {
+    if (!userRef.current) {
       setIds([])
       return
     }
@@ -26,11 +28,11 @@ export function WishlistProvider({ children }) {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [])
 
   useEffect(() => {
     fetchWishlist()
-  }, [user?.id, fetchWishlist])
+  }, [user?.id])
 
   const toggle = async (productId) => {
     if (!user) return { requireAuth: true }

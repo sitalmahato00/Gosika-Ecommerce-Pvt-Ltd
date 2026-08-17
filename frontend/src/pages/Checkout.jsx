@@ -17,6 +17,7 @@ import Spinner from '../components/ui/Spinner'
 import { Skeleton } from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 import LocationMapPicker from '../components/common/LocationMapPicker'
+import { getDistrictsForProvince, getMunicipalitiesForDistrict } from '../utils/nepalLocations'
 
 const STEPS = [
   { id: 1, label: 'Delivery Address' },
@@ -129,12 +130,12 @@ export default function Checkout() {
     const prov = provinces.find((p) => p.name === loc.province)
     if (prov) {
       provinceId = prov.uuid
-      const dres = await api.get('/platform/districts', { params: { province_id: prov.id } })
-      const dist = (dres.data.data || []).find((d) => d.name === loc.district)
+      const dRes = await api.get('/platform/districts', { params: { province_id: prov.id } })
+      const dist = (dRes.data.data || []).find((d) => d.name === loc.district)
       if (dist) {
         districtId = dist.uuid
-        const mres = await api.get('/platform/municipalities', { params: { district_id: dist.id } })
-        const mun = (mres.data.data || []).find((m) => m.name === loc.municipality)
+        const mRes = await api.get('/platform/municipalities', { params: { district_id: dist.id } })
+        const mun = (mRes.data.data || []).find((m) => m.name === loc.municipality)
         municipalityId = mun ? mun.uuid : null
       }
     }
