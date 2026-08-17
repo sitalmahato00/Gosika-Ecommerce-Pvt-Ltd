@@ -20,59 +20,6 @@ class DatabaseSeeder extends Seeder
             DeliveryPartnerSeeder::class,
         ]);
 
-        $superAdmin = User::updateOrCreate(
-            ['email' => 'admin@gosika.com.np'],
-            [
-                'uuid' => (string) \Illuminate\Support\Str::uuid(),
-                'first_name' => 'GOSIKA',
-                'last_name' => 'Super Admin',
-                'phone' => '9800000001',
-                'password' => \Illuminate\Support\Facades\Hash::make('password'),
-                'email_verified_at' => now(),
-                'phone_verified_at' => now(),
-                'status' => UserStatus::ACTIVE,
-            ]
-        );
-        $superAdmin->assignRole(Roles::SUPER_ADMIN);
 
-        $customer = User::updateOrCreate(
-            ['email' => 'customer@gosika.com.np'],
-            [
-                'uuid' => (string) \Illuminate\Support\Str::uuid(),
-                'first_name' => 'John',
-                'last_name' => 'Doe',
-                'phone' => '9800000002',
-                'password' => \Illuminate\Support\Facades\Hash::make('password'),
-                'email_verified_at' => now(),
-                'phone_verified_at' => now(),
-                'status' => UserStatus::ACTIVE,
-            ]
-        );
-        $customer->assignRole(Roles::CUSTOMER);
-
-        $vendorUser = User::updateOrCreate(
-            ['email' => 'vendor@gosika.com.np'],
-            [
-                'uuid' => (string) \Illuminate\Support\Str::uuid(),
-                'first_name' => 'Himalayan',
-                'last_name' => 'Handicrafts',
-                'phone' => '9800000003',
-                'password' => \Illuminate\Support\Facades\Hash::make('password'),
-                'email_verified_at' => now(),
-                'phone_verified_at' => now(),
-                'status' => UserStatus::ACTIVE,
-            ]
-        );
-        $vendorUser->assignRole(Roles::VENDOR_ADMIN);
-
-        \App\Modules\Vendor\Infrastructure\Models\Vendor::query()->updateOrCreate(
-            ['user_id' => $vendorUser->id],
-            [
-                'company_name' => 'Himalayan Handicrafts',
-                'business_email' => 'vendor@gosika.com.np',
-                'status' => \App\Modules\Shared\Domain\Enums\VendorStatus::APPROVED,
-                'commission_rate' => 10,
-            ]
-        );
     }
 }

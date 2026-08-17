@@ -57,9 +57,6 @@ export default function Login() {
         <p className="muted text-sm mt-2" style={{ textAlign: 'center' }}>
           Don't have an account? <Link to="/register" className="text-primary font-semibold">Create one</Link>
         </p>
-        <div className="alert alert-info" style={{ fontSize: 13 }}>
-          Demo accounts (password: <code>password</code>): customer@gosika.com.np · vendor@gosika.com.np · admin@gosika.com.np
-        </div>
       </div>
     </div>
   )
