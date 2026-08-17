@@ -18,6 +18,21 @@ class DatabaseSeeder extends Seeder
             CatalogSeeder::class,
         ]);
 
+        $adminUser = User::updateOrCreate(
+            ['email' => 'admin@gosika.com.np'],
+            [
+                'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                'first_name' => 'GOSIKA',
+                'last_name' => 'Super Admin',
+                'phone' => '9800000001',
+                'password' => \Illuminate\Support\Facades\Hash::make('password'),
+                'email_verified_at' => now(),
+                'phone_verified_at' => now(),
+                'status' => UserStatus::ACTIVE,
+            ]
+        );
+        $adminUser->assignRole(Roles::SUPER_ADMIN);
+
         // Create default vendor BEFORE ProductSeeder
         $vendorUser = User::updateOrCreate(
             ['email' => 'vendor@gosika.com.np'],
