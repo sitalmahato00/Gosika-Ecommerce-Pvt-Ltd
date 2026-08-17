@@ -16,11 +16,9 @@ class DatabaseSeeder extends Seeder
             NepalGeoSchemaSeeder::class,
             SettingsSeeder::class,
             CatalogSeeder::class,
-            ProductSeeder::class,
-            DeliveryPartnerSeeder::class,
         ]);
 
-        // Create default vendor for product seeding
+        // Create default vendor BEFORE ProductSeeder
         $vendorUser = User::updateOrCreate(
             ['email' => 'vendor@gosika.com.np'],
             [
@@ -45,5 +43,11 @@ class DatabaseSeeder extends Seeder
                 'commission_rate' => 10,
             ]
         );
+
+        // Now call ProductSeeder after vendor is created
+        $this->call([
+            ProductSeeder::class,
+            DeliveryPartnerSeeder::class,
+        ]);
     }
 }
