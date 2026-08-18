@@ -61,7 +61,7 @@ class SocialAuthController extends Controller
 
         $token = $user->createToken('gosika-social-token')->plainTextToken;
 
-        $frontendUrl = config('app.frontend_url');
+        $frontendUrl = rtrim(config('app.frontend_url'), '/');
 
         return redirect()->away(
             $frontendUrl . '/social-auth?' . http_build_query([
