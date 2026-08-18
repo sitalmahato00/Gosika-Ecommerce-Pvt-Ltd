@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { CheckCircle2, XCircle, Loader2, AlertCircle, ShoppingBag } from 'lucide-react'
+import { CheckCircle2, XCircle, Loader2, AlertCircle, ShoppingBag, RotateCw, Info } from 'lucide-react'
 import api from '../api/client'
 import Button from '../components/ui/Button'
 import { errorMessage } from '../utils/format'
@@ -13,6 +13,8 @@ export default function PaymentCallback() {
   const [failed, setFailed] = useState(false)
   const [isCancelled, setIsCancelled] = useState(false)
   const [error, setError] = useState('')
+  const [orderId, setOrderId] = useState(null)
+  const [retrying, setRetrying] = useState(false)
   const { fetchCart } = useCart()
   const done = useRef(false)
 
@@ -22,6 +24,11 @@ export default function PaymentCallback() {
     // Extract search query from searchParams or direct window location
     const urlParams = new URLSearchParams(window.location.search)
     const hashParams = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '')
+
+    const foundOrderId = searchParams.get('order_id') || urlParams.get('order_id') || hashParams.get('order_id')
+    if (foundOrderId) {
+      setOrderId(foundOrderId)
+    }
 
     const data = searchParams.get('data') || urlParams.get('data') || hashParams.get('data') ||
       searchParams.get('result') || urlParams.get('result') || hashParams.get('result') ||
@@ -55,7 +62,7 @@ export default function PaymentCallback() {
           fetchCart()
         }
         navigate('/order-success', {
-          state: { orderId: payment?.order_id, esewa: true },
+          state: { orderId: payment?.order_id || foundOrderId, esewa: true },
           replace: true,
         })
       })
@@ -64,6 +71,44 @@ export default function PaymentCallback() {
         setError(errorMessage(err) || 'Could not verify payment with eSewa.')
       })
   }, [searchParams, navigate, fetchCart])
+
+  const retryPayment = async () => {
+    if (!orderId) {
+      navigate('/orders')
+      return
+    }
+    setRetrying(true)
+    try {
+      const payRes = await api.post('/payments/initiate', {
+        order_id: orderId,
+        method: 'esewa',
+        success_url: `${window.location.origin}/payments/esewa/callback?order_id=${orderId}`,
+        failure_url: `${window.location.origin}/payments/esewa/callback?status=failure&order_id=${orderId}`,
+      })
+      const payment = payRes.data.data
+      if (payment?.payment_form?.action && payment?.payment_form?.fields) {
+        const formEl = document.createElement('form')
+        formEl.method = 'POST'
+        formEl.action = payment.payment_form.action
+        formEl.style.display = 'none'
+        Object.entries(payment.payment_form.fields).forEach(([key, value]) => {
+          const input = document.createElement('input')
+          input.type = 'hidden'
+          input.name = key
+          input.value = String(value)
+          formEl.appendChild(input)
+        })
+        document.body.appendChild(formEl)
+        formEl.submit()
+        return
+      }
+      navigate(`/orders/${orderId}`)
+    } catch {
+      navigate(`/orders/${orderId}`)
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   if (!failed) {
     return (
@@ -108,12 +153,28 @@ export default function PaymentCallback() {
           {error || 'We could not confirm your eSewa payment. Your order is preserved and remains pending payment.'}
         </p>
 
-        <div className="flex items-center justify-center gap-3 wrap" style={{ marginTop: 20 }}>
-          <Link to="/orders">
-            <Button variant="primary" size="md">
-              <ShoppingBag size={16} /> View My Orders
+        {orderId && (
+          <div style={{ marginBottom: 20 }}>
+            <Button variant="primary" size="md" onClick={retryPayment} disabled={retrying}>
+              <RotateCw size={15} className={retrying ? 'spin' : ''} /> {retrying ? 'Connecting to eSewa…' : 'Try Payment Again'}
             </Button>
-          </Link>
+          </div>
+        )}
+
+        <div className="flex items-center justify-center gap-3 wrap" style={{ marginTop: 12 }}>
+          {orderId ? (
+            <Link to={`/orders/${orderId}`}>
+              <Button variant="outline" size="md">
+                View Order Details
+              </Button>
+            </Link>
+          ) : (
+            <Link to="/orders">
+              <Button variant="primary" size="md">
+                <ShoppingBag size={16} /> View My Orders
+              </Button>
+            </Link>
+          )}
           <Link to="/shop">
             <Button variant="outline" size="md">
               Continue Shopping
@@ -121,7 +182,17 @@ export default function PaymentCallback() {
           </Link>
         </div>
 
-        <div className="muted text-xs" style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <div className="alert alert-info" style={{ marginTop: 24, textAlign: 'left', fontSize: 12 }}>
+          <Info size={16} style={{ flexShrink: 0 }} />
+          <div>
+            <strong>eSewa Test Credentials:</strong>
+            <div style={{ marginTop: 3 }}>
+              <span>ID: <code>9711111111</code></span> &bull; <span>Password: <code>Nepal@123</code></span> &bull; <span>MPIN: <code>1122</code></span> &bull; <span>OTP Token: <code>123456</code></span>
+            </div>
+          </div>
+        </div>
+
+        <div className="muted text-xs" style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <CheckCircle2 size={13} color="var(--success)" />
           <span>If your account was debited, it will be automatically confirmed upon verification.</span>
         </div>

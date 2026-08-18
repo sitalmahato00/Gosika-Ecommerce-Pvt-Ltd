@@ -27,12 +27,19 @@ class EsewaProvider implements PaymentProviderContract
 
     public function initiate(array $payload): array
     {
-        $amount = number_format((float) ($payload['amount'] ?? 0), 2, '.', '');
-        $taxAmount = number_format((float) ($payload['tax_amount'] ?? 0), 2, '.', '');
-        $serviceCharge = number_format((float) ($payload['product_service_charge'] ?? 0), 2, '.', '');
-        $deliveryCharge = number_format((float) ($payload['product_delivery_charge'] ?? 0), 2, '.', '');
-        $totalAmount = number_format((float) ($payload['total_amount'] ?? 0), 2, '.', '');
-        $transactionUuid = (string) ($payload['transaction_uuid'] ?? '');
+        $total = (float) ($payload['total_amount'] ?? 0);
+        $tax = (float) ($payload['tax_amount'] ?? 0);
+        $service = (float) ($payload['product_service_charge'] ?? 0);
+        $delivery = (float) ($payload['product_delivery_charge'] ?? 0);
+        $amount = max(0, $total - $tax - $service - $delivery);
+
+        $amountStr = $this->formatAmount($amount);
+        $taxAmountStr = $this->formatAmount($tax);
+        $serviceChargeStr = $this->formatAmount($service);
+        $deliveryChargeStr = $this->formatAmount($delivery);
+        $totalAmountStr = $this->formatAmount($total);
+
+        $transactionUuid = preg_replace('/[^a-zA-Z0-9\-]/', '', (string) ($payload['transaction_uuid'] ?? ''));
         $productCode = (string) ($payload['product_code'] ?? $this->productCode);
 
         if ($transactionUuid === '' || $productCode === '' || $this->secretKey === '') {
@@ -40,18 +47,18 @@ class EsewaProvider implements PaymentProviderContract
         }
 
         $signedFieldNames = 'total_amount,transaction_uuid,product_code';
-        $signedString = 'total_amount='.$totalAmount.',transaction_uuid='.$transactionUuid.',product_code='.$productCode;
+        $signedString = 'total_amount='.$totalAmountStr.',transaction_uuid='.$transactionUuid.',product_code='.$productCode;
 
         return [
             'action' => $this->formUrl,
             'fields' => [
-                'amount' => $amount,
-                'tax_amount' => $taxAmount,
-                'total_amount' => $totalAmount,
+                'amount' => $amountStr,
+                'tax_amount' => $taxAmountStr,
+                'total_amount' => $totalAmountStr,
                 'transaction_uuid' => $transactionUuid,
                 'product_code' => $productCode,
-                'product_service_charge' => $serviceCharge,
-                'product_delivery_charge' => $deliveryCharge,
+                'product_service_charge' => $serviceChargeStr,
+                'product_delivery_charge' => $deliveryChargeStr,
                 'success_url' => (string) ($payload['success_url'] ?? $this->successUrl),
                 'failure_url' => (string) ($payload['failure_url'] ?? $this->failureUrl),
                 'signed_field_names' => $signedFieldNames,
@@ -62,7 +69,7 @@ class EsewaProvider implements PaymentProviderContract
 
     public function lookup(string $transactionUuid, ?array $params = null): array
     {
-        $totalAmount = number_format((float) ($params['total_amount'] ?? 0), 2, '.', '');
+        $totalAmount = $this->formatAmount((float) ($params['total_amount'] ?? 0));
 
         try {
             $response = Http::timeout(20)->get($this->statusUrl, [
@@ -75,6 +82,15 @@ class EsewaProvider implements PaymentProviderContract
         }
 
         return $this->decode($response, 'status');
+    }
+
+    protected function formatAmount(float $val): string
+    {
+        if (floor($val) == $val) {
+            return (string) ((int) $val);
+        }
+
+        return rtrim(rtrim(number_format($val, 2, '.', ''), '0'), '.');
     }
 
     public static function sign(string $message, string $secret): string

@@ -227,8 +227,8 @@ export default function Checkout() {
           const payRes = await api.post('/payments/initiate', {
             order_id: order.id,
             method: 'esewa',
-            success_url: `${window.location.origin}/payments/esewa/callback`,
-            failure_url: `${window.location.origin}/payments/esewa/callback?status=failure`,
+            success_url: `${window.location.origin}/payments/esewa/callback?order_id=${order.id}`,
+            failure_url: `${window.location.origin}/payments/esewa/callback?status=failure&order_id=${order.id}`,
           })
           const payment = payRes.data.data
           if (payment?.payment_form?.action && payment?.payment_form?.fields) {
