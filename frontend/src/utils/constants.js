@@ -79,6 +79,35 @@ export const PAYMENT_BRAND_LOGOS = {
   esewa: '/payments/esewa/esewa-green.png',
   esewaWhite: '/payments/esewa/esewa-white.png',
   esewaMark: '/payments/esewa/esewa-e-green.png',
+  khalti: '/payments/khalti/khalti-purple.svg',
+  cod: '/payments/cod/cod-icon.svg',
+}
+
+export const PAYMENT_GATEWAY_META = {
+  esewa: {
+    label: 'eSewa Digital Wallet',
+    color: '#15803d',
+    bg: '#f0fdf4',
+    description: 'Pay with eSewa wallet, internet banking or mobile banking.',
+  },
+  khalti: {
+    label: 'Khalti Digital Wallet',
+    color: '#47268B',
+    bg: '#f5f3ff',
+    description: 'Pay with Khalti wallet, bank transfer or mobile banking.',
+  },
+  cod: {
+    label: 'Cash on Delivery',
+    color: '#16a34a',
+    bg: '#f0fdf4',
+    description: 'Pay with cash when your order is delivered.',
+  },
+  fonepay: {
+    label: 'Fonepay',
+    color: '#2563eb',
+    bg: '#eff6ff',
+    description: 'Pay with Fonepay digital wallet.',
+  },
 }
 
 export const PAYMENT_STATUS_LABELS = {
