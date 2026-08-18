@@ -76,10 +76,20 @@ class EsewaProvider implements PaymentProviderContract
                 'transaction_uuid' => $transactionUuid,
             ]);
         } catch (ConnectionException) {
-            throw new PaymentProviderException('eSewa status service is currently unavailable.', 502);
+            throw new PaymentProviderException('eSewa status service is currently unavailable (connection timeout).', 502);
         }
 
-        return $this->decode($response, 'status');
+        $data = $response->json();
+
+        if (! is_array($data)) {
+            throw new PaymentProviderException('eSewa status returned an invalid response.', 502);
+        }
+
+        if (isset($data['error_message']) && $data['error_message'] === 'Service is currently unavailable') {
+            throw new PaymentProviderException('eSewa status service is currently unavailable.', 503);
+        }
+
+        return $data;
     }
 
     protected function formatAmount(float $val): string

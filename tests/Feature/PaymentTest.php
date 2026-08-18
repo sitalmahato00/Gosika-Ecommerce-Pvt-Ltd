@@ -470,7 +470,7 @@ class PaymentTest extends TestCase
 
         $this->postJson('/api/v1/payments/esewa/callback', [
             'data' => base64_encode(json_encode($callback)),
-        ])->assertOk()->assertJsonPath('data.status', 'exception');
+        ])->assertStatus(422);
 
         $order = Order::where('uuid', $orderId)->first();
         $this->assertEquals('payment_pending', $order->status->value);
@@ -516,7 +516,7 @@ class PaymentTest extends TestCase
 
         $this->postJson('/api/v1/payments/esewa/callback', [
             'data' => base64_encode(json_encode($callback)),
-        ])->assertOk()->assertJsonPath('data.status', 'exception');
+        ])->assertStatus(422);
 
         $order = Order::where('uuid', $orderId)->first();
         $this->assertEquals('payment_pending', $order->status->value);

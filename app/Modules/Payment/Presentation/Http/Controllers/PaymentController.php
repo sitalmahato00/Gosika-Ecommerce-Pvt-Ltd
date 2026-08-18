@@ -58,20 +58,18 @@ class PaymentController extends Controller
 
     public function esewaCallback(\Illuminate\Http\Request $request): JsonResponse
     {
-        $raw = $request->input('data') ?? $request->input('result') ?? $request->all();
+        $raw = $request->input('data') ?? $request->input('result');
         $decoded = null;
 
-        if (is_string($raw)) {
-            $cleaned = str_replace(' ', '+', trim($raw));
-            $jsonStr = base64_decode($cleaned, true) ?: base64_decode(urldecode($cleaned), true);
-            $decoded = json_decode($jsonStr ?: '', true);
-        } elseif (is_array($raw)) {
-            $decoded = isset($raw['data']) && is_string($raw['data'])
-                ? json_decode(base64_decode(str_replace(' ', '+', trim($raw['data'])), true) ?: '', true)
-                : $raw;
+        if (is_string($raw) && $raw !== '') {
+            $jsonStr = base64_decode(trim($raw), true);
+            if ($jsonStr === false) {
+                $jsonStr = base64_decode(urldecode(trim($raw)), true);
+            }
+            $decoded = $jsonStr ? json_decode($jsonStr, true) : null;
         }
 
-        if (! is_array($decoded) || (empty($decoded['transaction_uuid']) && empty($decoded['transaction_code']))) {
+        if (! is_array($decoded) || empty($decoded['transaction_uuid'])) {
             return Response::error('Invalid or missing eSewa callback data.', [], 422);
         }
 
@@ -81,6 +79,40 @@ class PaymentController extends Controller
             return Response::success(new PaymentResource($payment), 'Payment verified.');
         } catch (PaymentProviderException $e) {
             return Response::error($e->getMessage(), [], $e->getCode() ?: 422);
+        }
+    }
+
+    public function esewaWebCallback(\Illuminate\Http\Request $request)
+    {
+        $frontendUrl = rtrim(config('app.frontend_url'), '/');
+        $data = $request->query('data');
+
+        if (! is_string($data) || $data === '') {
+            return redirect($frontendUrl . '/payments/esewa/callback?status=failure');
+        }
+
+        $jsonStr = base64_decode(trim($data), true);
+        if ($jsonStr === false) {
+            $jsonStr = base64_decode(urldecode(trim($data)), true);
+        }
+        $decoded = $jsonStr ? json_decode($jsonStr, true) : null;
+
+        if (! is_array($decoded) || empty($decoded['transaction_uuid'])) {
+            return redirect($frontendUrl . '/payments/esewa/callback?status=failure');
+        }
+
+        try {
+            $payment = $this->paymentService->verifyFromEsewaCallback($decoded);
+            $orderUuid = $payment->order?->uuid ?? $payment->order_id;
+
+            return redirect($frontendUrl . '/order-success?order_id=' . $orderUuid . '&esewa=1');
+        } catch (\Throwable $e) {
+            \Log::error('eSewa web callback failed', [
+                'error' => $e->getMessage(),
+                'transaction_uuid' => $decoded['transaction_uuid'] ?? null,
+            ]);
+
+            return redirect($frontendUrl . '/payments/esewa/callback?status=failure');
         }
     }
 

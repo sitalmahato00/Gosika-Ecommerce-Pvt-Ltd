@@ -54,33 +54,14 @@ export default function PaymentCallback() {
   useEffect(() => {
     if (done.current) return
 
-    const urlParams = new URLSearchParams(window.location.search)
-    const hashParams = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '')
+    const data = searchParams.get('data') || searchParams.get('result') || searchParams.get('response')
+    const statusParam = (searchParams.get('status') || '').toLowerCase()
 
-    const foundOrderId = searchParams.get('order_id') || urlParams.get('order_id') || hashParams.get('order_id')
-    if (foundOrderId) {
-      setOrderId(foundOrderId)
-    }
-
-    const data = searchParams.get('data') || urlParams.get('data') || hashParams.get('data') ||
-      searchParams.get('result') || urlParams.get('result') || hashParams.get('result') ||
-      searchParams.get('response') || urlParams.get('response')
-
-    const statusParam = (searchParams.get('status') || urlParams.get('status') || hashParams.get('status') || '').toLowerCase()
-    const qParam = (searchParams.get('q') || urlParams.get('q') || hashParams.get('q') || '').toLowerCase()
-
-    if (statusParam === 'failure' || statusParam === 'canceled' || statusParam === 'cancelled' || qParam === 'fu') {
+    if (statusParam === 'failure' || statusParam === 'canceled' || statusParam === 'cancelled') {
       done.current = true
       setFailed(true)
       setIsCancelled(true)
       setError('Payment was cancelled or could not be completed on eSewa. Your order is safely saved in your account and can be paid anytime.')
-      return
-    }
-
-    if (!data && foundOrderId) {
-      done.current = true
-      setPolling(true)
-      pollVerification(foundOrderId)
       return
     }
 
@@ -101,7 +82,7 @@ export default function PaymentCallback() {
           fetchCart()
         }
         navigate('/order-success', {
-          state: { orderId: payment?.order_id || foundOrderId, esewa: true },
+          state: { orderId: payment?.order_id, esewa: true },
           replace: true,
         })
       })
@@ -125,8 +106,8 @@ export default function PaymentCallback() {
       const payRes = await api.post('/payments/initiate', {
         order_id: orderId,
         method: 'esewa',
-        success_url: `${window.location.origin}/payments/esewa/callback?order_id=${orderId}`,
-        failure_url: `${window.location.origin}/payments/esewa/callback?status=failure&order_id=${orderId}`,
+        success_url: `${window.location.origin}/payments/esewa/callback`,
+        failure_url: `${window.location.origin}/payments/esewa/callback?status=failure`,
       })
       const payment = payRes.data.data
       if (payment?.payment_form?.action && payment?.payment_form?.fields) {
