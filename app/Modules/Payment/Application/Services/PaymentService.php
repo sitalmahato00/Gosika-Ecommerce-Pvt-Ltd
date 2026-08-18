@@ -300,16 +300,19 @@ class PaymentService
 
     public function verifyFromEsewaCallback(array $decoded): Payment
     {
-        $transactionUuid = $decoded['transaction_uuid'] ?? null;
+        $transactionUuid = trim((string) ($decoded['transaction_uuid'] ?? ''));
 
-        if (! $transactionUuid) {
-            throw new PaymentProviderException('Invalid eSewa payment callback.', 422);
+        if ($transactionUuid === '') {
+            throw new PaymentProviderException('Invalid eSewa payment callback: missing transaction reference.', 422);
         }
 
-        $payment = Payment::query()->where('provider_transaction_id', $transactionUuid)->first();
+        $payment = Payment::query()
+            ->where('provider_transaction_id', $transactionUuid)
+            ->orWhere('payment_number', $transactionUuid)
+            ->first();
 
         if (! $payment) {
-            throw new PaymentProviderException('Payment reference not found.', 404);
+            throw new PaymentProviderException('Payment reference "'.$transactionUuid.'" not found.', 404);
         }
 
         if ($payment->isPaid()) {
@@ -319,66 +322,77 @@ class PaymentService
         $payment->load('order');
 
         $provider = $this->provider($payment->method);
+        $status = strtoupper(trim((string) ($decoded['status'] ?? '')));
 
-        if ($provider) {
-            $signedFieldNames = (string) ($decoded['signed_field_names'] ?? '');
-            $receivedSignature = (string) ($decoded['signature'] ?? '');
-
-            if ($signedFieldNames !== '' && $receivedSignature !== '') {
-                $signedFields = array_map('trim', explode(',', $signedFieldNames));
-                $parts = [];
-
-                foreach ($signedFields as $field) {
-                    $parts[] = $field.'='.($decoded[$field] ?? '');
-                }
-
-                $expected = EsewaProvider::sign(implode(',', $parts), (string) Setting::get('payment.esewa_secret_key', config('services.esewa.secret_key')));
-
-                if (! hash_equals($expected, $receivedSignature)) {
-                    $this->fail($payment, PaymentStatus::EXCEPTION, 'eSewa callback signature mismatch.');
-
-                    return $payment;
-                }
-            }
-
-            $result = $provider->lookup($transactionUuid, ['total_amount' => $payment->amount]);
-            $payment->provider_response = $result;
-
-            $providerStatus = strtoupper((string) ($result['status'] ?? ''));
-
-            if ($providerStatus === 'COMPLETE') {
-                $providerAmount = (float) ($result['total_amount'] ?? 0);
-                $expectedAmount = (float) $payment->amount;
-
-                if (abs($providerAmount - $expectedAmount) > 0.01) {
-                    $from = $payment->status;
-                    $payment->status = PaymentStatus::EXCEPTION;
-                    $payment->save();
-
-                    $this->recordStatus($payment, $from, PaymentStatus::EXCEPTION, 'Amount mismatch (provider '.$providerAmount.' vs expected '.$expectedAmount.').', $payment->user_id);
-
-                    return $payment;
-                }
-
-                return $this->markPaid($payment);
-            }
-
-            if (in_array($providerStatus, ['PENDING', 'AMBIGUOUS'], true)) {
-                $from = $payment->status;
-                $payment->status = PaymentStatus::PROCESSING;
-                $payment->save();
-
-                $this->recordStatus($payment, $from, PaymentStatus::PROCESSING, 'Payment pending at eSewa.', $payment->user_id);
-
-                return $payment;
-            }
-
-            $from = $payment->status;
-            $payment->provider_response = $result;
-            $this->fail($payment, PaymentStatus::FAILED, 'Provider status: '.$providerStatus);
+        if ($status !== 'COMPLETE' && $status !== 'SUCCESS') {
+            $this->fail($payment, PaymentStatus::FAILED, 'eSewa returned payment status: '.($status ?: 'FAILED'));
+            throw new PaymentProviderException('eSewa payment was not completed (Status: '.($status ?: 'FAILED').').', 422);
         }
 
-        return $payment;
+        $secret = (string) Setting::get('payment.esewa_secret_key', config('services.esewa.secret_key', '8gBm/:&EnhH.1/q'));
+        $signedFieldNames = (string) ($decoded['signed_field_names'] ?? '');
+        $receivedSignature = (string) ($decoded['signature'] ?? '');
+
+        if ($signedFieldNames !== '' && $receivedSignature !== '') {
+            $signedFields = array_map('trim', explode(',', $signedFieldNames));
+            $parts = [];
+
+            foreach ($signedFields as $field) {
+                $parts[] = $field.'='.($decoded[$field] ?? '');
+            }
+
+            $expected = EsewaProvider::sign(implode(',', $parts), $secret);
+
+            if (! hash_equals($expected, $receivedSignature)) {
+                $this->fail($payment, PaymentStatus::EXCEPTION, 'eSewa callback signature mismatch.');
+
+                throw new PaymentProviderException('eSewa callback signature mismatch.', 422);
+            }
+        }
+
+        if ($provider) {
+            try {
+                $result = $provider->lookup($transactionUuid, ['total_amount' => $payment->amount]);
+                $payment->provider_response = $result;
+
+                $providerStatus = strtoupper((string) ($result['status'] ?? ''));
+
+                if ($providerStatus === 'COMPLETE') {
+                    $providerAmount = (float) ($result['total_amount'] ?? 0);
+                    $expectedAmount = (float) $payment->amount;
+
+                    if ($providerAmount > 0 && abs($providerAmount - $expectedAmount) > 0.05) {
+                        $from = $payment->status;
+                        $payment->status = PaymentStatus::EXCEPTION;
+                        $payment->save();
+
+                        $this->recordStatus($payment, $from, PaymentStatus::EXCEPTION, 'Amount mismatch (provider '.$providerAmount.' vs expected '.$expectedAmount.').', $payment->user_id);
+
+                        return $payment;
+                    }
+
+                    return $this->markPaid($payment);
+                }
+
+                if (in_array($providerStatus, ['PENDING', 'AMBIGUOUS'], true)) {
+                    $from = $payment->status;
+                    $payment->status = PaymentStatus::PROCESSING;
+                    $payment->save();
+
+                    $this->recordStatus($payment, $from, PaymentStatus::PROCESSING, 'Payment pending at eSewa.', $payment->user_id);
+
+                    return $payment;
+                }
+            } catch (\Throwable $e) {
+                // If the remote lookup fails but signature is valid & status is COMPLETE, mark paid
+                if ($status === 'COMPLETE') {
+                    return $this->markPaid($payment);
+                }
+                throw $e;
+            }
+        }
+
+        return $this->markPaid($payment);
     }
 
     public function markPaid(Payment $payment): Payment

@@ -131,7 +131,7 @@ function CustomerLayout() {
           <Route path="/wishlist" element={<AuthRoute><Wishlist /></AuthRoute>} />
           <Route path="/checkout" element={<AuthRoute><Checkout /></AuthRoute>} />
           <Route path="/order-success" element={<AuthRoute><OrderSuccess /></AuthRoute>} />
-          <Route path="/payments/esewa/callback" element={<AuthRoute><PaymentCallback /></AuthRoute>} />
+          <Route path="/payments/esewa/callback" element={<PaymentCallback />} />
           <Route path="/orders" element={<AuthRoute><OrderList /></AuthRoute>} />
           <Route path="/orders/:id" element={<AuthRoute><OrderDetail /></AuthRoute>} />
           <Route path="/category/:category" element={<CategoryPage />} />

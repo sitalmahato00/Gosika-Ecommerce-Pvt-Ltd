@@ -57,11 +57,21 @@ class PaymentController extends Controller
 
     public function esewaCallback(\Illuminate\Http\Request $request): JsonResponse
     {
-        $encoded = (string) $request->input('data');
-        $decoded = json_decode(base64_decode($encoded, true) ?: '', true);
+        $raw = $request->input('data') ?? $request->input('result') ?? $request->all();
+        $decoded = null;
 
-        if (! is_array($decoded)) {
-            return Response::error('Invalid eSewa callback.', [], 422);
+        if (is_string($raw)) {
+            $cleaned = str_replace(' ', '+', trim($raw));
+            $jsonStr = base64_decode($cleaned, true) ?: base64_decode(urldecode($cleaned), true);
+            $decoded = json_decode($jsonStr ?: '', true);
+        } elseif (is_array($raw)) {
+            $decoded = isset($raw['data']) && is_string($raw['data'])
+                ? json_decode(base64_decode(str_replace(' ', '+', trim($raw['data'])), true) ?: '', true)
+                : $raw;
+        }
+
+        if (! is_array($decoded) || (empty($decoded['transaction_uuid']) && empty($decoded['transaction_code']))) {
+            return Response::error('Invalid or missing eSewa callback data.', [], 422);
         }
 
         try {
