@@ -13,7 +13,14 @@ Route::get('/password/reset/{token}', function (\Illuminate\Http\Request $reques
     );
 })->name('password.reset');
 
-Route::get('/payments/esewa/callback', [PaymentController::class, 'esewaWebCallback']);
+Route::get('/payments/esewa/callback', function (Request $request) {
+    if ($request->has('data') && is_string($request->query('data'))) {
+        return app(\App\Modules\Payment\Presentation\Http\Controllers\PaymentController::class)
+            ->esewaWebCallback($request);
+    }
+
+    return response()->file(public_path('index.html'));
+});
 
 Route::get('/', function () {
     return response()->file(public_path('index.html'));
