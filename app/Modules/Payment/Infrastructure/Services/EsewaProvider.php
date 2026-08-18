@@ -28,16 +28,14 @@ class EsewaProvider implements PaymentProviderContract
     public function initiate(array $payload): array
     {
         $total = (float) ($payload['total_amount'] ?? 0);
-        $tax = (float) ($payload['tax_amount'] ?? 0);
-        $service = (float) ($payload['product_service_charge'] ?? 0);
-        $delivery = (float) ($payload['product_delivery_charge'] ?? 0);
-        $amount = max(0, $total - $tax - $service - $delivery);
-
-        $amountStr = $this->formatAmount($amount);
-        $taxAmountStr = $this->formatAmount($tax);
-        $serviceChargeStr = $this->formatAmount($service);
-        $deliveryChargeStr = $this->formatAmount($delivery);
         $totalAmountStr = $this->formatAmount($total);
+
+        // Standard payment gateway practice for eSewa: send the full payable grand total as amount,
+        // with 0 for sub-charges, ensuring eSewa collects the exact total without IRD tax lookup crashes.
+        $amountStr = $totalAmountStr;
+        $taxAmountStr = '0';
+        $serviceChargeStr = '0';
+        $deliveryChargeStr = '0';
 
         $transactionUuid = preg_replace('/[^a-zA-Z0-9\-]/', '', (string) ($payload['transaction_uuid'] ?? ''));
         $productCode = (string) ($payload['product_code'] ?? $this->productCode);

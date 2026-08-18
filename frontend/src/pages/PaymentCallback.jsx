@@ -185,9 +185,9 @@ export default function PaymentCallback() {
         <div className="alert alert-info" style={{ marginTop: 24, textAlign: 'left', fontSize: 12 }}>
           <Info size={16} style={{ flexShrink: 0 }} />
           <div>
-            <strong>eSewa Test Credentials:</strong>
+            <strong>eSewa Test Sandbox Credentials:</strong>
             <div style={{ marginTop: 3 }}>
-              <span>ID: <code>9711111111</code></span> &bull; <span>Password: <code>Nepal@123</code></span> &bull; <span>MPIN: <code>1122</code></span> &bull; <span>OTP Token: <code>123456</code></span>
+              <span>eSewa ID: <code>9711111111</code></span> &bull; <span>Password / MPIN: <code>1122</code></span> &bull; <span>Token/OTP: <code>123456</code></span>
             </div>
           </div>
         </div>
