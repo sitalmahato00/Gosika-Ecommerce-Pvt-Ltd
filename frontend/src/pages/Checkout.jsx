@@ -127,15 +127,22 @@ export default function Checkout() {
     let provinceId = null
     let districtId = null
     let municipalityId = null
-    const prov = provinces.find((p) => p.name === loc.province)
+    const prov = provinces.find((p) => p.name === loc.province || p.name.toLowerCase().includes((loc.province || '').toLowerCase()))
     if (prov) {
       provinceId = prov.uuid
       const dRes = await api.get('/platform/districts', { params: { province_id: prov.id } })
-      const dist = (dRes.data.data || []).find((d) => d.name === loc.district)
+      const dists = dRes.data.data || []
+      const dist = dists.find((d) => d.name.toLowerCase() === (loc.district || '').toLowerCase() || d.name.toLowerCase().includes((loc.district || '').toLowerCase()))
       if (dist) {
         districtId = dist.uuid
         const mRes = await api.get('/platform/municipalities', { params: { district_id: dist.id } })
-        const mun = (mRes.data.data || []).find((m) => m.name === loc.municipality)
+        const munis = mRes.data.data || []
+        const cleanMuni = (loc.municipality || '').replace(/\s+(rural municipality|municipality|metropolitan city|sub-metropolitan city)$/i, '').trim().toLowerCase()
+        const mun = munis.find((m) => 
+          m.name.toLowerCase() === (loc.municipality || '').toLowerCase() ||
+          m.name.toLowerCase().includes(cleanMuni) ||
+          cleanMuni.includes(m.name.toLowerCase())
+        )
         municipalityId = mun ? mun.uuid : null
       }
     }
@@ -152,7 +159,7 @@ export default function Checkout() {
         label: form.label || 'Home',
         full_name: form.name,
         phone: form.phone,
-        address_line_1: form.street,
+        address_line_1: form.street || `${form.municipality || ''}, ${form.district || ''}`.trim(),
         address_line_2: '',
         province_id: geo.provinceId,
         district_id: geo.districtId,

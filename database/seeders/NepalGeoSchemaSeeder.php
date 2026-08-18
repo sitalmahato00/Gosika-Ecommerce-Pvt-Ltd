@@ -148,23 +148,65 @@ class NepalGeoSchemaSeeder extends Seeder
                         'updated_at' => now(),
                     ]
                 );
+            }
+        }
 
-                foreach ($majorCities[$districtName] ?? [] as $city) {
-                    $districtRow = DB::table('districts')->where('name', $districtName)->where('province_id', $provinceId)->first();
-                    if (! $districtRow) {
-                        continue;
+        // Seed all 753 official Municipalities and Rural Municipalities from resources/js/location.js
+        $locationFile = resource_path('js/location.js');
+        if (file_exists($locationFile)) {
+            $content = file_get_contents($locationFile);
+            $pos = strpos($content, '[');
+            $rpos = strrpos($content, ']');
+            if ($pos !== false && $rpos !== false) {
+                $json = substr($content, $pos, $rpos - $pos + 1);
+                $localLevels = json_decode($json, true);
+
+                $districtAliasMap = [
+                    'TANAHU' => 'Tanahun',
+                    'NAWALPARASI EAST' => 'Nawalpur',
+                    'NAWALPARASI WEST' => 'Parasi',
+                    'RUKUM EAST' => 'Eastern Rukum',
+                    'RUKUM WEST' => 'Western Rukum',
+                    'KAPILBASTU' => 'Kapilvastu',
+                    'DHANUSA' => 'Dhanusa',
+                ];
+
+                if (is_array($localLevels)) {
+                    foreach ($localLevels as $item) {
+                        $rawDist = strtoupper(trim($item['District'] ?? ''));
+                        $distName = $districtAliasMap[$rawDist] ?? ucwords(strtolower($rawDist));
+                        $muniName = trim($item['Local Level Name'] ?? '');
+                        $type = trim($item['Type'] ?? 'Municipality');
+
+                        if (! $muniName) {
+                            continue;
+                        }
+
+                        $districtRow = DB::table('districts')->whereRaw('LOWER(name) = LOWER(?)', [$distName])->first();
+                        if (! $districtRow) {
+                            continue;
+                        }
+
+                        // Also check if short name exists (e.g. without 'Rural Municipality' or 'Municipality')
+                        $existing = DB::table('municipalities')
+                            ->where('district_id', $districtRow->id)
+                            ->where(function ($q) use ($muniName) {
+                                $q->where('name', $muniName);
+                            })->first();
+
+                        if (! $existing) {
+                            DB::table('municipalities')->insert([
+                                'uuid' => \Illuminate\Support\Str::uuid()->toString(),
+                                'district_id' => $districtRow->id,
+                                'name' => $muniName,
+                                'type' => strtolower(str_replace(' ', '_', $type)),
+                                'ward_count' => 1,
+                                'is_active' => true,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        }
                     }
-                    DB::table('municipalities')->updateOrInsert(
-                        ['name' => $city, 'district_id' => $districtRow->id],
-                        [
-                            'uuid' => \Illuminate\Support\Str::uuid()->toString(),
-                            'type' => 'municipality',
-                            'ward_count' => 1,
-                            'is_active' => true,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]
-                    );
                 }
             }
         }

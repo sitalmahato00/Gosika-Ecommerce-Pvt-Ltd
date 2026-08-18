@@ -173,8 +173,10 @@ export default function VendorRegister() {
                 value={{
                   province: kyc.province || 'Bagmati Province',
                   district: kyc.district || 'Kathmandu',
-                  municipality: kyc.municipality || 'Kathmandu',
+                  municipality: kyc.municipality || kyc.city || 'Kathmandu',
                   street: kyc.address || '',
+                  latitude: kyc.latitude,
+                  longitude: kyc.longitude,
                 }}
                 onChange={(loc) => {
                   setKyc((prev) => ({
@@ -182,7 +184,11 @@ export default function VendorRegister() {
                     province: loc.province,
                     district: loc.district,
                     municipality: loc.municipality,
+                    city: loc.municipality,
                     address: loc.street,
+                    landmark: loc.landmark,
+                    latitude: loc.latitude,
+                    longitude: loc.longitude,
                   }))
                 }}
               />

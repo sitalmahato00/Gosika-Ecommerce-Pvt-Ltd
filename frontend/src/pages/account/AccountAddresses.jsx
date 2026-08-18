@@ -97,15 +97,22 @@ export default function AccountAddresses() {
     let municipalityId = null
     setResolvingIds(true)
     try {
-      const prov = apiProvinces.find((p) => p.name === provinceName)
+      const prov = apiProvinces.find((p) => p.name === provinceName || p.name.toLowerCase().includes((provinceName || '').toLowerCase()))
       if (prov) {
         provinceId = prov.uuid
         const dRes = await api.get('/platform/districts', { params: { province_id: prov.id } })
-        const dist = (dRes.data.data || []).find((d) => d.name === districtName)
+        const dists = dRes.data.data || []
+        const dist = dists.find((d) => d.name.toLowerCase() === (districtName || '').toLowerCase() || d.name.toLowerCase().includes((districtName || '').toLowerCase()))
         if (dist) {
           districtId = dist.uuid
           const mRes = await api.get('/platform/municipalities', { params: { district_id: dist.id } })
-          const mun = (mRes.data.data || []).find((m) => m.name === municipalityName)
+          const munis = mRes.data.data || []
+          const cleanMuni = (municipalityName || '').replace(/\s+(rural municipality|municipality|metropolitan city|sub-metropolitan city)$/i, '').trim().toLowerCase()
+          const mun = munis.find((m) => 
+            m.name.toLowerCase() === (municipalityName || '').toLowerCase() ||
+            m.name.toLowerCase().includes(cleanMuni) ||
+            cleanMuni.includes(m.name.toLowerCase())
+          )
           if (mun) municipalityId = mun.uuid
         }
       }
@@ -124,7 +131,7 @@ export default function AccountAddresses() {
       label: form.label,
       full_name: form.full_name,
       phone: form.phone,
-      address_line_1: form.address_line_1,
+      address_line_1: form.address_line_1 || form.street || `${form.municipality}, ${form.district}`,
       address_line_2: form.address_line_2,
       postal_code: form.postal_code,
       landmark: form.landmark,
@@ -259,9 +266,6 @@ export default function AccountAddresses() {
               </Select>
               <Input label="Address Label (e.g. Home, Office)" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="e.g. Home" />
             </div>
-            <Input label="Address Line 1" required value={form.address_line_1} onChange={(e) => setForm({ ...form, address_line_1: e.target.value })} placeholder="Street, Ward, Area" />
-            <Input label="Address Line 2 (Optional)" value={form.address_line_2} onChange={(e) => setForm({ ...form, address_line_2: e.target.value })} />
-
             <LocationMapPicker
               compact
               title="Pinpoint Delivery Location"
@@ -271,6 +275,7 @@ export default function AccountAddresses() {
                 district: form.district,
                 municipality: form.municipality,
                 street: form.address_line_1,
+                landmark: form.landmark,
                 latitude: form.latitude || undefined,
                 longitude: form.longitude || undefined,
               }}
@@ -280,7 +285,8 @@ export default function AccountAddresses() {
                   province: loc.province,
                   district: loc.district,
                   municipality: loc.municipality,
-                  address_line_1: prev.address_line_1 || loc.street,
+                  address_line_1: loc.street !== undefined ? loc.street : prev.address_line_1,
+                  landmark: loc.landmark !== undefined ? loc.landmark : prev.landmark,
                   latitude: loc.latitude,
                   longitude: loc.longitude,
                 }))
@@ -288,8 +294,8 @@ export default function AccountAddresses() {
             />
 
             <div className="form-row">
-              <Input label="Postal Code (Optional)" value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} />
-              <Input label="Landmark (Optional)" value={form.landmark} onChange={(e) => setForm({ ...form, landmark: e.target.value })} />
+              <Input label="Address Line 2 / Apt / Unit (Optional)" value={form.address_line_2} onChange={(e) => setForm({ ...form, address_line_2: e.target.value })} placeholder="e.g. Floor 2, Suite 4B" />
+              <Input label="Postal Code (Optional)" value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} placeholder="e.g. 44600" />
             </div>
 
             <label className="checkbox-row mb-2" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>

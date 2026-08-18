@@ -1,4 +1,4 @@
-﻿// Raw Nepal local-level data - all 753 entries parsed into structured form
+// Raw Nepal local-level data - all 753 entries parsed into structured form
 // Source: resources/js/location.js (Government of Nepal official data)
 
 const RAW_LOCAL_LEVEL = [
@@ -844,6 +844,178 @@ const CITY_COORDS = {
   'Mahendranagar': { lat: 28.9667, lng: 80.1833, district: 'Kanchanpur', province: 'Sudurpashchim Province' },
 }
 
+const DISTRICT_ALIAS_MAP = {
+  'tanahu': 'Tanahun',
+  'nawalparasi east': 'Nawalparasi East',
+  'nawalpur': 'Nawalparasi East',
+  'nawalparasi west': 'Nawalparasi West',
+  'parasi': 'Nawalparasi West',
+  'rukum east': 'Rukum East',
+  'eastern rukum': 'Rukum East',
+  'rukum west': 'Rukum West',
+  'western rukum': 'Rukum West',
+  'kapilvastu': 'Kapilbastu',
+  'kapilbastu': 'Kapilbastu',
+  'dhanusha': 'Dhanusa',
+  'dhanusa': 'Dhanusa',
+  'makawanpur': 'Makwanpur',
+  'sindhupalchowk': 'Sindhupalchok',
+  'kavre': 'Kavrepalanchok',
+  'kabhrepalanchok': 'Kavrepalanchok',
+}
+
+export function matchNepalLocation(addr = {}) {
+  if (!addr) return null
+
+  // 1. Resolve Province
+  const provCandidates = [
+    addr.state,
+    addr.province,
+    addr.region,
+    addr['ISO3166-2-lvl4'],
+  ].filter(Boolean)
+
+  let matchedProvince = ''
+  for (const raw of provCandidates) {
+    const s = String(raw).trim().toLowerCase()
+    if (s.includes('np-p1') || s.includes('koshi') || s === '1' || s.includes('province 1')) {
+      matchedProvince = 'Koshi Province'
+      break
+    } else if (s.includes('np-p2') || s.includes('madhesh') || s === '2' || s.includes('province 2')) {
+      matchedProvince = 'Madhesh Province'
+      break
+    } else if (s.includes('np-p3') || s.includes('bagmati') || s === '3' || s.includes('province 3')) {
+      matchedProvince = 'Bagmati Province'
+      break
+    } else if (s.includes('np-p4') || s.includes('gandaki') || s === '4' || s.includes('province 4')) {
+      matchedProvince = 'Gandaki Province'
+      break
+    } else if (s.includes('np-p5') || s.includes('lumbini') || s === '5' || s.includes('province 5')) {
+      matchedProvince = 'Lumbini Province'
+      break
+    } else if (s.includes('np-p6') || s.includes('karnali') || s === '6' || s.includes('province 6')) {
+      matchedProvince = 'Karnali Province'
+      break
+    } else if (s.includes('np-p7') || s.includes('sudurpashchim') || s.includes('sudurpaschim') || s === '7' || s.includes('province 7')) {
+      matchedProvince = 'Sudurpashchim Province'
+      break
+    }
+  }
+
+  // 2. Resolve District
+  const distCandidates = [
+    addr.county,
+    addr.district,
+    addr.state_district,
+    addr.subregion,
+  ].filter(Boolean)
+
+  let matchedDistrict = ''
+  const allDistricts = Object.keys(NEPAL_MUNICIPALITIES)
+
+  for (const raw of distCandidates) {
+    const clean = String(raw).trim().toLowerCase().replace(/ district$/i, '')
+    const alias = DISTRICT_ALIAS_MAP[clean] || clean
+    const found = allDistricts.find(d => d.toLowerCase() === alias.toLowerCase() || d.toLowerCase() === clean)
+    if (found) {
+      matchedDistrict = found
+      break
+    }
+  }
+
+  if (!matchedDistrict) {
+    for (const raw of distCandidates) {
+      const clean = String(raw).trim().toLowerCase()
+      const found = allDistricts.find(d => clean.includes(d.toLowerCase()) || d.toLowerCase().includes(clean))
+      if (found) {
+        matchedDistrict = found
+        break
+      }
+    }
+  }
+
+  // If district found, check province
+  if (matchedDistrict && !matchedProvince) {
+    for (const [prov, dists] of Object.entries(NEPAL_DISTRICTS)) {
+      if (dists.some(d => d.toLowerCase() === matchedDistrict.toLowerCase())) {
+        matchedProvince = prov
+        break
+      }
+    }
+  }
+
+  if (!matchedProvince) {
+    matchedProvince = 'Bagmati Province'
+  }
+
+  const validDistricts = getDistrictsForProvince(matchedProvince)
+  if (matchedDistrict && !validDistricts.includes(matchedDistrict)) {
+    const inProv = validDistricts.find(d => d.toLowerCase() === matchedDistrict.toLowerCase())
+    matchedDistrict = inProv || validDistricts[0] || ''
+  } else if (!matchedDistrict) {
+    matchedDistrict = validDistricts[0] || ''
+  }
+
+  // 3. Resolve Municipality
+  const muniCandidates = [
+    addr.municipality,
+    addr.city,
+    addr.town,
+    addr.village,
+    addr.suburb,
+    addr.hamlet,
+    addr.city_district,
+  ].filter(Boolean)
+
+  const availableMunis = getMunicipalitiesForDistrict(matchedDistrict, matchedProvince)
+  let matchedMuni = ''
+
+  for (const raw of muniCandidates) {
+    const clean = String(raw).trim().toLowerCase()
+      .replace(/[-\s]*\d+$/, '')
+      .replace(/\s+(rural municipality|municipality|metropolitan city|sub-metropolitan city|gaunpalika|nagarpalika)$/i, '')
+      .trim()
+
+    // Exact name match
+    const exact = availableMunis.find(m => m.name.toLowerCase() === clean || m.name.toLowerCase().replace(/\s+(rural municipality|municipality|metropolitan city|sub-metropolitan city)$/i, '') === clean)
+    if (exact) {
+      matchedMuni = exact.name
+      break
+    }
+
+    // Includes match
+    const incl = availableMunis.find(m => m.name.toLowerCase().includes(clean) || clean.includes(m.name.toLowerCase()))
+    if (incl) {
+      matchedMuni = incl.name
+      break
+    }
+  }
+
+  if (!matchedMuni && availableMunis.length > 0) {
+    matchedMuni = availableMunis[0].name
+  }
+
+  // 4. Street / Ward Address
+  const streetParts = [
+    addr.city_district,
+    addr.road,
+    addr.neighbourhood,
+    addr.suburb,
+    addr.hamlet,
+    addr.village,
+  ].filter(Boolean).map(s => String(s).trim())
+
+  const uniqueParts = [...new Set(streetParts)].filter(Boolean)
+  const streetAddress = uniqueParts.join(', ')
+
+  return {
+    province: matchedProvince,
+    district: matchedDistrict,
+    municipality: matchedMuni,
+    street: streetAddress,
+  }
+}
+
 export function reverseGeocodeLocal(lat, lng) {
   if (!lat || !lng) return null
   const latN = Number(lat)
@@ -864,5 +1036,6 @@ export function reverseGeocodeLocal(lat, lng) {
     province: best.province,
     district: best.district,
     municipality: best.city,
+    street: best.city,
   }
 }

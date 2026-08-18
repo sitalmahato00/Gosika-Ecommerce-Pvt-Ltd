@@ -293,6 +293,8 @@ class PaymentTest extends TestCase
     public function test_khalti_disabled_rejects_checkout(): void
     {
         Setting::set('payment.khalti_enabled', 'false', 'payment', 'boolean');
+        Setting::set('payment.khalti_secret_key', '', 'payment', 'string');
+        Config::set('services.khalti.secret_key', '');
 
         [, , $product] = $this->vendorWithProduct();
         $user = $this->customer();
@@ -523,6 +525,8 @@ class PaymentTest extends TestCase
     public function test_esewa_disabled_rejects_checkout(): void
     {
         Setting::set('payment.esewa_enabled', 'false', 'payment', 'boolean');
+        Setting::set('payment.esewa_secret_key', '', 'payment', 'string');
+        Config::set('services.esewa.secret_key', '');
 
         [, , $product] = $this->vendorWithProduct();
         $user = $this->customer();

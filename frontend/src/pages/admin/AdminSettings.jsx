@@ -133,7 +133,7 @@ export default function AdminSettings() {
       for (const key of keys) {
         const meta = groupsMeta[key]
         const def = defFor(key)
-        const needsPublic = key.startsWith('payment.') || key.startsWith('checkout.') || key.startsWith('shipping.') || key.startsWith('return.')
+        const needsPublic = (key.startsWith('payment.') || key.startsWith('checkout.') || key.startsWith('shipping.') || key.startsWith('return.')) && !key.includes('secret') && !key.includes('key')
         await api.put(`/admin/settings/${key}`, {
           value: form[key],
           group: meta.group || def?.group || group,

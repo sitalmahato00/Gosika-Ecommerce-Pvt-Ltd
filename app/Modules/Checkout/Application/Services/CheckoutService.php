@@ -67,8 +67,9 @@ class CheckoutService
         $maxCod = (float) Setting::get('checkout.cod_max_amount', 50000);
         $minOrder = (float) Setting::get('checkout.min_order_amount', 0);
         $paymentMethod = $data['payment_method'] ?? PaymentMethod::COD->value;
-        $khaltiEnabled = Setting::get('payment.khalti_enabled', 'false') === 'true';
-        $esewaEnabled = Setting::get('payment.esewa_enabled', 'false') === 'true';
+
+        $khaltiEnabled = $this->isGatewayEnabled('khalti');
+        $esewaEnabled = $this->isGatewayEnabled('esewa');
 
         if ($paymentMethod === PaymentMethod::KHALTI->value && ! $khaltiEnabled) {
             throw new DomainException('Khalti payment is currently unavailable.', 422);
@@ -157,5 +158,21 @@ class CheckoutService
         }
 
         return $flat;
+    }
+
+    protected function isGatewayEnabled(string $gateway): bool
+    {
+        $dbValue = Setting::get("payment.{$gateway}_enabled", 'false');
+        if ($dbValue === 'true') {
+            return true;
+        }
+
+        $secretKey = Setting::get("payment.{$gateway}_secret_key");
+        if (! empty($secretKey)) {
+            return true;
+        }
+
+        $configSecret = config("services.{$gateway}.secret_key", '');
+        return ! empty($configSecret);
     }
 }
