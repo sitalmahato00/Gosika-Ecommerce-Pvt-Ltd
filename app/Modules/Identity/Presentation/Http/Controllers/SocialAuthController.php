@@ -31,21 +31,31 @@ class SocialAuthController extends Controller
         $name = $socialUser->getName() ?? '';
         $parts = array_filter(explode(' ', $name));
 
-        $user = User::firstOrCreate(
-            ['provider' => $provider, 'provider_id' => $socialUser->getId()],
-            [
-                'first_name' => $parts[0] ?? 'User',
-                'last_name' => $parts[1] ?? '',
-                'email' => $socialUser->getEmail(),
-                'avatar' => $socialUser->getAvatar(),
-                'status' => 'active',
-                'email_verified_at' => now(),
-                'password' => Hash::make(Str::random(32)),
-            ]
-        );
+        $user = User::where('provider', $provider)->where('provider_id', $socialUser->getId())->first();
 
-        if ($user->wasRecentlyCreated) {
-            $user->assignRole('customer');
+        if (! $user) {
+            $user = User::where('email', $socialUser->getEmail())->first();
+
+            if ($user) {
+                $user->forceFill([
+                    'provider' => $provider,
+                    'provider_id' => $socialUser->getId(),
+                    'avatar' => $user->avatar ?? $socialUser->getAvatar(),
+                ])->save();
+            } else {
+                $user = User::create([
+                    'first_name' => $parts[0] ?? 'User',
+                    'last_name' => $parts[1] ?? '',
+                    'email' => $socialUser->getEmail(),
+                    'avatar' => $socialUser->getAvatar(),
+                    'status' => 'active',
+                    'provider' => $provider,
+                    'provider_id' => $socialUser->getId(),
+                    'email_verified_at' => now(),
+                    'password' => Hash::make(Str::random(32)),
+                ]);
+                $user->assignRole('customer');
+            }
         }
 
         if (! $user->email_verified_at) {
