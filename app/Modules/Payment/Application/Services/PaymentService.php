@@ -325,6 +325,16 @@ class PaymentService
         $status = strtoupper(trim((string) ($decoded['status'] ?? '')));
 
         if ($status !== 'COMPLETE' && $status !== 'SUCCESS') {
+            if (in_array($status, ['PENDING', 'AMBIGUOUS'], true)) {
+                $from = $payment->status;
+                $payment->status = PaymentStatus::PROCESSING;
+                $payment->save();
+
+                $this->recordStatus($payment, $from, PaymentStatus::PROCESSING, 'eSewa returned status: '.$status, $payment->user_id);
+
+                return $payment->fresh(['order']);
+            }
+
             $this->fail($payment, PaymentStatus::FAILED, 'eSewa returned payment status: '.($status ?: 'FAILED'));
             throw new PaymentProviderException('eSewa payment was not completed (Status: '.($status ?: 'FAILED').').', 422);
         }
@@ -344,9 +354,13 @@ class PaymentService
             $expected = EsewaProvider::sign(implode(',', $parts), $secret);
 
             if (! hash_equals($expected, $receivedSignature)) {
-                $this->fail($payment, PaymentStatus::EXCEPTION, 'eSewa callback signature mismatch.');
+                $from = $payment->status;
+                $payment->status = PaymentStatus::EXCEPTION;
+                $payment->save();
 
-                throw new PaymentProviderException('eSewa callback signature mismatch.', 422);
+                $this->recordStatus($payment, $from, PaymentStatus::EXCEPTION, 'eSewa callback signature mismatch.', $payment->user_id);
+
+                return $payment->fresh(['order']);
             }
         }
 

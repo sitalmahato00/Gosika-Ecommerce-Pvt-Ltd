@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, XCircle, Loader2, AlertCircle, ShoppingBag, RotateCw, Info } from 'lucide-react'
 import api from '../api/client'
@@ -7,21 +7,53 @@ import { errorMessage } from '../utils/format'
 import { PAYMENT_BRAND_LOGOS } from '../utils/constants'
 import { useCart } from '../context/CartContext'
 
+const MAX_POLL_ATTEMPTS = 10
+const POLL_INTERVAL_MS = 3000
+
 export default function PaymentCallback() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [failed, setFailed] = useState(false)
   const [isCancelled, setIsCancelled] = useState(false)
+  const [polling, setPolling] = useState(false)
+  const [pollAttempts, setPollAttempts] = useState(0)
   const [error, setError] = useState('')
   const [orderId, setOrderId] = useState(null)
   const [retrying, setRetrying] = useState(false)
   const { fetchCart } = useCart()
   const done = useRef(false)
+  const pollTimer = useRef(null)
+
+  const goToSuccess = useCallback((oid, payment) => {
+    if (typeof fetchCart === 'function') fetchCart()
+    navigate('/order-success', {
+      state: { orderId: payment?.order_id || oid, esewa: true },
+      replace: true,
+    })
+  }, [fetchCart, navigate])
+
+  const pollVerification = useCallback(async (oid) => {
+    for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
+      setPollAttempts(i + 1)
+      try {
+        const res = await api.post('/payments/esewa/verify-by-order', { order_id: oid })
+        if (res.data?.success) {
+          goToSuccess(oid, res.data.data?.payment)
+          return
+        }
+      } catch {
+        // Payment not yet verified, continue polling
+      }
+      await new Promise(r => { pollTimer.current = setTimeout(r, POLL_INTERVAL_MS) })
+    }
+    setPolling(false)
+    setFailed(true)
+    setError('eSewa payment could not be verified after multiple attempts. Your order is saved — you can retry payment from your orders page.')
+  }, [goToSuccess])
 
   useEffect(() => {
     if (done.current) return
 
-    // Extract search query from searchParams or direct window location
     const urlParams = new URLSearchParams(window.location.search)
     const hashParams = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '')
 
@@ -42,6 +74,13 @@ export default function PaymentCallback() {
       setFailed(true)
       setIsCancelled(true)
       setError('Payment was cancelled or could not be completed on eSewa. Your order is safely saved in your account and can be paid anytime.')
+      return
+    }
+
+    if (!data && foundOrderId) {
+      done.current = true
+      setPolling(true)
+      pollVerification(foundOrderId)
       return
     }
 
@@ -70,7 +109,11 @@ export default function PaymentCallback() {
         setFailed(true)
         setError(errorMessage(err) || 'Could not verify payment with eSewa.')
       })
-  }, [searchParams, navigate, fetchCart])
+  }, [searchParams, navigate, fetchCart, pollVerification])
+
+  useEffect(() => {
+    return () => { if (pollTimer.current) clearTimeout(pollTimer.current) }
+  }, [])
 
   const retryPayment = async () => {
     if (!orderId) {
@@ -110,7 +153,7 @@ export default function PaymentCallback() {
     }
   }
 
-  if (!failed) {
+  if (!failed && !polling) {
     return (
       <div className="page-shell container container-narrow">
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
@@ -118,6 +161,21 @@ export default function PaymentCallback() {
           <Loader2 size={42} className="spin" color="var(--primary)" style={{ margin: '16px auto' }} />
           <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 12 }}>Verifying your eSewa payment…</h1>
           <p className="muted text-sm" style={{ marginTop: 6 }}>Please wait while we confirm your payment transaction with eSewa.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (polling) {
+    return (
+      <div className="page-shell container container-narrow">
+        <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 44, width: 'auto', marginBottom: 16, objectFit: 'contain' }} />
+          <Loader2 size={42} className="spin" color="var(--primary)" style={{ margin: '16px auto' }} />
+          <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 12 }}>Checking payment status…</h1>
+          <p className="muted text-sm" style={{ marginTop: 6 }}>
+            eSewa did not send a confirmation. We are checking your payment status directly (attempt {pollAttempts}/{MAX_POLL_ATTEMPTS}).
+          </p>
         </div>
       </div>
     )

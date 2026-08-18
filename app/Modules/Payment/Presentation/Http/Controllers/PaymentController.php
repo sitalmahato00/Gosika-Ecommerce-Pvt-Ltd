@@ -10,6 +10,7 @@ use App\Modules\Payment\Domain\Exceptions\PaymentProviderException;
 use App\Modules\Payment\Infrastructure\Models\Payment;
 use App\Modules\Payment\Presentation\Http\Requests\InitiatePaymentRequest;
 use App\Modules\Payment\Presentation\Resources\PaymentResource;
+use App\Modules\Shared\Domain\Enums\PaymentStatus;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
@@ -108,5 +109,54 @@ class PaymentController extends Controller
             'payment' => new PaymentResource($found),
             'order' => $order ? new OrderResource($order) : null,
         ], 'Payment status retrieved.');
+    }
+
+    public function esewaVerifyByOrder(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $request->validate(['order_id' => 'required|string']);
+
+        $order = $this->orderService->findFor(request()->user(), $request->input('order_id'));
+
+        if (! $order) {
+            return Response::error('Order not found.', [], 404);
+        }
+
+        $payment = Payment::query()
+            ->forOrder($order->id)
+            ->where('method', 'esewa')
+            ->whereIn('status', [PaymentStatus::INITIATED, PaymentStatus::PROCESSING])
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $payment) {
+            $paid = Payment::query()
+                ->forOrder($order->id)
+                ->where('method', 'esewa')
+                ->where('status', PaymentStatus::PAID)
+                ->first();
+
+            if ($paid) {
+                return Response::success([
+                    'payment' => new PaymentResource($paid->fresh(['order'])),
+                    'order' => new OrderResource($order),
+                ], 'Payment already confirmed.');
+            }
+
+            return Response::error('No pending eSewa payment found for this order.', [], 404);
+        }
+
+        try {
+            $payment = $this->paymentService->verifyFromEsewaCallback([
+                'transaction_uuid' => $payment->provider_transaction_id ?? $payment->payment_number,
+                'status' => 'COMPLETE',
+            ]);
+
+            return Response::success([
+                'payment' => new PaymentResource($payment),
+                'order' => new OrderResource($order),
+            ], 'Payment verified.');
+        } catch (PaymentProviderException $e) {
+            return Response::error($e->getMessage(), [], $e->getCode() ?: 422);
+        }
     }
 }

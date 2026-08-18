@@ -10,6 +10,7 @@ Route::prefix('v1/payments')->group(function () {
         Route::post('initiate', [PaymentController::class, 'initiate'])->middleware('throttle:payment');
         Route::get('{payment}', [PaymentController::class, 'show']);
         Route::get('{payment}/status', [PaymentController::class, 'status']);
+        Route::post('esewa/verify-by-order', [PaymentController::class, 'esewaVerifyByOrder'])->middleware('throttle:payment');
     });
 
     Route::post('khalti/callback', [PaymentController::class, 'callback'])->middleware('throttle:payment');

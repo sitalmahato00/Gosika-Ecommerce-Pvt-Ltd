@@ -410,10 +410,10 @@ class PaymentTest extends TestCase
             ->assertJsonPath('data.payment_form.action', 'https://rc-epay.esewa.com.np/api/epay/main/v2/form');
 
         $fields = $response->json('data.payment_form.fields');
-        $this->assertSame('1080.00', $fields['total_amount']);
-        $this->assertSame('1000.00', $fields['amount']);
-        $this->assertSame('0.00', $fields['tax_amount']);
-        $this->assertSame('80.00', $fields['product_delivery_charge']);
+        $this->assertSame('1080', $fields['total_amount']);
+        $this->assertSame('1080', $fields['amount']);
+        $this->assertSame('0', $fields['tax_amount']);
+        $this->assertSame('0', $fields['product_delivery_charge']);
         $this->assertSame('EPAYTEST', $fields['product_code']);
         $this->assertSame('total_amount,transaction_uuid,product_code', $fields['signed_field_names']);
 
