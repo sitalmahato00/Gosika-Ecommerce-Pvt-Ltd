@@ -374,10 +374,10 @@ class PaymentService
 
         $payment->load('order');
 
-        $providerAmountStr = EsewaProvider::sign('check', 'check') !== '' ? (string) $totalAmount : '0';
-        $expectedAmountStr = rtrim(rtrim(number_format((float) $payment->amount, 2, '.', ''), '0'), '.');
+        $providerAmount = (int) round((float) $totalAmount * 100);
+        $expectedAmount = (int) round((float) $payment->amount * 100);
 
-        if ($providerAmountStr !== $expectedAmountStr) {
+        if ($providerAmount !== $expectedAmount) {
             \Log::error('ESEWA AMOUNT MISMATCH', [
                 'transaction_uuid' => $transactionUuid,
                 'received' => $totalAmount,
