@@ -446,39 +446,6 @@ export default function AdminSettings() {
                 <div className="muted text-xs" style={{ marginTop: 6 }}>Configure these URLs in your Khalti merchant dashboard.</div>
               </div>
             )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-              <button
-                className="btn btn-primary btn-sm"
-                disabled={saving === `gateway-${gw}`}
-                onClick={async (e) => {
-                  e.stopPropagation()
-                  const keysToSave = config.keys
-                  setSaving(`gateway-${gw}`)
-                  try {
-                    for (const key of keysToSave) {
-                      const meta = groupsMeta[key]
-                      const def = defFor(key)
-                      const needsPublic = key.startsWith('payment.') && !key.includes('secret') && !key.includes('key')
-                      await api.put(`/admin/settings/${key}`, {
-                        value: form[key],
-                        group: meta?.group || def?.group || 'payment',
-                        type: meta?.type || def?.type || 'string',
-                        is_public: needsPublic,
-                      })
-                    }
-                    toast.success(`${config.title} settings saved`)
-                    reload()
-                  } catch (err) {
-                    toast.error(errorMessage(err))
-                  } finally {
-                    setSaving(null)
-                  }
-                }}
-              >
-                <Save size={13} /> {saving === `gateway-${gw}` ? 'Saving…' : `Save ${config.title} Settings`}
-              </button>
-            </div>
           </div>
         )}
       </div>
@@ -596,12 +563,6 @@ export default function AdminSettings() {
             </div>
             <div className="flex flex-col gap-3">
               {activeTab === 'payment' ? renderPayment() : activeTab === 'branding' ? renderBranding() : activeTab === 'general' ? renderGeneral() : keysForGroup(activeTab).map(renderField)}
-            </div>
-
-            <div className="flex justify-end pt-4 mt-4" style={{ borderTop: '1px solid var(--border)' }}>
-              <button className="btn btn-primary" disabled={saving === activeTab} onClick={() => saveGroup(activeTab)}>
-                {saving === activeTab ? 'Saving…' : 'Save Group'}
-              </button>
             </div>
           </div>
         </>
