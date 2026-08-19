@@ -8,12 +8,15 @@ import { money, formatDate, errorMessage } from '../utils/format'
 import { PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../utils/constants'
 
 export default function OrderSuccess() {
-  const { state } = useLocation()
+  const { state, search } = useLocation()
+  const urlParams = new URLSearchParams(search)
+  const urlOrderId = urlParams.get('order_id')
+  const urlEsewa = urlParams.get('esewa') === '1'
   const [order, setOrder] = useState(state?.order || null)
-  const [loading, setLoading] = useState(!state?.order && !!state?.orderId)
+  const [loading, setLoading] = useState(!state?.order && !!(state?.orderId || urlOrderId))
   const [error, setError] = useState(null)
-  const orderId = state?.orderId || order?.id
-  const onlinePayment = state?.khalti || state?.esewa
+  const orderId = state?.orderId || urlOrderId || order?.id
+  const onlinePayment = state?.khalti || state?.esewa || urlEsewa
   const isConfirmed = order?.status === 'confirmed' || order?.status === 'processing' || order?.payment_status === 'paid'
 
   const load = () => {
