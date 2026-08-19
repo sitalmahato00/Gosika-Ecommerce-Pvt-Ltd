@@ -25,9 +25,23 @@ class KhaltiProvider implements PaymentProviderContract
 
     public function initiate(array $payload): array
     {
+        $url = $this->endpoint('/epayment/initiate/');
+
+        \Log::info('KHALTI INITIATE REQUEST', [
+            'url' => $url,
+            'amount' => $payload['amount'] ?? null,
+            'return_url' => $payload['return_url'] ?? null,
+            'purchase_order_id' => $payload['purchase_order_id'] ?? null,
+        ]);
+
         $response = Http::withHeaders(['Authorization' => 'Key '.$this->secretKey])
             ->timeout(20)
-            ->post($this->endpoint('/epayment/initiate/'), $payload);
+            ->post($url, $payload);
+
+        \Log::info('KHALTI INITIATE RESPONSE', [
+            'status' => $response->status(),
+            'body' => $response->body(),
+        ]);
 
         return $this->decode($response, 'initiate');
     }

@@ -81,24 +81,38 @@ class PaymentService
             return $payment;
         });
 
-        if ($method === PaymentMethod::KHALTI->value) {
-            if (! $provider) {
-                $this->fail($payment, PaymentStatus::FAILED, 'Khalti payment is not configured.', $user->id);
+        try {
+            if ($method === PaymentMethod::KHALTI->value) {
+                if (! $provider) {
+                    $this->fail($payment, PaymentStatus::FAILED, 'Khalti payment is not configured.', $user->id);
 
-                throw new PaymentProviderException('Khalti payment is not configured.', 422);
+                    throw new PaymentProviderException('Khalti payment is not configured.', 422);
+                }
+
+                $this->requestKhaltiPayment($payment, $user, $order);
             }
 
-            $this->requestKhaltiPayment($payment, $user, $order);
-        }
+            if ($method === PaymentMethod::ESEWA->value) {
+                if (! $provider) {
+                    $this->fail($payment, PaymentStatus::FAILED, 'eSewa payment is not configured.', $user->id);
 
-        if ($method === PaymentMethod::ESEWA->value) {
-            if (! $provider) {
-                $this->fail($payment, PaymentStatus::FAILED, 'eSewa payment is not configured.', $user->id);
+                    throw new PaymentProviderException('eSewa payment is not configured.', 422);
+                }
 
-                throw new PaymentProviderException('eSewa payment is not configured.', 422);
+                $this->requestEsewaPayment($payment, $user, $order, $options);
+            }
+        } catch (\Throwable $e) {
+            if ($method === PaymentMethod::KHALTI->value) {
+                \Log::error('KHALTI INITIATE FAILED', [
+                    'error' => $e->getMessage(),
+                    'code' => $e->getCode(),
+                    'order_id' => $order->id,
+                    'amount' => $order->grand_total,
+                    'amount_paisa' => (int) round((float) $order->grand_total * 100),
+                ]);
             }
 
-            $this->requestEsewaPayment($payment, $user, $order, $options);
+            throw $e;
         }
 
         return $payment->fresh(['order']);
