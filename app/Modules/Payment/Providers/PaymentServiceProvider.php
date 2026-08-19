@@ -32,13 +32,24 @@ class PaymentServiceProvider extends ServiceProvider
         };
 
         $khaltiSecret = $setting('payment.khalti_secret_key', config('services.khalti.secret_key'));
+        $khaltiEnvironment = $setting('payment.khalti_environment', 'uat');
+
+        if ($khaltiEnvironment === 'prod') {
+            $khaltiBaseUrl = 'https://khalti.com/api/v2';
+        } else {
+            $khaltiBaseUrl = $setting('payment.khalti_base_url', config('services.khalti.base_url'));
+        }
+
+        $appUrl = config('app.url', 'http://localhost:8000');
+        $khaltiReturnUrl = $appUrl . '/payments/khalti/callback';
+        $khaltiWebsiteUrl = $appUrl;
 
         if ($khaltiSecret !== '') {
             $service->setProvider('khalti', new KhaltiProvider(
-                $setting('payment.khalti_base_url', config('services.khalti.base_url')),
+                $khaltiBaseUrl,
                 $khaltiSecret,
-                $setting('payment.khalti_return_url', config('services.khalti.return_url')),
-                $setting('payment.khalti_website_url', config('services.khalti.website_url'))
+                $khaltiReturnUrl,
+                $khaltiWebsiteUrl
             ));
         }
 
@@ -54,8 +65,8 @@ class PaymentServiceProvider extends ServiceProvider
             $statusUrl = 'https://rc.esewa.com.np/api/epay/transaction/status/';
         }
 
-        $esewaSuccess = $setting('payment.esewa_success_url', config('services.esewa.success_url'));
-        $esewaFailure = $setting('payment.esewa_failure_url', config('services.esewa.failure_url'));
+        $esewaSuccess = config('app.url', 'http://localhost:8000') . '/payments/esewa/callback';
+        $esewaFailure = config('app.url', 'http://localhost:8000') . '/payments/esewa/callback?status=failure';
 
         if ($esewaSecret !== '') {
             $service->setProvider('esewa', new EsewaProvider(

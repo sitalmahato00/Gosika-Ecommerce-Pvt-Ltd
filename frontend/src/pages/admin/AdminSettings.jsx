@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import {
   Save, Globe, Store, CreditCard, Truck, Building, Palette,
-  Upload, X, Image, Phone, Mail, MapPin, FileText
+  Upload, X, Image, Phone, Mail, MapPin, FileText,
+  ChevronDown, ChevronRight, CheckCircle2, XCircle, AlertTriangle, ExternalLink, Info
 } from 'lucide-react'
 import api from '../../api/client'
 import { useApi } from '../../hooks/useApi'
@@ -52,15 +53,11 @@ const SETTING_DEFS = [
   { key: 'payment.esewa_environment', label: 'eSewa Environment', group: 'payment', type: 'string', defaultValue: 'uat', options: ['uat', 'prod'] },
   { key: 'payment.esewa_product_code', label: 'eSewa Product Code (Merchant ID)', group: 'payment', type: 'string', defaultValue: 'EPAYTEST' },
   { key: 'payment.esewa_secret_key', label: 'eSewa Secret Key', group: 'payment', type: 'password', defaultValue: '' },
-  { key: 'payment.esewa_success_url', label: 'eSewa Success (Return) URL', group: 'payment', type: 'string', defaultValue: '' },
-  { key: 'payment.esewa_failure_url', label: 'eSewa Failure (Cancel) URL', group: 'payment', type: 'string', defaultValue: '' },
 
   { key: 'payment.khalti_enabled', label: 'Enable Khalti', group: 'payment', type: 'boolean', defaultValue: 'false' },
   { key: 'payment.khalti_environment', label: 'Khalti Environment', group: 'payment', type: 'string', defaultValue: 'uat', options: ['uat', 'prod'] },
   { key: 'payment.khalti_secret_key', label: 'Khalti Secret Key', group: 'payment', type: 'password', defaultValue: '' },
   { key: 'payment.khalti_public_key', label: 'Khalti Public Key', group: 'payment', type: 'password', defaultValue: '' },
-  { key: 'payment.khalti_return_url', label: 'Khalti Return URL', group: 'payment', type: 'string', defaultValue: '' },
-  { key: 'payment.khalti_website_url', label: 'Khalti Website URL', group: 'payment', type: 'string', defaultValue: '' },
 
   { key: 'payment.expiration_minutes', label: 'Payment Link Expiration (minutes)', group: 'payment', type: 'integer', defaultValue: '60' },
 
@@ -285,59 +282,212 @@ export default function AdminSettings() {
     )
   }
 
-  const renderPayment = () => {
-    const keys = keysForGroup('payment')
-    const gatewayCards = PAYMENT_GATEWAYS.map((gw) => {
-      const gwKeys = keys.filter((k) => k.startsWith(gw.prefix))
-      const meta = PAYMENT_GATEWAY_META[gw.id] || {}
-      const isEnabled = !!form[gw.enabledKey]
-      return { ...gw, gwKeys, meta, isEnabled }
-    })
-    const otherKeys = keys.filter((k) => !PAYMENT_GATEWAYS.some((gw) => k.startsWith(gw.prefix)))
+  const [expandedGateway, setExpandedGateway] = useState(null)
+
+  const renderGatewaySection = (gw) => {
+    const gwSettings = {
+      cod: {
+        title: 'Cash on Delivery',
+        description: 'Allow customers to pay with cash when their order is delivered.',
+        color: '#16a34a',
+        bg: '#f0fdf4',
+        enabledKey: 'checkout.cod_enabled',
+        keys: ['checkout.cod_enabled', 'payment.cod_instructions', 'payment.cod_min_amount', 'payment.cod_max_amount'],
+        info: 'When enabled, customers can choose "Cash on Delivery" at checkout. You will need to collect payment manually upon delivery.',
+      },
+      esewa: {
+        title: 'eSewa',
+        description: 'Digital wallet, internet banking & mobile banking payments.',
+        color: '#15803d',
+        bg: '#f0fdf4',
+        enabledKey: 'payment.esewa_enabled',
+        keys: ['payment.esewa_enabled', 'payment.esewa_environment', 'payment.esewa_product_code', 'payment.esewa_secret_key'],
+        info: 'eSewa is Nepal\'s leading digital wallet. Customers can pay via eSewa app, internet banking, or mobile banking. You need an eSewa merchant account to use this gateway.',
+        docs: 'https://developer.esewa.com.np',
+      },
+      khalti: {
+        title: 'Khalti',
+        description: 'Digital wallet, bank transfer & mobile banking payments.',
+        color: '#47268B',
+        bg: '#f5f3ff',
+        enabledKey: 'payment.khalti_enabled',
+        keys: ['payment.khalti_enabled', 'payment.khalti_environment', 'payment.khalti_secret_key', 'payment.khalti_public_key'],
+        info: 'Khalti is a popular digital payment service in Nepal. Customers can pay via Khalti wallet, bank transfer, or mobile banking.',
+        docs: 'https://docs.khalti.com',
+      },
+    }
+
+    const config = gwSettings[gw]
+    if (!config) return null
+
+    const isEnabled = form[config.enabledKey] === 'true' || form[config.enabledKey] === true
+    const isExpanded = expandedGateway === gw
 
     return (
-      <>
-        {gatewayCards.map((gw) => (
-          <div key={gw.id} className="card" style={{
-            padding: 20, marginBottom: 16,
-            border: gw.isEnabled ? `2px solid ${gw.meta.color || 'var(--primary)'}` : '2px solid var(--border)',
-            background: gw.isEnabled ? (gw.meta.bg || 'var(--bg)') : 'var(--bg)',
-            transition: 'all 0.2s ease',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
-              {PAYMENT_BRAND_LOGOS[gw.id] ? (
-                <img src={PAYMENT_BRAND_LOGOS[gw.id]} alt={gw.title} style={{ height: 28, width: 'auto', borderRadius: 4 }} />
-              ) : (
-                <div style={{ width: 40, height: 28, borderRadius: 6, background: gw.meta.color || '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700 }}>
-                  {gw.title.substring(0, 4).toUpperCase()}
-                </div>
-              )}
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{gw.title}</div>
-                {gw.meta.description && <div className="muted text-xs mt-0.5">{gw.meta.description}</div>}
-              </div>
-              <div style={{
-                padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                background: gw.isEnabled ? (gw.meta.color || 'var(--primary)') : 'var(--border)',
-                color: gw.isEnabled ? '#fff' : 'var(--muted)',
-              }}>
-                {gw.isEnabled ? 'ACTIVE' : 'INACTIVE'}
-              </div>
+      <div key={gw} style={{
+        border: `1px solid ${isEnabled ? config.color + '40' : 'var(--border)'}`,
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginBottom: 16,
+        background: isEnabled ? config.bg : 'var(--card-bg, #fff)',
+        transition: 'all 0.2s ease',
+      }}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px',
+            cursor: 'pointer', userSelect: 'none',
+            background: isEnabled ? 'transparent' : 'var(--bg)',
+            borderBottom: isExpanded ? '1px solid var(--border)' : 'none',
+          }}
+          onClick={() => setExpandedGateway(isExpanded ? null : gw)}
+        >
+          {PAYMENT_BRAND_LOGOS[gw] ? (
+            <img src={PAYMENT_BRAND_LOGOS[gw]} alt={config.title} style={{ height: 32, width: 'auto', borderRadius: 4, background: '#fff', padding: '2px 6px', border: '1px solid var(--border)' }} />
+          ) : (
+            <div style={{ width: 44, height: 32, borderRadius: 8, background: config.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+              COD
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {gw.gwKeys.length > 0 ? gw.gwKeys.map(renderField) : (
-                <div className="muted text-xs">No settings configured for this gateway yet.</div>
-              )}
-            </div>
+          )}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{config.title}</div>
+            <div className="muted text-xs">{config.description}</div>
           </div>
-        ))}
-        {otherKeys.length > 0 && (
-          <div className="card" style={{ padding: 16, marginTop: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 12 }}>General Payment Settings</div>
-            {otherKeys.map(renderField)}
+          <div style={{
+            padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+            background: isEnabled ? config.color : 'var(--border)',
+            color: isEnabled ? '#fff' : 'var(--muted)',
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            {isEnabled ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+            {isEnabled ? 'ACTIVE' : 'INACTIVE'}
+          </div>
+          {isExpanded ? <ChevronDown size={18} color="var(--muted)" /> : <ChevronRight size={18} color="var(--muted)" />}
+        </div>
+
+        {isExpanded && (
+          <div style={{ padding: '20px 24px' }}>
+            {config.info && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px',
+                background: 'var(--bg)', borderRadius: 8, marginBottom: 16, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5,
+              }}>
+                <Info size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>{config.info}</span>
+                {config.docs && (
+                  <a href={config.docs} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    Docs <ExternalLink size={11} />
+                  </a>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {config.keys.map((key) => renderField(key))}
+            </div>
+
+            {gw === 'esewa' && (
+              <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                <div className="text-xs font-bold" style={{ color: 'var(--ink)', marginBottom: 6 }}>Callback URLs (auto-generated)</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="text-xs font-bold" style={{ color: 'var(--muted)', minWidth: 60 }}>Success:</span>
+                    <code className="text-xs" style={{ background: 'var(--bg)', padding: '2px 8px', borderRadius: 4, color: 'var(--ink)', wordBreak: 'break-all' }}>
+                      {window.location.origin}/payments/esewa/callback
+                    </code>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="text-xs font-bold" style={{ color: 'var(--muted)', minWidth: 60 }}>Failure:</span>
+                    <code className="text-xs" style={{ background: 'var(--bg)', padding: '2px 8px', borderRadius: 4, color: 'var(--ink)', wordBreak: 'break-all' }}>
+                      {window.location.origin}/payments/esewa/callback?status=failure
+                    </code>
+                  </div>
+                </div>
+                <div className="muted text-xs" style={{ marginTop: 6 }}>Configure these URLs in your eSewa merchant dashboard.</div>
+              </div>
+            )}
+
+            {gw === 'khalti' && (
+              <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                <div className="text-xs font-bold" style={{ color: 'var(--ink)', marginBottom: 6 }}>Callback URLs (auto-generated)</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="text-xs font-bold" style={{ color: 'var(--muted)', minWidth: 60 }}>Return:</span>
+                    <code className="text-xs" style={{ background: 'var(--bg)', padding: '2px 8px', borderRadius: 4, color: 'var(--ink)', wordBreak: 'break-all' }}>
+                      {window.location.origin}/payments/khalti/callback
+                    </code>
+                  </div>
+                </div>
+                <div className="muted text-xs" style={{ marginTop: 6 }}>Configure these URLs in your Khalti merchant dashboard.</div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+              <button
+                className="btn btn-primary btn-sm"
+                disabled={saving === `gateway-${gw}`}
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  const keysToSave = config.keys
+                  setSaving(`gateway-${gw}`)
+                  try {
+                    for (const key of keysToSave) {
+                      const meta = groupsMeta[key]
+                      const def = defFor(key)
+                      const needsPublic = key.startsWith('payment.') && !key.includes('secret') && !key.includes('key')
+                      await api.put(`/admin/settings/${key}`, {
+                        value: form[key],
+                        group: meta?.group || def?.group || 'payment',
+                        type: meta?.type || def?.type || 'string',
+                        is_public: needsPublic,
+                      })
+                    }
+                    toast.success(`${config.title} settings saved`)
+                    reload()
+                  } catch (err) {
+                    toast.error(errorMessage(err))
+                  } finally {
+                    setSaving(null)
+                  }
+                }}
+              >
+                <Save size={13} /> {saving === `gateway-${gw}` ? 'Saving…' : `Save ${config.title} Settings`}
+              </button>
+            </div>
           </div>
         )}
-      </>
+      </div>
+    )
+  }
+
+  const renderPayment = () => {
+    const gatewayKeys = [
+      'checkout.cod_enabled', 'payment.cod_instructions', 'payment.cod_min_amount', 'payment.cod_max_amount',
+      'payment.esewa_enabled', 'payment.esewa_environment', 'payment.esewa_product_code', 'payment.esewa_secret_key',
+      'payment.khalti_enabled', 'payment.khalti_environment', 'payment.khalti_secret_key', 'payment.khalti_public_key',
+      'payment.esewa_success_url', 'payment.esewa_failure_url',
+      'payment.khalti_base_url', 'payment.khalti_return_url', 'payment.khalti_website_url',
+    ]
+    const keys = keysForGroup('payment')
+    const otherKeys = keys.filter((k) => !gatewayKeys.includes(k))
+
+    return (
+      <div>
+        {['cod', 'esewa', 'khalti'].map(renderGatewaySection)}
+
+        {otherKeys.length > 0 && (
+          <div style={{
+            border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px',
+            marginTop: 8, background: 'var(--card-bg, #fff)',
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CreditCard size={16} /> General Payment Settings
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {otherKeys.map(renderField)}
+            </div>
+          </div>
+        )}
+      </div>
     )
   }
 
