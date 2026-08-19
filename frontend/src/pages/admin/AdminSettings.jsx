@@ -66,12 +66,6 @@ const SETTING_DEFS = [
   { key: 'store.allow_guest_browse', label: 'Allow Guest Browsing', group: 'store', type: 'boolean', defaultValue: 'true' },
 ]
 
-const PAYMENT_GATEWAYS = [
-  { id: 'cod', title: 'Cash on Delivery', prefix: 'payment.cod.', enabledKey: 'checkout.cod_enabled' },
-  { id: 'esewa', title: 'eSewa', prefix: 'payment.esewa.', enabledKey: 'payment.esewa_enabled' },
-  { id: 'khalti', title: 'Khalti', prefix: 'payment.khalti.', enabledKey: 'payment.khalti_enabled' },
-]
-
 const nullToEmpty = (v) => v === null || v === undefined || String(v).toLowerCase() === 'null' ? '' : v
 
 const GROUP_META = {
@@ -134,34 +128,6 @@ export default function AdminSettings() {
   }
 
   const isStaleKey = (key) => !SETTING_DEFS.some((d) => d.key === key)
-
-  const saveGroup = async (group, { silent = false } = {}) => {
-    const keys = keysForGroup(group)
-    if (!keys.length) return
-    if (!silent) setSaving(group)
-    try {
-      for (const key of keys) {
-        const meta = groupsMeta[key]
-        const def = defFor(key)
-        const needsPublic = (key.startsWith('payment.') || key.startsWith('checkout.') || key.startsWith('shipping.') || key.startsWith('return.')) && !key.includes('secret') && !key.includes('key')
-        await api.put(`/admin/settings/${key}`, {
-          value: form[key],
-          group: meta.group || def?.group || group,
-          type: meta.type || def?.type || 'string',
-          is_public: needsPublic,
-        })
-      }
-      if (!silent) {
-        toast.success('Settings saved')
-        reload()
-      }
-    } catch (err) {
-      if (!silent) toast.error(errorMessage(err))
-      throw err
-    } finally {
-      if (!silent) setSaving(null)
-    }
-  }
 
   const saveAll = async () => {
     setSaving('all')
@@ -462,8 +428,6 @@ export default function AdminSettings() {
       'checkout.cod_enabled', 'payment.cod_instructions', 'payment.cod_min_amount', 'payment.cod_max_amount',
       'payment.esewa_enabled', 'payment.esewa_environment', 'payment.esewa_product_code', 'payment.esewa_secret_key',
       'payment.khalti_enabled', 'payment.khalti_environment', 'payment.khalti_secret_key', 'payment.khalti_public_key',
-      'payment.esewa_success_url', 'payment.esewa_failure_url',
-      'payment.khalti_base_url', 'payment.khalti_return_url', 'payment.khalti_website_url',
     ]
     const keys = keysForGroup('payment')
     const otherKeys = keys.filter((k) => !gatewayKeys.includes(k))
