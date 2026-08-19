@@ -131,7 +131,7 @@ class PaymentController extends Controller
             'transaction_id' => $request->query('transaction_id'),
         ]);
 
-        if ($status === 'User canceled' || $status === '' || $status === 'Expired') {
+        if ($status === 'User canceled' || $status === '' || $status === 'Expired' || $status === 'failure') {
             return redirect($frontendUrl . '/payments/khalti/callback?status=failure&pidx=' . urlencode($pidx) . '&purchase_order_id=' . urlencode($purchaseOrderId));
         }
 
@@ -158,7 +158,7 @@ class PaymentController extends Controller
                 'pidx' => $pidx,
             ]);
 
-            return redirect($frontendUrl . '/payments/khalti/callback?status=failure&pidx=' . urlencode($pidx) . '&purchase_order_id=' . urlencode($purchaseOrderId));
+            return redirect($frontendUrl . '/orders');
         }
     }
 
