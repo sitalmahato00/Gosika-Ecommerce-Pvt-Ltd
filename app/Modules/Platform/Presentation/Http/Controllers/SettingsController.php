@@ -9,7 +9,6 @@ use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Artisan;
 
 class SettingsController extends Controller
 {
@@ -116,8 +115,6 @@ class SettingsController extends Controller
 
         $_ENV[$envKey] = $value;
         $_SERVER[$envKey] = $value;
-
-        Artisan::call('config:clear');
 
         \Log::info('ENV_SYNC: updated', ['env_key' => $envKey, 'value' => $value !== '' ? '(set)' : '(empty)']);
     }

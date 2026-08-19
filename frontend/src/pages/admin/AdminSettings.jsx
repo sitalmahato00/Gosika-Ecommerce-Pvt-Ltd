@@ -135,10 +135,10 @@ export default function AdminSettings() {
 
   const isStaleKey = (key) => !SETTING_DEFS.some((d) => d.key === key)
 
-  const saveGroup = async (group) => {
+  const saveGroup = async (group, { silent = false } = {}) => {
     const keys = keysForGroup(group)
     if (!keys.length) return
-    setSaving(group)
+    if (!silent) setSaving(group)
     try {
       for (const key of keys) {
         const meta = groupsMeta[key]
@@ -151,18 +151,30 @@ export default function AdminSettings() {
           is_public: needsPublic,
         })
       }
-      toast.success('Settings saved')
+      if (!silent) {
+        toast.success('Settings saved')
+        reload()
+      }
+    } catch (err) {
+      if (!silent) toast.error(errorMessage(err))
+      throw err
+    } finally {
+      if (!silent) setSaving(null)
+    }
+  }
+
+  const saveAll = async () => {
+    setSaving('all')
+    try {
+      for (const g of groups) {
+        await saveGroup(g, { silent: true })
+      }
+      toast.success('All settings saved')
       reload()
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
       setSaving(null)
-    }
-  }
-
-  const saveAll = async () => {
-    for (const g of groups) {
-      await saveGroup(g)
     }
   }
 
