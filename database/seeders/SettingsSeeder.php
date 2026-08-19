@@ -28,8 +28,6 @@ class SettingsSeeder extends Seeder
             ['payment.khalti_base_url', 'https://dev.khalti.com/api/v2', 'payment', 'string', false],
             ['payment.khalti_secret_key', '', 'payment', 'string', false],
             ['payment.khalti_public_key', '', 'payment', 'string', false],
-            ['payment.khalti_return_url', '', 'payment', 'string', false],
-            ['payment.khalti_website_url', '', 'payment', 'string', false],
             ['payment.esewa_enabled', 'false', 'payment', 'boolean', true],
             ['payment.esewa_environment', 'uat', 'payment', 'string', true],
             ['payment.esewa_product_code', 'EPAYTEST', 'payment', 'string', true],

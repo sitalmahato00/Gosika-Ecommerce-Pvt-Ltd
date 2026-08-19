@@ -13,8 +13,6 @@ class KhaltiProvider implements PaymentProviderContract
     public function __construct(
         protected string $baseUrl,
         protected string $secretKey,
-        protected string $returnUrl,
-        protected string $websiteUrl
     ) {
     }
 

@@ -41,15 +41,11 @@ class PaymentServiceProvider extends ServiceProvider
         }
 
         $appUrl = config('app.url', 'http://localhost:8000');
-        $khaltiReturnUrl = $appUrl . '/payments/khalti/callback';
-        $khaltiWebsiteUrl = $appUrl;
 
         if ($khaltiSecret !== '') {
             $service->setProvider('khalti', new KhaltiProvider(
                 $khaltiBaseUrl,
                 $khaltiSecret,
-                $khaltiReturnUrl,
-                $khaltiWebsiteUrl
             ));
         }
 

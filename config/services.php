@@ -38,8 +38,6 @@ return [
     'khalti' => [
         'base_url' => env('KHALTI_BASE_URL', 'https://dev.khalti.com/api/v2'),
         'secret_key' => env('KHALTI_SECRET_KEY', ''),
-        'return_url' => env('KHALTI_RETURN_URL', ''),
-        'website_url' => env('KHALTI_WEBSITE_URL', ''),
         'expiry_minutes' => env('KHALTI_EXPIRY_MINUTES', 60),
     ],
 

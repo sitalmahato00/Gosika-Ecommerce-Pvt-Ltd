@@ -22,8 +22,6 @@ class SettingsController extends Controller
         'payment.khalti_public_key'   => 'KHALTI_PUBLIC_KEY',
         'payment.khalti_environment'  => 'KHALTI_ENVIRONMENT',
         'payment.khalti_base_url'     => 'KHALTI_BASE_URL',
-        'payment.khalti_return_url'   => 'KHALTI_RETURN_URL',
-        'payment.khalti_website_url'  => 'KHALTI_WEBSITE_URL',
     ];
 
     public function __construct()
