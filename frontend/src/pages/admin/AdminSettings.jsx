@@ -166,9 +166,14 @@ export default function AdminSettings() {
   const saveAll = async () => {
     setSaving('all')
     try {
-      for (const g of groups) {
-        await saveGroup(g, { silent: true })
-      }
+      const settings = Object.keys(groupsMeta).map((key) => ({
+        key,
+        value: form[key],
+        group: groupsMeta[key].group,
+        type: groupsMeta[key].type,
+        is_public: groupsMeta[key].isPublic,
+      }))
+      await api.put('/admin/settings', { settings })
       toast.success('All settings saved')
       reload()
     } catch (err) {

@@ -9,6 +9,7 @@ use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 
 class SettingsController extends Controller
 {
@@ -40,6 +41,48 @@ class SettingsController extends Controller
         return Response::success($settings, 'Settings retrieved.');
     }
 
+    public function batchUpdate(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'settings' => 'required|array',
+            'settings.*.key' => 'required|string|max:80',
+            'settings.*.value' => 'nullable',
+            'settings.*.group' => 'nullable|string|max:80',
+            'settings.*.type' => 'nullable|string|in:string,integer,boolean,decimal,json',
+            'settings.*.is_public' => 'nullable|boolean',
+        ]);
+
+        $saved = [];
+
+        DB::transaction(function () use ($validated, &$saved) {
+            foreach ($validated['settings'] as $item) {
+                $key = $item['key'];
+
+                $setting = Setting::updateOrCreate(['key' => $key], [
+                    'value' => $item['value'] ?? null,
+                    'group' => $item['group'] ?? 'general',
+                    'type' => $item['type'] ?? 'string',
+                    'is_public' => $item['is_public'] ?? false,
+                ]);
+
+                $saved[] = $setting;
+
+                if (isset(self::ENV_SYNC_MAP[$key])) {
+                    try {
+                        $this->syncEnv(self::ENV_SYNC_MAP[$key], $item['value'] ?? '');
+                    } catch (\Throwable $e) {
+                        \Log::warning('ENV_SYNC failed (non-fatal)', [
+                            'key' => $key,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+        });
+
+        return Response::success($saved, 'Settings updated.');
+    }
+
     public function update(Request $request, string $key): JsonResponse
     {
         $validated = $request->validate([
@@ -57,7 +100,14 @@ class SettingsController extends Controller
         ]);
 
         if (isset(self::ENV_SYNC_MAP[$key])) {
-            $this->syncEnv(self::ENV_SYNC_MAP[$key], $validated['value'] ?? '');
+            try {
+                $this->syncEnv(self::ENV_SYNC_MAP[$key], $validated['value'] ?? '');
+            } catch (\Throwable $e) {
+                \Log::warning('ENV_SYNC failed (non-fatal)', [
+                    'key' => $key,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return Response::success($setting, 'Setting updated.');
@@ -72,7 +122,14 @@ class SettingsController extends Controller
         }
 
         if (isset(self::ENV_SYNC_MAP[$key])) {
-            $this->syncEnv(self::ENV_SYNC_MAP[$key], '');
+            try {
+                $this->syncEnv(self::ENV_SYNC_MAP[$key], '');
+            } catch (\Throwable $e) {
+                \Log::warning('ENV_SYNC failed (non-fatal)', [
+                    'key' => $key,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return Response::success(null, 'Setting deleted.');
@@ -83,16 +140,12 @@ class SettingsController extends Controller
         $envPath = base_path('.env');
 
         if (! file_exists($envPath)) {
-            \Log::warning('ENV_SYNC: .env file not found', ['key' => $envKey]);
-
             return;
         }
 
-        $contents = file_get_contents($envPath);
+        $contents = @file_get_contents($envPath);
 
         if ($contents === false) {
-            \Log::warning('ENV_SYNC: failed to read .env', ['key' => $envKey]);
-
             return;
         }
 
@@ -105,17 +158,13 @@ class SettingsController extends Controller
             $contents = rtrim($contents, "\n")."\n{$envKey}={$value}\n";
         }
 
-        $written = file_put_contents($envPath, $contents);
+        $written = @file_put_contents($envPath, $contents);
 
         if ($written === false) {
-            \Log::error('ENV_SYNC: failed to write .env', ['key' => $envKey, 'env_path' => $envPath]);
-
             return;
         }
 
         $_ENV[$envKey] = $value;
         $_SERVER[$envKey] = $value;
-
-        \Log::info('ENV_SYNC: updated', ['env_key' => $envKey, 'value' => $value !== '' ? '(set)' : '(empty)']);
     }
 }
