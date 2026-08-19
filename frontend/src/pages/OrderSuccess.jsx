@@ -14,6 +14,7 @@ export default function OrderSuccess() {
   const [error, setError] = useState(null)
   const orderId = state?.orderId || order?.id
   const onlinePayment = state?.khalti || state?.esewa
+  const isConfirmed = order?.status === 'confirmed' || order?.status === 'processing' || order?.payment_status === 'paid'
 
   const load = () => {
     if (!orderId) return
@@ -67,7 +68,7 @@ export default function OrderSuccess() {
           Thank you for shopping on Gosika. Your order <strong className="text-primary">#{order.order_number || order.id}</strong> has been placed.
           {order.payment_method === 'cod' && ' Pay cash on delivery when your order arrives.'}
         </p>
-        {onlinePayment && (
+        {onlinePayment && !isConfirmed && (
           <div className="alert alert-warning" style={{ textAlign: 'left' }}>
             <Clock size={18} />
             <div>
