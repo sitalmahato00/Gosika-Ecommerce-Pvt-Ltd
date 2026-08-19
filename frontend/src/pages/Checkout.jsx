@@ -82,9 +82,9 @@ export default function Checkout() {
       .finally(() => setLoading(false))
   }, [user])
 
-  const codEnabled = config?.checkout?.cod_enabled ?? true
-  const khaltiEnabled = config?.payment?.khalti_enabled ?? true
-  const esewaEnabled = config?.payment?.esewa_enabled ?? false
+  const codEnabled = config?.checkout?.cod_enabled === true
+  const khaltiEnabled = config?.payment?.khalti_enabled === true
+  const esewaEnabled = config?.payment?.esewa_enabled === true
   const codMax = Number(config?.checkout?.cod_max_amount || 50000)
   const total = Number(summary?.total || 0)
   const codAllowed = codEnabled && total <= codMax
@@ -218,7 +218,7 @@ export default function Checkout() {
           }
         } catch (payErr) {
           toast.error('Failed to initiate Khalti payment: ' + errorMessage(payErr))
-          navigate('/order-success', { state: { order, orderId: order?.id } })
+          navigate(`/orders/${order.id}`)
           return
         }
       }

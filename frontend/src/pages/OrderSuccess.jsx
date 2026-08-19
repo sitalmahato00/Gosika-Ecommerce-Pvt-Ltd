@@ -83,7 +83,11 @@ export default function OrderSuccess() {
           </div>
         )}
         <div className="card" style={{ background: 'var(--bg)', maxWidth: 360, margin: '20px auto' }}>
-          <div className="flex justify-between text-sm"><span className="muted">Total paid</span><span className="font-bold">{money(order.grand_total)}</span></div>
+          {isConfirmed ? (
+            <div className="flex justify-between text-sm"><span className="muted">Total paid</span><span className="font-bold">{money(order.grand_total)}</span></div>
+          ) : (
+            <div className="flex justify-between text-sm"><span className="muted">Total amount</span><span className="font-bold">{money(order.grand_total)}</span></div>
+          )}
           <div className="flex justify-between text-sm mt-1"><span className="muted">Payment</span><span className="font-medium flex items-center gap-1">{order.payment_method === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 16, width: 'auto' }} />}{PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method}</span></div>
           {(order.estimated_delivery || order.delivery_eta) && (
             <div className="flex justify-between text-sm mt-1"><span className="muted">Estimated delivery</span><span className="font-medium">{formatDate(order.estimated_delivery || order.delivery_eta)}</span></div>

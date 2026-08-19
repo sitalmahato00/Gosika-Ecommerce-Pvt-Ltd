@@ -47,4 +47,15 @@ class SettingsController extends Controller
 
         return Response::success($setting, 'Setting updated.');
     }
+
+    public function destroy(string $key): JsonResponse
+    {
+        $deleted = Setting::where('key', $key)->delete();
+
+        if (! $deleted) {
+            return Response::error('Setting not found.', 404);
+        }
+
+        return Response::success(null, 'Setting deleted.');
+    }
 }

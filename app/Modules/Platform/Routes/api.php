@@ -18,4 +18,5 @@ Route::prefix('v1/platform')->group(function () {
 Route::prefix('v1/admin/settings')->group(function () {
     Route::get('/', [SettingsController::class, 'index'])->middleware('throttle:admin');
     Route::put('{key}', [SettingsController::class, 'update'])->middleware('throttle:admin');
+    Route::delete('{key}', [SettingsController::class, 'destroy'])->middleware('throttle:admin');
 });

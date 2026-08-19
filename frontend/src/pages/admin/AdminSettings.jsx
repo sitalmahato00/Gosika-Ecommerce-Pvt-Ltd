@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import {
   Save, Globe, Store, CreditCard, Truck, Building, Palette,
   Upload, X, Image, Phone, Mail, MapPin, FileText,
-  ChevronDown, ChevronRight, CheckCircle2, XCircle, AlertTriangle, ExternalLink, Info
+  ChevronDown, ChevronRight, CheckCircle2, XCircle, AlertTriangle, ExternalLink, Info, Trash2
 } from 'lucide-react'
 import api from '../../api/client'
 import { useApi } from '../../hooks/useApi'
@@ -122,6 +122,19 @@ export default function AdminSettings() {
 
   const setValue = (key, value) => setForm((f) => ({ ...f, [key]: value }))
 
+  const deleteSetting = async (key) => {
+    if (!confirm(`Delete setting "${key}"? This cannot be undone.`)) return
+    try {
+      await api.delete(`/admin/settings/${key}`)
+      toast.success(`Setting "${key}" deleted`)
+      reload()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
+
+  const isStaleKey = (key) => !SETTING_DEFS.some((d) => d.key === key)
+
   const saveGroup = async (group) => {
     const keys = keysForGroup(group)
     if (!keys.length) return
@@ -157,10 +170,12 @@ export default function AdminSettings() {
     const meta = groupsMeta[key]
     const def = defFor(key)
     const label = def ? def.label : key.replace(/_/g, ' ')
+    const stale = isStaleKey(key)
 
+    let input
     if (meta.type === 'boolean') {
-      return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+      input = (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', flex: 1 }}>
           <label style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)', cursor: 'pointer' }}>{label}</label>
           <button
             type="button"
@@ -179,48 +194,47 @@ export default function AdminSettings() {
           </button>
         </div>
       )
-    }
-    if (def?.options?.length) {
-      return (
-        <div key={key} className="form-group" style={{ marginBottom: 10 }}>
+    } else if (def?.options?.length) {
+      input = (
+        <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
           <label className="label text-xs font-bold" style={{ color: 'var(--muted)' }}>{label}</label>
           <select className="select" value={nullToEmpty(form[key])} onChange={(e) => setValue(key, e.target.value)}>
             {def.options.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </div>
       )
-    }
-    if (key.includes('color') || key.includes('hex')) {
-      return (
-        <div key={key} className="form-group" style={{ marginBottom: 10 }}>
-          <label className="label text-xs font-bold" style={{ color: 'var(--muted)' }}>{label}</label>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="color"
-              value={nullToEmpty(form[key]) || '#6366f1'}
-              onChange={(e) => setValue(key, e.target.value)}
-              style={{ width: 40, height: 36, border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', padding: 2 }}
-            />
-            <Input
-              value={nullToEmpty(form[key])}
-              onChange={(e) => setValue(key, e.target.value)}
-              placeholder="#6366f1"
-              style={{ flex: 1 }}
-            />
-          </div>
-        </div>
+    } else {
+      input = (
+        <Input
+          label={label}
+          type={def?.type === 'password' ? 'password' : 'text'}
+          value={nullToEmpty(form[key])}
+          onChange={(e) => setValue(key, e.target.value)}
+          placeholder={def?.type === 'password' ? '••••••••••••' : def?.defaultValue || '—'}
+          autoComplete={def?.type === 'password' ? 'new-password' : undefined}
+          style={{ flex: 1 }}
+        />
       )
     }
+
     return (
-      <Input
-        key={key}
-        label={label}
-        type={def?.type === 'password' ? 'password' : 'text'}
-        value={nullToEmpty(form[key])}
-        onChange={(e) => setValue(key, e.target.value)}
-        placeholder={def?.type === 'password' ? '••••••••••••' : def?.defaultValue || '—'}
-        autoComplete={def?.type === 'password' ? 'new-password' : undefined}
-      />
+      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {input}
+        {stale && (
+          <button
+            type="button"
+            onClick={() => deleteSetting(key)}
+            title={`Delete "${key}"`}
+            style={{
+              background: 'none', border: '1px solid var(--danger, #dc2626)', color: 'var(--danger, #dc2626)',
+              borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+              whiteSpace: 'nowrap', flexShrink: 0, marginTop: meta.type === 'boolean' ? 0 : 18,
+            }}
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
+      </div>
     )
   }
 
