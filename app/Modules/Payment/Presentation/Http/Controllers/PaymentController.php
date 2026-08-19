@@ -116,6 +116,52 @@ class PaymentController extends Controller
         }
     }
 
+    public function khaltiWebCallback(\Illuminate\Http\Request $request)
+    {
+        $frontendUrl = rtrim(config('app.frontend_url'), '/');
+        $status = $request->query('status', '');
+        $pidx = $request->query('pidx', '');
+        $purchaseOrderId = $request->query('purchase_order_id', '');
+
+        \Log::info('KHALTI CALLBACK RECEIVED', [
+            'pidx' => $pidx,
+            'status' => $status,
+            'purchase_order_id' => $purchaseOrderId,
+            'total_amount' => $request->query('total_amount'),
+            'transaction_id' => $request->query('transaction_id'),
+        ]);
+
+        if ($status === 'User canceled' || $status === '' || $status === 'Expired') {
+            return redirect($frontendUrl . '/payments/khalti/callback?status=failure&pidx=' . urlencode($pidx) . '&purchase_order_id=' . urlencode($purchaseOrderId));
+        }
+
+        try {
+            $payment = $this->paymentService->verifyFromCallback([
+                'pidx' => $pidx,
+                'status' => $status,
+                'transaction_id' => $request->query('transaction_id'),
+                'total_amount' => $request->query('total_amount'),
+                'purchase_order_id' => $purchaseOrderId,
+            ]);
+
+            $orderUuid = $payment->order?->uuid ?? $payment->order_id;
+
+            \Log::info('KHALTI CALLBACK RESULT', [
+                'order_id' => $orderUuid,
+                'payment_status' => $payment->status,
+            ]);
+
+            return redirect($frontendUrl . '/order-success?order_id=' . $orderUuid . '&khalti=1');
+        } catch (\Throwable $e) {
+            \Log::error('Khalti web callback failed', [
+                'error' => $e->getMessage(),
+                'pidx' => $pidx,
+            ]);
+
+            return redirect($frontendUrl . '/payments/khalti/callback?status=failure&pidx=' . urlencode($pidx) . '&purchase_order_id=' . urlencode($purchaseOrderId));
+        }
+    }
+
     public function show(Payment $payment): JsonResponse
     {
         $found = $this->paymentService->forUser(request()->user(), $payment->uuid);

@@ -22,6 +22,15 @@ Route::get('/payments/esewa/callback', function (Request $request) {
     return response()->file(public_path('index.html'));
 });
 
+Route::get('/payments/khalti/callback', function (Request $request) {
+    if ($request->has('pidx') || $request->has('status')) {
+        return app(\App\Modules\Payment\Presentation\Http\Controllers\PaymentController::class)
+            ->khaltiWebCallback($request);
+    }
+
+    return response()->file(public_path('index.html'));
+});
+
 Route::get('/', function () {
     return response()->file(public_path('index.html'));
 });

@@ -108,12 +108,16 @@ class PaymentService
     {
         $amountPaisa = (int) round((float) $payment->amount * 100);
 
+        $appUrl = config('app.url', 'http://localhost:8000');
+        $returnUrl = $appUrl . '/payments/khalti/callback';
+        $websiteUrl = $appUrl;
+
         $payload = [
             'purchase_order_id' => $payment->payment_number,
             'purchase_order_name' => 'GOSIKA Order '.$order->order_number,
             'amount' => $amountPaisa,
-            'return_url' => config('services.khalti.return_url'),
-            'website_url' => config('services.khalti.website_url'),
+            'return_url' => $returnUrl,
+            'website_url' => $websiteUrl,
             'customer_info' => [
                 'name' => $user->name ?? 'Customer',
                 'email' => $user->email,
