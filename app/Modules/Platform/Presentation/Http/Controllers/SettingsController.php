@@ -48,7 +48,7 @@ class SettingsController extends Controller
             'settings.*.key' => 'required|string|max:80',
             'settings.*.value' => 'nullable',
             'settings.*.group' => 'nullable|string|max:80',
-            'settings.*.type' => 'nullable|string|in:string,integer,boolean,decimal,json',
+            'settings.*.type' => 'nullable|string|in:string,integer,boolean,decimal,json,password',
             'settings.*.is_public' => 'nullable|boolean',
         ]);
 
@@ -88,7 +88,7 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'value' => ['nullable'],
             'group' => ['nullable', 'string', 'max:80'],
-            'type' => ['nullable', 'string', 'in:string,integer,boolean,decimal,json'],
+            'type' => ['nullable', 'string', 'in:string,integer,boolean,decimal,json,password'],
             'is_public' => ['nullable', 'boolean'],
         ]);
 
