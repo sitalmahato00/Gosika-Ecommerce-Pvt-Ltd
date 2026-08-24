@@ -22,12 +22,12 @@ export default function AdminAnalytics() {
   const toast = useToast()
   const [range, setRange] = useState('30d')
 
-  const summary = useApi(() => api.get('/admin/analytics/summary', { params: { range } }), { deps: [range] })
-  const ordersByStatus = useApi(() => api.get('/admin/analytics/orders-by-status', { params: { range } }), { deps: [range] })
-  const paymentMethods = useApi(() => api.get('/admin/analytics/payment-methods', { params: { range } }), { deps: [range] })
-  const topStores = useApi(() => api.get('/admin/analytics/top-stores', { params: { range } }), { deps: [range] })
-  const categoryShare = useApi(() => api.get('/admin/analytics/category-share', { params: { range } }), { deps: [range] })
-  const provinces = useApi(() => api.get('/admin/analytics/provinces', { params: { range } }), { deps: [range] })
+  const summary = useApi(() => api.get('/admin/analytics/summary', { params: { range } }), { deps: [range], cacheKey: `admin_analytics_summary_${range}` })
+  const ordersByStatus = useApi(() => api.get('/admin/analytics/orders-by-status', { params: { range } }), { deps: [range], cacheKey: `admin_analytics_obs_${range}` })
+  const paymentMethods = useApi(() => api.get('/admin/analytics/payment-methods', { params: { range } }), { deps: [range], cacheKey: `admin_analytics_pm_${range}` })
+  const topStores = useApi(() => api.get('/admin/analytics/top-stores', { params: { range } }), { deps: [range], cacheKey: `admin_analytics_ts_${range}` })
+  const categoryShare = useApi(() => api.get('/admin/analytics/category-share', { params: { range } }), { deps: [range], cacheKey: `admin_analytics_cs_${range}` })
+  const provinces = useApi(() => api.get('/admin/analytics/provinces', { params: { range } }), { deps: [range], cacheKey: `admin_analytics_prov_${range}` })
 
   const s = summary.data || {}
 

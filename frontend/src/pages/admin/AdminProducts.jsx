@@ -41,15 +41,15 @@ export default function AdminProducts() {
           ...(categoryFilter && { category: categoryFilter }),
         },
       }),
-    { deps: [search, categoryFilter], pageSize: 15 },
+    { deps: [search, categoryFilter], pageSize: 15, cacheKey: 'admin_products_all' },
   )
 
   const pendingList = useList(
     (page, perPage) => api.get('/admin/products/pending', { params: { page, per_page: perPage } }),
-    { pageSize: 15 },
+    { pageSize: 15, cacheKey: 'admin_products_pending' },
   )
 
-  const categories = useApi(() => api.get('/categories'))
+  const categories = useApi(() => api.get('/categories'), { cacheKey: 'admin_categories_list' })
   const categoryOptions = Array.isArray(categories.data) ? categories.data : []
 
   const active = activeTab === 'pending' ? pendingList : allList

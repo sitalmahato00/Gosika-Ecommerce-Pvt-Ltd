@@ -150,6 +150,21 @@ export function humanizeEnum(value = '') {
   return titleCase(String(value))
 }
 
+export function timeAgo(dateString) {
+  if (!dateString) return 'Just now'
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffSec = Math.floor((now - date) / 1000)
+  if (diffSec < 60) return 'Just now'
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin} mins ago`
+  const diffHrs = Math.floor(diffMin / 60)
+  if (diffHrs < 24) return `${diffHrs} ${diffHrs === 1 ? 'hr' : 'hrs'} ago`
+  const diffDays = Math.floor(diffHrs / 24)
+  if (diffDays < 30) return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 export function errorMessage(err, fallback = 'Something went wrong. Please try again.') {
   const data = err?.response?.data
   if (data?.message) return data.message
@@ -161,3 +176,5 @@ export function errorMessage(err, fallback = 'Something went wrong. Please try a
   if (err?.message === 'Network Error') return 'Network error. Check your connection and try again.'
   return fallback
 }
+
+

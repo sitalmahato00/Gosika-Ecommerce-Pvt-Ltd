@@ -39,6 +39,7 @@ export default function AdminCustomers() {
   const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
     deps: [statusFilter, search],
     pageSize: 15,
+    cacheKey: 'admin_customers_list',
   })
 
   const handleSearch = (e) => {

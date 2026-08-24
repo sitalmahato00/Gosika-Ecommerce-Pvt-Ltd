@@ -44,6 +44,7 @@ export default function AdminUsers() {
   const { items, meta, page, setPage, loading, error, reload } = useList(fetchUsers, {
     pageSize: 10,
     deps: [search, statusFilter, roleFilter],
+    cacheKey: 'admin_users_list',
   })
 
   const applySearch = (e) => {

@@ -40,7 +40,7 @@ export default function AdminVendors() {
           ...(search && { search }),
         },
       }),
-    { deps: [statusFilter, search], pageSize: 15 },
+    { deps: [statusFilter, search], pageSize: 15, cacheKey: 'admin_vendors_list' },
   )
 
   const handleSearch = (e) => {

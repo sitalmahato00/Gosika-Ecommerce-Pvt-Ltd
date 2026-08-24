@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/admin/analytics')->group(function () {
     Route::get('summary', [AdminAnalyticsController::class, 'summary']);
+    Route::get('sales-timeline', [AdminAnalyticsController::class, 'salesTimeline']);
     Route::get('orders-by-status', [AdminAnalyticsController::class, 'ordersByStatus']);
     Route::get('payment-methods', [AdminAnalyticsController::class, 'paymentMethods']);
     Route::get('top-stores', [AdminAnalyticsController::class, 'topStores']);

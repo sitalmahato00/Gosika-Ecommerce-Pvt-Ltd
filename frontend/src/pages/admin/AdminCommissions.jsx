@@ -23,7 +23,12 @@ export default function AdminCommissions() {
     if (search) params.search = search
     return api.get('/admin/commissions', { params })
   }
-  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { deps: [search] })
+
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
+    deps: [search],
+    pageSize: 15,
+    cacheKey: 'admin_commissions_list',
+  })
 
   const defaultsApi = useApi(() => api.get('/admin/commissions', { params: { page: 1, per_page: 1 } }))
   const defaults = defaultsApi.data?.meta?.defaults || {}

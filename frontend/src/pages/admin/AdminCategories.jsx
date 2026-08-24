@@ -59,10 +59,13 @@ const PRESET_CAT_IMAGES = [
   { label: 'Home & Kitchen', url: 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=500&q=80', iconName: 'Home', iconComp: HomeIcon },
 ]
 
+import { getCached, setCached } from '../../utils/adminCache'
+
 export default function AdminCategories() {
   const toast = useToast()
-  const [categories, setCategories] = useState([])
-  const [loading, setLoading] = useState(true)
+  const cached = getCached('admin_categories_list')?.data || []
+  const [categories, setCategories] = useState(cached)
+  const [loading, setLoading] = useState(cached.length === 0)
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState('table') // 'table' | 'grid'
   const [modalOpen, setModalOpen] = useState(false)
@@ -71,9 +74,13 @@ export default function AdminCategories() {
   const [saving, setSaving] = useState(false)
 
   const load = () => {
-    setLoading(true)
+    if (categories.length === 0) setLoading(true)
     api.get('/categories')
-      .then((r) => setCategories(r.data.data || []))
+      .then((r) => {
+        const list = r.data.data || []
+        setCategories(list)
+        setCached('admin_categories_list', list)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }

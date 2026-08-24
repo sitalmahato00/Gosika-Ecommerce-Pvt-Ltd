@@ -295,10 +295,10 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-3 wrap">
               {[
-                { label: 'Cash on Delivery', icon: Banknote, color: '#166534', bg: '#f0fdf4' },
-                { label: 'Khalti', icon: Wallet, color: '#7c3aed', bg: '#f5f3ff' },
-                { label: 'eSewa', icon: CreditCard, color: '#15803d', bg: '#f0fdf4' },
-                { label: 'Fonepay', icon: Smartphone, color: '#1d4ed8', bg: '#eff6ff' },
+                { label: 'Cash on Delivery', icon: Banknote, color: '#166534', bg: '#f0fdf4', img: null },
+                { label: 'Khalti', icon: Wallet, color: '#7c3aed', bg: '#f5f3ff', img: null },
+                { label: 'eSewa', icon: null, color: '#15803d', bg: '#f0fdf4', img: '/payments/esewa/esewa-icon.png' },
+                { label: 'Fonepay', icon: Smartphone, color: '#1d4ed8', bg: '#eff6ff', img: null },
               ].map((m) => (
                 <span
                   key={m.label}
@@ -310,7 +310,10 @@ export default function Home() {
                     border: `1px solid ${m.bg}`,
                   }}
                 >
-                  <m.icon size={16} /> {m.label}
+                  {m.img
+                    ? <img src={m.img} alt={m.label} style={{ width: 18, height: 18, objectFit: 'contain', borderRadius: '50%' }} />
+                    : <m.icon size={16} />
+                  } {m.label}
                 </span>
               ))}
             </div>

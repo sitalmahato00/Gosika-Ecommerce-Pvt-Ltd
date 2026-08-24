@@ -60,6 +60,7 @@ export default function AdminOrders() {
   const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
     deps: [statusFilter, paymentFilter, search, dateRange],
     pageSize: 15,
+    cacheKey: 'admin_orders_list',
   })
 
   useEffect(() => {

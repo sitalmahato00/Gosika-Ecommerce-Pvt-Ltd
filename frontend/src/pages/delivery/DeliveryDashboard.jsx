@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Truck, Navigation, DollarSign, Banknote, Power, Phone, User, Store,
@@ -18,8 +18,11 @@ import { Skeleton } from '../../components/ui/Skeleton'
 export default function DeliveryDashboard() {
   const toast = useToast()
   const { rider, online, toggleOnline, toggling } = useDelivery()
-  const assignments = useApi(() => api.get('/delivery-partner/assignments', { params: { per_page: 100 } }))
   const [busyId, setBusyId] = useState(null)
+  const assignments = useApi(
+    () => api.get('/delivery-partner/assignments', { params: { per_page: 100 } }),
+    { cacheKey: 'delivery_assignments' }
+  )
 
   const all = assignments.data?.data ?? []
   const active = useMemo(() => all.filter((a) => ACTIVE_STATUSES.includes(a.status)), [all])

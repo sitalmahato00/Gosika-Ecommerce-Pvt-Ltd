@@ -1261,10 +1261,12 @@ button {
 }
 .dash-nav-link:hover { background: rgba(148, 163, 184, 0.1); color: #e2e8f0; }
 .dash-nav-link.active {
-  background: var(--primary);
-  color: #fff;
-  font-weight: 600;
-  box-shadow: 0 2px 6px rgba(37,99,235,0.4);
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--primary);
+  font-weight: 700;
+  box-shadow: none;
+  border-left: 3px solid var(--primary);
+  padding-left: 9px;
 }
 .dash-nav-footer {
   padding: 12px;
@@ -2237,3 +2239,119 @@ button {
 .cursor-pointer { cursor: pointer; }
 .divide-y > :not([hidden]) ~ :not([hidden]) { border-top: 1px solid #f1f5f9; }
 .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-top: 1px solid #f1f5f9; }
+
+/* ---------- Additional utility helpers ---------- */
+.hide-md-up { display: flex; }
+@media (min-width: 901px) { .hide-md-up { display: none !important; } }
+.min-w-0 { min-width: 0; }
+.flex-shrink-0 { flex-shrink: 0; }
+.mt-1\.5 { margin-top: 6px; }
+.mt-2\.5 { margin-top: 10px; }
+.pt-2\.5 { padding-top: 10px; }
+.text-ink { color: var(--ink); }
+.text-white { color: #fff; }
+
+/* ---------- Collapsed sidebar: preserve active border style ---------- */
+.dash-sidebar.collapsed .dash-nav-link.active {
+  border-left: 3px solid var(--primary);
+  padding-left: 0;
+  background: rgba(37, 99, 235, 0.1);
+}
+
+/* ---------- Topbar greeting refinements ---------- */
+.dash-topbar .greeting-line {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.25;
+}
+.dash-topbar .greeting-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+/* ---------- KPI card icon-left layout ---------- */
+.kpi-card-v2 {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.kpi-card-v2:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.kpi-card-v2 .kpi-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.kpi-card-v2 .kpi-body { flex: 1; min-width: 0; }
+.kpi-card-v2 .kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.kpi-card-v2 .kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.1;
+}
+.kpi-card-v2 .kpi-trend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.kpi-trend-up { color: #16a34a; }
+.kpi-trend-down { color: #dc2626; }
+.kpi-trend-neutral { color: var(--muted); }
+
+/* ---------- Dashboard footer strip ---------- */
+.dash-page-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------- Sales overview chart container ---------- */
+.sales-chart-wrap {
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ---------- Order status donut legend ---------- */
+.donut-legend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 3px 0;
+}
+.donut-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

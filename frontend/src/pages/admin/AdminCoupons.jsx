@@ -78,6 +78,7 @@ export default function AdminCoupons() {
   const { items, meta, page, setPage, loading, error, reload } = useList(fetchCoupons, {
     pageSize: 10,
     deps: [statusFilter, search],
+    cacheKey: 'admin_coupons_list',
   })
 
   const applySearch = (e) => {

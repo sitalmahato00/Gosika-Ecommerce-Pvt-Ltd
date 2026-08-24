@@ -28,7 +28,11 @@ export default function AdminWallets() {
     if (search) params.search = search
     return api.get('/admin/wallet/wallets', { params })
   }
-  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { deps: [search] })
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
+    deps: [search],
+    pageSize: 15,
+    cacheKey: 'admin_wallets_list',
+  })
 
   const openAdjust = (w) => {
     setAdjustTarget(w)

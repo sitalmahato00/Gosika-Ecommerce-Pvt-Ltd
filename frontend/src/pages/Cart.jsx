@@ -324,10 +324,10 @@ export default function Cart() {
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {[
-                  { label: 'COD', icon: Banknote },
-                  { label: 'Khalti', icon: Wallet },
-                  { label: 'eSewa', icon: CreditCard },
-                  { label: 'Fonepay', icon: Smartphone }
+                  { label: 'COD', icon: Banknote, img: null },
+                  { label: 'Khalti', icon: Wallet, img: null },
+                  { label: 'eSewa', icon: null, img: '/payments/esewa/esewa-icon.png' },
+                  { label: 'Fonepay', icon: Smartphone, img: null }
                 ].map((m) => (
                   <span
                     key={m.label}
@@ -344,7 +344,10 @@ export default function Cart() {
                       color: 'var(--muted)',
                     }}
                   >
-                    <m.icon size={12} color="var(--primary)" /> {m.label}
+                    {m.img
+                      ? <img src={m.img} alt={m.label} style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }} />
+                      : <m.icon size={12} color="var(--primary)" />
+                    } {m.label}
                   </span>
                 ))}
               </div>

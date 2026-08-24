@@ -37,7 +37,11 @@ export default function AdminSettlements() {
     if (search) params.search = search
     return api.get('/admin/wallet/settlements', { params })
   }
-  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { deps: [search, statusFilter] })
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
+    deps: [search, statusFilter],
+    pageSize: 15,
+    cacheKey: 'admin_settlements_list',
+  })
 
   const vendorsApi = useApi(() => api.get('/admin/vendors', { params: { per_page: 50 } }))
   const vendors = vendorsApi.data?.data || []

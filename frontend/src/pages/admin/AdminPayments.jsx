@@ -46,7 +46,12 @@ export default function AdminPayments() {
     if (search) params.search = search
     return api.get('/admin/payments', { params })
   }
-  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { deps: [search, statusFilter, providerFilter] })
+
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
+    deps: [search, statusFilter, providerFilter],
+    pageSize: 15,
+    cacheKey: 'admin_payments_list',
+  })
 
   const openDetails = async (p) => {
     setSelectedTxn(p)

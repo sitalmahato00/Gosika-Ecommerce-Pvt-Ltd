@@ -169,6 +169,75 @@ class AdminAnalyticsController extends Controller
         ])->values(), 'Province stats retrieved.');
     }
 
+    public function salesTimeline(Request $request): JsonResponse
+    {
+        $range = $request->input('range', '30d');
+        [$start, $buckets] = $this->trendBuckets($range);
+
+        $totals = [];
+        $rows = Order::query()
+            ->where('created_at', '>=', $start)
+            ->whereNotIn('status', [OrderStatus::CANCELLED->value, OrderStatus::FAILED->value])
+            ->select('created_at', 'grand_total')
+            ->get();
+
+        foreach ($rows as $row) {
+            $date = $row->created_at;
+            $key = match ($range) {
+                '90d' => $date->copy()->startOfWeek()->toDateString(),
+                'year' => $date->format('Y-m'),
+                default => $date->format('Y-m-d'),
+            };
+            $totals[$key] = ($totals[$key] ?? 0) + (float) $row->grand_total;
+        }
+
+        $data = array_map(fn (array $bucket) => [
+            'label' => $bucket['label'],
+            'revenue' => (float) ($totals[$bucket['key']] ?? 0),
+            'value' => number_format($totals[$bucket['key']] ?? 0, 2, '.', ''),
+        ], $buckets);
+
+        return Response::success($data, 'Sales timeline retrieved.');
+    }
+
+    protected function trendBuckets(string $range): array
+    {
+        if ($range === 'year') {
+            $start = now()->startOfYear();
+            $buckets = [];
+
+            for ($i = 0; $i < 12; $i++) {
+                $date = $start->copy()->addMonths($i);
+                $buckets[] = ['key' => $date->format('Y-m'), 'label' => $date->format('M')];
+            }
+
+            return [$start, $buckets];
+        }
+
+        if ($range === '90d') {
+            $start = now()->startOfWeek()->subWeeks(11);
+            $buckets = [];
+
+            for ($i = 0; $i < 12; $i++) {
+                $date = $start->copy()->addWeeks($i);
+                $buckets[] = ['key' => $date->toDateString(), 'label' => 'W'.str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT)];
+            }
+
+            return [$start, $buckets];
+        }
+
+        $count = $range === '7d' ? 7 : 30;
+        $start = now()->startOfDay()->subDays($count - 1);
+        $buckets = [];
+
+        for ($i = 0; $i < $count; $i++) {
+            $date = $start->copy()->addDays($i);
+            $buckets[] = ['key' => $date->format('Y-m-d'), 'label' => $date->format('M d')];
+        }
+
+        return [$start, $buckets];
+    }
+
     protected function fromDate(string $range): \Illuminate\Support\Carbon
     {
         return match ($range) {
@@ -179,3 +248,4 @@ class AdminAnalyticsController extends Controller
         };
     }
 }
+

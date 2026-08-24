@@ -57,7 +57,7 @@ export default function VendorOrderDetail() {
     return <ErrorState message={errorMessage(error, 'Order not found.')} onRetry={load} />
   }
 
-  const addr = order.order?.shipping_address || order.shipping_address
+  const addr = order.shipping_address || order.order?.shipping_address || {}
 
   return (
     <div className="flex flex-col gap-4">
@@ -129,9 +129,17 @@ export default function VendorOrderDetail() {
           <div className="card">
             <h3 style={{ fontSize: 16 }} className="flex items-center gap-2 mb-2"><MapPin size={16} color="var(--primary)" /> Delivery address</h3>
             <div className="text-sm">
-              <div className="font-semibold">{addr?.name}</div>
-              <div className="muted">{addr?.street}, {addr?.municipality}, {addr?.district}, {addr?.province}</div>
-              <div className="muted flex items-center gap-1 mt-1"><Phone size={12} /> {addr?.phone}</div>
+              <div className="font-semibold" style={{ color: 'var(--ink)', fontSize: 14 }}>
+                {addr?.name || addr?.full_name || 'Customer'}
+              </div>
+              <div className="muted" style={{ marginTop: 2 }}>
+                {[addr?.street || addr?.address_line_1, addr?.municipality || addr?.city, addr?.district, addr?.province].filter(Boolean).join(', ') || 'Address not specified'}
+              </div>
+              {addr?.phone && (
+                <div className="muted flex items-center gap-1 mt-1.5" style={{ fontSize: 13, color: 'var(--ink)' }}>
+                  <Phone size={13} color="var(--primary)" /> {addr.phone}
+                </div>
+              )}
             </div>
           </div>
 
