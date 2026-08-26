@@ -30,6 +30,67 @@ class AdminCatalogController extends Controller
         $this->middleware('permission:products.approve|products.view|categories.manage|brands.manage');
     }
 
+    public function products(Request $request): JsonResponse
+    {
+        $query = Product::query()
+            ->with(['vendor', 'store', 'category', 'brand', 'variants', 'images'])
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
+            ->when($request->filled('vendor_id'), fn ($q) => $q->where('vendor_id', $request->vendor_id))
+            ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->category_id))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $term = '%'.$request->search.'%';
+                $q->where(function ($sub) use ($term) {
+                    $sub->where('name', 'like', $term)
+                        ->orWhere('sku', 'like', $term);
+                });
+            })
+            ->orderByDesc('created_at');
+
+        $products = $query->paginate((int) $request->integer('per_page', 20));
+
+        return Response::success(ProductResource::collection($products), 'Products retrieved.', [
+            'current_page' => $products->currentPage(),
+            'per_page' => $products->perPage(),
+            'total' => $products->total(),
+            'last_page' => $products->lastPage(),
+        ]);
+    }
+
+    public function showProduct(string $productId): JsonResponse
+    {
+        $product = Product::query()
+            ->where('uuid', $productId)
+            ->orWhere('id', $productId)
+            ->with(['vendor', 'store', 'category', 'brand', 'variants', 'images', 'attributes.values'])
+            ->first();
+
+        if (! $product) {
+            throw new DomainException('Product not found.', 404);
+        }
+
+        return Response::success(new ProductResource($product), 'Product retrieved.');
+    }
+
+    public function suspendProduct(Request $request, string $productId): JsonResponse
+    {
+        $this->authorize('products.approve');
+
+        $product = Product::query()
+            ->where('uuid', $productId)
+            ->orWhere('id', $productId)
+            ->first();
+
+        if (! $product) {
+            throw new DomainException('Product not found.', 404);
+        }
+
+        $product->update([
+            'status' => \App\Modules\Shared\Domain\Enums\ProductStatus::REJECTED,
+        ]);
+
+        return Response::success(new ProductResource($product), 'Product suspended.');
+    }
+
     public function pendingProducts(Request $request): JsonResponse
     {
         $products = Product::query()

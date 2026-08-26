@@ -4,7 +4,7 @@ use App\Modules\Analytics\Presentation\Http\Controllers\AdminAnalyticsController
 use App\Modules\Analytics\Presentation\Http\Controllers\VendorAnalyticsController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1/admin/analytics')->group(function () {
+Route::prefix('v1/admin/analytics')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('summary', [AdminAnalyticsController::class, 'summary']);
     Route::get('sales-timeline', [AdminAnalyticsController::class, 'salesTimeline']);
     Route::get('orders-by-status', [AdminAnalyticsController::class, 'ordersByStatus']);
@@ -14,7 +14,7 @@ Route::prefix('v1/admin/analytics')->group(function () {
     Route::get('provinces', [AdminAnalyticsController::class, 'provinceStats']);
 });
 
-Route::prefix('v1/vendor/analytics')->group(function () {
+Route::prefix('v1/vendor/analytics')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
     Route::get('summary', [VendorAnalyticsController::class, 'summary']);
     Route::get('revenue-trend', [VendorAnalyticsController::class, 'revenueTrend']);
     Route::get('orders-by-status', [VendorAnalyticsController::class, 'ordersByStatus']);

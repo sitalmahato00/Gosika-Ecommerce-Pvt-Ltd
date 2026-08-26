@@ -1,293 +1,370 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Store, Eye, CheckCircle2, XCircle, Search, Download } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  Store, Eye, Check, X, ShieldAlert, CheckCircle2,
+  RefreshCw, Download, Store as StoreIcon, ShieldCheck
+} from 'lucide-react'
 import api from '../../api/client'
+import PageHeader from '../../components/admin/PageHeader'
+import DataTable from '../../components/admin/DataTable'
+import FilterBar from '../../components/admin/FilterBar'
+import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import { Skeleton } from '../../components/ui/Skeleton'
-import EmptyState from '../../components/ui/EmptyState'
-import ErrorState from '../../components/ui/ErrorState'
-import Pagination from '../../components/ui/Pagination'
-import ConfirmDialog from '../../components/ui/ConfirmDialog'
-import { formatDate, errorMessage } from '../../utils/format'
+import { formatDate, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
-import { useList } from '../../hooks/useApi'
-
-const STATUS_TABS = [
-  { value: '', label: 'All Vendors' },
-  { value: 'pending', label: 'Pending Review' },
-  { value: 'under_review', label: 'Under Review' },
-  { value: 'approved', label: 'Approved / Active' },
-  { value: 'suspended', label: 'Suspended' },
-  { value: 'rejected', label: 'Rejected' },
-]
 
 export default function AdminVendors() {
   const toast = useToast()
-  const [statusFilter, setStatusFilter] = useState('')
+  const navigate = useNavigate()
+
+  const [vendors, setVendors] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [pagination, setPagination] = useState(null)
+  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const [searchInput, setSearchInput] = useState('')
-  const [rejectTarget, setRejectTarget] = useState(null)
-  const [rejectReason, setRejectReason] = useState('')
-  const [actionBusy, setActionBusy] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('all')
 
-  const { items, meta, page, setPage, loading, error, reload } = useList(
-    (targetPage, perPage) =>
-      api.get('/admin/vendors', {
-        params: {
-          page: targetPage,
-          per_page: perPage,
-          ...(statusFilter && { status: statusFilter }),
-          ...(search && { search }),
-        },
-      }),
-    { deps: [statusFilter, search], pageSize: 15, cacheKey: 'admin_vendors_list' },
-  )
+  const [dialogState, setDialogState] = useState({
+    isOpen: false,
+    action: null, // 'approve' | 'reject' | 'suspend' | 'activate'
+    vendor: null,
+    loading: false
+  })
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-    setSearch(searchInput)
-    setPage(1)
-  }
-
-  const doApprove = async (vendor) => {
-    setActionBusy(true)
+  const loadVendors = async () => {
+    setLoading(true)
     try {
-      await api.post(`/admin/vendors/${vendor.id}/approve`)
-      toast.success(`Approved "${vendor.company_name}"`)
-      reload()
+      const params = { page, per_page: 15 }
+      if (statusFilter && statusFilter !== 'all') params.status = statusFilter
+      if (search.trim()) params.search = search.trim()
+
+      const res = await api.get('/admin/vendors', { params })
+      const data = res.data?.data || []
+      setVendors(data)
+      if (res.data?.meta?.pagination) {
+        setPagination(res.data.meta.pagination)
+      } else {
+        setPagination({
+          current_page: page,
+          last_page: 1,
+          total: data.length,
+          per_page: 15
+        })
+      }
     } catch (err) {
-      toast.error(errorMessage(err, 'Failed to approve vendor.'))
+      toast.error('Failed to load vendors.')
     } finally {
-      setActionBusy(false)
+      setLoading(false)
     }
   }
 
-  const doReject = async () => {
-    if (!rejectTarget) return
-    setActionBusy(true)
+  useEffect(() => {
+    loadVendors()
+  }, [page, statusFilter])
+
+  const handleAction = (action, vendor) => {
+    setDialogState({
+      isOpen: true,
+      action,
+      vendor,
+      loading: false
+    })
+  }
+
+  const handleConfirmAction = async (reason) => {
+    const { action, vendor } = dialogState
+    if (!vendor) return
+
+    setDialogState(prev => ({ ...prev, loading: true }))
+    const targetId = vendor.uuid || vendor.id
+
     try {
-      await api.post(`/admin/vendors/${rejectTarget.id}/reject`, { reason: rejectReason || 'Application rejected by administration.' })
-      toast.success(`Rejected "${rejectTarget.company_name}"`)
-      setRejectTarget(null)
-      setRejectReason('')
-      reload()
+      if (action === 'approve') {
+        await api.post(`/admin/vendors/${targetId}/approve`)
+        toast.success(`Vendor "${vendor.company_name}" approved.`)
+      } else if (action === 'reject') {
+        await api.post(`/admin/vendors/${targetId}/reject`, { reason })
+        toast.success(`Vendor "${vendor.company_name}" application rejected.`)
+      } else if (action === 'suspend') {
+        await api.post(`/admin/vendors/${targetId}/suspend`, { reason })
+        toast.success(`Vendor "${vendor.company_name}" suspended.`)
+      } else if (action === 'activate') {
+        await api.post(`/admin/vendors/${targetId}/activate`)
+        toast.success(`Vendor "${vendor.company_name}" activated.`)
+      }
+
+      setDialogState({ isOpen: false, action: null, vendor: null, loading: false })
+      loadVendors()
     } catch (err) {
-      toast.error(errorMessage(err, 'Failed to reject vendor.'))
-    } finally {
-      setActionBusy(false)
+      toast.error(err.response?.data?.message || 'Operation failed.')
+      setDialogState(prev => ({ ...prev, loading: false }))
     }
   }
 
   const exportCSV = () => {
     const rows = [
-      ['Vendor ID', 'Company Name', 'Email', 'Phone', 'Commission Rate (%)', 'Status', 'Joined Date'],
-      ...items.map((v) => [
+      ['Vendor ID', 'Company Name', 'Email', 'Phone', 'PAN/VAT', 'Commission Rate (%)', 'Status', 'Registered At'],
+      ...vendors.map((v) => [
         v.id,
-        v.company_name,
-        v.business_email,
-        v.business_phone,
-        v.commission_rate,
-        v.status,
+        `"${v.company_name || ''}"`,
+        v.business_email || '',
+        v.business_phone || '',
+        v.pan_vat || '',
+        v.commission_rate ?? '',
+        v.status || '',
         formatDate(v.created_at),
       ])
     ]
     const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
-    const encodedUri = encodeURI(csvContent)
     const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
+    link.setAttribute('href', encodeURI(csvContent))
     link.setAttribute('download', `gosika_vendors_${new Date().toISOString().slice(0, 10)}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    toast.success('Vendor list exported to CSV')
+    toast.success('Vendors exported to CSV.')
   }
 
+  const columns = [
+    {
+      header: 'Vendor & Store',
+      render: item => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              background: '#eff6ff',
+              color: 'var(--primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            <Store size={20} />
+          </div>
+          <div>
+            <Link
+              to={`/admin/marketplace/vendors/${item.uuid || item.id}`}
+              style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', textDecoration: 'none' }}
+              className="hover:text-primary"
+            >
+              {item.company_name}
+            </Link>
+            <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+              {item.business_email} {item.business_phone ? `· ${item.business_phone}` : ''}
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      header: 'PAN / VAT',
+      render: item => (
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+          {item.pan_vat || '—'}
+        </span>
+      )
+    },
+    {
+      header: 'KYC Status',
+      render: item => {
+        const kycStatus = item.kyc?.status || 'draft'
+        return <StatusBadge status={kycStatus} />
+      }
+    },
+    {
+      header: 'Storefronts',
+      render: item => {
+        const count = item.stores?.length || 0
+        return (
+          <span className="chip chip-sm" style={{ fontSize: 11, fontWeight: 700, background: '#f8fafc' }}>
+            {count} {count === 1 ? 'store' : 'stores'}
+          </span>
+        )
+      }
+    },
+    {
+      header: 'Status',
+      accessor: 'status',
+      render: item => <StatusBadge status={item.status} />
+    },
+    {
+      header: 'Commission',
+      render: item => (
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
+          {item.commission_rate !== null && item.commission_rate !== undefined ? `${item.commission_rate}%` : 'Default'}
+        </span>
+      )
+    },
+    {
+      header: 'Joined',
+      render: item => (
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+          {timeAgo(item.created_at)}
+        </span>
+      )
+    },
+    {
+      header: 'Actions',
+      align: 'right',
+      render: item => {
+        const isPending = item.status === 'pending' || item.status === 'under_review'
+        const isActive = item.status === 'approved' || item.status === 'active'
+        const isSuspended = item.status === 'suspended'
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+            <Link
+              to={`/admin/marketplace/vendors/${item.uuid || item.id}`}
+              className="btn btn-outline btn-xs"
+              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <Eye size={12} /> Detail
+            </Link>
+
+            {isPending && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  style={{ background: '#16a34a', color: '#fff', border: 'none' }}
+                  onClick={() => handleAction('approve', item)}
+                >
+                  <Check size={12} /> Approve
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-xs"
+                  style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                  onClick={() => handleAction('reject', item)}
+                >
+                  <X size={12} /> Reject
+                </button>
+              </>
+            )}
+
+            {isActive && (
+              <button
+                type="button"
+                className="btn btn-outline btn-xs"
+                style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                onClick={() => handleAction('suspend', item)}
+              >
+                Suspend
+              </button>
+            )}
+
+            {isSuspended && (
+              <button
+                type="button"
+                className="btn btn-xs"
+                style={{ background: '#2563eb', color: '#fff', border: 'none' }}
+                onClick={() => handleAction('activate', item)}
+              >
+                Reactivate
+              </button>
+            )}
+          </div>
+        )
+      }
+    }
+  ]
+
   return (
-    <div>
-      <div className="page-header">
-        <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Vendor Management</h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Monitor marketplace partners, review their applications, and manage vendor compliance.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="btn btn-outline btn-sm" onClick={exportCSV}>
-            <Download size={14} /> Export CSV
-          </button>
-        </div>
-      </div>
-
-      <div className="tabs" style={{ marginBottom: 16 }}>
-        {STATUS_TABS.map((t) => (
-          <button
-            key={t.value}
-            className={`tab ${statusFilter === t.value ? 'active' : ''}`}
-            onClick={() => { setStatusFilter(t.value); setPage(1) }}
-            aria-pressed={statusFilter === t.value}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center', justifyContent: 'space-between' }}>
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, flex: 1, maxWidth: 380 }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
-            <input
-              className="input"
-              style={{ paddingLeft: 32 }}
-              placeholder="Search vendors or email…"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="btn btn-outline btn-sm">
-            <Search size={14} />
-          </button>
-        </form>
-
-        {search && (
-          <button
-            className="btn btn-ghost btn-xs text-danger"
-            onClick={() => { setSearch(''); setSearchInput(''); setPage(1) }}
-          >
-            Clear Search
-          </button>
-        )}
-      </div>
-
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} height={75} />)}
-        </div>
-      ) : error ? (
-        <ErrorState message={errorMessage(error, 'Failed to load vendors.')} onRetry={reload} />
-      ) : !items.length ? (
-        <EmptyState
-          icon={Store}
-          title={search || statusFilter ? 'No vendors match your filters' : 'No vendors in this category'}
-          message={search || statusFilter ? 'Try changing the status tab or search keyword.' : 'Registered vendor partners will appear here.'}
-          action={
-            <button className="btn btn-outline" onClick={() => { setStatusFilter(''); setSearch(''); setSearchInput('') }}>
-              Reset Filters
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <PageHeader
+        title="Vendor Management"
+        description="Monitor merchant applications, verify KYC, regulate commission agreements, and control selling status."
+        breadcrumbs={[
+          { label: 'Marketplace', to: '/admin/marketplace/vendors' },
+          { label: 'Vendors' }
+        ]}
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={exportCSV}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
+            >
+              <Download size={14} />
+              Export CSV
             </button>
-          }
-        />
-      ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Vendor</th>
-                <th>Business Type</th>
-                <th>Status</th>
-                <th>Commission</th>
-                <th>Joined</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((v) => {
-                const isPending = v.status === 'pending' || v.status === 'under_review'
-                return (
-                  <tr key={v.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span
-                          className="avatar"
-                          style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 'var(--radius)',
-                            background: 'var(--primary-50)',
-                            color: 'var(--primary)',
-                            flexShrink: 0
-                          }}
-                        >
-                          <Store size={20} />
-                        </span>
-                        <div style={{ minWidth: 0 }}>
-                          <Link to={`/admin/vendors/${v.id}`} className="font-bold text-sm text-ink hover:text-primary">
-                            {v.company_name}
-                          </Link>
-                          <div className="muted text-xs">
-                            {v.business_email} {v.business_phone ? `· ${v.business_phone}` : ''}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="chip chip-sm" style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--ink)' }}>
-                        {v.kyc?.business_type || '—'}
-                      </span>
-                    </td>
-                    <td>
-                      <StatusBadge status={v.status} />
-                    </td>
-                    <td>
-                      <span className="font-bold text-ink">{v.commission_rate ?? '—'}%</span>
-                    </td>
-                    <td className="muted text-xs">
-                      {formatDate(v.created_at)}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        <Link to={`/admin/vendors/${v.id}`} className="btn btn-outline btn-xs" title="View details">
-                          <Eye size={12} /> View
-                        </Link>
-                        {isPending && (
-                          <>
-                            <button
-                              className="btn btn-success btn-xs"
-                              onClick={() => doApprove(v)}
-                              disabled={actionBusy}
-                            >
-                              <CheckCircle2 size={12} /> Approve
-                            </button>
-                            <button
-                              className="btn btn-danger-outline btn-xs"
-                              onClick={() => setRejectTarget(v)}
-                              disabled={actionBusy}
-                            >
-                              <XCircle size={12} /> Reject
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
-        </div>
-      )}
 
-      {rejectTarget && (
-        <ConfirmDialog
-          open={!!rejectTarget}
-          onClose={() => setRejectTarget(null)}
-          onConfirm={doReject}
-          danger
-          loading={actionBusy}
-          title={`Reject Application for "${rejectTarget.company_name}"?`}
-          message="Please state a reason why this vendor application cannot be approved."
-          confirmText="Confirm Rejection"
-        >
-          <div style={{ marginTop: 12 }}>
-            <textarea
-              className="textarea"
-              rows={3}
-              placeholder="e.g. Incomplete KYC documentation or unverified business registration number."
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-            />
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={loadVendors}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
+            >
+              <RefreshCw size={14} className={loading ? 'spin' : ''} />
+              Refresh
+            </button>
           </div>
-        </ConfirmDialog>
-      )}
+        }
+      />
+
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search by vendor name, email, phone..."
+        statusFilter={statusFilter}
+        onStatusChange={setStatusFilter}
+        statusOptions={[
+          { value: 'approved', label: 'Approved & Active' },
+          { value: 'pending', label: 'Pending Review' },
+          { value: 'under_review', label: 'Under Review' },
+          { value: 'suspended', label: 'Suspended' },
+          { value: 'rejected', label: 'Rejected' },
+        ]}
+        onReset={() => { setSearch(''); setStatusFilter('all') }}
+      />
+
+      <DataTable
+        columns={columns}
+        data={vendors}
+        loading={loading}
+        pagination={pagination}
+        onPageChange={setPage}
+        onRowClick={item => navigate(`/admin/marketplace/vendors/${item.uuid || item.id}`)}
+        emptyTitle="No vendors found"
+        emptyDescription="No registered merchant accounts match your selected filter criteria."
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={dialogState.isOpen}
+        onClose={() => setDialogState({ isOpen: false, action: null, vendor: null, loading: false })}
+        onConfirm={handleConfirmAction}
+        loading={dialogState.loading}
+        title={
+          dialogState.action === 'approve'
+            ? `Approve Merchant "${dialogState.vendor?.company_name}"?`
+            : dialogState.action === 'reject'
+            ? `Reject Application for "${dialogState.vendor?.company_name}"?`
+            : dialogState.action === 'suspend'
+            ? `Suspend Vendor "${dialogState.vendor?.company_name}"?`
+            : `Reactivate Vendor "${dialogState.vendor?.company_name}"?`
+        }
+        message={
+          dialogState.action === 'approve'
+            ? 'Approving will grant this merchant active selling status and create their default store.'
+            : dialogState.action === 'reject'
+            ? 'Rejecting will decline this application. Please specify the reason.'
+            : dialogState.action === 'suspend'
+            ? 'Suspending will disable all stores and products associated with this vendor immediately.'
+            : 'Reactivating will restore the vendor and their active storefronts.'
+        }
+        variant={dialogState.action === 'approve' || dialogState.action === 'activate' ? 'success' : 'danger'}
+        confirmText={
+          dialogState.action === 'approve' ? 'Approve Vendor' : dialogState.action === 'reject' ? 'Reject Application' : dialogState.action === 'suspend' ? 'Suspend Vendor' : 'Reactivate Vendor'
+        }
+        requireReason={dialogState.action === 'reject' || dialogState.action === 'suspend'}
+        reasonPlaceholder="Provide the administrative reason for this action..."
+      />
     </div>
   )
 }

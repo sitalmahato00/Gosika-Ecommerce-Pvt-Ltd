@@ -236,9 +236,34 @@ class AdminWalletController extends Controller
         return Response::success(new WalletResource($wallet), 'Balance adjusted.');
     }
 
+    public function approveSettlement(string $settlementId): JsonResponse
+    {
+        $settlement = Settlement::where('uuid', $settlementId)->orWhere('id', $settlementId)->firstOrFail();
+        $settlement->update([
+            'status' => 'approved',
+            'paid_at' => now(),
+        ]);
+
+        app(AuditLogService::class)->record(request()->user(), 'settlement.approved', 'settlement', $settlement->uuid, null, ['status' => 'approved']);
+
+        return Response::success(new SettlementResource($settlement), 'Settlement approved.');
+    }
+
+    public function rejectSettlement(Request $request, string $settlementId): JsonResponse
+    {
+        $settlement = Settlement::where('uuid', $settlementId)->orWhere('id', $settlementId)->firstOrFail();
+        $settlement->update([
+            'status' => 'rejected',
+        ]);
+
+        app(AuditLogService::class)->record(request()->user(), 'settlement.rejected', 'settlement', $settlement->uuid, null, ['status' => 'rejected', 'reason' => $request->input('reason')]);
+
+        return Response::success(new SettlementResource($settlement), 'Settlement rejected.');
+    }
+
     protected function vendor(string $vendorId): Vendor
     {
-        $vendor = Vendor::query()->where('uuid', $vendorId)->first();
+        $vendor = Vendor::query()->where('uuid', $vendorId)->orWhere('id', $vendorId)->first();
 
         if (! $vendor) {
             throw new DomainException('Vendor not found.', 404);
@@ -249,7 +274,7 @@ class AdminWalletController extends Controller
 
     protected function payout(string $payoutId): PayoutRequest
     {
-        $payout = PayoutRequest::query()->with(['bankAccount', 'settlement', 'records'])->where('uuid', $payoutId)->first();
+        $payout = PayoutRequest::query()->with(['bankAccount', 'settlement', 'records'])->where('uuid', $payoutId)->orWhere('id', $payoutId)->first();
 
         if (! $payout) {
             throw new DomainException('Payout request not found.', 404);

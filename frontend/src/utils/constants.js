@@ -187,31 +187,53 @@ export const DELIVERY_MOBILE_NAV = [
 ]
 
 export const ADMIN_NAV = [
-  { section: 'Main' },
+  { section: 'Overview' },
   { to: '/admin', label: 'Dashboard', icon: 'LayoutDashboard', end: true },
 
-  { section: 'Commerce' },
-  { to: '/admin/orders', label: 'Order Management', icon: 'ShoppingBag' },
-  { to: '/admin/products', label: 'Products', icon: 'Package' },
-  { to: '/admin/vendors', label: 'Vendors', icon: 'Store' },
+  { section: 'Marketplace' },
+  { to: '/admin/marketplace/vendors', label: 'Vendors', icon: 'Store' },
+  { to: '/admin/marketplace/kyc', label: 'KYC Verification', icon: 'ShieldCheck', badge: 'Pending', badgeColor: 'amber' },
+  { to: '/admin/marketplace/stores', label: 'Stores', icon: 'Building2' },
+  { to: '/admin/marketplace/products', label: 'Products', icon: 'Package' },
+  { to: '/admin/marketplace/categories', label: 'Categories', icon: 'FolderTree' },
+  { to: '/admin/marketplace/brands', label: 'Brands', icon: 'Award' },
+  { to: '/admin/marketplace/reviews', label: 'Reviews', icon: 'Star' },
+
+  { section: 'Orders & Service' },
+  { to: '/admin/orders', label: 'All Orders', icon: 'ShoppingBag' },
+  { to: '/admin/orders/returns', label: 'Returns', icon: 'RotateCcw' },
+  { to: '/admin/orders/refunds', label: 'Refunds', icon: 'Receipt' },
+
+  { section: 'Fulfillment' },
+  { to: '/admin/fulfillment/partners', label: 'Delivery Partners', icon: 'Truck' },
+  { to: '/admin/fulfillment/assignments', label: 'Assignments', icon: 'Send' },
+  { to: '/admin/fulfillment/zones', label: 'Shipping Zones', icon: 'MapPin' },
+
+  { section: 'Finance & Ledger' },
+  { to: '/admin/finance/payments', label: 'Payments', icon: 'CreditCard' },
+  { to: '/admin/finance/commissions', label: 'Commissions', icon: 'Percent' },
+  { to: '/admin/finance/wallets', label: 'Vendor Wallets', icon: 'Wallet' },
+  { to: '/admin/finance/settlements', label: 'Settlements', icon: 'FileSpreadsheet' },
+  { to: '/admin/finance/payouts', label: 'Payouts', icon: 'Banknote' },
+
+  { section: 'Customers' },
   { to: '/admin/customers', label: 'Customers', icon: 'Users' },
-  { to: '/admin/categories', label: 'Categories', icon: 'FolderTree' },
-  { to: '/admin/coupons', label: 'Bonus / Offer', icon: 'Ticket' },
+  { to: '/admin/customers/support', label: 'Complaints & Help', icon: 'Headphones' },
 
-  { section: 'Finance' },
-  { to: '/admin/payments', label: 'Payments', icon: 'CreditCard' },
-  { to: '/admin/commissions', label: 'Commissions', icon: 'Percent' },
-  { to: '/admin/wallets', label: 'Wallet', icon: 'Wallet' },
-  { to: '/admin/settlements', label: 'Settlements', icon: 'FileSpreadsheet' },
+  { section: 'Marketing' },
+  { to: '/admin/marketing/promotions', label: 'Promotions', icon: 'Sparkles' },
+  { to: '/admin/marketing/coupons', label: 'Coupons & Offers', icon: 'Ticket' },
+  { to: '/admin/marketing/banners', label: 'Banners', icon: 'Image' },
 
-  { section: 'Reports' },
-  { to: '/admin/analytics', label: 'Sales Report', icon: 'BarChart2' },
-  { to: '/admin/analytics', label: 'Vendor Report', icon: 'Store' },
-  { to: '/admin/analytics', label: 'Customer Report', icon: 'UserCheck' },
+  { section: 'Analytics' },
+  { to: '/admin/analytics', label: 'Sales & Growth', icon: 'BarChart2' },
 
-  { section: 'System' },
-  { to: '/admin/settings', label: 'Settings', icon: 'Settings' },
-  { to: '/admin/users', label: 'User Management', icon: 'Shield' },
+  { section: 'System & Security' },
+  { to: '/admin/system/notifications', label: 'Notifications', icon: 'Bell' },
+  { to: '/admin/system/users', label: 'Admin Users', icon: 'Shield' },
+  { to: '/admin/system/roles', label: 'Roles & Permissions', icon: 'Key' },
+  { to: '/admin/system/audit-logs', label: 'Audit Logs', icon: 'ScrollText' },
+  { to: '/admin/system/settings', label: 'Settings', icon: 'Settings' },
 ]
 
 export const SHIPPING_METHODS = [

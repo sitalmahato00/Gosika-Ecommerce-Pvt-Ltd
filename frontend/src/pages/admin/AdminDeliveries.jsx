@@ -1,493 +1,423 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Truck, Clock, CheckCircle2, Search, MapPin, Eye, UserCheck,
-  Download, User, Store, Phone
+  Download, User, Store, Phone, RefreshCw, X, Send, AlertTriangle
 } from 'lucide-react'
 import api from '../../api/client'
+import PageHeader from '../../components/admin/PageHeader'
+import DataTable from '../../components/admin/DataTable'
+import FilterBar from '../../components/admin/FilterBar'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import Modal from '../../components/ui/Modal'
-import { Skeleton } from '../../components/ui/Skeleton'
-import EmptyState from '../../components/ui/EmptyState'
-import ErrorState from '../../components/ui/ErrorState'
-import Pagination from '../../components/ui/Pagination'
-import { money, formatDateTime, errorMessage } from '../../utils/format'
+import Timeline from '../../components/admin/Timeline'
+import { money, formatDateTime, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
-import { useList } from '../../hooks/useApi'
-
-const STATUS_TABS = [
-  { value: '', label: 'All Deliveries' },
-  { value: 'assigned', label: 'Assigned' },
-  { value: 'accepted', label: 'Accepted' },
-  { value: 'picked_up', label: 'Picked Up' },
-  { value: 'out_for_delivery', label: 'Out for Delivery' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'failed', label: 'Failed / Returned' },
-]
-
-const TIMELINE_FIELDS = [
-  ['Assigned', 'assigned_at'],
-  ['Accepted', 'accepted_at'],
-  ['Picked Up', 'picked_up_at'],
-  ['Out for Delivery', 'out_for_delivery_at'],
-  ['Delivered', 'delivered_at'],
-  ['Failed', 'failed_at'],
-]
 
 export default function AdminDeliveries() {
   const toast = useToast()
-  const [statusFilter, setStatusFilter] = useState('')
-  const [search, setSearch] = useState('')
-  const [searchInput, setSearchInput] = useState('')
+  const [deliveries, setDeliveries] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [pagination, setPagination] = useState(null)
+  const [page, setPage] = useState(1)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [partners, setPartners] = useState([])
   const [selectedDelivery, setSelectedDelivery] = useState(null)
-  const [deliveryDetail, setDeliveryDetail] = useState(null)
-  const [detailLoading, setDetailLoading] = useState(false)
   const [reassignTarget, setReassignTarget] = useState(null)
   const [selectedPartnerId, setSelectedPartnerId] = useState('')
-  const [actionBusy, setActionBusy] = useState(false)
-  const [partners, setPartners] = useState([])
+  const [reassigning, setReassigning] = useState(false)
 
   useEffect(() => {
     api.get('/admin/delivery-partners', { params: { per_page: 100 } })
-      .then((r) => setPartners(Array.isArray(r.data.data) ? r.data.data : []))
-      .catch(() => setPartners([]))
+      .then(res => setPartners(res.data?.data || []))
+      .catch(() => {})
   }, [])
 
-  const fetcher = (page) => {
-    const params = { page, per_page: 15 }
-    if (statusFilter) params.status = statusFilter
-    return api.get('/admin/deliveries', { params })
-  }
-  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
-    deps: [statusFilter],
-    pageSize: 15,
-  })
-
-  useEffect(() => {
-    if (!selectedDelivery) return
-    setDetailLoading(true)
-    setDeliveryDetail(null)
-    api.get(`/admin/deliveries/${selectedDelivery.id}`)
-      .then((r) => setDeliveryDetail(r.data.data || null))
-      .catch(() => setDeliveryDetail(null))
-      .finally(() => setDetailLoading(false))
-  }, [selectedDelivery])
-
-  const handleSearch = (e) => {
-    e.preventDefault()
-    setSearch(searchInput)
-  }
-
-  const doReassign = async (e) => {
-    e.preventDefault()
-    if (!selectedPartnerId || !reassignTarget || actionBusy) return
-    setActionBusy(true)
+  const loadDeliveries = async () => {
+    setLoading(true)
     try {
-      await api.post(`/admin/deliveries/${reassignTarget.id}/reassign`, { delivery_partner_id: selectedPartnerId })
-      toast.success(`Delivery dispatch ${reassignTarget.vendor_order_number} reassigned`)
-      setReassignTarget(null)
-      setSelectedPartnerId('')
-      reload()
+      const params = { page, per_page: 15 }
+      if (statusFilter && statusFilter !== 'all') {
+        params.status = statusFilter
+      }
+
+      const res = await api.get('/admin/deliveries', { params })
+      const data = res.data?.data || []
+      setDeliveries(data)
+      if (res.data?.meta?.pagination) {
+        setPagination(res.data.meta.pagination)
+      } else {
+        setPagination({
+          current_page: page,
+          last_page: 1,
+          total: data.length,
+          per_page: 15
+        })
+      }
     } catch (err) {
-      toast.error(errorMessage(err))
+      toast.error('Failed to load delivery assignments.')
     } finally {
-      setActionBusy(false)
+      setLoading(false)
     }
   }
 
-  const filtered = useMemo(() => {
-    if (!search) return items
-    const q = search.toLowerCase()
-    return items.filter((d) => {
-      const matchNum = (d.vendor_order_number || '').toLowerCase().includes(q)
-      const matchOrder = (d.vendor_order_id || '').toLowerCase().includes(q)
-      const matchCust = (d.recipient_name || '').toLowerCase().includes(q)
-      const matchPartner = (d.delivery_partner_name || '').toLowerCase().includes(q)
-      const matchAddress = (d.dropoff_address || '').toLowerCase().includes(q)
-      return matchNum || matchOrder || matchCust || matchPartner || matchAddress
-    })
-  }, [items, search])
+  useEffect(() => {
+    loadDeliveries()
+  }, [page, statusFilter])
+
+  const handleReassignSubmit = async (e) => {
+    e.preventDefault()
+    if (!selectedPartnerId || !reassignTarget) return
+
+    setReassigning(true)
+    try {
+      const targetId = reassignTarget.uuid || reassignTarget.id
+      await api.post(`/admin/deliveries/${targetId}/reassign`, {
+        delivery_partner_id: selectedPartnerId
+      })
+      toast.success(`Delivery dispatch reassigned successfully!`)
+      setReassignTarget(null)
+      setSelectedPartnerId('')
+      loadDeliveries()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reassign delivery rider.')
+    } finally {
+      setReassigning(false)
+    }
+  }
 
   const exportCSV = () => {
     const rows = [
-      ['Dispatch ID', 'Vendor Order Ref', 'Courier Partner', 'Recipient', 'Recipient Phone', 'Dropoff Address', 'COD (NPR)', 'Delivery Fee (NPR)', 'Status', 'Assigned At'],
-      ...filtered.map((d) => [
-        d.vendor_order_number,
-        d.vendor_order_id,
-        d.delivery_partner_name,
-        d.recipient_name,
-        d.recipient_phone,
-        d.dropoff_address,
-        d.cod_amount,
-        d.delivery_fee,
-        d.status,
-        d.assigned_at || d.created_at,
+      ['Assignment ID', 'Vendor Order #', 'Rider Name', 'Store', 'Customer Name', 'Delivery Status', 'Assigned At'],
+      ...deliveries.map(d => [
+        d.id,
+        d.vendor_order_number || d.vendor_order?.vendor_order_number || '',
+        `"${d.delivery_partner?.name || 'Unassigned'}"`,
+        `"${d.store?.name || ''}"`,
+        `"${d.customer?.full_name || ''}"`,
+        d.status || '',
+        formatDateTime(d.assigned_at || d.created_at)
       ])
     ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
-    const encodedUri = encodeURI(csvContent)
+    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
     const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `gosika_delivery_dispatches_${new Date().toISOString().slice(0, 10)}.csv`)
+    link.setAttribute('href', encodeURI(csvContent))
+    link.setAttribute('download', `gosika_deliveries_${new Date().toISOString().slice(0, 10)}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    toast.success('Delivery dispatch report exported to CSV')
+    toast.success('Delivery assignments exported to CSV.')
   }
 
-  const totalDispatches = meta.total
-  const inTransitCount = items.filter((d) => ['assigned', 'accepted', 'picked_up', 'out_for_delivery'].includes(d.status)).length
-  const deliveredCount = items.filter((d) => d.status === 'delivered').length
-  const failedCount = items.filter((d) => d.status === 'failed' || d.status === 'returned_to_vendor').length
+  const columns = [
+    {
+      header: 'Vendor Package',
+      render: item => (
+        <div>
+          <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 13 }}>
+            #{item.vendor_order_number || item.vendor_order?.vendor_order_number || item.id}
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+            Store: {item.store?.name || item.vendor_order?.store?.name || '—'}
+          </div>
+        </div>
+      )
+    },
+    {
+      header: 'Assigned Rider',
+      render: item => {
+        const partner = item.delivery_partner || item.deliveryPartner
+        return partner ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Truck size={16} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>{partner.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>{partner.phone || partner.email}</div>
+            </div>
+          </div>
+        ) : (
+          <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>Unassigned</span>
+        )
+      }
+    },
+    {
+      header: 'Recipient & Dropoff',
+      render: item => {
+        const customer = item.customer || item.vendor_order?.order?.customer
+        const addr = item.shipping_address || item.vendor_order?.order?.shipping_address_snapshot
+        return (
+          <div>
+            <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13 }}>
+              {customer?.full_name || addr?.recipient_name || 'Customer'}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', maxWidth: 180 }} className="truncate">
+              {addr?.city || addr?.municipality || 'Kathmandu'}
+            </div>
+          </div>
+        )
+      }
+    },
+    {
+      header: 'Dispatch Status',
+      accessor: 'status',
+      render: item => <StatusBadge status={item.status} />
+    },
+    {
+      header: 'Assigned Date',
+      render: item => (
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+          {timeAgo(item.assigned_at || item.created_at)}
+        </span>
+      )
+    },
+    {
+      header: 'Actions',
+      align: 'right',
+      render: item => (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+          <button
+            type="button"
+            className="btn btn-outline btn-xs"
+            onClick={() => setSelectedDelivery(item)}
+            style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            <Eye size={12} /> Inspect
+          </button>
+
+          {item.status !== 'delivered' && item.status !== 'cancelled' && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs"
+              style={{ color: 'var(--primary)', fontWeight: 600 }}
+              onClick={() => {
+                setReassignTarget(item)
+                setSelectedPartnerId(item.delivery_partner_id || '')
+              }}
+              title="Reassign Courier / Rider"
+            >
+              Reassign
+            </button>
+          )}
+        </div>
+      )
+    }
+  ]
 
   return (
-    <div className="w-full flex flex-col gap-4 pb-8">
-      <div className="page-header" style={{ marginBottom: 16 }}>
-        <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>
-            Delivery Dispatch & Rider Telemetry
-          </h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Track active multi-courier dispatches, assign field delivery riders, and monitor delivery timelines across Nepal.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>
-            <Download size={14} /> Export CSV
-          </button>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <PageHeader
+        title="Delivery Assignments & Dispatch"
+        description="Monitor real-time dispatch routes, rider allocations, and pickup to doorstep delivery fulfillment."
+        breadcrumbs={[
+          { label: 'Fulfillment', to: '/admin/fulfillment/partners' },
+          { label: 'Assignments' }
+        ]}
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={exportCSV}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
+            >
+              <Download size={14} /> Export CSV
+            </button>
 
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-        <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em' }}>Total Dispatches</span>
-            <span className="avatar" style={{ width: 34, height: 34, background: 'var(--primary-50)', color: 'var(--primary)' }}>
-              <Truck size={18} />
-            </span>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={loadDeliveries}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
+            >
+              <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+            </button>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>{totalDispatches} Dispatches</div>
-          <div className="muted text-xs mt-1">Across all courier partners</div>
-        </div>
+        }
+      />
 
-        <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0, border: '2px solid rgba(99, 102, 241, 0.3)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em', color: '#4338ca' }}>In Active Transit</span>
-            <span className="avatar" style={{ width: 34, height: 34, background: 'rgba(99, 102, 241, 0.12)', color: '#6366f1' }}>
-              <Clock size={18} />
-            </span>
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#4f46e5' }}>{inTransitCount} In Transit</div>
-          <div className="muted text-xs mt-1">Live on courier route</div>
-        </div>
+      <FilterBar
+        statusFilter={statusFilter}
+        onStatusChange={setStatusFilter}
+        statusOptions={[
+          { value: 'assigned', label: 'Assigned to Rider' },
+          { value: 'accepted', label: 'Accepted by Rider' },
+          { value: 'picked_up', label: 'Picked Up from Merchant' },
+          { value: 'out_for_delivery', label: 'Out for Delivery' },
+          { value: 'delivered', label: 'Delivered to Customer' },
+          { value: 'failed', label: 'Failed Attempt' },
+        ]}
+        onReset={() => setStatusFilter('all')}
+      />
 
-        <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em' }}>Delivered Packages</span>
-            <span className="avatar" style={{ width: 34, height: 34, background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
-              <CheckCircle2 size={18} />
-            </span>
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#10b981' }}>{deliveredCount} Completed</div>
-          <div className="muted text-xs mt-1">On this page</div>
-        </div>
+      <DataTable
+        columns={columns}
+        data={deliveries}
+        loading={loading}
+        pagination={pagination}
+        onPageChange={setPage}
+        emptyTitle="No delivery assignments"
+        emptyDescription="There are no active fulfillment dispatches matching your filter."
+      />
 
-        <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em' }}>Failed / Returned</span>
-            <span className="avatar" style={{ width: 34, height: 34, background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' }}>
-              <Clock size={18} />
-            </span>
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#ef4444' }}>{failedCount} Failed</div>
-          <div className="muted text-xs mt-1">On this page</div>
-        </div>
-      </div>
-
-      <div className="tabs" style={{ marginBottom: 8 }}>
-        {STATUS_TABS.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            className={`tab ${statusFilter === t.value ? 'active' : ''}`}
-            onClick={() => setStatusFilter(t.value)}
-          >
-            {t.label} {t.value === '' ? `(${totalDispatches})` : `(${items.filter((d) => d.status === t.value).length})`}
-          </button>
-        ))}
-      </div>
-
-      <div className="card flex items-center justify-between wrap gap-3" style={{ padding: '12px 18px', margin: 0 }}>
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, flex: 1, maxWidth: 380 }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
-            <input
-              className="input"
-              style={{ paddingLeft: 32, fontSize: 13, height: 36 }}
-              placeholder="Search by dispatch ID, order, recipient, or rider…"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="btn btn-outline btn-sm">
-            <Search size={14} /> Search
-          </button>
-        </form>
-
-        <span className="muted text-xs font-semibold">
-          {filtered.length} dispatch{filtered.length !== 1 ? 'es' : ''} listed
-        </span>
-      </div>
-
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} height={72} />)}
-        </div>
-      ) : error ? (
-        <ErrorState onRetry={reload} />
-      ) : !filtered.length ? (
-        <EmptyState
-          icon={Truck}
-          title={search ? 'No dispatches match your search' : 'No deliveries found'}
-          message={search ? 'Try searching with another dispatch ID, recipient, or rider.' : 'Delivery assignments will appear here once orders are dispatched to couriers.'}
-        />
-      ) : (
-        <div className="card card-pad-none" style={{ overflow: 'hidden', margin: 0 }}>
-          <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-            <table className="table" style={{ minWidth: 920 }}>
-              <thead>
-                <tr>
-                  <th>Dispatch Reference</th>
-                  <th>Assigned Courier</th>
-                  <th>Recipient & Destination</th>
-                  <th>Fees & Pickup Origin</th>
-                  <th>Fulfillment Status</th>
-                  <th>Assigned Date</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((d) => (
-                  <tr key={d.id}>
-                    <td>
-                      <span
-                        className="font-mono font-bold text-primary text-xs"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => setSelectedDelivery(d)}
-                      >
-                        {d.vendor_order_number || d.id}
-                      </span>
-                      <div className="muted text-xs font-mono" style={{ fontSize: 10 }}>
-                        Ref: {d.vendor_order_id ? d.vendor_order_id.slice(0, 8) : '—'}…
-                      </div>
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <span className="avatar" style={{ width: 34, height: 34, background: 'var(--primary-50)', color: 'var(--primary)', fontWeight: 800, flexShrink: 0 }}>
-                          <Truck size={16} />
-                        </span>
-                        <div style={{ minWidth: 0 }}>
-                          <div className="font-bold text-sm text-ink">{d.delivery_partner_name || 'Unassigned'}</div>
-                          <div className="muted text-xs">COD: {money(d.cod_amount)}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="text-xs font-semibold text-ink flex items-center gap-1">
-                        <MapPin size={11} color="var(--primary)" /> {d.recipient_name || '—'}
-                      </div>
-                      <div className="muted text-xs truncate" style={{ maxWidth: 220, fontSize: 10 }}>{d.dropoff_address}</div>
-                    </td>
-                    <td>
-                      <div className="text-xs font-medium text-ink">Fee: {money(d.delivery_fee)}</div>
-                      <div className="muted text-xs truncate" style={{ maxWidth: 220, fontSize: 10 }}>From: {d.pickup_address}</div>
-                    </td>
-                    <td>
-                      <StatusBadge status={d.status} />
-                    </td>
-                    <td className="muted text-xs">
-                      {formatDateTime(d.assigned_at || d.created_at)}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-xs"
-                          onClick={() => setSelectedDelivery(d)}
-                          title="Inspect full dispatch timeline"
-                        >
-                          <Eye size={12} /> Inspect
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-xs"
-                          onClick={() => { setReassignTarget(d); setSelectedPartnerId('') }}
-                          title="Reassign to another rider"
-                        >
-                          <UserCheck size={12} /> Reassign
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
-        </div>
-      )}
-
+      {/* Inspect Dispatch Modal */}
       {selectedDelivery && (
-        <Modal
-          open={!!selectedDelivery}
-          onClose={() => setSelectedDelivery(null)}
-          title={`Delivery Dispatch Dossier: ${selectedDelivery.vendor_order_number}`}
-          size="lg"
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setSelectedDelivery(null) }}
         >
-          {detailLoading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} height={56} />)}
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: 600,
+              background: '#fff',
+              borderRadius: 16,
+              padding: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                  Dispatch Details #{selectedDelivery.vendor_order_number || selectedDelivery.id}
+                </h3>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                  Store: <strong>{selectedDelivery.store?.name || 'Marketplace Seller'}</strong>
+                </div>
+              </div>
+              <button className="btn btn-ghost btn-xs" onClick={() => setSelectedDelivery(null)}>✕</button>
             </div>
-          ) : !deliveryDetail ? (
-            <p className="muted text-sm m-0">Could not load delivery details. Please try again.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="card" style={{ background: 'var(--bg)', padding: 16, margin: 0 }}>
-                <div className="flex items-center justify-between wrap gap-2 mb-2">
-                  <div>
-                    <span className="font-bold text-sm text-ink">Dispatch: </span>
-                    <span className="font-mono font-bold text-primary text-sm">{deliveryDetail.vendor_order_number}</span>
-                  </div>
-                  <StatusBadge status={deliveryDetail.status} />
+
+            {/* Rider & Customer Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ padding: 14, background: '#f8fafc', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 6 }}>
+                  Delivery Personnel
                 </div>
-                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, fontSize: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-                  <div>
-                    <span className="muted block text-xs">Vendor Order ID:</span>
-                    <strong className="text-ink font-mono text-xs">#{deliveryDetail.vendor_order_id ? deliveryDetail.vendor_order_id.slice(0, 8) : '—'}</strong>
-                  </div>
-                  <div>
-                    <span className="muted block text-xs">Courier Partner:</span>
-                    <strong className="text-ink">{deliveryDetail.delivery_partner_name || '—'}</strong>
-                  </div>
-                  <div>
-                    <span className="muted block text-xs">COD Amount:</span>
-                    <strong className="text-ink">{money(deliveryDetail.cod_amount)}</strong>
-                  </div>
-                  <div>
-                    <span className="muted block text-xs">Delivery Fee:</span>
-                    <strong className="text-ink">{money(deliveryDetail.delivery_fee)}</strong>
-                  </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                  {selectedDelivery.delivery_partner?.name || 'Unassigned'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Phone: {selectedDelivery.delivery_partner?.phone || '—'}
                 </div>
               </div>
 
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-                <div className="card" style={{ padding: 14, margin: 0 }}>
-                  <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }} className="flex items-center gap-1.5">
-                    <Store size={13} color="var(--primary)" /> Pickup Origin
-                  </h4>
-                  <p className="text-xs text-ink m-0">{deliveryDetail.pickup_address || '—'}</p>
+              <div style={{ padding: 14, background: '#f8fafc', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 6 }}>
+                  Recipient
                 </div>
-
-                <div className="card" style={{ padding: 14, margin: 0 }}>
-                  <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }} className="flex items-center gap-1.5">
-                    <User size={13} color="var(--primary)" /> Recipient & Drop-off
-                  </h4>
-                  <div className="text-xs">
-                    <div className="font-bold text-ink text-sm">{deliveryDetail.recipient_name}</div>
-                    <div className="muted mt-0.5 flex items-center gap-1">
-                      <Phone size={11} /> {deliveryDetail.recipient_phone}
-                    </div>
-                    <div className="muted mt-1 p-1.5" style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)' }}>
-                      <MapPin size={11} color="var(--primary)" style={{ display: 'inline', marginRight: 4 }} />
-                      {deliveryDetail.dropoff_address || '—'}
-                    </div>
-                  </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                  {selectedDelivery.customer?.full_name || 'Customer'}
                 </div>
-              </div>
-
-              <div className="card" style={{ padding: 14, margin: 0 }}>
-                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }} className="flex items-center gap-1.5">
-                  <Clock size={13} color="var(--primary)" /> Dispatch Timeline
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {TIMELINE_FIELDS.map(([label, key]) => (
-                    <div key={key} className="flex items-center justify-between text-xs" style={{ padding: '3px 0' }}>
-                      <span className="muted">{label}</span>
-                      <strong className="text-ink">{formatDateTime(deliveryDetail[key])}</strong>
-                    </div>
-                  ))}
-                  {deliveryDetail.failure_reason && (
-                    <div className="text-xs" style={{ padding: '3px 0', color: 'var(--danger)' }}>
-                      Failure reason: {deliveryDetail.failure_reason}
-                    </div>
-                  )}
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Phone: {selectedDelivery.customer?.phone || '—'}
                 </div>
-              </div>
-
-              <div className="card" style={{ padding: 14, margin: 0 }}>
-                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }} className="flex items-center gap-1.5">
-                  <Truck size={13} color="var(--primary)" /> Tracking Events
-                </h4>
-                {(deliveryDetail.tracking || []).length ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {deliveryDetail.tracking.map((t, idx) => (
-                      <div key={t.id || idx} className="flex items-center justify-between text-xs" style={{ padding: '3px 0', borderBottom: '1px solid var(--border)' }}>
-                        <span className="text-ink font-medium capitalize">{t.status}</span>
-                        <span className="muted">{t.note} {t.tracked_at ? `· ${formatDateTime(t.tracked_at)}` : ''}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="muted text-xs m-0">No tracking events recorded yet.</p>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    const target = deliveryDetail
-                    setSelectedDelivery(null)
-                    setReassignTarget(target)
-                  }}
-                >
-                  <UserCheck size={13} /> Reassign Rider
-                </button>
-                <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelectedDelivery(null)}>
-                  Close Dossier
-                </button>
               </div>
             </div>
-          )}
-        </Modal>
+
+            {/* Status Timeline */}
+            <div>
+              <h4 style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>
+                Dispatch Milestones
+              </h4>
+              <Timeline
+                events={[
+                  { title: 'Assigned', description: 'Assigned to courier', status: 'assigned', created_at: selectedDelivery.assigned_at },
+                  { title: 'Picked Up', description: 'Picked up from vendor store', status: 'picked_up', created_at: selectedDelivery.picked_up_at },
+                  { title: 'Out for Delivery', description: 'En route to customer doorstep', status: 'out_for_delivery', created_at: selectedDelivery.out_for_delivery_at },
+                  { title: 'Delivered', description: 'Handed over to customer', status: 'delivered', created_at: selectedDelivery.delivered_at },
+                ]}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelectedDelivery(null)}>Close</button>
+            </div>
+          </div>
+        </div>
       )}
 
+      {/* Reassign Modal */}
       {reassignTarget && (
-        <Modal open={!!reassignTarget} onClose={() => setReassignTarget(null)} title={`Reassign Delivery: ${reassignTarget.vendor_order_number}`}>
-          <form onSubmit={doReassign} className="flex flex-col gap-3">
-            <div className="form-group">
-              <label className="label">Select Active Courier Rider</label>
-              <select
-                className="select"
-                required
-                value={selectedPartnerId}
-                onChange={(e) => setSelectedPartnerId(e.target.value)}
-              >
-                <option value="">— Select active courier rider —</option>
-                {partners.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}{p.phone ? ` · ${p.phone}` : ''}</option>
-                ))}
-              </select>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setReassignTarget(null) }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: 480,
+              background: '#fff',
+              borderRadius: 16,
+              padding: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                Reassign Delivery Courier
+              </h3>
+              <button className="btn btn-ghost btn-xs" onClick={() => setReassignTarget(null)}>✕</button>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setReassignTarget(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={actionBusy}>
-                {actionBusy ? 'Reassigning…' : 'Confirm Reassignment'}
-              </button>
-            </div>
-          </form>
-        </Modal>
+            <form onSubmit={handleReassignSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+                Select an active delivery partner to take over dispatch #{reassignTarget.vendor_order_number || reassignTarget.id}.
+              </p>
+
+              <div>
+                <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Choose Delivery Partner *</label>
+                <select
+                  className="input"
+                  style={{ width: '100%', height: 38, fontSize: 13, fontWeight: 600 }}
+                  value={selectedPartnerId}
+                  onChange={e => setSelectedPartnerId(e.target.value)}
+                  required
+                >
+                  <option value="">Select a partner...</option>
+                  {partners.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.vehicle_type || 'Rider'} · {p.phone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setReassignTarget(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={reassigning || !selectedPartnerId}>
+                  {reassigning ? 'Reassigning...' : 'Confirm Reassignment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )

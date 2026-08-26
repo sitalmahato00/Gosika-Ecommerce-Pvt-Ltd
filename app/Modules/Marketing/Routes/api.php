@@ -8,7 +8,7 @@ use App\Modules\Marketing\Presentation\Http\Controllers\VendorNotificationContro
 use App\Modules\Marketing\Presentation\Http\Controllers\VendorPromotionController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1/admin')->group(function () {
+Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('coupons', [AdminCouponController::class, 'index']);
     Route::post('coupons', [AdminCouponController::class, 'store']);
     Route::put('coupons/{coupon}', [AdminCouponController::class, 'update']);
@@ -23,7 +23,7 @@ Route::prefix('v1/admin')->group(function () {
     Route::post('notifications/send', [AdminNotificationController::class, 'send']);
 });
 
-Route::prefix('v1/vendor')->group(function () {
+Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
     Route::get('coupons', [VendorCouponController::class, 'index']);
     Route::post('coupons', [VendorCouponController::class, 'store']);
     Route::put('coupons/{coupon}', [VendorCouponController::class, 'update']);

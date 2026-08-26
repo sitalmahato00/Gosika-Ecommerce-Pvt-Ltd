@@ -12,6 +12,7 @@ import { money, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useList } from '../../hooks/useApi'
 import { NEPAL_DISTRICTS as NEPAL_DISTRICTS_MAP } from '../../utils/nepalLocations'
+import PageHeader from '../../components/admin/PageHeader'
 
 const EMPTY_ZONE = { name: '', provinces: '', standard_charge: 150, express_charge: 250, estimated_days: 2 }
 const EMPTY_COURIER = { name: '', type: 'Primary Fast Delivery Partner', coverage: '', contact_phone: '', endpoint: '' }
@@ -189,32 +190,32 @@ export default function AdminShipping() {
 
   return (
     <div className="w-full flex flex-col gap-4 pb-8">
-      <div className="page-header" style={{ marginBottom: 16 }}>
-        <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>
-            Shipping Zones & Logistics Governance
-          </h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Configure nationwide Nepal shipping rates, provincial delivery zones, and courier integrations.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="btn btn-outline btn-sm flex items-center gap-1"
-            onClick={openAddCourier}
-          >
-            <Truck size={14} /> Add Delivery Partner
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm flex items-center gap-1"
-            onClick={openAddZone}
-          >
-            <Plus size={14} /> Add Shipping Zone
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Shipping Zones & Logistics Governance"
+        description="Configure nationwide Nepal shipping rates, provincial delivery hubs, and courier integrations."
+        breadcrumbs={[
+          { label: 'Fulfillment', to: '/admin/fulfillment/partners' },
+          { label: 'Shipping Zones' }
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-outline btn-sm flex items-center gap-1"
+              onClick={openAddCourier}
+            >
+              <Truck size={14} /> Add Delivery Partner
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm flex items-center gap-1"
+              onClick={openAddZone}
+            >
+              <Plus size={14} /> Add Shipping Zone
+            </button>
+          </div>
+        }
+      />
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>

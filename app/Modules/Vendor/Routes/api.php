@@ -7,8 +7,8 @@ use App\Modules\Vendor\Presentation\Http\Controllers\VendorController;
 use App\Modules\Vendor\Presentation\Http\Controllers\VendorSecurityController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1/vendor')->group(function () {
-    Route::post('apply', [VendorController::class, 'apply']);
+Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
+    Route::post('apply', [VendorController::class, 'apply'])->withoutMiddleware(['auth:sanctum', 'ensure:vendor']);
     Route::get('me', [VendorController::class, 'myVendor']);
     Route::put('me', [VendorController::class, 'update']);
     Route::post('kyc', [VendorController::class, 'submitKyc']);
@@ -32,11 +32,20 @@ Route::prefix('v1/vendor')->group(function () {
     Route::delete('bank-accounts/{account}', [BankAccountController::class, 'destroy']);
 });
 
-Route::prefix('v1/admin/vendors')->group(function () {
+Route::prefix('v1/admin/vendors')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('/', [AdminVendorController::class, 'index']);
+    Route::get('stores', [AdminVendorController::class, 'stores']);
+    Route::get('kyc', [AdminVendorController::class, 'kycList']);
+    Route::get('kyc/{kyc}', [AdminVendorController::class, 'kycShow']);
+    Route::post('kyc/{kyc}/approve', [AdminVendorController::class, 'approveKyc']);
+    Route::post('kyc/{kyc}/reject', [AdminVendorController::class, 'rejectKyc']);
+    Route::post('kyc/{kyc}/request-changes', [AdminVendorController::class, 'requestChangesKyc']);
+
     Route::get('{vendor}', [AdminVendorController::class, 'show']);
     Route::post('{vendor}/approve', [AdminVendorController::class, 'approve']);
     Route::post('{vendor}/reject', [AdminVendorController::class, 'reject']);
+    Route::post('{vendor}/suspend', [AdminVendorController::class, 'suspend']);
+    Route::post('{vendor}/activate', [AdminVendorController::class, 'activate']);
 
     Route::post('stores/{store}/approve', [AdminVendorController::class, 'approveStore']);
     Route::post('stores/{store}/reject', [AdminVendorController::class, 'rejectStore']);

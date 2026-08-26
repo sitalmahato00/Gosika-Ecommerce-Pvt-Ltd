@@ -55,11 +55,59 @@ class AdminOrderController extends Controller
     public function show(string $orderId): JsonResponse
     {
         $order = Order::query()
-            ->with(['user', 'items', 'vendorOrders.items', 'vendorOrders.store', 'vendorOrders.assignments', 'payments', 'shippingAddress'])
+            ->with(['user', 'items', 'vendorOrders.items', 'vendorOrders.store', 'vendorOrders.assignments.deliveryPartner', 'payments', 'shippingAddress'])
             ->where('uuid', $orderId)
+            ->orWhere('id', $orderId)
+            ->orWhere('order_number', $orderId)
             ->firstOrFail();
 
         return Response::success(new AdminOrderResource($order), 'Order retrieved.');
+    }
+
+    public function returns(Request $request): JsonResponse
+    {
+        $returns = ReturnRequest::query()
+            ->with(['user', 'order', 'vendorOrder', 'orderItem', 'store'])
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
+            ->latest()
+            ->paginate($request->integer('per_page', 20));
+
+        return Response::success(
+            $returns->items(),
+            'Return requests retrieved.',
+            ['pagination' => [
+                'total' => $returns->total(),
+                'per_page' => $returns->perPage(),
+                'current_page' => $returns->currentPage(),
+                'last_page' => $returns->lastPage(),
+            ]]
+        );
+    }
+
+    public function approveReturn(Request $request, string $returnId): JsonResponse
+    {
+        $return = ReturnRequest::where('uuid', $returnId)->orWhere('id', $returnId)->firstOrFail();
+        $return->status = ReturnStatus::APPROVED;
+        $return->reviewed_by = $request->user()->id;
+        $return->reviewed_at = now();
+        $return->review_notes = $request->input('notes', 'Approved by admin');
+        $return->save();
+
+        return Response::success($return, 'Return request approved.');
+    }
+
+    public function rejectReturn(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate(['reason' => 'required|string|max:500']);
+
+        $return = ReturnRequest::where('uuid', $returnId)->orWhere('id', $returnId)->firstOrFail();
+        $return->status = ReturnStatus::REJECTED;
+        $return->reviewed_by = $request->user()->id;
+        $return->reviewed_at = now();
+        $return->review_notes = $request->input('reason');
+        $return->save();
+
+        return Response::success($return, 'Return request rejected.');
     }
 
     public function cancel(Request $request, string $orderId): JsonResponse

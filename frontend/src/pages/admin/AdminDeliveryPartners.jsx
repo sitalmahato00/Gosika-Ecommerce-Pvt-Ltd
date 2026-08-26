@@ -1,418 +1,470 @@
 import React, { useEffect, useState } from 'react'
 import {
-  Users, CheckCircle2, XCircle, AlertCircle, Clock, Eye,
-  Edit, Trash2, Phone, Mail, MapPin, Plus, ShieldCheck, Ban, UserCheck
+  Truck, CheckCircle2, XCircle, AlertCircle, Clock, Eye,
+  Phone, Mail, MapPin, Plus, ShieldCheck, Ban, UserCheck,
+  RefreshCw, User
 } from 'lucide-react'
 import api from '../../api/client'
+import PageHeader from '../../components/admin/PageHeader'
+import DataTable from '../../components/admin/DataTable'
+import FilterBar from '../../components/admin/FilterBar'
+import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import Modal from '../../components/ui/Modal'
-import Input from '../../components/ui/Input'
-import Select from '../../components/ui/Select'
-import Button from '../../components/ui/Button'
-import { Skeleton } from '../../components/ui/Skeleton'
-import EmptyState from '../../components/ui/EmptyState'
-import ErrorState from '../../components/ui/ErrorState'
-import { formatDate, errorMessage } from '../../utils/format'
-import { NEPAL_PROVINCES } from '../../utils/constants'
+import { formatDate, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
-
-const STATUS_TABS = [
-  { value: '', label: 'All Riders & Couriers' },
-  { value: 'active', label: 'Active / Verified' },
-  { value: 'pending', label: 'Pending Approval' },
-  { value: 'suspended', label: 'Suspended' },
-]
-
-const DELIVERY_MAP_PROVINCES = [
-  { name: 'Province 1', districts: ['Ilam', 'Jhapa', 'Morang', 'Sunsari'] },
-  { name: 'Province 2', districts: ['Dhanusha', 'Saptari', 'Siraha', 'Mahottari'] },
-  { name: 'Bagmati', districts: ['Kathmandu', 'Lalitpur', 'Bhaktapur', 'Chitwan'] },
-  { name: 'Gandaki', districts: ['Pokhara', 'Kaski', 'Lamjung', 'Tanahun'] },
-  { name: 'Lumbini', districts: ['Butwal', 'Dang', 'Rupandehi', 'Banke'] },
-  { name: 'Karnali', districts: ['Surkhet', 'Dailekh', 'Jajarkot', 'Salyan'] },
-  { name: 'Sudurpashchim', districts: ['Dhangadhi', 'Kailai', 'Kanchanpur', 'Dadeldhura'] },
-]
-
-function parseAreaList(value) {
-  return String(value || '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-}
-
-function toggleAreaSelection(currentValue, nextArea) {
-  const selected = new Set(parseAreaList(currentValue))
-  if (selected.has(nextArea)) {
-    selected.delete(nextArea)
-  } else {
-    selected.add(nextArea)
-  }
-  return [...selected].join(', ')
-}
 
 export default function AdminDeliveryPartners() {
   const toast = useToast()
   const [partners, setPartners] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+
   const [form, setForm] = useState({
     name: '',
     email: '',
     phone: '',
     vehicle_type: 'Motorcycle',
-    province: 'Bagmati',
-    license_number: '',
+    vehicle_number: '',
     service_areas: '',
     password: '',
   })
 
-  const load = () => {
+  const [dialogState, setDialogState] = useState({
+    isOpen: false,
+    action: null, // 'approve' | 'reject' | 'suspend' | 'activate'
+    partner: null,
+    loading: false
+  })
+
+  const loadPartners = async () => {
     setLoading(true)
-    api.get('/admin/delivery-partners', { params: { search: search || undefined } })
-      .then((r) => setPartners(r.data.data || []))
-      .catch(() => {
-        // Fallback default delivery riders
-        setPartners([
-          { id: 1, name: 'Ramesh Thapa', email: 'ramesh.delivery@gosika.com.np', phone: '9841234567', vehicle_type: 'Motorcycle', province: 'Bagmati', completed_deliveries: 142, status: 'active', created_at: new Date().toISOString() },
-          { id: 2, name: 'Bikash Tamang', email: 'bikash.delivery@gosika.com.np', phone: '9801987654', vehicle_type: 'Scooter', province: 'Bagmati', completed_deliveries: 88, status: 'active', created_at: new Date().toISOString() },
-          { id: 3, name: 'Sanjay Shrestha', email: 'sanjay.rider@gmail.com', phone: '9865123987', vehicle_type: 'Motorcycle', province: 'Gandaki', completed_deliveries: 0, status: 'pending', created_at: new Date().toISOString() },
-        ])
-      })
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(load, [search])
-
-  const doAction = async (id, action, name) => {
     try {
-      await api.post(`/admin/delivery-partners/${id}/${action}`)
-      toast.success(`Partner "${name}" ${action === 'activate' ? 'activated' : action === 'reject' ? 'rejected' : action === 'suspend' ? 'suspended' : 'approved'}`)
-      load()
-    } catch (e) {
-      setPartners(partners.map((p) => p.id === id ? { ...p, status: action === 'activate' || action === 'approve' ? 'active' : 'suspended' } : p))
-      toast.success(`Partner "${name}" updated`)
+      const params = {}
+      if (statusFilter && statusFilter !== 'all') params.status = statusFilter
+      if (search.trim()) params.search = search.trim()
+
+      const res = await api.get('/admin/delivery-partners', { params })
+      setPartners(res.data?.data || [])
+    } catch (err) {
+      toast.error('Failed to load delivery partners.')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleMapAreaToggle = (area) => {
-    setForm((current) => ({
-      ...current,
-      service_areas: toggleAreaSelection(current.service_areas || '', area),
-    }))
+  useEffect(() => {
+    loadPartners()
+  }, [statusFilter])
+
+  const handleAction = (action, partner) => {
+    setDialogState({
+      isOpen: true,
+      action,
+      partner,
+      loading: false
+    })
   }
 
-  const handleCreate = async (e) => {
+  const handleConfirmAction = async (reason) => {
+    const { action, partner } = dialogState
+    if (!partner) return
+
+    setDialogState(prev => ({ ...prev, loading: true }))
+    const targetId = partner.uuid || partner.id
+
+    try {
+      if (action === 'approve') {
+        await api.post(`/admin/delivery-partners/${targetId}/approve`)
+        toast.success(`Delivery partner "${partner.name}" approved.`)
+      } else if (action === 'reject') {
+        await api.post(`/admin/delivery-partners/${targetId}/reject`, { reason })
+        toast.success(`Delivery partner rejected.`)
+      } else if (action === 'suspend') {
+        await api.post(`/admin/delivery-partners/${targetId}/suspend`, { reason })
+        toast.success(`Delivery partner suspended.`)
+      } else if (action === 'activate') {
+        await api.post(`/admin/delivery-partners/${targetId}/activate`)
+        toast.success(`Delivery partner activated.`)
+      }
+
+      setDialogState({ isOpen: false, action: null, partner: null, loading: false })
+      loadPartners()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Action failed.')
+      setDialogState(prev => ({ ...prev, loading: false }))
+    }
+  }
+
+  const handleCreateSubmit = async (e) => {
     e.preventDefault()
+    if (!form.name || !form.phone || !form.email) {
+      toast.error('Please fill in all required fields.')
+      return
+    }
+
     setCreating(true)
     try {
-      const payload = {
-        ...form,
-        service_areas: form.service_areas
-          .split(',')
-          .map((value) => value.trim())
-          .filter(Boolean),
-        password: form.password || undefined,
-      }
-      await api.post('/admin/delivery-partners', payload)
-      toast.success(`Delivery partner "${form.name}" registered successfully`)
-      setCreateOpen(false)
-      setForm({
-        name: '',
-        email: '',
-        phone: '',
-        vehicle_type: 'Motorcycle',
-        province: 'Bagmati',
-        license_number: '',
-        service_areas: '',
-        password: '',
+      await api.post('/admin/delivery-partners', {
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        vehicle_type: form.vehicle_type,
+        vehicle_number: form.vehicle_number,
+        service_areas: form.service_areas ? form.service_areas.split(',').map(s => s.trim()) : ['Kathmandu Valley'],
+        password: form.password || 'password123'
       })
-      load()
-    } catch (err) {
-      const newP = {
-        id: partners.length + 1,
-        ...form,
-        service_areas: form.service_areas
-          .split(',')
-          .map((value) => value.trim())
-          .filter(Boolean),
-        completed_deliveries: 0,
-        status: 'active',
-        created_at: new Date().toISOString(),
-      }
-      setPartners([newP, ...partners])
-      toast.success(`Delivery partner "${form.name}" registered`)
+      toast.success('New delivery partner registered successfully!')
       setCreateOpen(false)
+      setForm({ name: '', email: '', phone: '', vehicle_type: 'Motorcycle', vehicle_number: '', service_areas: '', password: '' })
+      loadPartners()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to register delivery partner.')
     } finally {
       setCreating(false)
     }
   }
 
-  const filtered = partners.filter((p) => {
-    const matchesStatus = !statusFilter || p.status === statusFilter
-    const matchesSearch = !search ||
-      p.name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.email?.toLowerCase().includes(search.toLowerCase()) ||
-      p.phone?.includes(search)
-    return matchesStatus && matchesSearch
-  })
+  const columns = [
+    {
+      header: 'Rider / Partner',
+      render: item => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              background: '#f0fdf4',
+              color: '#16a34a',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            <Truck size={20} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>{item.name}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+              {item.email} · {item.phone}
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      header: 'Vehicle Details',
+      render: item => (
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--ink)' }}>
+            {item.vehicle_type || 'Vehicle'}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+            {item.vehicle_number || 'Plate not registered'}
+          </div>
+        </div>
+      )
+    },
+    {
+      header: 'Service Hub',
+      render: item => {
+        const areas = Array.isArray(item.service_areas) ? item.service_areas.join(', ') : (item.service_areas || 'Kathmandu')
+        return (
+          <span style={{ fontSize: 12, color: '#334155' }} title={areas}>
+            {areas}
+          </span>
+        )
+      }
+    },
+    {
+      header: 'Duty Status',
+      render: item => (
+        <span
+          className="chip chip-sm"
+          style={{
+            background: item.is_online ? '#dcfce7' : '#f1f5f9',
+            color: item.is_online ? '#16a34a' : '#64748b',
+            fontWeight: 800,
+            fontSize: 11
+          }}
+        >
+          {item.is_online ? '● Online (On Duty)' : 'Offline'}
+        </span>
+      )
+    },
+    {
+      header: 'Verification Status',
+      accessor: 'status',
+      render: item => <StatusBadge status={item.status} />
+    },
+    {
+      header: 'Actions',
+      align: 'right',
+      render: item => {
+        const isPending = item.status === 'pending'
+        const isActive = item.status === 'active' || item.status === 'approved'
+        const isSuspended = item.status === 'suspended'
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+            {isPending && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  style={{ background: '#16a34a', color: '#fff', border: 'none' }}
+                  onClick={() => handleAction('approve', item)}
+                  title="Approve Rider"
+                >
+                  <CheckCircle2 size={12} style={{ marginRight: 3 }} /> Approve
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-outline btn-xs"
+                  style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                  onClick={() => handleAction('reject', item)}
+                  title="Reject Application"
+                >
+                  <XCircle size={12} /> Reject
+                </button>
+              </>
+            )}
+
+            {isActive && (
+              <button
+                type="button"
+                className="btn btn-outline btn-xs"
+                style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                onClick={() => handleAction('suspend', item)}
+              >
+                Suspend
+              </button>
+            )}
+
+            {isSuspended && (
+              <button
+                type="button"
+                className="btn btn-xs"
+                style={{ background: '#2563eb', color: '#fff', border: 'none' }}
+                onClick={() => handleAction('activate', item)}
+              >
+                Reactivate
+              </button>
+            )}
+          </div>
+        )
+      }
+    }
+  ]
 
   return (
-    <div>
-      {/* Page Header */}
-      <div className="page-header">
-        <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Delivery Partner Fleet</h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Manage delivery personnel, KYC driving licenses, vehicle types, and active rider status.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="btn btn-primary btn-sm" onClick={() => setCreateOpen(true)}>
-            <Plus size={14} /> Add Delivery Partner
-          </button>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="tabs" style={{ marginBottom: 16 }}>
-        {STATUS_TABS.map((t) => (
-          <button
-            key={t.value}
-            className={`tab ${statusFilter === t.value ? 'active' : ''}`}
-            onClick={() => setStatusFilter(t.value)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Search Bar */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
-          <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
-          <input
-            className="input"
-            style={{ paddingLeft: 32 }}
-            placeholder="Search rider name, phone, or email…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        {partners.length > 0 && (
-          <span className="muted text-sm">{filtered.length} rider{filtered.length !== 1 ? 's' : ''} listed</span>
-        )}
-      </div>
-
-      {/* Partners Table Content */}
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} height={70} />)}
-        </div>
-      ) : !filtered.length ? (
-        <EmptyState
-          icon={Users}
-          title={search ? `No delivery partners matching "${search}"` : 'No delivery partners'}
-          message={search ? 'Try searching with another name or phone number.' : 'Onboard delivery riders to assign customer deliveries.'}
-          action={
-            <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
-              <Plus size={14} /> Add Delivery Partner
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <PageHeader
+        title="Delivery Fleet & Partners"
+        description="Manage registered delivery personnel, dispatch couriers, vehicle compliance, and verification."
+        breadcrumbs={[
+          { label: 'Fulfillment', to: '/admin/fulfillment/partners' },
+          { label: 'Delivery Partners' }
+        ]}
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setCreateOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
+            >
+              <Plus size={14} /> Register Partner
             </button>
-          }
-        />
-      ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Rider / Partner</th>
-                <th>Contact Details</th>
-                <th>Vehicle & Province</th>
-                <th>Deliveries Completed</th>
-                <th>Status</th>
-                <th>Joined</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => {
-                const isPending = p.status === 'pending'
-                const isActive = p.status === 'active'
-                return (
-                  <tr key={p.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span className="avatar" style={{ width: 38, height: 38, background: 'var(--primary-50)', color: 'var(--primary)', fontWeight: 700 }}>
-                          {p.name ? p.name[0] : 'R'}
-                        </span>
-                        <div>
-                          <div className="font-bold text-sm text-ink">{p.name}</div>
-                          <div className="muted text-xs font-mono">ID: #DP-{p.id}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="text-sm font-medium">{p.phone || '98XXXXXXXX'}</div>
-                      <div className="muted text-xs">{p.email}</div>
-                    </td>
-                    <td>
-                      <div className="text-sm text-ink font-medium">{p.vehicle_type || 'Motorcycle'}</div>
-                      <div className="muted text-xs">{p.province || 'Bagmati'}</div>
-                    </td>
-                    <td>
-                      <span className="font-bold text-ink">{p.completed_deliveries ?? 0}</span> orders
-                    </td>
-                    <td>
-                      <StatusBadge status={p.status} />
-                    </td>
-                    <td className="muted text-xs">
-                      {formatDate(p.created_at)}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        {isPending && (
-                          <>
-                            <button
-                              className="btn btn-success btn-xs"
-                              onClick={() => doAction(p.id, 'approve', p.name)}
-                            >
-                              <CheckCircle2 size={12} /> Approve
-                            </button>
-                            <button
-                              className="btn btn-danger-outline btn-xs"
-                              onClick={() => doAction(p.id, 'reject', p.name)}
-                            >
-                              <XCircle size={12} /> Reject
-                            </button>
-                          </>
-                        )}
-                        {!isPending && (
-                          <button
-                            className={`btn ${isActive ? 'btn-danger-outline' : 'btn-success'} btn-xs`}
-                            onClick={() => doAction(p.id, isActive ? 'suspend' : 'activate', p.name)}
-                          >
-                            {isActive ? 'Suspend' : 'Activate'}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={loadPartners}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
+            >
+              <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+            </button>
+          </div>
+        }
+      />
+
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search by rider name, phone, plate #..."
+        statusFilter={statusFilter}
+        onStatusChange={setStatusFilter}
+        statusOptions={[
+          { value: 'active', label: 'Active & Verified' },
+          { value: 'pending', label: 'Pending Approval' },
+          { value: 'suspended', label: 'Suspended' },
+        ]}
+        onReset={() => { setSearch(''); setStatusFilter('all') }}
+      />
+
+      <DataTable
+        columns={columns}
+        data={partners}
+        loading={loading}
+        emptyTitle="No delivery partners found"
+        emptyDescription="There are no delivery partners matching your criteria."
+      />
+
+      {/* Register Partner Modal */}
+      {createOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setCreateOpen(false) }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: 520,
+              background: '#fff',
+              borderRadius: 16,
+              padding: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                Register New Delivery Partner
+              </h3>
+              <button className="btn btn-ghost btn-xs" onClick={() => setCreateOpen(false)}>✕</button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Full Name *</label>
+                <input
+                  className="input"
+                  style={{ width: '100%', height: 38, fontSize: 13 }}
+                  value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  placeholder="Rider's full legal name"
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Email Address *</label>
+                  <input
+                    type="email"
+                    className="input"
+                    style={{ width: '100%', height: 38, fontSize: 13 }}
+                    value={form.email}
+                    onChange={e => setForm({ ...form, email: e.target.value })}
+                    placeholder="rider@gosika.com.np"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Mobile Phone *</label>
+                  <input
+                    className="input"
+                    style={{ width: '100%', height: 38, fontSize: 13 }}
+                    value={form.phone}
+                    onChange={e => setForm({ ...form, phone: e.target.value })}
+                    placeholder="98XXXXXXXX"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Vehicle Type</label>
+                  <select
+                    className="input"
+                    style={{ width: '100%', height: 38, fontSize: 13 }}
+                    value={form.vehicle_type}
+                    onChange={e => setForm({ ...form, vehicle_type: e.target.value })}
+                  >
+                    <option value="Motorcycle">Motorcycle</option>
+                    <option value="Scooter">Scooter</option>
+                    <option value="Bicycle">Bicycle</option>
+                    <option value="Van / Truck">Van / Mini-Truck</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>License Plate #</label>
+                  <input
+                    className="input"
+                    style={{ width: '100%', height: 38, fontSize: 13 }}
+                    value={form.vehicle_number}
+                    onChange={e => setForm({ ...form, vehicle_number: e.target.value })}
+                    placeholder="BA 2 PA 1234"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Service Hub Areas (comma separated)</label>
+                <input
+                  className="input"
+                  style={{ width: '100%', height: 38, fontSize: 13 }}
+                  value={form.service_areas}
+                  onChange={e => setForm({ ...form, service_areas: e.target.value })}
+                  placeholder="Kathmandu, Lalitpur, Bhaktapur"
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setCreateOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={creating}>
+                  {creating ? 'Registering...' : 'Register Partner'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* Add Partner Modal */}
-      {createOpen && (
-        <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Onboard New Delivery Partner">
-          <form onSubmit={handleCreate} className="flex flex-col gap-3">
-            <Input
-              label="Full Name"
-              required
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Rider name"
-            />
-            <div className="form-row">
-              <Input
-                label="Phone Number"
-                required
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="98XXXXXXXX"
-              />
-              <Input
-                label="Email Address"
-                type="email"
-                required
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="rider@gmail.com"
-              />
-            </div>
-            <div className="form-row">
-              <Select
-                label="Vehicle Type"
-                value={form.vehicle_type}
-                onChange={(e) => setForm({ ...form, vehicle_type: e.target.value })}
-              >
-                <option value="Motorcycle">Motorcycle</option>
-                <option value="Scooter">Scooter</option>
-                <option value="Van / Cargo">Delivery Van / Cargo</option>
-                <option value="Bicycle">Bicycle</option>
-              </Select>
-              <Select
-                label="Assigned Province"
-                value={form.province}
-                onChange={(e) => setForm({ ...form, province: e.target.value })}
-              >
-                {NEPAL_PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
-              </Select>
-            </div>
-
-            <Input
-              label="Password"
-              type="password"
-              required
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              placeholder="Create a secure password"
-            />
-
-            <div className="form-group">
-              <label className="label">Shipping Zones / Service Areas</label>
-              <input
-                className="input"
-                placeholder="e.g. Bagmati, Gandaki"
-                value={form.service_areas || ''}
-                onChange={(e) => setForm({ ...form, service_areas: e.target.value })}
-              />
-              <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                {DELIVERY_MAP_PROVINCES.map((province) => {
-                  const selected = parseAreaList(form.service_areas || '').includes(province.name)
-                  return (
-                    <button
-                      key={province.name}
-                      type="button"
-                      onClick={() => handleMapAreaToggle(province.name)}
-                      className={`btn btn-xs ${selected ? 'btn-primary' : 'btn-outline'}`}
-                      style={{
-                        justifyContent: 'space-between',
-                        textAlign: 'left',
-                        padding: '8px 10px',
-                        minHeight: 42,
-                        borderColor: selected ? 'transparent' : 'var(--border)',
-                      }}
-                    >
-                      <span>{province.name}</span>
-                      <span className="muted text-xs">{province.districts.length} hubs</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <Input
-              label="Driving License Number"
-              value={form.license_number}
-              onChange={(e) => setForm({ ...form, license_number: e.target.value })}
-              placeholder="01-06-XXXXXXXX"
-            />
-
-            <div className="flex justify-end gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setCreateOpen(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={creating}>
-                {creating ? 'Registering…' : 'Register Rider'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={dialogState.isOpen}
+        onClose={() => setDialogState({ isOpen: false, action: null, partner: null, loading: false })}
+        onConfirm={handleConfirmAction}
+        loading={dialogState.loading}
+        title={
+          dialogState.action === 'approve'
+            ? `Approve Partner "${dialogState.partner?.name}"?`
+            : dialogState.action === 'reject'
+            ? `Reject Application for "${dialogState.partner?.name}"?`
+            : `Suspend Partner "${dialogState.partner?.name}"?`
+        }
+        message={
+          dialogState.action === 'approve'
+            ? 'Approving will grant active dispatch access to receive delivery assignments.'
+            : 'Please specify the reason for rejecting or suspending this delivery partner.'
+        }
+        variant={dialogState.action === 'approve' || dialogState.action === 'activate' ? 'success' : 'danger'}
+        confirmText={
+          dialogState.action === 'approve' ? 'Approve Rider' : dialogState.action === 'reject' ? 'Reject' : 'Suspend'
+        }
+        requireReason={dialogState.action === 'reject' || dialogState.action === 'suspend'}
+        reasonPlaceholder="Provide the administrative explanation..."
+      />
     </div>
   )
 }

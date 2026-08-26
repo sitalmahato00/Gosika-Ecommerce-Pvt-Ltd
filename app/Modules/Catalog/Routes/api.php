@@ -17,7 +17,7 @@ Route::prefix('v1')->group(function () {
     Route::get('deals/active', [PublicCatalogController::class, 'deals']);
 });
 
-Route::prefix('v1/vendor')->group(function () {
+Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
     Route::get('products', [VendorProductController::class, 'index']);
     Route::post('products', [VendorProductController::class, 'store']);
     Route::get('products/{product}', [VendorProductController::class, 'show']);
@@ -37,10 +37,13 @@ Route::prefix('v1/vendor')->group(function () {
     Route::get('customers', [VendorCustomerController::class, 'index']);
 });
 
-Route::prefix('v1/admin')->group(function () {
+Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
+    Route::get('products', [AdminCatalogController::class, 'products']);
     Route::get('products/pending', [AdminCatalogController::class, 'pendingProducts']);
+    Route::get('products/{product}', [AdminCatalogController::class, 'showProduct']);
     Route::post('products/{product}/approve', [AdminCatalogController::class, 'approveProduct']);
     Route::post('products/{product}/reject', [AdminCatalogController::class, 'rejectProduct']);
+    Route::post('products/{product}/suspend', [AdminCatalogController::class, 'suspendProduct']);
 
     Route::get('brand-requests', [AdminCatalogController::class, 'brandRequests']);
     Route::post('brand-requests/{brandRequest}/approve', [AdminCatalogController::class, 'approveBrandRequest']);

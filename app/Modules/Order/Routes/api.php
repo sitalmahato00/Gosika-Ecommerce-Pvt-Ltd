@@ -13,13 +13,16 @@ Route::prefix('v1/orders')->middleware(['auth:sanctum', 'throttle:auth'])->group
     Route::post('/{order}/cancel', [OrderController::class, 'cancel']);
 });
 
-Route::prefix('v1/admin/orders')->group(function () {
+Route::prefix('v1/admin/orders')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('/', [AdminOrderController::class, 'index']);
+    Route::get('/returns', [AdminOrderController::class, 'returns']);
+    Route::post('/returns/{return}/approve', [AdminOrderController::class, 'approveReturn']);
+    Route::post('/returns/{return}/reject', [AdminOrderController::class, 'rejectReturn']);
     Route::get('/{order}', [AdminOrderController::class, 'show']);
     Route::post('/{order}/cancel', [AdminOrderController::class, 'cancel']);
 });
 
-Route::prefix('v1/vendor/returns')->group(function () {
+Route::prefix('v1/vendor/returns')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
     Route::get('/', [VendorReturnController::class, 'index']);
     Route::post('/{return}/status', [VendorReturnController::class, 'updateStatus']);
 });

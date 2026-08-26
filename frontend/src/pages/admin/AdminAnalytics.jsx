@@ -10,6 +10,7 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { money, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import PageHeader from '../../components/admin/PageHeader'
 
 const RANGES = [
   { value: '7d', label: '7d' },
@@ -95,43 +96,43 @@ export default function AdminAnalytics() {
 
   return (
     <div className="w-full flex flex-col gap-4 pb-8">
-      <div className="page-header" style={{ marginBottom: 16 }}>
-        <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>
-            Analytics & Operational Reports
-          </h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Deep-dive analytics across sales, customer acquisition, vendor volume, and provincial performance in Nepal.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="date-filter-group" style={{ background: '#ffffff', border: '1px solid var(--border)', borderRadius: 8, padding: 2 }}>
-            {RANGES.map((r) => (
-              <button
-                key={r.value}
-                type="button"
-                className={`date-filter-btn ${range === r.value ? 'active' : ''}`}
-                style={{
-                  padding: '5px 14px',
-                  borderRadius: 6,
-                  fontWeight: 700,
-                  fontSize: 12,
-                  background: range === r.value ? 'var(--primary)' : 'transparent',
-                  color: range === r.value ? '#ffffff' : 'var(--ink)',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-                onClick={() => setRange(r.value)}
-              >
-                {r.label}
-              </button>
-            ))}
+      <PageHeader
+        title="Analytics & Operational Reports"
+        description="Deep-dive analytics across sales, customer acquisition, vendor volume, and provincial performance in Nepal."
+        breadcrumbs={[
+          { label: 'Analytics', to: '/admin/analytics' },
+          { label: 'Sales & Growth' }
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="date-filter-group" style={{ background: '#ffffff', border: '1px solid var(--border)', borderRadius: 8, padding: 2 }}>
+              {RANGES.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  className={`date-filter-btn ${range === r.value ? 'active' : ''}`}
+                  style={{
+                    padding: '5px 14px',
+                    borderRadius: 6,
+                    fontWeight: 700,
+                    fontSize: 12,
+                    background: range === r.value ? 'var(--primary)' : 'transparent',
+                    color: range === r.value ? '#ffffff' : 'var(--ink)',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setRange(r.value)}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportReport}>
+              <Download size={14} /> Export CSV
+            </button>
           </div>
-          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportReport}>
-            <Download size={14} /> Export CSV
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {summary.loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>

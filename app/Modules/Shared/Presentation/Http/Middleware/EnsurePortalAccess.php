@@ -18,9 +18,9 @@ class EnsurePortalAccess
         }
 
         $allowed = match ($portal) {
-            'admin' => $user->hasRole(Roles::SUPER_ADMIN),
-            'vendor' => $user->hasRole(Roles::VENDOR_ADMIN) || $user->vendor !== null,
-            'delivery' => $user->hasRole(Roles::DELIVERY_PARTNER) || $user->deliveryPartner !== null,
+            'admin' => $user->hasRole(Roles::SUPER_ADMIN) || $user->hasRole('super_admin') || $user->hasRole('admin') || $user->hasRole('super-admin'),
+            'vendor' => $user->hasRole(Roles::VENDOR_ADMIN) || $user->hasRole('vendor_admin') || $user->hasRole('vendor') || $user->vendor !== null,
+            'delivery' => $user->hasRole(Roles::DELIVERY_PARTNER) || $user->hasRole('delivery_partner') || $user->hasRole('delivery') || $user->deliveryPartner !== null,
             default => false,
         };
 

@@ -1,118 +1,310 @@
-import React, { useState } from 'react'
-import { ArrowLeftRight } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  Banknote, Check, X, Eye, RefreshCw, Download,
+  CheckCircle2, Building, User, Clock
+} from 'lucide-react'
 import api from '../../api/client'
+import PageHeader from '../../components/admin/PageHeader'
+import DataTable from '../../components/admin/DataTable'
+import FilterBar from '../../components/admin/FilterBar'
+import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import { Skeleton } from '../../components/ui/Skeleton'
-import EmptyState from '../../components/ui/EmptyState'
-import ErrorState from '../../components/ui/ErrorState'
-import Pagination from '../../components/ui/Pagination'
+import { money, formatDateTime, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
-import { money } from '../../utils/format'
-import { useList } from '../../hooks/useApi'
 
 export default function AdminPayouts() {
   const toast = useToast()
+  const [payouts, setPayouts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [pagination, setPagination] = useState(null)
+  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
 
-  const fetcher = (page) => {
-    const params = { page, per_page: 20 }
-    if (search) params.search = search
-    return api.get('/admin/wallet/payouts', { params })
-  }
-  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { deps: [search] })
+  const [dialogState, setDialogState] = useState({
+    isOpen: false,
+    action: null, // 'approve' | 'reject' | 'mark-paid'
+    payout: null,
+    loading: false
+  })
 
-  const run = async (id, verb, success) => {
+  const loadPayouts = async () => {
+    setLoading(true)
     try {
-      await api.post(`/admin/wallet/payouts/${id}/${verb}`)
-      toast.success(success)
-      reload()
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Action failed')
+      const params = { page, per_page: 15 }
+      if (statusFilter && statusFilter !== 'all') params.status = statusFilter
+      if (search.trim()) params.search = search.trim()
+
+      const res = await api.get('/admin/wallet/payouts', { params })
+      const data = res.data?.data || []
+      setPayouts(data)
+      if (res.data?.meta?.pagination) {
+        setPagination(res.data.meta.pagination)
+      } else {
+        setPagination({
+          current_page: page,
+          last_page: 1,
+          total: data.length,
+          per_page: 15
+        })
+      }
+    } catch (err) {
+      toast.error('Failed to load payout requests.')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const doApprove = (id) => run(id, 'approve', 'Payout approved')
-  const doReject = (id) => {
-    const reason = window.prompt('Rejection reason:')
-    if (!reason) return
-    run(id, 'reject', 'Payout rejected')
-  }
-  const doMarkPaid = (id) => run(id, 'mark-paid', 'Marked as paid')
-  const doCancel = (id) => run(id, 'cancel', 'Payout cancelled')
+  useEffect(() => {
+    loadPayouts()
+  }, [page, statusFilter])
 
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-3">
-        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={70} />)}
-      </div>
-    )
+  const handleAction = (action, payout) => {
+    setDialogState({
+      isOpen: true,
+      action,
+      payout,
+      loading: false
+    })
   }
 
-  if (error) return <ErrorState onRetry={reload} />
+  const handleConfirmAction = async (reason) => {
+    const { action, payout } = dialogState
+    if (!payout) return
 
-  if (!items.length) {
-    return <EmptyState icon={ArrowLeftRight} title="No payouts" message="No payout requests found." />
+    setDialogState(prev => ({ ...prev, loading: true }))
+    const targetId = payout.uuid || payout.id
+
+    try {
+      if (action === 'approve') {
+        await api.post(`/admin/wallet/payouts/${targetId}/approve`)
+        toast.success(`Payout #${payout.payout_number || payout.id} approved for disbursement.`)
+      } else if (action === 'reject') {
+        await api.post(`/admin/wallet/payouts/${targetId}/reject`, { reason })
+        toast.success(`Payout request rejected. Funds returned to vendor available balance.`)
+      } else if (action === 'mark-paid') {
+        await api.post(`/admin/wallet/payouts/${targetId}/mark-paid`)
+        toast.success(`Payout marked as paid / transferred.`)
+      }
+
+      setDialogState({ isOpen: false, action: null, payout: null, loading: false })
+      loadPayouts()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Payout operation failed.')
+      setDialogState(prev => ({ ...prev, loading: false }))
+    }
   }
+
+  const exportCSV = () => {
+    const rows = [
+      ['Payout #', 'Vendor', 'Bank Name', 'Account #', 'Amount', 'Status', 'Requested At'],
+      ...payouts.map(p => [
+        p.payout_number || p.id,
+        `"${p.vendor_name || p.vendor?.company_name || ''}"`,
+        p.bank_account?.bank_name || 'Bank Transfer',
+        p.bank_account?.account_number || '',
+        p.amount || 0,
+        p.status || '',
+        formatDateTime(p.created_at || p.requested_at)
+      ])
+    ]
+    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
+    const link = document.createElement('a')
+    link.setAttribute('href', encodeURI(csvContent))
+    link.setAttribute('download', `gosika_payouts_${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success('Payouts exported to CSV.')
+  }
+
+  const columns = [
+    {
+      header: 'Payout #',
+      render: item => (
+        <div>
+          <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 13 }}>
+            #{item.payout_number || item.id}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+            {timeAgo(item.created_at || item.requested_at)}
+          </div>
+        </div>
+      )
+    },
+    {
+      header: 'Merchant',
+      render: item => (
+        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>
+          {item.vendor_name || item.vendor?.company_name || 'Vendor'}
+        </div>
+      )
+    },
+    {
+      header: 'Disbursement Bank Account',
+      render: item => {
+        const bank = item.bank_account || item.bankAccount
+        return bank ? (
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--ink)' }}>{bank.bank_name}</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+              Acct: {bank.account_number} ({bank.account_name})
+            </div>
+          </div>
+        ) : (
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Bank Transfer</span>
+        )
+      }
+    },
+    {
+      header: 'Payout Amount',
+      align: 'right',
+      render: item => (
+        <span style={{ fontWeight: 900, color: '#16a34a', fontSize: 14 }}>
+          {money(item.amount)}
+        </span>
+      )
+    },
+    {
+      header: 'Status',
+      accessor: 'status',
+      render: item => <StatusBadge status={item.status} />
+    },
+    {
+      header: 'Actions',
+      align: 'right',
+      render: item => {
+        const isPending = item.status === 'pending'
+        const isApproved = item.status === 'approved'
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+            {isPending && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  style={{ background: '#16a34a', color: '#fff', border: 'none' }}
+                  onClick={() => handleAction('approve', item)}
+                  title="Approve Payout"
+                >
+                  <Check size={12} style={{ marginRight: 3 }} /> Approve
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-outline btn-xs"
+                  style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                  onClick={() => handleAction('reject', item)}
+                  title="Reject"
+                >
+                  <X size={12} /> Reject
+                </button>
+              </>
+            )}
+
+            {isApproved && (
+              <button
+                type="button"
+                className="btn btn-xs"
+                style={{ background: '#2563eb', color: '#fff', border: 'none' }}
+                onClick={() => handleAction('mark-paid', item)}
+                title="Mark Transfer Completed"
+              >
+                Mark Disbursed
+              </button>
+            )}
+          </div>
+        )
+      }
+    }
+  ]
 
   return (
-    <div>
-      <div className="page-header">
-        <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Payout Requests</h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Approve, reject, and track vendor payout requests.
-          </p>
-        </div>
-        <input className="input" style={{ maxWidth: 260 }} placeholder="Search payouts…" value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <PageHeader
+        title="Vendor Payout Requests"
+        description="Verify vendor earnings withdrawals, check bank transfer details, approve payments, and confirm disbursements."
+        breadcrumbs={[
+          { label: 'Finance', to: '/admin/finance/payments' },
+          { label: 'Payouts' }
+        ]}
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={exportCSV}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
+            >
+              <Download size={14} /> Export CSV
+            </button>
 
-      <div className="card card-pad-none" style={{ overflow: 'hidden' }}>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Payout</th>
-                <th>Vendor</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Requested</th>
-                <th>Paid</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((p) => (
-                <tr key={p.id}>
-                  <td className="font-semibold text-xs">{p.payout_number}</td>
-                  <td className="text-sm font-medium">{p.vendor_name || '—'}</td>
-                  <td className="font-bold text-sm">{money(p.amount)}</td>
-                  <td><StatusBadge status={p.status} /></td>
-                  <td className="muted text-xs">{p.requested_at ? new Date(p.requested_at).toLocaleDateString() : '—'}</td>
-                  <td className="muted text-xs">{p.paid_at ? new Date(p.paid_at).toLocaleDateString() : '—'}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
-                      {p.status === 'pending' && (
-                        <>
-                          <button className="btn btn-success btn-xs" onClick={() => doApprove(p.id)}>Approve</button>
-                          <button className="btn btn-danger btn-xs" onClick={() => doReject(p.id)}>Reject</button>
-                        </>
-                      )}
-                      {p.status === 'approved' && (
-                        <button className="btn btn-primary btn-xs" onClick={() => doMarkPaid(p.id)}>Mark Paid</button>
-                      )}
-                      {p.status !== 'cancelled' && (
-                        <button className="btn btn-outline btn-xs" onClick={() => doCancel(p.id)}>Cancel</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={loadPayouts}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
+            >
+              <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+            </button>
+          </div>
+        }
+      />
 
-      <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search payout # or vendor..."
+        statusFilter={statusFilter}
+        onStatusChange={setStatusFilter}
+        statusOptions={[
+          { value: 'pending', label: 'Pending Verification' },
+          { value: 'approved', label: 'Approved (Pending Bank Transfer)' },
+          { value: 'paid', label: 'Disbursed / Paid' },
+          { value: 'rejected', label: 'Rejected' },
+        ]}
+        onReset={() => { setSearch(''); setStatusFilter('all') }}
+      />
+
+      <DataTable
+        columns={columns}
+        data={payouts}
+        loading={loading}
+        pagination={pagination}
+        onPageChange={setPage}
+        emptyTitle="No payout requests found"
+        emptyDescription="There are no merchant payout requests matching your filter."
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={dialogState.isOpen}
+        onClose={() => setDialogState({ isOpen: false, action: null, payout: null, loading: false })}
+        onConfirm={handleConfirmAction}
+        loading={dialogState.loading}
+        title={
+          dialogState.action === 'approve'
+            ? `Approve Payout of ${money(dialogState.payout?.amount || 0)}?`
+            : dialogState.action === 'reject'
+            ? `Reject Payout Request #${dialogState.payout?.payout_number || dialogState.payout?.id}?`
+            : `Confirm Bank Transfer Completed for #${dialogState.payout?.payout_number || dialogState.payout?.id}?`
+        }
+        message={
+          dialogState.action === 'approve'
+            ? 'Approving marks this withdrawal ready for treasury bank clearance.'
+            : dialogState.action === 'reject'
+            ? 'Rejecting will refund the requested withdrawal amount back to the vendor wallet available balance.'
+            : 'Confirm that bank wire/transfer transaction has been executed.'
+        }
+        variant={dialogState.action === 'reject' ? 'danger' : 'success'}
+        confirmText={
+          dialogState.action === 'approve' ? 'Approve Payout' : dialogState.action === 'reject' ? 'Reject Payout' : 'Confirm Disbursed'
+        }
+        requireReason={dialogState.action === 'reject'}
+        reasonPlaceholder="Provide the administrative explanation for rejecting this payout..."
+      />
     </div>
   )
 }

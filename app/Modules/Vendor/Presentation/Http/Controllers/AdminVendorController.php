@@ -76,9 +76,139 @@ class AdminVendorController extends Controller
         return Response::success(new VendorResource($vendor), 'Vendor rejected.');
     }
 
+    public function suspend(Request $request, string $vendorId): JsonResponse
+    {
+        $vendor = Vendor::where('uuid', $vendorId)->orWhere('id', $vendorId)->firstOrFail();
+        $vendor->update([
+            'status' => \App\Modules\Shared\Domain\Enums\VendorStatus::SUSPENDED,
+            'rejection_reason' => $request->input('reason', 'Suspended by admin'),
+        ]);
+
+        return Response::success(new VendorResource($vendor), 'Vendor suspended.');
+    }
+
+    public function activate(Request $request, string $vendorId): JsonResponse
+    {
+        $vendor = Vendor::where('uuid', $vendorId)->orWhere('id', $vendorId)->firstOrFail();
+        $vendor->update([
+            'status' => \App\Modules\Shared\Domain\Enums\VendorStatus::APPROVED,
+            'rejection_reason' => null,
+            'approved_by' => $request->user()->id,
+            'approved_at' => now(),
+        ]);
+
+        return Response::success(new VendorResource($vendor), 'Vendor activated.');
+    }
+
+    public function stores(Request $request): JsonResponse
+    {
+        $stores = Store::query()
+            ->with(['vendor'])
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $term = '%'.$request->search.'%';
+                $q->where('name', 'like', $term)->orWhere('slug', 'like', $term);
+            })
+            ->latest()
+            ->paginate($request->integer('per_page', 20));
+
+        return Response::success(
+            StoreResource::collection($stores),
+            'Stores retrieved.',
+            ['pagination' => [
+                'total' => $stores->total(),
+                'per_page' => $stores->perPage(),
+                'current_page' => $stores->currentPage(),
+                'last_page' => $stores->lastPage(),
+            ]]
+        );
+    }
+
+    public function kycList(Request $request): JsonResponse
+    {
+        $kycs = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::query()
+            ->with(['vendor', 'documents'])
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
+            ->latest()
+            ->paginate($request->integer('per_page', 20));
+
+        return Response::success(
+            $kycs->items(),
+            'KYC submissions retrieved.',
+            ['pagination' => [
+                'total' => $kycs->total(),
+                'per_page' => $kycs->perPage(),
+                'current_page' => $kycs->currentPage(),
+                'last_page' => $kycs->lastPage(),
+            ]]
+        );
+    }
+
+    public function kycShow(string $kycId): JsonResponse
+    {
+        $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::query()
+            ->with(['vendor', 'documents'])
+            ->where('uuid', $kycId)
+            ->orWhere('id', $kycId)
+            ->firstOrFail();
+
+        return Response::success($kyc, 'KYC detail retrieved.');
+    }
+
+    public function approveKyc(Request $request, string $kycId): JsonResponse
+    {
+        $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::where('uuid', $kycId)->orWhere('id', $kycId)->firstOrFail();
+        $kyc->update([
+            'status' => KycStatus::APPROVED,
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+            'review_notes' => $request->input('notes', 'KYC approved by admin'),
+        ]);
+
+        if ($kyc->vendor) {
+            $kyc->vendor->update([
+                'status' => \App\Modules\Shared\Domain\Enums\VendorStatus::APPROVED,
+                'approved_by' => $request->user()->id,
+                'approved_at' => now(),
+            ]);
+        }
+
+        return Response::success($kyc, 'KYC approved.');
+    }
+
+    public function rejectKyc(Request $request, string $kycId): JsonResponse
+    {
+        $request->validate(['reason' => 'required|string|max:1000']);
+
+        $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::where('uuid', $kycId)->orWhere('id', $kycId)->firstOrFail();
+        $kyc->update([
+            'status' => KycStatus::REJECTED,
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+            'review_notes' => $request->input('reason'),
+        ]);
+
+        return Response::success($kyc, 'KYC rejected.');
+    }
+
+    public function requestChangesKyc(Request $request, string $kycId): JsonResponse
+    {
+        $request->validate(['notes' => 'required|string|max:1000']);
+
+        $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::where('uuid', $kycId)->orWhere('id', $kycId)->firstOrFail();
+        $kyc->update([
+            'status' => KycStatus::RESUBMISSION_REQUIRED,
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+            'review_notes' => $request->input('notes'),
+        ]);
+
+        return Response::success($kyc, 'Changes requested for KYC.');
+    }
+
     public function approveStore(string $storeId): JsonResponse
     {
-        $store = Store::where('uuid', $storeId)->firstOrFail();
+        $store = Store::where('uuid', $storeId)->orWhere('id', $storeId)->firstOrFail();
         $store = $this->service->approveStore(request()->user(), $store);
 
         return Response::success(new StoreResource($store), 'Store approved.');
@@ -86,7 +216,7 @@ class AdminVendorController extends Controller
 
     public function rejectStore(VendorReviewRequest $request, string $storeId): JsonResponse
     {
-        $store = Store::where('uuid', $storeId)->firstOrFail();
+        $store = Store::where('uuid', $storeId)->orWhere('id', $storeId)->firstOrFail();
 
         if (! $request->input('reason')) {
             throw new DomainException('A rejection reason is required.');

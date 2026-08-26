@@ -71,13 +71,18 @@ import VendorSecurity from './pages/vendor/Security'
 
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminOrders from './pages/admin/AdminOrders'
+import AdminOrderDetail from './pages/admin/AdminOrderDetail'
+import AdminReturns from './pages/admin/AdminReturns'
 import AdminProducts from './pages/admin/AdminProducts'
 import AdminProductDetail from './pages/admin/AdminProductDetail'
+import AdminKyc from './pages/admin/AdminKyc'
+import AdminStores from './pages/admin/AdminStores'
 import AdminCategories from './pages/admin/AdminCategories'
 import AdminBrands from './pages/admin/AdminBrands'
 import AdminBrandRequests from './pages/admin/AdminBrandRequests'
 import AdminReviews from './pages/admin/AdminReviews'
 import AdminCustomers from './pages/admin/AdminCustomers'
+import AdminCustomerSupport from './pages/admin/AdminCustomerSupport'
 import AdminVendors from './pages/admin/AdminVendors'
 import AdminVendorDetail from './pages/admin/AdminVendorDetail'
 import AdminUsers from './pages/admin/AdminUsers'
@@ -207,48 +212,90 @@ export default function App() {
       <Route path="/admin" element={<AdminRoute><DashboardLayout nav={ADMIN_NAV} title="Admin Panel" roleLabel="Admin" /></AdminRoute>}>
         <Route index element={<AdminDashboard />} />
 
-        {/* Commerce */}
+        {/* Marketplace */}
+        <Route path="marketplace/vendors" element={<AdminVendors />} />
+        <Route path="marketplace/vendors/:id" element={<AdminVendorDetail />} />
+        <Route path="marketplace/kyc" element={<AdminKyc />} />
+        <Route path="marketplace/stores" element={<AdminStores />} />
+        <Route path="marketplace/products" element={<AdminProducts />} />
+        <Route path="marketplace/products/:id" element={<AdminProductDetail />} />
+        <Route path="marketplace/categories" element={<AdminCategories />} />
+        <Route path="marketplace/brands" element={<AdminBrands />} />
+        <Route path="marketplace/brands/requests" element={<AdminBrandRequests />} />
+        <Route path="marketplace/reviews" element={<AdminReviews />} />
+
+        {/* Orders & Service */}
         <Route path="orders" element={<AdminOrders />} />
-        <Route path="products" element={<AdminProducts />} />
-        <Route path="products/:id" element={<AdminProductDetail />} />
-        <Route path="categories" element={<AdminCategories />} />
-        <Route path="brands" element={<AdminBrands />} />
-        <Route path="brand-requests" element={<AdminBrandRequests />} />
-        <Route path="reviews" element={<AdminReviews />} />
+        <Route path="orders/:id" element={<AdminOrderDetail />} />
+        <Route path="orders/returns" element={<AdminReturns />} />
+        <Route path="orders/refunds" element={<AdminRefunds />} />
 
-        {/* Users */}
+        {/* Fulfillment */}
+        <Route path="fulfillment/partners" element={<AdminDeliveryPartners />} />
+        <Route path="fulfillment/assignments" element={<AdminDeliveries />} />
+        <Route path="fulfillment/zones" element={<AdminShipping />} />
+
+        {/* Finance & Ledger */}
+        <Route path="finance/payments" element={<AdminPayments />} />
+        <Route path="finance/commissions" element={<AdminCommissions />} />
+        <Route path="finance/wallets" element={<AdminWallets />} />
+        <Route path="finance/settlements" element={<AdminSettlements />} />
+        <Route path="finance/payouts" element={<AdminPayouts />} />
+
+        {/* Customers */}
         <Route path="customers" element={<AdminCustomers />} />
-        <Route path="vendors" element={<AdminVendors />} />
-        <Route path="vendors/:id" element={<AdminVendorDetail />} />
-        <Route path="users" element={<AdminUsers />} />
-
-        {/* Finance */}
-        <Route path="payments" element={<AdminPayments />} />
-        <Route path="commissions" element={<AdminCommissions />} />
-        <Route path="wallets" element={<AdminWallets />} />
-        <Route path="wallet" element={<AdminWallets />} />
-        <Route path="payouts" element={<AdminPayouts />} />
-        <Route path="settlements" element={<AdminSettlements />} />
-        <Route path="refunds" element={<AdminRefunds />} />
-
-        {/* Operations */}
-        <Route path="shipping" element={<AdminShipping />} />
-        <Route path="deliveries" element={<AdminDeliveries />} />
-        <Route path="delivery-partners" element={<AdminDeliveryPartners />} />
-        <Route path="support" element={<AdminSupport />} />
+        <Route path="customers/support" element={<AdminCustomerSupport />} />
 
         {/* Marketing */}
-        <Route path="coupons" element={<AdminCoupons />} />
-        <Route path="promotions" element={<AdminPromotions />} />
-        <Route path="notifications" element={<AdminNotifications />} />
+        <Route path="marketing/promotions" element={<AdminPromotions />} />
+        <Route path="marketing/coupons" element={<AdminCoupons />} />
+        <Route path="marketing/banners" element={<AdminPromotions />} />
 
         {/* Analytics */}
         <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="analytics/sales" element={<AdminAnalytics />} />
+        <Route path="analytics/vendors" element={<AdminAnalytics />} />
+        <Route path="analytics/customers" element={<AdminAnalytics />} />
+        <Route path="analytics/products" element={<AdminAnalytics />} />
 
-        {/* System */}
-        <Route path="roles" element={<AdminRoles />} />
-        <Route path="settings" element={<AdminSettings />} />
-        <Route path="audit-logs" element={<AdminAuditLogs />} />
+        {/* System & Security */}
+        <Route path="system/notifications" element={<AdminNotifications />} />
+        <Route path="system/users" element={<AdminUsers />} />
+        <Route path="system/roles" element={<AdminRoles />} />
+        <Route path="system/audit-logs" element={<AdminAuditLogs />} />
+        <Route path="system/settings" element={<AdminSettings />} />
+
+        {/* Backward-Compatible Redirects */}
+        <Route path="vendors" element={<Navigate to="/admin/marketplace/vendors" replace />} />
+        <Route path="vendors/:id" element={<Navigate to="/admin/marketplace/vendors" replace />} />
+        <Route path="kyc" element={<Navigate to="/admin/marketplace/kyc" replace />} />
+        <Route path="stores" element={<Navigate to="/admin/marketplace/stores" replace />} />
+        <Route path="products" element={<Navigate to="/admin/marketplace/products" replace />} />
+        <Route path="products/:id" element={<Navigate to="/admin/marketplace/products" replace />} />
+        <Route path="categories" element={<Navigate to="/admin/marketplace/categories" replace />} />
+        <Route path="brands" element={<Navigate to="/admin/marketplace/brands" replace />} />
+        <Route path="brand-requests" element={<Navigate to="/admin/marketplace/brands/requests" replace />} />
+        <Route path="reviews" element={<Navigate to="/admin/marketplace/reviews" replace />} />
+        <Route path="returns" element={<Navigate to="/admin/orders/returns" replace />} />
+        <Route path="refunds" element={<Navigate to="/admin/orders/refunds" replace />} />
+        <Route path="shipping" element={<Navigate to="/admin/fulfillment/zones" replace />} />
+        <Route path="deliveries" element={<Navigate to="/admin/fulfillment/assignments" replace />} />
+        <Route path="delivery-partners" element={<Navigate to="/admin/fulfillment/partners" replace />} />
+        <Route path="payments" element={<Navigate to="/admin/finance/payments" replace />} />
+        <Route path="commissions" element={<Navigate to="/admin/finance/commissions" replace />} />
+        <Route path="wallets" element={<Navigate to="/admin/finance/wallets" replace />} />
+        <Route path="wallet" element={<Navigate to="/admin/finance/wallets" replace />} />
+        <Route path="payouts" element={<Navigate to="/admin/finance/payouts" replace />} />
+        <Route path="settlements" element={<Navigate to="/admin/finance/settlements" replace />} />
+        <Route path="coupons" element={<Navigate to="/admin/marketing/coupons" replace />} />
+        <Route path="promotions" element={<Navigate to="/admin/marketing/promotions" replace />} />
+        <Route path="banners" element={<Navigate to="/admin/marketing/banners" replace />} />
+        <Route path="support" element={<Navigate to="/admin/customers/support" replace />} />
+        <Route path="users" element={<Navigate to="/admin/system/users" replace />} />
+        <Route path="roles" element={<Navigate to="/admin/system/roles" replace />} />
+        <Route path="audit-logs" element={<Navigate to="/admin/system/audit-logs" replace />} />
+        <Route path="settings" element={<Navigate to="/admin/system/settings" replace />} />
+        <Route path="notifications" element={<Navigate to="/admin/system/notifications" replace />} />
       </Route>
 
       {/* Delivery Partner Portal */}

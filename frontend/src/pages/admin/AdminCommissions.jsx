@@ -1,209 +1,266 @@
-import React, { useState } from 'react'
-import { Percent, Edit, Search, DollarSign, Store, Tag } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  Percent, Edit, Search, DollarSign, Store, Tag,
+  RefreshCw, CheckCircle2, Building2
+} from 'lucide-react'
 import api from '../../api/client'
+import PageHeader from '../../components/admin/PageHeader'
+import DataTable from '../../components/admin/DataTable'
+import FilterBar from '../../components/admin/FilterBar'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import Modal from '../../components/ui/Modal'
-import Pagination from '../../components/ui/Pagination'
-import { Skeleton } from '../../components/ui/Skeleton'
-import EmptyState from '../../components/ui/EmptyState'
-import ErrorState from '../../components/ui/ErrorState'
 import { money, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
-import { useList, useApi } from '../../hooks/useApi'
 
 export default function AdminCommissions() {
   const toast = useToast()
+  const [vendors, setVendors] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [pagination, setPagination] = useState(null)
+  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [editTarget, setEditTarget] = useState(null)
   const [newRate, setNewRate] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const fetcher = (page) => {
-    const params = { page, per_page: 15 }
-    if (search) params.search = search
-    return api.get('/admin/commissions', { params })
+  const loadCommissions = async () => {
+    setLoading(true)
+    try {
+      const params = { page, per_page: 15 }
+      if (search.trim()) params.search = search.trim()
+
+      const res = await api.get('/admin/commissions', { params })
+      const data = res.data?.data || []
+      setVendors(data)
+      if (res.data?.meta?.pagination) {
+        setPagination(res.data.meta.pagination)
+      } else {
+        setPagination({
+          current_page: page,
+          last_page: 1,
+          total: data.length,
+          per_page: 15
+        })
+      }
+    } catch (err) {
+      toast.error('Failed to load commission configuration.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
-    deps: [search],
-    pageSize: 15,
-    cacheKey: 'admin_commissions_list',
-  })
-
-  const defaultsApi = useApi(() => api.get('/admin/commissions', { params: { page: 1, per_page: 1 } }))
-  const defaults = defaultsApi.data?.meta?.defaults || {}
+  useEffect(() => {
+    loadCommissions()
+  }, [page])
 
   const handleUpdateRate = async (e) => {
     e.preventDefault()
+    if (!editTarget || newRate === '') return
+
     setSaving(true)
     try {
-      await api.put(`/admin/commissions/vendors/${editTarget.id}`, { commission_rate: Number(newRate) })
-      toast.success(`Commission rate for ${editTarget.company_name} updated to ${newRate}%`)
+      const targetId = editTarget.uuid || editTarget.id
+      await api.put(`/admin/commissions/vendors/${targetId}`, {
+        commission_rate: Number(newRate)
+      })
+      toast.success(`Commission rate for "${editTarget.company_name}" updated to ${newRate}%`)
       setEditTarget(null)
-      reload()
+      setNewRate('')
+      loadCommissions()
     } catch (err) {
-      toast.error(errorMessage(err))
+      toast.error(err.response?.data?.message || 'Failed to update commission rate.')
     } finally {
       setSaving(false)
     }
   }
 
-  const totalEarned = items.reduce((s, v) => s + Number(v.earned_commission || 0), 0)
-  const defaultRate = Number(defaults.default_rate) || 0
-
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-3">
-        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={70} />)}
-      </div>
-    )
-  }
-
-  if (error) return <ErrorState onRetry={reload} />
-
-  if (!items.length) {
-    return <EmptyState icon={Percent} title="No commissions" message="No vendor commission records found." />
-  }
+  const columns = [
+    {
+      header: 'Vendor / Entity',
+      render: item => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: '#eff6ff', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Store size={18} />
+          </div>
+          <div>
+            <Link
+              to={`/admin/marketplace/vendors/${item.uuid || item.id}`}
+              style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', textDecoration: 'none' }}
+              className="hover:text-primary"
+            >
+              {item.company_name}
+            </Link>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+              PAN: {item.pan_vat || '—'}
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      header: 'Commission Agreement',
+      render: item => {
+        const hasOverride = item.commission_rate !== null && item.commission_rate !== undefined
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--ink)' }}>
+              {hasOverride ? `${item.commission_rate}%` : '10.0% (Default)'}
+            </span>
+            {hasOverride && (
+              <span className="chip chip-sm" style={{ background: '#fef3c7', color: '#d97706', fontSize: 10.5, fontWeight: 700 }}>
+                Custom Override
+              </span>
+            )}
+          </div>
+        )
+      }
+    },
+    {
+      header: 'Gross Volume Generated',
+      align: 'right',
+      render: item => (
+        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>
+          {money(item.total_sales || item.gross_sales || 0)}
+        </span>
+      )
+    },
+    {
+      header: 'Net Commission Earned',
+      align: 'right',
+      render: item => (
+        <span style={{ fontWeight: 900, fontSize: 13.5, color: '#16a34a' }}>
+          {money(item.earned_commission || item.total_commission || 0)}
+        </span>
+      )
+    },
+    {
+      header: 'Status',
+      accessor: 'status',
+      render: item => <StatusBadge status={item.status} />
+    },
+    {
+      header: 'Actions',
+      align: 'right',
+      render: item => (
+        <button
+          type="button"
+          className="btn btn-outline btn-xs"
+          onClick={() => {
+            setEditTarget(item)
+            setNewRate(item.commission_rate !== null && item.commission_rate !== undefined ? String(item.commission_rate) : '10')
+          }}
+          style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+        >
+          <Edit size={12} /> Edit Rate
+        </button>
+      )
+    }
+  ]
 
   return (
-    <div>
-      <div className="page-header">
-        <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Commission Management</h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Configure platform commission rules and vendor overrides.
-          </p>
-        </div>
-        <input className="input" style={{ maxWidth: 260 }} placeholder="Search vendors…" value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <PageHeader
+        title="Commission Governance & Rules"
+        description="Regulate marketplace take-rate agreements, customized seller contracts, and fee schedules."
+        breadcrumbs={[
+          { label: 'Finance', to: '/admin/finance/payments' },
+          { label: 'Commissions' }
+        ]}
+        actions={
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={loadCommissions}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
+          >
+            <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+          </button>
+        }
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <div className="flex items-center justify-between">
-            <span className="muted text-xs uppercase font-bold">Platform Earnings</span>
-            <DollarSign size={16} color="var(--primary)" />
-          </div>
-          <div className="font-extrabold text-xl mt-1 text-ink">{money(totalEarned)}</div>
-          <span className="muted text-xs mt-1 block">From marketplace commissions</span>
-        </div>
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search vendor name, PAN..."
+        onReset={() => { setSearch(''); loadCommissions() }}
+      />
 
-        <div className="card" style={{ padding: 16 }}>
-          <div className="flex items-center justify-between">
-            <span className="muted text-xs uppercase font-bold">Vendors</span>
-            <Store size={16} color="var(--success)" />
-          </div>
-          <div className="font-extrabold text-xl mt-1 text-ink">{meta.total}</div>
-          <span className="muted text-xs mt-1 block">Registered merchants</span>
-        </div>
+      <DataTable
+        columns={columns}
+        data={vendors}
+        loading={loading}
+        pagination={pagination}
+        onPageChange={setPage}
+        emptyTitle="No commission records"
+        emptyDescription="No vendor commission records found."
+      />
 
-        <div className="card" style={{ padding: 16 }}>
-          <div className="flex items-center justify-between">
-            <span className="muted text-xs uppercase font-bold">Default Platform Rate</span>
-            <Percent size={16} color="var(--warning)" />
-          </div>
-          <div className="font-extrabold text-xl mt-1 text-warning">{defaultRate}%</div>
-          <span className="muted text-xs mt-1 block">Applied when no override exists</span>
-        </div>
-      </div>
-
-      <div className="card mb-4" style={{ padding: 18 }}>
-        <h3 style={{ fontSize: 15, margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Tag size={16} color="var(--primary)" /> Commission Defaults
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-          <div className="card" style={{ background: 'var(--bg)', padding: 12 }}>
-            <div className="muted text-xs font-semibold">Product Rate</div>
-            <div className="font-extrabold text-lg mt-1 text-primary">{defaults.product_rate != null ? `${defaults.product_rate}%` : '—'}</div>
-          </div>
-          <div className="card" style={{ background: 'var(--bg)', padding: 12 }}>
-            <div className="muted text-xs font-semibold">Category Rate</div>
-            <div className="font-extrabold text-lg mt-1 text-primary">{defaults.category_rate != null ? `${defaults.category_rate}%` : '—'}</div>
-          </div>
-          <div className="card" style={{ background: 'var(--bg)', padding: 12 }}>
-            <div className="muted text-xs font-semibold">Default Rate</div>
-            <div className="font-extrabold text-lg mt-1 text-primary">{defaults.default_rate != null ? `${defaults.default_rate}%` : '—'}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="card card-pad-none" style={{ overflow: 'hidden' }}>
-        <div className="flex items-center justify-between" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-          <h3 style={{ fontSize: 15, margin: 0 }}>Vendor Commission Overrides & Performance</h3>
-        </div>
-        <div className="table-wrap" style={{ border: 'none' }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Vendor / Store</th>
-                <th>Business Email</th>
-                <th>Commission Rate</th>
-                <th>Orders</th>
-                <th>Earned Commission</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((v) => (
-                <tr key={v.id}>
-                  <td>
-                    <div className="font-semibold text-sm text-ink">{v.company_name}</div>
-                  </td>
-                  <td className="muted text-sm">{v.business_email || '—'}</td>
-                  <td>
-                    <span className="badge badge-primary font-bold">{v.commission_rate != null ? `${v.commission_rate}%` : '—'}</span>
-                  </td>
-                  <td>
-                    <span className="font-semibold">{v.orders_count != null ? v.orders_count : '—'}</span>
-                  </td>
-                  <td>
-                    <span className="font-bold text-success">+{money(v.earned_commission)}</span>
-                  </td>
-                  <td>
-                    <StatusBadge status={v.status} />
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      className="btn btn-outline btn-xs"
-                      onClick={() => { setEditTarget(v); setNewRate(v.commission_rate != null ? String(v.commission_rate) : '') }}
-                    >
-                      <Edit size={12} /> Edit Rate
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
-
+      {/* Edit Rate Modal */}
       {editTarget && (
-        <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title={`Edit Commission: ${editTarget.company_name}`}>
-          <form onSubmit={handleUpdateRate} className="flex flex-col gap-3">
-            <div className="form-group">
-              <label className="label">Custom Commission Percentage (%) <span className="req">*</span></label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                className="input"
-                required
-                value={newRate}
-                onChange={(e) => setNewRate(e.target.value)}
-              />
-              <span className="muted text-xs mt-1 block">Current platform default is {defaultRate}%.</span>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setEditTarget(null) }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: 440,
+              background: '#fff',
+              borderRadius: 16,
+              padding: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                Edit Commission Rate
+              </h3>
+              <button className="btn btn-ghost btn-xs" onClick={() => setEditTarget(null)}>✕</button>
             </div>
-            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-              <button type="button" className="btn btn-outline" onClick={() => setEditTarget(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? 'Saving…' : 'Save Commission Rate'}
-              </button>
-            </div>
-          </form>
-        </Modal>
+
+            <form onSubmit={handleUpdateRate} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+                Adjust platform commission percentage for <strong>{editTarget.company_name}</strong>.
+              </p>
+
+              <div>
+                <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Commission Rate (%) *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  className="input"
+                  style={{ width: '100%', height: 38, fontSize: 14, fontWeight: 700 }}
+                  value={newRate}
+                  onChange={e => setNewRate(e.target.value)}
+                  placeholder="e.g. 8.5"
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditTarget(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
+                  {saving ? 'Updating...' : 'Save Commission Rate'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -17,7 +17,7 @@ Route::prefix('v1/payments')->group(function () {
     Route::post('esewa/callback', [PaymentController::class, 'esewaCallback'])->middleware('throttle:payment');
 });
 
-Route::prefix('v1/admin')->group(function () {
+Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('payments', [AdminPaymentController::class, 'index']);
     Route::get('payments/{payment}', [AdminPaymentController::class, 'show']);
     Route::post('payments/{payment}/refund', [AdminPaymentController::class, 'refund']);

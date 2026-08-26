@@ -27,7 +27,7 @@ Route::prefix('v1/marketplace')->group(function () {
     });
 });
 
-Route::prefix('v1/admin')->group(function () {
+Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('reviews', [AdminReviewController::class, 'index']);
     Route::post('reviews/{type}/{review}/approve', [AdminReviewController::class, 'approve']);
     Route::post('reviews/{type}/{review}/reject', [AdminReviewController::class, 'reject']);

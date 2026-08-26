@@ -8,8 +8,8 @@ use App\Modules\Shipping\Presentation\Http\Controllers\VendorDashboardController
 use App\Modules\Shipping\Presentation\Http\Controllers\VendorOrderController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1/delivery-partner')->group(function () {
-    Route::post('apply', [DeliveryPartnerController::class, 'apply']);
+Route::prefix('v1/delivery-partner')->middleware(['auth:sanctum', 'ensure:delivery'])->group(function () {
+    Route::post('apply', [DeliveryPartnerController::class, 'apply'])->withoutMiddleware(['auth:sanctum', 'ensure:delivery']);
     Route::get('me', [DeliveryPartnerController::class, 'me']);
     Route::put('me', [DeliveryPartnerController::class, 'updateProfile']);
     Route::post('online', [DeliveryPartnerController::class, 'setOnline']);
@@ -26,7 +26,7 @@ Route::prefix('v1/delivery-partner')->group(function () {
     Route::get('history', [DeliveryPartnerController::class, 'history']);
 });
 
-Route::prefix('v1/admin/delivery-partners')->group(function () {
+Route::prefix('v1/admin/delivery-partners')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('/', [AdminDeliveryController::class, 'partners']);
     Route::post('/', [AdminDeliveryController::class, 'store']);
     Route::get('{partner}', [AdminDeliveryController::class, 'partner']);
@@ -36,14 +36,14 @@ Route::prefix('v1/admin/delivery-partners')->group(function () {
     Route::post('{partner}/activate', [AdminDeliveryController::class, 'activate']);
 });
 
-Route::prefix('v1/admin/deliveries')->group(function () {
+Route::prefix('v1/admin/deliveries')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('/', [AdminDeliveryController::class, 'assignments']);
     Route::post('/', [AdminDeliveryController::class, 'assign']);
     Route::get('{assignment}', [AdminDeliveryController::class, 'assignment']);
     Route::post('{assignment}/reassign', [AdminDeliveryController::class, 'reassign']);
 });
 
-Route::prefix('v1/vendor/orders')->group(function () {
+Route::prefix('v1/vendor/orders')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
     Route::get('/', [VendorOrderController::class, 'index']);
     Route::get('{vendorOrder}', [VendorOrderController::class, 'show']);
     Route::post('{vendorOrder}/accept', [VendorOrderController::class, 'accept']);
@@ -51,7 +51,7 @@ Route::prefix('v1/vendor/orders')->group(function () {
     Route::post('{vendorOrder}/ready-for-pickup', [VendorOrderController::class, 'readyForPickup']);
 });
 
-Route::prefix('v1/vendor')->group(function () {
+Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
     Route::get('dashboard', [VendorDashboardController::class, 'dashboard']);
 });
 
@@ -59,7 +59,7 @@ Route::prefix('v1')->group(function () {
     Route::get('orders/{order}/tracking', [DeliveryTrackingController::class, 'orderTracking']);
 });
 
-Route::prefix('v1/admin/shipping')->group(function () {
+Route::prefix('v1/admin/shipping')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('zones', [AdminShippingController::class, 'zones']);
     Route::post('zones', [AdminShippingController::class, 'storeZone']);
     Route::put('zones/{zone}', [AdminShippingController::class, 'updateZone']);
