@@ -136,7 +136,7 @@ export default function DeliveryDashboard() {
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
           <div className="flex items-center justify-between mb-2">
             <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em' }}>Active Assignments</span>
-            <span className="avatar" style={{ width: 34, height: 34, background: '#eef2ff', color: '#4f46e5' }}>
+            <span className="avatar" style={{ width: 34, height: 34, background: '#fff0e6', color: '#ff5500' }}>
               <Truck size={18} />
             </span>
           </div>

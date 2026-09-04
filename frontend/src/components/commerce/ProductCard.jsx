@@ -13,7 +13,7 @@ export function statusOf(product) {
   return product?.stock_status?.value || product?.stock_status
 }
 
-export default function ProductCard({ product, onQuickView }) {
+export default function ProductCard({ product, onQuickView, variant = 'outline' }) {
   const { addItem } = useCart()
   const { isWishlisted, toggle, busyId } = useWishlist()
   const { user } = useAuth()
@@ -130,7 +130,10 @@ export default function ProductCard({ product, onQuickView }) {
         <RatingStars value={product.rating_avg} count={product.rating_count} size={12} />
         <div className="mt-auto" style={{ paddingTop: 10 }}>
           {inStock ? (
-            <button className="btn btn-primary btn-sm btn-block" onClick={handleAdd}>
+            <button
+              className={variant === 'outline' ? 'btn-cart-outline' : 'btn btn-primary btn-sm btn-block'}
+              onClick={handleAdd}
+            >
               <ShoppingCart size={14} /> Add to cart
             </button>
           ) : (

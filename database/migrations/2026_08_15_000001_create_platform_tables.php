@@ -15,7 +15,9 @@ return new class extends Migration
             $table->text('value')->nullable();
             $table->string('group', 80)->default('general')->index();
             $table->string('type', 20)->default('string');
+            $table->string('description', 255)->nullable();
             $table->boolean('is_public')->default(false);
+            $table->boolean('is_encrypted')->default(false);
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();

@@ -54,10 +54,10 @@ function MiniBarChart({ data = [] }) {
                 height: isZero ? '6px' : `${Math.max(pct, 12)}%`,
                 background: isZero
                   ? '#e2e8f0'
-                  : 'linear-gradient(180deg, #2563eb 0%, #3b82f6 100%)',
+                  : 'linear-gradient(180deg, #ff5500 0%, #ff7733 100%)',
                 borderRadius: isZero ? '3px' : '6px 6px 0 0',
                 transition: 'all 0.3s ease',
-                boxShadow: isZero ? 'none' : '0 2px 6px rgba(37,99,235,0.25)',
+                boxShadow: isZero ? 'none' : '0 2px 6px rgba(255,85,0,0.25)',
               }}
             />
             <span
@@ -250,8 +250,8 @@ export default function VendorDashboard() {
           value={(dashboard?.orders_count || 128).toLocaleString()}
           sub={`${dashboard?.pending_orders || 8} pending action`}
           Icon={ShoppingBag}
-          iconBg="#dbeafe"
-          iconColor="#2563eb"
+          iconBg="#fff0e6"
+          iconColor="#ff5500"
           to="/vendor/orders"
         />
         <VendorKpiCard

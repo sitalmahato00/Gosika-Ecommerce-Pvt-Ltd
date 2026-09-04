@@ -74,54 +74,55 @@ const PROVINCES = [
   'Lumbini', 'Karnali', 'Sudurpashchim',
 ]
 
-export default function CustomerFooter() {
-  return (
-    <footer className="footer" role="contentinfo">
-      {/* --- Trust strip --- */}
-      <div style={{ background: '#1e293b', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '20px 0' }}>
-        <div className="container" style={{ padding: '0 20px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
-            {[
-              { icon: Truck, title: 'Nationwide Delivery', desc: 'Delivering to all 77 districts across Nepal' },
-              { icon: Shield, title: 'Buyer Protection', desc: 'Every order protected by GOSIKA Guarantee' },
-              { icon: Star, title: 'Verified Vendors', desc: 'KYC-verified sellers you can trust' },
-              { icon: Headphones, title: '24/7 Support', desc: 'We\'re here whenever you need help' },
-            ].map((f) => (
-              <div key={f.title} className="flex items-start gap-3" style={{ padding: '8px 0' }}>
-                <span style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(59,130,246,0.15)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <f.icon size={18} color="#60a5fa" />
-                </span>
-                <div>
-                  <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>{f.title}</div>
-                  <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>{f.desc}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+import { useBranding } from '../../context/BrandingContext'
 
+export default function CustomerFooter() {
+  const branding = useBranding()
+  const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
+  const footerText = `© ${new Date().getFullYear()} ${brandName} Pvt. Ltd. All rights reserved.`
+
+  return (
+    <footer className="footer" role="contentinfo" style={{ background: '#161d2b', color: '#94a3b8', fontSize: 13 }}>
       {/* --- Main footer grid --- */}
-      <div className="container" style={{ padding: '44px 20px 28px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 36 }}>
+      <div className="container" style={{ padding: '50px 20px 30px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 36 }}>
           {/* Brand column */}
-          <div>
-            <div className="brand" style={{ color: '#fff', marginBottom: 14 }}>
-              <span className="brand-mark"><ShoppingBag size={18} /></span>
-              GOSIKA
-            </div>
-            <p style={{ fontSize: 13, lineHeight: 1.7, maxWidth: 260, margin: '0 0 16px', color: '#64748b' }}>
-              Nepal's trusted multi-vendor marketplace. Shop from verified sellers across all seven
-              provinces — delivered right to your doorstep.
+          <div style={{ gridColumn: 'span 1' }}>
+            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', marginBottom: 16 }}>
+              <span
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  background: '#ff5500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  fontWeight: 900,
+                  fontSize: 17,
+                  boxShadow: '0 2px 6px rgba(255,85,0,0.3)',
+                  flexShrink: 0
+                }}
+              >
+                G
+              </span>
+              <span style={{ fontWeight: 900, color: '#ffffff', fontSize: 20, letterSpacing: '-0.02em', display: 'flex', alignItems: 'baseline' }}>
+                {brandName}
+                <span style={{ color: '#ff5500', fontWeight: 700, marginLeft: 2, fontSize: 15 }}>Commerce</span>
+              </span>
+            </Link>
+            <p style={{ fontSize: 13, lineHeight: 1.6, maxWidth: 260, margin: '0 0 18px', color: '#94a3b8' }}>
+              Nepal's leading multi-vendor marketplace connecting trusted local sellers with buyers nationwide. Sabai ek thau ma.
             </p>
 
             {/* Social links */}
-            <div className="footer-social">
+            <div className="footer-social" style={{ display: 'flex', gap: 10, marginBottom: 22 }}>
               {[
-                { href: 'https://facebook.com', icon: Facebook, label: 'GOSIKA on Facebook' },
-                { href: 'https://instagram.com', icon: Instagram, label: 'GOSIKA on Instagram' },
-                { href: 'https://twitter.com', icon: Twitter, label: 'GOSIKA on Twitter' },
-                { href: 'https://youtube.com', icon: Youtube, label: 'GOSIKA on YouTube' },
+                { href: 'https://facebook.com', icon: Facebook, label: 'Facebook' },
+                { href: 'https://instagram.com', icon: Instagram, label: 'Instagram' },
+                { href: 'https://twitter.com', icon: Twitter, label: 'Twitter' },
+                { href: 'https://youtube.com', icon: Youtube, label: 'YouTube' },
               ].map(({ href, icon: Icon, label }) => (
                 <a
                   key={label}
@@ -130,97 +131,112 @@ export default function CustomerFooter() {
                   rel="noopener noreferrer"
                   className="footer-social-btn"
                   aria-label={label}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 8,
+                    background: 'rgba(255,255,255,0.07)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#e2e8f0',
+                    textDecoration: 'none',
+                    transition: 'all 0.2s'
+                  }}
                 >
-                  <Icon size={15} />
+                  <Icon size={16} />
                 </a>
               ))}
             </div>
 
             {/* Payment methods */}
-            <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#475569', marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: 10 }}>
                 Accepted Payments
               </div>
-              <div className="footer-payment-badges">
+              <div className="footer-payment-badges" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {PAYMENT_METHODS.map((m) => (
-                  <span key={m.label} className="payment-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span
+                    key={m.label}
+                    className="payment-badge"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'rgba(255,255,255,0.06)',
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      color: '#cbd5e1',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      border: '1px solid rgba(255,255,255,0.08)'
+                    }}
+                  >
                     {m.logo ? (
-                      <img src={m.logo} alt={m.label} style={{ height: 18, width: 'auto' }} />
+                      <img src={m.logo} alt={m.label} style={{ height: 16, width: 'auto' }} />
                     ) : (
-                      <m.icon size={13} color="var(--primary)" />
+                      <m.icon size={13} color="#ff5500" />
                     )}
+                    {m.label}
                   </span>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Quick links */}
+          {/* Shop */}
           <div>
-            <h4 className="footer-title">Shop</h4>
-            <div className="footer-links">
-              {QUICK_LINKS.map((l) => (
-                <Link key={l.label} to={l.to}>{l.label}</Link>
-              ))}
+            <h4 style={{ color: '#ffffff', fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Shop</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <Link to="/shop" style={{ color: '#94a3b8', textDecoration: 'none' }}>All Products</Link>
+              <Link to="/shop?sort=newest" style={{ color: '#94a3b8', textDecoration: 'none' }}>New Arrivals</Link>
+              <Link to="/shop?filter=deals" style={{ color: '#94a3b8', textDecoration: 'none' }}>Flash Deals</Link>
+              <Link to="/brands" style={{ color: '#94a3b8', textDecoration: 'none' }}>Top Brands</Link>
+              <Link to="/shop?mode=featured" style={{ color: '#94a3b8', textDecoration: 'none' }}>Featured Deals</Link>
             </div>
           </div>
 
-          {/* Account */}
+          {/* About Us */}
           <div>
-            <h4 className="footer-title">My Account</h4>
-            <div className="footer-links">
-              {ACCOUNT_LINKS.map((l) => (
-                <Link key={l.label} to={l.to}>{l.label}</Link>
-              ))}
+            <h4 style={{ color: '#ffffff', fontSize: 14, fontWeight: 700, marginBottom: 16 }}>About Us</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>About GOSIKA</Link>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Careers</Link>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Press & Media</Link>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Terms & Conditions</Link>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Privacy Policy</Link>
             </div>
           </div>
 
-          {/* Seller */}
+          {/* Help & Support */}
           <div>
-            <h4 className="footer-title">Sell on GOSIKA</h4>
-            <div className="footer-links">
-              {SELLER_LINKS.map((l) => (
-                <Link key={l.label} to={l.to}>{l.label}</Link>
-              ))}
+            <h4 style={{ color: '#ffffff', fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Help & Support</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Help Center</Link>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>How to Buy</Link>
+              <Link to="/orders" style={{ color: '#94a3b8', textDecoration: 'none' }}>Track Your Order</Link>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Returns & Refunds</Link>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Contact Us</Link>
             </div>
           </div>
 
-          {/* Help & contact */}
+          {/* For Sellers */}
           <div>
-            <h4 className="footer-title">Help & Support</h4>
-            <div className="footer-links">
-              {HELP_LINKS.map((l) => (
-                <Link key={l.label} to={l.to}>{l.label}</Link>
-              ))}
-              <a href="mailto:support@gosika.com.np" className="flex items-center gap-2">
-                <Mail size={13} /> support@gosika.com.np
-              </a>
-              <a href="tel:+9779800000000" className="flex items-center gap-2">
-                <Phone size={13} /> +977 9800 000 000
-              </a>
+            <h4 style={{ color: '#ffffff', fontSize: 14, fontWeight: 700, marginBottom: 16 }}>For Sellers</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <Link to="/vendor/register" style={{ color: '#ff5500', fontWeight: 600, textDecoration: 'none' }}>Become a Seller</Link>
+              <Link to="/vendor" style={{ color: '#94a3b8', textDecoration: 'none' }}>Seller Hub</Link>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Seller Guidelines</Link>
+              <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Commission Rates</Link>
             </div>
-          </div>
-        </div>
-
-        {/* Province coverage */}
-        <div style={{ marginTop: 36, padding: '20px 0', borderTop: '1px solid rgba(148,163,184,0.1)', borderBottom: '1px solid rgba(148,163,184,0.1)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#475569', marginBottom: 10 }}>
-            Delivering across all provinces of Nepal
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {PROVINCES.map((p) => (
-              <span key={p} style={{ fontSize: 12, color: '#64748b', padding: '3px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 999 }}>
-                {p}
-              </span>
-            ))}
           </div>
         </div>
 
         {/* Bottom bar */}
-        <div className="footer-bottom flex items-center justify-between wrap gap-3" style={{ marginTop: 20 }}>
-          <span>© {new Date().getFullYear()} Gosika Commerce Pvt. Ltd. All rights reserved.</span>
-          <span className="flex items-center gap-2">
-            <MapPin size={13} /> Registered in Nepal · Kathmandu
+        <div style={{ marginTop: 44, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'between', flexWrap: 'wrap', gap: 16 }}>
+          <span style={{ color: '#64748b', fontSize: 12 }}>{footerText}</span>
+          <span style={{ marginLeft: 'auto', color: '#94a3b8', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+            Made with <span style={{ color: '#ef4444' }}>❤️</span> in Nepal 🇳🇵
           </span>
         </div>
       </div>

@@ -14,28 +14,50 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class PublicCatalogController extends Controller
 {
     public function categories(Request $request): JsonResponse
     {
-        $categories = Category::query()
-            ->active()
-            ->withCount(['products' => fn ($q) => $q->where('status', ProductStatus::PUBLISHED)])
-            ->when($request->boolean('with_children'), fn ($q) => $q->with('children'))
-            ->orderBy('sort_order')
-            ->get();
+        $withChildren = $request->boolean('with_children');
+        $cacheKey = 'catalog.categories.public.' . ($withChildren ? '1' : '0');
 
-        return Response::success(CategoryResource::collection($categories), 'Categories retrieved.');
+        $data = Cache::remember($cacheKey, 300, function () use ($withChildren) {
+            $categories = Category::query()
+                ->active()
+                ->withCount(['products' => fn ($q) => $q->where('status', ProductStatus::PUBLISHED)])
+                ->when($withChildren, fn ($q) => $q->with('children'))
+                ->orderBy('sort_order')
+                ->get();
+
+            return CategoryResource::collection($categories)->resolve();
+        });
+
+        return Response::success($data, 'Categories retrieved.');
     }
 
     public function brands(Request $request): JsonResponse
     {
+        $search = $request->input('search');
+        if (empty($search)) {
+            $data = Cache::remember('catalog.brands.public', 300, function () {
+                $brands = Brand::query()
+                    ->active()
+                    ->withCount(['products' => fn ($q) => $q->where('status', ProductStatus::PUBLISHED)])
+                    ->orderBy('name')
+                    ->get();
+
+                return BrandResource::collection($brands)->resolve();
+            });
+            return Response::success($data, 'Brands retrieved.');
+        }
+
         $brands = Brand::query()
             ->active()
             ->withCount(['products' => fn ($q) => $q->where('status', ProductStatus::PUBLISHED)])
-            ->when($request->filled('search'), fn ($q) => $q->where('name', 'like', '%'.$request->search.'%'))
+            ->where('name', 'like', '%'.$search.'%')
             ->orderBy('name')
             ->get();
 

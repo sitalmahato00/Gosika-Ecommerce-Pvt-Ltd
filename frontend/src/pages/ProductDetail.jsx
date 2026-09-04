@@ -47,6 +47,7 @@ export default function ProductDetail() {
   const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', body: '' })
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
     let alive = true
     setLoading(true)
     setError(null)
@@ -312,19 +313,26 @@ export default function ProductDetail() {
             <QtyStepper value={qty} onChange={setQty} min={1} max={Math.max(1, maxQty)} disabled={!inStock} />
             <div style={{ display: 'flex', gap: 10, flex: 1 }}>
               <button
+                className="btn btn-outline btn-lg flex-1"
+                onClick={handleAdd}
+                disabled={!inStock || busy}
+                style={{ fontWeight: 700 }}
+              >
+                <ShoppingCart size={18} /> {inStock ? 'Add to Cart' : 'Out of Stock'}
+              </button>
+              <button
                 className="btn btn-lg flex-1"
-                style={{ background: 'var(--success)', color: '#fff', borderColor: 'var(--success)' }}
+                style={{
+                  background: '#ff5500',
+                  color: '#ffffff',
+                  borderColor: '#ff5500',
+                  fontWeight: 700,
+                  boxShadow: '0 4px 14px rgba(255,85,0,0.35)'
+                }}
                 onClick={handleCheckout}
                 disabled={!inStock || busy}
               >
                 Buy Now
-              </button>
-              <button
-                className="btn btn-primary btn-lg flex-1"
-                onClick={handleAdd}
-                disabled={!inStock || busy}
-              >
-                <ShoppingCart size={18} /> {inStock ? 'Add to Cart' : 'Out of Stock'}
               </button>
             </div>
             <button className="icon-btn icon-btn-lg" onClick={handleWish} aria-label="Toggle wishlist">

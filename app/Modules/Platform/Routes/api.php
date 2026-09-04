@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Platform\Presentation\Http\Controllers\AdminSettingsController;
 use App\Modules\Platform\Presentation\Http\Controllers\GeoController;
 use App\Modules\Platform\Presentation\Http\Controllers\PlatformConfigController;
 use App\Modules\Platform\Presentation\Http\Controllers\SettingsController;
@@ -15,9 +16,30 @@ Route::prefix('v1/platform')->group(function () {
     Route::get('reverse-geocode', [GeoController::class, 'reverseGeocode'])->middleware('throttle:public');
 });
 
-Route::prefix('v1/admin/settings')->group(function () {
-    Route::get('/', [SettingsController::class, 'index'])->middleware('throttle:admin');
-    Route::put('/', [SettingsController::class, 'batchUpdate'])->middleware('throttle:admin');
-    Route::put('{key}', [SettingsController::class, 'update'])->middleware('throttle:admin');
-    Route::delete('{key}', [SettingsController::class, 'destroy'])->middleware('throttle:admin');
+Route::prefix('v1/admin/settings')->middleware(['auth:sanctum', 'ensure:admin', 'throttle:admin'])->group(function () {
+    // Modular Domain Endpoints
+    Route::get('general', [AdminSettingsController::class, 'getGeneral']);
+    Route::put('general', [AdminSettingsController::class, 'updateGeneral']);
+
+    Route::get('branding', [AdminSettingsController::class, 'getBranding']);
+    Route::post('branding', [AdminSettingsController::class, 'updateBranding']);
+    Route::put('branding', [AdminSettingsController::class, 'updateBranding']);
+
+    Route::get('commissions', [AdminSettingsController::class, 'getCommissions']);
+    Route::put('commissions', [AdminSettingsController::class, 'updateCommissions']);
+
+    Route::get('shipping', [AdminSettingsController::class, 'getShipping']);
+    Route::put('shipping', [AdminSettingsController::class, 'updateShipping']);
+
+    Route::get('payments', [AdminSettingsController::class, 'getPayments']);
+    Route::put('payments', [AdminSettingsController::class, 'updatePayments']);
+
+    Route::get('vendors', [AdminSettingsController::class, 'getVendors']);
+    Route::put('vendors', [AdminSettingsController::class, 'updateVendors']);
+
+    // Legacy Fallback Endpoints (Fully Preserved)
+    Route::get('/', [SettingsController::class, 'index']);
+    Route::put('/', [SettingsController::class, 'batchUpdate']);
+    Route::put('{key}', [SettingsController::class, 'update']);
+    Route::delete('{key}', [SettingsController::class, 'destroy']);
 });

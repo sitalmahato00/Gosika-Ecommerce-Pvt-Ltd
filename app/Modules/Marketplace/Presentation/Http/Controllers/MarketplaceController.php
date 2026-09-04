@@ -15,6 +15,7 @@ use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 
 class MarketplaceController extends Controller
 {
@@ -24,12 +25,19 @@ class MarketplaceController extends Controller
 
     public function stores(Request $request): JsonResponse
     {
-        $stores = $this->marketplaceService->storeList();
+        $page = $request->integer('page', 1);
+        $data = Cache::remember("marketplace.stores.p{$page}", 180, function () {
+            $stores = $this->marketplaceService->storeList();
+            return [
+                'items' => PublicStoreResource::collection($stores)->resolve(),
+                'meta' => $this->paginatorMeta($stores),
+            ];
+        });
 
         return Response::success(
-            PublicStoreResource::collection($stores),
+            $data['items'],
             'Stores retrieved.',
-            $this->paginatorMeta($stores)
+            $data['meta']
         );
     }
 

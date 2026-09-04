@@ -1,6 +1,11 @@
-export function money(value) {
+export function money(value, options = {}) {
   const n = Number(value || 0)
-  return 'Rs. ' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const symbol = options.symbol !== undefined ? options.symbol : 'रु'
+  const prefix = symbol ? `${symbol}\u00A0` : ''
+  return prefix + n.toLocaleString('en-IN', {
+    minimumFractionDigits: options.decimals !== undefined ? options.decimals : 2,
+    maximumFractionDigits: options.decimals !== undefined ? options.decimals : 2
+  })
 }
 
 export const FALLBACK_PRODUCT_IMAGES = [

@@ -6,6 +6,7 @@ import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import { useBranding } from '../context/BrandingContext'
 import { errorMessage } from '../utils/format'
 
 const SOCIAL_BASE = '/api/v1/auth'
@@ -19,11 +20,17 @@ function GoogleIcon() {
 export default function Login() {
   const { login } = useAuth()
   const toast = useToast()
+  const branding = useBranding()
   const navigate = useNavigate()
   const location = useLocation()
   const [form, setForm] = useState({ identifier: '', password: '' })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+
+  const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
+  const logoUrl = branding.logo_light
+  const loginHeading = branding.login_heading || 'Welcome back'
+  const loginDescription = branding.login_description || `Login to continue shopping across Nepal.`
 
   const from = location.state?.from?.pathname || location.state?.from || '/account'
 
@@ -48,11 +55,16 @@ export default function Login() {
     <div className="page-shell container container-narrow">
       <div className="card" style={{ maxWidth: 440, margin: '0 auto', padding: '28px 24px' }}>
         <div className="text-center mb-2">
-          <span className="brand" style={{ justifyContent: 'center' }}>
-            <span className="brand-mark"><ShoppingBag size={18} /></span> GOSIKA
+          <span className="brand" style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {logoUrl ? (
+              <img src={logoUrl} alt={brandName} style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
+            ) : (
+              <span className="brand-mark"><ShoppingBag size={18} /></span>
+            )}
+            <span>{brandName}</span>
           </span>
-          <h1 style={{ fontSize: 20, marginTop: 14 }}>Welcome back</h1>
-          <p className="muted m-0 text-sm">Login to continue shopping across Nepal.</p>
+          <h1 style={{ fontSize: 20, marginTop: 14 }}>{loginHeading}</h1>
+          <p className="muted m-0 text-sm">{loginDescription}</p>
         </div>
         {error && <div className="alert alert-error">{error}</div>}
         <form onSubmit={submit}>

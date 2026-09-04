@@ -3,31 +3,53 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag, Heart, User, Search, Menu, Truck, MapPin,
   Store, ChevronDown, X, Bell, Phone, Package, LogOut,
-  UserCheck, LayoutDashboard, Settings, Flame
+  UserCheck, LayoutDashboard, Settings, Flame, Clock, HelpCircle
 } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
+import { useWishlist } from '../../context/WishlistContext'
 import { useAuth } from '../../context/AuthContext'
 import { initials, apiImage } from '../../utils/format'
 import Drawer from '../ui/Drawer'
 import api from '../../api/client'
 import { getCategoryIcon } from '../../utils/icons'
 
+import { useBranding } from '../../context/BrandingContext'
+
 function Logo({ size = 'md' }) {
-  const fontSize = size === 'sm' ? 18 : 22
-  const markSize = size === 'sm' ? 30 : 36
-  const iconSize = size === 'sm' ? 14 : 18
+  const branding = useBranding()
+  const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
+
   return (
-    <Link to="/" className="brand" aria-label="GOSIKA — Nepal's trusted marketplace" style={{ fontSize }}>
-      <span className="brand-mark" style={{ width: markSize, height: markSize }}>
-        <ShoppingBag size={iconSize} />
+    <Link to="/" className="brand" aria-label={`${brandName} Commerce`} style={{ fontSize: 21, display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+      <span
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: '50%',
+          background: '#ff5500',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#ffffff',
+          fontWeight: 900,
+          fontSize: 17,
+          boxShadow: '0 2px 6px rgba(255,85,0,0.3)',
+          flexShrink: 0
+        }}
+      >
+        G
       </span>
-      GOSIKA
+      <span style={{ fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', display: 'flex', alignItems: 'baseline' }}>
+        {brandName}
+        <span style={{ color: '#ff5500', fontWeight: 700, marginLeft: 2, fontSize: 16 }}>Commerce</span>
+      </span>
     </Link>
   )
 }
 
 export default function CustomerHeader() {
   const { itemCount } = useCart()
+  const { ids: wishlistIds = [] } = useWishlist() || {}
   const { user, isVendor, isSuperAdmin, logout } = useAuth()
   const navigate = useNavigate()
   const [q, setQ] = useState('')
@@ -75,32 +97,33 @@ export default function CustomerHeader() {
   const userInitials = initials(user?.name || user?.email || 'U')
   const isAdminUser = isSuperAdmin()
   const showCustomerOptions = !!user && !isAdminUser
+  const wishlistCount = wishlistIds?.length || 0
 
   return (
     <header className="customer-header" role="banner">
-      {/* ---- Top strip ---- */}
-      <div className="header-top">
+      {/* ---- Top strip matching Design: Solid Brand Orange ---- */}
+      <div style={{ background: '#ff5500', color: '#ffffff', fontSize: 12, padding: '7px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
         <div className="container flex items-center justify-between gap-3" style={{ padding: '0 20px' }}>
-          <span className="flex items-center gap-2">
-            <Truck size={13} />
-            Free delivery over Rs. 2,000 · Delivered across Nepal
+          <span className="flex items-center gap-2" style={{ fontWeight: 500, letterSpacing: '0.01em' }}>
+            <Truck size={14} color="#ffffff" />
+            Delivering across Nepal
           </span>
-          <span className="flex items-center gap-4 hide-sm" style={{ fontSize: 12 }}>
-            <Link to="/orders" className="flex items-center gap-1" style={{ color: 'inherit' }}>
-              <Package size={12} /> Track Order
+          <span className="flex items-center gap-5 hide-sm" style={{ fontSize: 12 }}>
+            <Link to="/orders" className="flex items-center gap-1.5" style={{ color: '#ffffff', opacity: 0.95, textDecoration: 'none' }}>
+              <Clock size={13} /> Track Order
             </Link>
-            <Link to="/help" className="flex items-center gap-1" style={{ color: 'inherit' }}>
-              <Phone size={12} /> Support
+            <Link to="/help" className="flex items-center gap-1.5" style={{ color: '#ffffff', opacity: 0.95, textDecoration: 'none' }}>
+              <HelpCircle size={13} /> Help Center
             </Link>
-            <Link to="/vendor/register" className="flex items-center gap-1" style={{ color: '#93c5fd' }}>
-              <Store size={12} /> Sell on GOSIKA
+            <Link to="/vendor/register" className="flex items-center gap-1.5" style={{ color: '#ffffff', fontWeight: 600, textDecoration: 'none' }}>
+              <Store size={13} /> Seller Hub
             </Link>
           </span>
         </div>
       </div>
 
       {/* ---- Main header ---- */}
-      <div className="container header-main">
+      <div className="container header-main" style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 24 }}>
         {/* Mobile: hamburger */}
         <button
           className="icon-btn show-sm"
@@ -114,40 +137,93 @@ export default function CustomerHeader() {
 
         <Logo />
 
-        {/* Search bar — hidden on mobile */}
+        {/* Search bar with Category dropdown — hidden on mobile */}
         <form
           className="search-bar hide-sm"
           onSubmit={submitSearch}
           role="search"
           aria-label="Search products"
-          style={{ flex: 1 }}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            background: '#ffffff',
+            border: '1.5px solid #e2e8f0',
+            borderRadius: 8,
+            overflow: 'hidden',
+            height: 42,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+          }}
         >
-          <select
-            className="search-cat-select"
-            value={catFilter}
-            onChange={(e) => setCatFilter(e.target.value)}
-            aria-label="Filter by category"
-            style={{ padding: '9px 12px', border: 'none', borderRight: '1px solid var(--border)', background: 'var(--bg)', fontSize: 13, color: 'var(--muted)', cursor: 'pointer', outline: 'none' }}
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.slug}>{c.name}</option>
-            ))}
-          </select>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <select
+              className="search-cat-select"
+              value={catFilter}
+              onChange={(e) => setCatFilter(e.target.value)}
+              aria-label="Filter by category"
+              style={{
+                height: 42,
+                padding: '0 28px 0 14px',
+                border: 'none',
+                borderRight: '1.5px solid #e2e8f0',
+                background: '#f8fafc',
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#334155',
+                cursor: 'pointer',
+                outline: 'none',
+                appearance: 'none'
+              }}
+            >
+              <option value="">All Categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.slug}>{c.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={13} style={{ position: 'absolute', right: 10, pointerEvents: 'none', color: '#64748b' }} />
+          </div>
+
           <input
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search products, brands, and stores across Nepal…"
+            placeholder="Search products, brands and more..."
             aria-label="Search products"
+            style={{
+              flex: 1,
+              border: 'none',
+              padding: '0 14px',
+              fontSize: 13.5,
+              outline: 'none',
+              background: 'transparent'
+            }}
           />
-          <button type="submit" aria-label="Search">
-            <Search size={16} />
+
+          <button
+            type="submit"
+            aria-label="Search"
+            style={{
+              background: '#ff5500',
+              color: '#ffffff',
+              border: 'none',
+              padding: '0 20px',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              height: '100%',
+              transition: 'background 0.15s'
+            }}
+          >
+            <Search size={15} />
+            <span className="hide-sm">Search</span>
           </button>
         </form>
 
-        {/* Header actions */}
-        <div className="header-actions">
+        {/* Header actions: Login / Wishlist / Cart */}
+        <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
           {/* Search icon on mobile */}
           <button
             className="icon-btn show-sm"
@@ -158,40 +234,22 @@ export default function CustomerHeader() {
             <Search size={20} />
           </button>
 
-          {!isAdminUser && (
-            <Link to="/orders" className="header-action hide-sm" aria-label="My orders">
-              <span className="h-icon"><Package size={21} /></span>
-              <span>Orders</span>
-            </Link>
-          )}
-
-          {!isAdminUser && (
-            <Link to="/wishlist" className="header-action" aria-label="My wishlist">
-              <span className="h-icon"><Heart size={21} /></span>
-              <span className="hide-sm">Wishlist</span>
-            </Link>
-          )}
-
-          <Link to="/cart" className="header-action" aria-label={`Shopping cart, ${itemCount} items`}>
-            <span className="h-icon" style={{ position: 'relative' }}>
-              <ShoppingBag size={21} />
-              {itemCount > 0 && (
-                <span className="cart-count-bubble" key={itemCount}>
-                  {itemCount > 99 ? '99+' : itemCount}
-                </span>
-              )}
-            </span>
-            <span className="hide-sm">Cart</span>
-          </Link>
-
-          {/* Account dropdown */}
+          {/* Account / Login dropdown */}
           <div style={{ position: 'relative' }} ref={accountRef}>
             <button
-              className="header-action"
               onClick={() => setAccountOpen((o) => !o)}
               aria-expanded={accountOpen}
               aria-haspopup="true"
-              aria-label={user ? `Account menu for ${user.name}` : 'Login or create account'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px 6px',
+                color: '#1e293b'
+              }}
             >
               {user ? (
                 user.avatar ? (
@@ -203,18 +261,20 @@ export default function CustomerHeader() {
                 ) : (
                   <span
                     className="avatar"
-                    style={{ width: 28, height: 28, fontSize: 11, background: 'var(--primary)', color: '#fff' }}
+                    style={{ width: 28, height: 28, fontSize: 11, background: '#ff5500', color: '#fff' }}
                   >
                     {userInitials}
                   </span>
                 )
               ) : (
-                <span className="h-icon"><User size={21} /></span>
+                <User size={20} color="#1e293b" />
               )}
-              <span className="hide-sm">
-                {user ? user.name?.split(' ')[0] : 'Login'}
-              </span>
-              <ChevronDown size={13} style={{ transition: 'transform 0.2s', transform: accountOpen ? 'rotate(180deg)' : 'none' }} />
+              <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
+                <div style={{ fontSize: 11, color: '#64748b' }}>Welcome</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
+                  {user ? user.name?.split(' ')[0] : 'Login / Register'}
+                </div>
+              </div>
             </button>
 
             {accountOpen && (
@@ -306,26 +366,118 @@ export default function CustomerHeader() {
               </div>
             )}
           </div>
+
+          {/* Wishlist Icon */}
+          <Link
+            to="/wishlist"
+            className="hide-sm"
+            aria-label={`Wishlist (${wishlistCount} items)`}
+            style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#1e293b',
+              padding: '6px 8px',
+              textDecoration: 'none'
+            }}
+          >
+            <Heart size={21} strokeWidth={1.8} />
+            <span
+              style={{
+                position: 'absolute',
+                top: 1,
+                right: 2,
+                background: '#ff5500',
+                color: '#ffffff',
+                fontSize: 10,
+                fontWeight: 700,
+                borderRadius: '50%',
+                minWidth: 16,
+                height: 16,
+                padding: '0 3px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1
+              }}
+            >
+              {wishlistCount}
+            </span>
+          </Link>
+
+          {/* Cart Icon */}
+          <Link
+            to="/cart"
+            aria-label={`Shopping Cart (${itemCount} items)`}
+            style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#1e293b',
+              padding: '6px 8px',
+              textDecoration: 'none'
+            }}
+          >
+            <ShoppingBag size={21} strokeWidth={1.8} />
+            <span
+              style={{
+                position: 'absolute',
+                top: 1,
+                right: 2,
+                background: '#ff5500',
+                color: '#ffffff',
+                fontSize: 10,
+                fontWeight: 700,
+                borderRadius: '50%',
+                minWidth: 16,
+                height: 16,
+                padding: '0 3px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1
+              }}
+            >
+              {itemCount}
+            </span>
+          </Link>
         </div>
       </div>
 
-      {/* ---- Category nav bar (desktop) ---- */}
-      <nav className="nav-bar hide-sm" aria-label="Category navigation">
-        <div className="container nav-bar-inner">
-          <NavLink to="/shop" className="nav-link" end>All Products</NavLink>
-          <NavLink to="/shop?sort=newest" className="nav-link">New Arrivals</NavLink>
-          {categories.map((c, i) => {
-            const Icon = getCategoryIcon(c, i)
-            return (
-              <NavLink key={c.id} to={`/shop?category=${c.slug}`} className="nav-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <Icon size={14} color="var(--primary)" />
-                {c.name}
-              </NavLink>
-            )
-          })}
-          <NavLink to="/shop?filter=deals" className="nav-link nav-link-deals" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <Flame size={14} color="var(--danger)" /> Deals
+      {/* ---- Category nav bar (desktop) matching Design ---- */}
+      <nav className="nav-bar hide-sm" aria-label="Category navigation" style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '6px 0' }}>
+        <div className="container nav-bar-inner" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <NavLink
+            to="/shop"
+            className="nav-link"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              fontWeight: 700,
+              fontSize: 13,
+              color: '#1e293b',
+              padding: '6px 14px',
+              borderRadius: 6,
+              border: '1px solid #e2e8f0',
+              background: '#f8fafc',
+              textDecoration: 'none'
+            }}
+          >
+            <Menu size={15} color="#ff5500" /> Categories <ChevronDown size={13} />
           </NavLink>
+          <NavLink to="/shop?filter=deals" className="nav-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, fontSize: 13.5, color: '#334155', textDecoration: 'none' }}>
+            <span style={{ color: '#ff5500' }}>⚡</span> Flash Deals
+          </NavLink>
+          <NavLink to="/shop?sort=newest" className="nav-link" style={{ fontWeight: 600, fontSize: 13.5, color: '#334155', textDecoration: 'none' }}>New Arrivals</NavLink>
+          <NavLink to="/brands" className="nav-link" style={{ fontWeight: 600, fontSize: 13.5, color: '#334155', textDecoration: 'none' }}>Top Brands</NavLink>
+          <NavLink to="/shop?mode=stores" className="nav-link" style={{ fontWeight: 600, fontSize: 13.5, color: '#334155', textDecoration: 'none' }}>Stores</NavLink>
+          <NavLink to="/help" className="nav-link" style={{ fontWeight: 600, fontSize: 13.5, color: '#334155', textDecoration: 'none' }}>Help Center</NavLink>
+          <Link to="/vendor/register" className="nav-link" style={{ marginLeft: 'auto', color: '#ff5500', fontWeight: 700, fontSize: 13.5, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+            <Store size={15} /> Sell on GOSIKA
+          </Link>
         </div>
       </nav>
 
