@@ -38,7 +38,7 @@ export default function AdminKyc() {
       }
 
       const res = await api.get('/admin/vendors/kyc', { params })
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setKycs(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)

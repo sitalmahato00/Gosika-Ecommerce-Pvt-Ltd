@@ -150,16 +150,16 @@ export default function AdminDashboard() {
         api.get('/admin/wallet/payouts', { params: { status: 'pending', per_page: 1 } }),
       ])
 
-      const recentOrders = ordersRes.status === 'fulfilled' ? (ordersRes.value.data?.data || []) : []
+      const recentOrders = ordersRes.status === 'fulfilled' ? api.unwrapList(ordersRes.value.data) : []
       const summary = summaryRes.status === 'fulfilled' ? (summaryRes.value.data?.data || null) : null
       const salesTimeline = salesTimelineRes.status === 'fulfilled' ? (salesTimelineRes.value.data?.data || []) : []
 
       const pendingKycCount = kycRes.status === 'fulfilled'
-        ? (kycRes.value.data?.meta?.pagination?.total ?? kycRes.value.data?.data?.length ?? 0)
+        ? (kycRes.value.data?.meta?.pagination?.total ?? api.unwrapList(kycRes.value.data).length ?? 0)
         : 0
 
       const pendingPayoutsCount = payoutsRes.status === 'fulfilled'
-        ? (payoutsRes.value.data?.meta?.pagination?.total ?? payoutsRes.value.data?.data?.length ?? 0)
+        ? (payoutsRes.value.data?.meta?.pagination?.total ?? api.unwrapList(payoutsRes.value.data).length ?? 0)
         : 0
 
       setData({

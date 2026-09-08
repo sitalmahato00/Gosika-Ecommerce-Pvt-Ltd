@@ -57,7 +57,7 @@ export default function AdminCustomerSupport() {
         }
       }))
 
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setTickets(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)

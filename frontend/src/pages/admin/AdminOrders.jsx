@@ -56,7 +56,7 @@ export default function AdminOrders() {
       }
 
       const res = await api.get('/admin/orders', { params })
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setOrders(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)

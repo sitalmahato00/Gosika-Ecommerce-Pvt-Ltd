@@ -58,10 +58,10 @@ export default function AdminVendorDetail() {
       }
 
       if (wRes.status === 'fulfilled') setWallet(wRes.value.data?.data || null)
-      if (cRes.status === 'fulfilled') setCommissions(cRes.value.data?.data || [])
-      if (pRes.status === 'fulfilled') setPayouts(pRes.value.data?.data || [])
-      if (sRes.status === 'fulfilled') setSettlements(sRes.value.data?.data || [])
-      if (prodRes.status === 'fulfilled') setProducts(prodRes.value.data?.data || [])
+      if (cRes.status === 'fulfilled') setCommissions(api.unwrapList(cRes.value.data))
+      if (pRes.status === 'fulfilled') setPayouts(api.unwrapList(pRes.value.data))
+      if (sRes.status === 'fulfilled') setSettlements(api.unwrapList(sRes.value.data))
+      if (prodRes.status === 'fulfilled') setProducts(api.unwrapList(prodRes.value.data))
     } catch (err) {
       setError('Vendor record could not be loaded.')
     } finally {

@@ -47,7 +47,7 @@ export default function AdminSettings() {
       // First try modular domain endpoint, fallback to legacy if needed
       const res = await api.get(currentTabObj.endpoint).catch(async () => {
         const legacyRes = await api.get('/admin/settings')
-        const data = legacyRes.data?.data || []
+        const data = api.unwrapList(legacyRes.data)
         const mapped = {}
         data.forEach(item => {
           mapped[item.key] = item.value

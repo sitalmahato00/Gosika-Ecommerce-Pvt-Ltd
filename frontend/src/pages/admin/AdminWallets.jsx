@@ -34,7 +34,7 @@ export default function AdminWallets() {
       if (search.trim()) params.search = search.trim()
 
       const res = await api.get('/admin/wallet/wallets', { params })
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setWallets(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)

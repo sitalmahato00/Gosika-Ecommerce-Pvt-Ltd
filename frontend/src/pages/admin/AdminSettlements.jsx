@@ -36,7 +36,7 @@ export default function AdminSettlements() {
 
   useEffect(() => {
     api.get('/admin/vendors', { params: { per_page: 100 } })
-      .then(res => setVendors(res.data?.data || []))
+      .then(res => setVendors(api.unwrapList(res.data)))
       .catch(() => {})
   }, [])
 
@@ -48,7 +48,7 @@ export default function AdminSettlements() {
       if (search.trim()) params.search = search.trim()
 
       const res = await api.get('/admin/wallet/settlements', { params })
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setSettlements(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)

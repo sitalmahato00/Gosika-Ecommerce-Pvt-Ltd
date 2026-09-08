@@ -41,7 +41,7 @@ export default function AdminStores() {
       }
 
       const res = await api.get('/admin/vendors/stores', { params })
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setStores(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)

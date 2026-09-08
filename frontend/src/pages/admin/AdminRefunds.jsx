@@ -38,7 +38,7 @@ export default function AdminRefunds() {
       if (search.trim()) params.search = search.trim()
 
       const res = await api.get('/admin/refunds', { params })
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setRefunds(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)

@@ -47,7 +47,7 @@ export default function AdminDeliveryPartners() {
       if (search.trim()) params.search = search.trim()
 
       const res = await api.get('/admin/delivery-partners', { params })
-      setPartners(res.data?.data || [])
+      setPartners(api.unwrapList(res.data))
     } catch (err) {
       toast.error('Failed to load delivery partners.')
     } finally {

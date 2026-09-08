@@ -307,8 +307,8 @@ export default function Home() {
       api.get('/products', { params: { sort: 'newest', per_page: 6 } }).catch(() => ({ data: { data: [] } })),
     ]).then(([dealsRes, newRes]) => {
       if (!alive) return
-      const apiDeals = dealsRes.data?.data || []
-      const apiNew = newRes.data?.data || []
+      const apiDeals = api.unwrapList(dealsRes.data)
+      const apiNew = api.unwrapList(newRes.data)
 
       // Fill with high-fidelity fallback items if database has fewer than 6
       const mergedDeals = apiDeals.length >= 6

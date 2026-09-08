@@ -76,6 +76,16 @@ export function invalidateCache(prefix) {
   }
 }
 
+// Unwrap the list payload from `res.data`. Laravel paginated resource
+// collections serialize as `{ data: [...], total, ... }` nested under the
+// envelope's own `data` key, while plain collections are a bare array.
+export function unwrapList(payload) {
+  const data = payload?.data
+  if (Array.isArray(data)) return data
+  if (data && Array.isArray(data.data)) return data.data
+  return []
+}
+
 // Cached GET wrapper with deduplication and SWR
 async function cachedGet(url, config = {}) {
   if (config.skipCache || config.headers?.['Cache-Control'] === 'no-cache') {
@@ -135,6 +145,9 @@ const api = new Proxy(rawApi, {
     }
     if (prop === 'clearCache') {
       return invalidateCache
+    }
+    if (prop === 'unwrapList') {
+      return unwrapList
     }
     if (['post', 'put', 'patch', 'delete'].includes(prop)) {
       return async (...args) => {

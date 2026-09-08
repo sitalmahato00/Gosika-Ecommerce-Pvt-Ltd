@@ -35,7 +35,7 @@ export default function AdminProducts() {
 
   useEffect(() => {
     api.get('/categories')
-      .then(res => setCategories(res.data?.data || []))
+      .then(res => setCategories(api.unwrapList(res.data)))
       .catch(() => {})
   }, [])
 
@@ -54,7 +54,7 @@ export default function AdminProducts() {
       }
 
       const res = await api.get('/admin/products', { params })
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setProducts(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)

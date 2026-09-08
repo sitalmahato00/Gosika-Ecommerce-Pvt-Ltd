@@ -28,7 +28,7 @@ export default function AdminDeliveries() {
 
   useEffect(() => {
     api.get('/admin/delivery-partners', { params: { per_page: 100 } })
-      .then(res => setPartners(res.data?.data || []))
+      .then(res => setPartners(api.unwrapList(res.data)))
       .catch(() => {})
   }, [])
 
@@ -41,7 +41,7 @@ export default function AdminDeliveries() {
       }
 
       const res = await api.get('/admin/deliveries', { params })
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setDeliveries(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)

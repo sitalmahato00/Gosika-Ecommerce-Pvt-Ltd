@@ -37,7 +37,7 @@ export default function AdminPayouts() {
       if (search.trim()) params.search = search.trim()
 
       const res = await api.get('/admin/wallet/payouts', { params })
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setPayouts(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)

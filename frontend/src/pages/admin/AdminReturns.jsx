@@ -37,7 +37,7 @@ export default function AdminReturns() {
       }
 
       const res = await api.get('/admin/orders/returns', { params })
-      const data = res.data?.data || []
+      const data = api.unwrapList(res.data)
       setReturns(data)
       if (res.data?.meta?.pagination) {
         setPagination(res.data.meta.pagination)
