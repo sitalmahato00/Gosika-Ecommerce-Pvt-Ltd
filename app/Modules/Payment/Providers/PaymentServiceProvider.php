@@ -61,8 +61,8 @@ class PaymentServiceProvider extends ServiceProvider
             $statusUrl = 'https://rc.esewa.com.np/api/epay/transaction/status/';
         }
 
-        $esewaSuccess = config('app.url', 'http://localhost:8000') . '/payments/esewa/callback';
-        $esewaFailure = config('app.url', 'http://localhost:8000') . '/payments/esewa/callback?status=failure';
+        $esewaSuccess = config('app.url') . '/payments/esewa/callback';
+        $esewaFailure = config('app.url') . '/payments/esewa/callback?status=failure';
 
         if ($esewaSecret !== '') {
             $service->setProvider('esewa', new EsewaProvider(

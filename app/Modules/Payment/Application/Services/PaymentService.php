@@ -122,7 +122,7 @@ class PaymentService
     {
         $amountPaisa = (int) round((float) $payment->amount * 100);
 
-        $appUrl = config('app.url', 'http://localhost:8000');
+        $appUrl = config('app.url');
         $returnUrl = $appUrl . '/payments/khalti/callback';
         $websiteUrl = $appUrl;
 
