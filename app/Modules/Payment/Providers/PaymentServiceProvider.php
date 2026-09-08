@@ -40,7 +40,7 @@ class PaymentServiceProvider extends ServiceProvider
             $khaltiBaseUrl = $setting('payment.khalti_base_url', config('services.khalti.base_url'));
         }
 
-        $appUrl = config('app.url', 'http://localhost:8000');
+        $appUrl = config('app.url');
 
         if ($khaltiSecret !== '') {
             $service->setProvider('khalti', new KhaltiProvider(
