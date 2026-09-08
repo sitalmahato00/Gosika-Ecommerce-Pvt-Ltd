@@ -25,7 +25,7 @@ export default function DataTable({
   return (
     <div className="card card-pad-none" style={{ borderRadius: 14, overflow: 'hidden', ...style }}>
       <div className="table-wrap">
-        <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className="table table-card-mode" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
               {selectable && (
@@ -100,15 +100,17 @@ export default function DataTable({
                   <tr
                     key={rowKey}
                     onClick={() => onRowClick && onRowClick(item)}
+                    className={`row-enter ${onRowClick ? 'hover:bg-slate-50' : ''}`}
                     style={{
                       cursor: onRowClick ? 'pointer' : 'default',
                       transition: 'background-color 0.15s ease',
-                      backgroundColor: isSelected ? '#f0f9ff' : 'transparent'
+                      backgroundColor: isSelected ? '#f0f9ff' : 'transparent',
+                      animationDelay: `${Math.min(rowIdx, 24) * 26}ms`
                     }}
-                    className={onRowClick ? 'hover:bg-slate-50' : ''}
                   >
                     {selectable && (
                       <td
+                        data-label=""
                         style={{ width: 42, textAlign: 'center', padding: '12px 8px' }}
                         onClick={e => e.stopPropagation()}
                       >
@@ -125,6 +127,7 @@ export default function DataTable({
                       return (
                         <td
                           key={col.key || cIdx}
+                          data-label={col.header}
                           style={{
                             textAlign: col.align || 'left',
                             padding: '12px 16px',
@@ -180,7 +183,7 @@ export default function DataTable({
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <button
                 type="button"
-                className="btn btn-outline btn-xs"
+                className="btn btn-outline btn-xs btn-tactile"
                 onClick={() => onPageChange && onPageChange(pagination.current_page - 1)}
                 disabled={pagination.current_page <= 1}
                 style={{ height: 32, padding: '0 10px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 4 }}
@@ -194,7 +197,7 @@ export default function DataTable({
 
               <button
                 type="button"
-                className="btn btn-outline btn-xs"
+                className="btn btn-outline btn-xs btn-tactile"
                 onClick={() => onPageChange && onPageChange(pagination.current_page + 1)}
                 disabled={pagination.current_page >= pagination.last_page}
                 style={{ height: 32, padding: '0 10px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 4 }}

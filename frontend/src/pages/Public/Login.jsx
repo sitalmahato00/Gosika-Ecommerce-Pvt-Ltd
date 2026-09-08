@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { User, Lock, Eye, EyeSlash, ArrowLeft } from 'lucide-react'
+import { User, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import api from '../../api/client'
 import { useToast } from '../../context/ToastContext'
 

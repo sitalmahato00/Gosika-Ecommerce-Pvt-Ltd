@@ -222,7 +222,7 @@ export default function PaymentCallback() {
         </div>
 
         <div className="alert alert-info" style={{ marginTop: 24, textAlign: 'left', fontSize: 12 }}>
-          <Info size={16} style={{ flexShrink: 0 }} />
+          <span style={{ flexShrink: 0, display: 'inline-flex' }}><Info size={16} /></span>
           <div>
             <strong>eSewa Test Sandbox Credentials:</strong>
             <div style={{ marginTop: 3 }}>

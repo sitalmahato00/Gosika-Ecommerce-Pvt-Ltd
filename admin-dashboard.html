@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketplace Admin Dashboard - Gosika</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Custom Scrollbar */
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.05);
+            border-radius: 10px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgba(255, 91, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 91, 0, 0.5);
+        }
+
+        /* Main Canvas Scrollbar */
+        .main-canvas::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .main-canvas::-webkit-scrollbar-track {
+            background: rgba(226, 232, 240, 0.3);
+        }
+
+        .main-canvas::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.5);
+            border-radius: 10px;
+        }
+
+        .main-canvas::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.7);
+        }
+
+        /* Animation Keyframes */
+        @keyframes rowEntry {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .row-animate {
+            animation: rowEntry 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -1000px 0;
+            }
+            100% {
+                background-position: 1000px 0;
+            }
+        }
+
+        .metric-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.12);
+        }
+
+        .button-bounce {
+            transition: transform 75ms ease;
+        }
+
+        .button-bounce:active {
+            transform: scale(0.97);
+        }
+
+        .nav-link {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 91, 0, 0.08);
+        }
+
+        .nav-link.active {
+            background-color: #FF5B00;
+            color: white;
+        }
+
+        .orange-glow {
+            box-shadow: 0 0 20px rgba(255, 91, 0, 0.3);
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+
+        /* Backdrop Blur Support */
+        .backdrop-blur-md {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        /* Badge Styles */
+        .badge-orange {
+            background: linear-gradient(135deg, #FF5B00 0%, #FF7A29 100%);
+            box-shadow: 0 2px 8px rgba(255, 91, 0, 0.25);
+        }
+
+        .status-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .status-paid {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .status-processing {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .status-pending {
+            background-color: #f59e0b;
+            color: white;
+        }
+
+        .status-refunded {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .status-delivered {
+            background-color: #059669;
+            color: white;
+        }
+
+        /* Pagination Styles */
+        .pagination-btn {
+            transition: all 0.2s ease;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background-color: #FF5B00;
+            color: white;
+        }
+
+        .pagination-btn.active {
+            background-color: #FF5B00;
+            color: white;
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex bg-slate-50 font-['Inter',sans-serif] antialiased text-slate-800">
+
+    <!-- Left Sidebar (Fixed 260px) -->
+    <aside class="w-[260px] h-screen bg-slate-900 text-white flex flex-col shrink-0">
+        <!-- Brand Header (Fixed) -->
+        <div class="shrink-0 px-5 py-6 border-b border-slate-700/50">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                    G
+                </div>
+                <div>
+                    <h1 class="text-sm font-bold">GOSIKA</h1>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wide">Marketplace Hub</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Links (Scrollable) -->
+        <nav class="flex-1 overflow-y-auto scrollbar-thin px-3 py-4 space-y-1">
+            <!-- Overview Section -->
+            <div class="mb-4">
+                <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-3 mb-2">Overview</p>
+                <a href="#" class="nav-link active flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                    <span>Analytics & Reports</span>
+                </a>
+            </div>
+
+            <!-- Sales Section -->
+            <div class="mb-4">
+                <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-3 mb-2">Sales</p>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 justify-between">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+                        <span>Orders</span>
+                    </div>
+                    <span class="bg-orange-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">128</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 justify-between">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                        <span>Returns</span>
+                    </div>
+                    <span class="bg-orange-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">16</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="receipt" class="w-5 h-5"></i>
+                    <span>Refunds</span>
+                </a>
+            </div>
+
+            <!-- Catalog Section -->
+            <div class="mb-4">
+                <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-3 mb-2">Catalog</p>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="package" class="w-5 h-5"></i>
+                    <span>Products</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="layers" class="w-5 h-5"></i>
+                    <span>Categories</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="tag" class="w-5 h-5"></i>
+                    <span>Brands</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="star" class="w-5 h-5"></i>
+                    <span>Reviews</span>
+                </a>
+            </div>
+
+            <!-- Sellers Section -->
+            <div class="mb-4">
+                <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-3 mb-2">Sellers</p>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="store" class="w-5 h-5"></i>
+                    <span>All Sellers</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 justify-between">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="user-plus" class="w-5 h-5"></i>
+                        <span>Applications</span>
+                    </div>
+                    <span class="bg-orange-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">42</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                    <span>Payouts</span>
+                </a>
+            </div>
+
+            <!-- Customers Section -->
+            <div class="mb-4">
+                <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-3 mb-2">Customers</p>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                    <span>All Customers</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="message-circle" class="w-5 h-5"></i>
+                    <span>Support Tickets</span>
+                </a>
+            </div>
+
+            <!-- Marketing Section -->
+            <div class="mb-4">
+                <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-3 mb-2">Marketing</p>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="megaphone" class="w-5 h-5"></i>
+                    <span>Campaigns</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="percent" class="w-5 h-5"></i>
+                    <span>Discounts</span>
+                </a>
+            </div>
+
+            <!-- System Section -->
+            <div class="mb-4">
+                <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-3 mb-2">System</p>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300">
+                    <i data-lucide="shield" class="w-5 h-5"></i>
+                    <span>Security</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Admin Status Footer (Fixed) -->
+        <div class="shrink-0 px-5 py-4 border-t border-slate-700/50">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+                    A
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-semibold">Admin User</p>
+                    <p class="text-[10px] text-slate-400">SUPER ADMIN</p>
+                </div>
+                <button class="text-slate-400 hover:text-white transition">
+                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Canvas Area -->
+    <main class="flex-1 h-screen overflow-y-auto flex flex-col main-canvas">
+        <!-- Sticky Top Header -->
+        <header class="sticky top-0 z-30 backdrop-blur-md bg-white/90 border-b border-slate-200/80 px-8 py-3.5">
+            <div class="flex items-center justify-between">
+                <!-- Search Bar -->
+                <div class="flex-1 max-w-xl relative">
+                    <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                    <input 
+                        type="text" 
+                        placeholder="Search orders, sellers, SKUs, or invoices..."
+                        class="w-full pl-11 pr-16 py-2.5 rounded-lg border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none transition text-sm"
+                    >
+                    <kbd class="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 bg-slate-100 border border-slate-200 rounded text-[10px] font-semibold text-slate-500">⌘K</kbd>
+                </div>
+
+                <!-- Right Actions -->
+                <div class="flex items-center gap-4 ml-6">
+                    <!-- System Status -->
+                    <div class="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs font-medium text-green-700">Live Syncing</span>
+                    </div>
+
+                    <!-- Nepali Date -->
+                    <div class="text-xs text-slate-600 font-medium px-3 py-1.5 bg-slate-100 rounded-lg">
+                        बुधवार, २५ भाद्र २०८३
+                    </div>
+
+                    <!-- Notifications -->
+                    <button class="relative p-2 hover:bg-slate-100 rounded-lg transition">
+                        <i data-lucide="bell" class="w-5 h-5 text-slate-600"></i>
+                        <span class="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">5</span>
+                    </button>
+
+                    <!-- Help -->
+                    <button class="p-2 hover:bg-slate-100 rounded-lg transition">
+                        <i data-lucide="help-circle" class="w-5 h-5 text-slate-600"></i>
+                    </button>
+
+                    <!-- Settings -->
+                    <button class="p-2 hover:bg-slate-100 rounded-lg transition">
+                        <i data-lucide="settings" class="w-5 h-5 text-slate-600"></i>
+                    </button>
+
+                    <!-- Profile -->
+                    <button class="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+                            A
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-600"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="flex-1 px-8 py-6 space-y-6">
+            <!-- Hero Greeting -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center orange-glow">
+                        <i data-lucide="sun" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900">Good Morning, Admin!</h1>
+                        <p class="text-sm text-slate-600 mt-0.5">Here's what's happening with your marketplace today.</p>
+                    </div>
+                </div>
+                <button class="button-bounce flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold text-sm shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    Export Report
+                </button>
+            </div>
+
+            <!-- 5-Column KPI Metrics -->
+            <div class="grid grid-cols-5 gap-5">
+                <!-- Total Sales -->
+                <div class="metric-card bg-white rounded-xl p-5 border border-slate-200/80 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)]">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center">
+                            <i data-lucide="trending-up" class="w-5 h-5 text-orange-500"></i>
+                        </div>
+                        <span class="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">+18.4%</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium mb-1">Total Sales</p>
+                    <p class="text-2xl font-bold text-slate-900">रू 7,38,692.86</p>
+                    <p class="text-xs text-slate-400 mt-1">vs last 30d</p>
+                </div>
+
+                <!-- Total Orders -->
+                <div class="metric-card bg-white rounded-xl p-5 border border-slate-200/80 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)]">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                            <i data-lucide="shopping-bag" class="w-5 h-5 text-blue-500"></i>
+                        </div>
+                        <span class="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">+12.8%</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium mb-1">Total Orders</p>
+                    <p class="text-2xl font-bold text-slate-900">130</p>
+                    <p class="text-xs text-slate-400 mt-1">vs last 30d</p>
+                </div>
+
+                <!-- Customers -->
+                <div class="metric-card bg-white rounded-xl p-5 border border-slate-200/80 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)]">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+                            <i data-lucide="users" class="w-5 h-5 text-green-500"></i>
+                        </div>
+                        <span class="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">+8.2%</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium mb-1">Customers</p>
+                    <p class="text-2xl font-bold text-slate-900">43</p>
+                    <p class="text-xs text-slate-400 mt-1">vs last 30d</p>
+                </div>
+
+                <!-- Active Sellers -->
+                <div class="metric-card bg-white rounded-xl p-5 border border-slate-200/80 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)]">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
+                            <i data-lucide="store" class="w-5 h-5 text-purple-500"></i>
+                        </div>
+                        <span class="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">+6.4%</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium mb-1">Active Sellers</p>
+                    <p class="text-2xl font-bold text-slate-900">17</p>
+                    <p class="text-xs text-slate-400 mt-1">vs last 30d</p>
+                </div>
+
+                <!-- Pending Payouts -->
+                <div class="metric-card bg-white rounded-xl p-5 border border-slate-200/80 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)]">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+                            <i data-lucide="wallet" class="w-5 h-5 text-red-500"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium mb-1">Pending Payouts</p>
+                    <p class="text-2xl font-bold text-slate-900">रू 6,45,210.00</p>
+                    <button class="button-bounce mt-2 text-xs font-semibold text-orange-600 hover:text-orange-700 flex items-center gap-1">
+                        View Details
+                        <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sales Overview & Marketplace Health -->
+            <div class="grid grid-cols-3 gap-6">
+                <!-- Sales Overview Chart (2/3 width) -->
+                <div class="col-span-2 bg-white rounded-xl p-6 border border-slate-200/80 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)]">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 mb-1">Sales Overview</h3>
+                            <div class="flex items-center gap-3">
+                                <p class="text-2xl font-bold text-slate-900" id="chartRevenue">रू 4,81,800.00</p>
+                                <span class="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full" id="chartGrowth">+18.4%</span>
+                                <span class="text-xs text-slate-500">compared to previous period</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 bg-slate-50 p-1 rounded-lg">
+                            <button class="period-tab px-3 py-1.5 text-xs font-semibold rounded-md transition" data-period="7d">7 Days</button>
+                            <button class="period-tab px-3 py-1.5 text-xs font-semibold bg-orange-500 text-white rounded-md transition" data-period="30d">30 Days</button>
+                            <button class="period-tab px-3 py-1.5 text-xs font-semibold rounded-md transition" data-period="3m">3 Months</button>
+                            <button class="period-tab px-3 py-1.5 text-xs font-semibold rounded-md transition" data-period="12m">12 Months</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Marketplace Health (1/3 width) -->
+                <div class="bg-white rounded-xl p-6 border border-slate-200/80 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)]">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-base font-bold text-slate-900">Marketplace Health</h3>
+                        <button class="p-1 hover:bg-slate-100 rounded transition">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 text-slate-600"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-5">Real-time inventory and network status</p>
+                    
+                    <div class="space-y-4">
+                        <!-- Active Products -->
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
+                                <i data-lucide="package" class="w-4 h-4 text-blue-500"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-xs text-slate-500 mb-0.5">Active Products</p>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-lg font-bold text-slate-900">24,842</p>
+                                    <span class="text-xs font-semibold text-green-600">↑ 12%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active Sellers -->
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 bg-green-50 rounded-lg flex items-center justify-center shrink-0">
+                                <i data-lucide="store" class="w-4 h-4 text-green-500"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-xs text-slate-500 mb-0.5">Active Sellers</p>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-lg font-bold text-slate-900">1,284</p>
+                                    <span class="text-xs font-semibold text-green-600">↑ 8%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pending Sellers -->
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 bg-orange-50 rounded-lg flex items-center justify-center shrink-0">
+                                <i data-lucide="user-plus" class="w-4 h-4 text-orange-500"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-xs text-slate-500 mb-0.5">Pending Sellers</p>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-lg font-bold text-slate-900">42</p>
+                                    <span class="text-xs font-semibold text-orange-600">↑ 5%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Low Stock Products -->
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
+                                <i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-xs text-slate-500 mb-0.5">Low Stock Products</p>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-lg font-bold text-slate-900">286</p>
+                                    <span class="text-xs font-semibold text-red-600">↓ 3%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pending Orders -->
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 bg-purple-50 rounded-lg flex items-center justify-center shrink-0">
+                                <i data-lucide="clock" class="w-4 h-4 text-purple-500"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-xs text-slate-500 mb-0.5">Pending Orders</p>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-lg font-bold text-slate-900">128</p>
+                                    <span class="text-xs font-semibold text-green-600">↑ 9%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Orders Table (Full Width) -->
+            <div class="bg-white rounded-xl border border-slate-200/80 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900">Recent Orders</h3>
+                            <p class="text-xs text-slate-500 mt-1">Showing <span id="orderRangeStart">1</span>-<span id="orderRangeEnd">10</span> of <span id="totalOrders">50</span> orders</p>
+                        </div>
+                        <button class="button-bounce flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold text-sm shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            New Order
+                        </button>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <!-- Search -->
+                        <div class="flex-1 relative">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                            <input 
+                                type="text" 
+                                id="orderSearch"
+                                placeholder="Search by order ID, customer, or product..."
+                                class="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none transition text-sm"
+                            >
+                        </div>
+
+                        <!-- Status Filter Tabs -->
+                        <div class="flex items-center gap-1 bg-slate-50 p-1 rounded-lg">
+                            <button class="status-filter-tab px-3 py-1.5 text-xs font-semibold bg-white shadow-sm rounded-md transition text-slate-700" data-status="all">All</button>
+                            <button class="status-filter-tab px-3 py-1.5 text-xs font-semibold rounded-md transition text-slate-600" data-status="delivered">Delivered</button>
+                            <button class="status-filter-tab px-3 py-1.5 text-xs font-semibold rounded-md transition text-slate-600" data-status="processing">Processing</button>
+                            <button class="status-filter-tab px-3 py-1.5 text-xs font-semibold rounded-md transition text-slate-600" data-status="pending">Pending</button>
+                            <button class="status-filter-tab px-3 py-1.5 text-xs font-semibold rounded-md transition text-slate-600" data-status="refunded">Refunded</button>
+                        </div>
+
+                        <!-- Per Page Selector -->
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs text-slate-600 font-medium">Show:</label>
+                            <select id="perPageSelect" class="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none transition">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Order ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Product</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Payment</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderTableBody" class="divide-y divide-slate-200">
+                            <!-- Rows will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="px-6 py-4 border-t border-slate-200 bg-slate-50">
+                    <div class="flex items-center justify-between">
+                        <div class="text-xs text-slate-600">
+                            Page <span id="currentPage">1</span> of <span id="totalPages">5</span>
+                        </div>
+                        
+                        <div class="flex items-center gap-2">
+                            <button id="firstPageBtn" class="pagination-btn px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 bg-white">
+                                First
+                            </button>
+                            <button id="prevPageBtn" class="pagination-btn px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 bg-white">
+                                Previous
+                            </button>
+                            
+                            <div id="pageNumbers" class="flex items-center gap-1">
+                                <!-- Page numbers will be generated by JavaScript -->
+                            </div>
+                            
+                            <button id="nextPageBtn" class="pagination-btn px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 bg-white">
+                                Next
+                            </button>
+                            <button id="lastPageBtn" class="pagination-btn px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 bg-white">
+                                Last
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Extended order data (50 orders)
+        const orderData = [
+            { id: '#ORD-2026-LKIRBN', customer: 'Bijay Gurung', location: 'City Center', product: 'Handwoven Wool Scarf', amount: 'रू 4,250.00', payment: 'COD', status: 'delivered', date: '२५ भाद्र २०८३' },
+            { id: '#ORD-2026-ADXKAS', customer: 'Himalayan Handicrafts', location: 'City Center', product: 'Hand-Knitted Thangka', amount: 'रू 8,251.00', payment: 'ESEWA', status: 'processing', date: '२४ भाद्र २०८३' },
+            { id: '#ORD-2026-REZ3H8', customer: 'Shreya Gurung', location: 'City Center', product: 'Himalayan Wild Honey', amount: 'रू 2,650.00', payment: 'FONEPAY', status: 'processing', date: '२४ भाद्र २०८३' },
+            { id: '#ORD-2026-AUFCPG', customer: 'Himalayan Handicrafts', location: 'City Center', product: 'Organic Ginger Tea (500g)', amount: 'रू 3,550.00', payment: 'ESEWA', status: 'pending', date: '२३ भाद्र २०८३' },
+            { id: '#ORD-2026-OSOGBX', customer: 'Priya Devkota', location: 'City Center', product: 'Neem & Tulsi Face Wash', amount: 'रू 4,888.00', payment: 'COD', status: 'delivered', date: '२३ भाद्र २०८३' },
+            { id: '#ORD-2026-XYZ123', customer: 'Ram Bahadur', location: 'Thamel', product: 'Pashmina Shawl', amount: 'रू 12,500.00', payment: 'KHALTI', status: 'delivered', date: '२२ भाद्र २०८३' },
+            { id: '#ORD-2026-ABC456', customer: 'Sita Kumari', location: 'Patan', product: 'Dhaka Topi', amount: 'रू 850.00', payment: 'COD', status: 'processing', date: '२२ भाद्र २०८३' },
+            { id: '#ORD-2026-DEF789', customer: 'Hari Prasad', location: 'Bhaktapur', product: 'Ceramic Pottery Set', amount: 'रू 5,600.00', payment: 'ESEWA', status: 'delivered', date: '२१ भाद्र २०८३' },
+            { id: '#ORD-2026-GHI012', customer: 'Maya Sherpa', location: 'Pokhara', product: 'Tibetan Singing Bowl', amount: 'रू 8,900.00', payment: 'FONEPAY', status: 'pending', date: '२१ भाद्र २०८३' },
+            { id: '#ORD-2026-JKL345', customer: 'Krishna Thapa', location: 'Lalitpur', product: 'Handmade Paper Journal', amount: 'रू 1,200.00', payment: 'COD', status: 'delivered', date: '२० भाद्र २०८३' },
+            { id: '#ORD-2026-MNO678', customer: 'Radha Sharma', location: 'Kathmandu', product: 'Hemp Bag', amount: 'रू 2,400.00', payment: 'KHALTI', status: 'delivered', date: '२० भाद्र २०८३' },
+            { id: '#ORD-2026-PQR901', customer: 'Gopal Rai', location: 'Biratnagar', product: 'Organic Tea Set', amount: 'रू 3,800.00', payment: 'ESEWA', status: 'processing', date: '१९ भाद्र २०८३' },
+            { id: '#ORD-2026-STU234', customer: 'Laxmi Magar', location: 'Chitwan', product: 'Bamboo Handicrafts', amount: 'रू 1,950.00', payment: 'COD', status: 'refunded', date: '१९ भाद्र २०८३' },
+            { id: '#ORD-2026-VWX567', customer: 'Suresh Karki', location: 'Dharan', product: 'Nettle Fabric Jacket', amount: 'रू 6,500.00', payment: 'FONEPAY', status: 'delivered', date: '१८ भाद्र २०८३' },
+            { id: '#ORD-2026-YZA890', customer: 'Anita Tamang', location: 'Hetauda', product: 'Lokta Paper Cards', amount: 'रू 950.00', payment: 'COD', status: 'delivered', date: '१८ भाद्र २०८३' },
+            { id: '#ORD-2026-BCD123', customer: 'Ramesh Gurung', location: 'Butwal', product: 'Wooden Mask', amount: 'रू 4,200.00', payment: 'KHALTI', status: 'processing', date: '१७ भाद्र २०८३' },
+            { id: '#ORD-2026-EFG456', customer: 'Sunita Rana', location: 'Nepalgunj', product: 'Traditional Khukuri', amount: 'रू 7,800.00', payment: 'ESEWA', status: 'delivered', date: '१७ भाद्र २०८३' },
+            { id: '#ORD-2026-HIJ789', customer: 'Bikash Lama', location: 'Janakpur', product: 'Mithila Painting', amount: 'रू 5,400.00', payment: 'COD', status: 'pending', date: '१६ भाद्र २०८३' },
+            { id: '#ORD-2026-KLM012', customer: 'Puja Adhikari', location: 'Bhairahawa', product: 'Felt Slippers', amount: 'रू 1,100.00', payment: 'FONEPAY', status: 'delivered', date: '१६ भाद्र २०८३' },
+            { id: '#ORD-2026-NOP345', customer: 'Deepak Poudel', location: 'Dhangadhi', product: 'Silver Jewelry Set', amount: 'रू 15,600.00', payment: 'KHALTI', status: 'delivered', date: '१५ भाद्र २०८३' },
+            { id: '#ORD-2026-QRS678', customer: 'Binita Shrestha', location: 'Birgunj', product: 'Organic Honey', amount: 'रू 2,200.00', payment: 'COD', status: 'processing', date: '१५ भाद्र २०८३' },
+            { id: '#ORD-2026-TUV901', customer: 'Anil Bhattarai', location: 'Ilam', product: 'Premium Tea Collection', amount: 'रू 4,500.00', payment: 'ESEWA', status: 'delivered', date: '१४ भाद्र २०८३' },
+            { id: '#ORD-2026-WXY234', customer: 'Gita Khadka', location: 'Damak', product: 'Bamboo Wind Chimes', amount: 'रू 850.00', payment: 'COD', status: 'delivered', date: '१४ भाद्र २०८३' },
+            { id: '#ORD-2026-ZAB567', customer: 'Mohan Subedi', location: 'Banepa', product: 'Handmade Incense', amount: 'रू 650.00', payment: 'FONEPAY', status: 'pending', date: '१३ भाद्र २०८३' },
+            { id: '#ORD-2026-CDE890', customer: 'Kalpana Joshi', location: 'Dhulikhel', product: 'Cotton Kurta Set', amount: 'रू 3,200.00', payment: 'KHALTI', status: 'delivered', date: '१३ भाद्र २०८३' },
+            { id: '#ORD-2026-FGH123', customer: 'Rajesh Basnet', location: 'Kakani', product: 'Wool Blanket', amount: 'रू 5,800.00', payment: 'COD', status: 'processing', date: '१२ भाद्र २०८३' },
+            { id: '#ORD-2026-IJK456', customer: 'Sarita Nepal', location: 'Nagarkot', product: 'Hand-painted T-shirt', amount: 'रू 1,500.00', payment: 'ESEWA', status: 'delivered', date: '१२ भाद्र २०८३' },
+            { id: '#ORD-2026-LMN789', customer: 'Prakash Oli', location: 'Chandragiri', product: 'Prayer Flags', amount: 'रू 450.00', payment: 'COD', status: 'delivered', date: '११ भाद्र २०८३' },
+            { id: '#ORD-2026-OPQ012', customer: 'Mina Dahal', location: 'Kirtipur', product: 'Traditional Jewelry', amount: 'रू 8,900.00', payment: 'FONEPAY', status: 'refunded', date: '११ भाद्र २०८३' },
+            { id: '#ORD-2026-RST345', customer: 'Nabin Karki', location: 'Sankhu', product: 'Wooden Crafts', amount: 'रू 3,400.00', payment: 'KHALTI', status: 'delivered', date: '१० भाद्र २०८३' },
+            { id: '#ORD-2026-UVW678', customer: 'Sushma Pandey', location: 'Thankot', product: 'Hemp Backpack', amount: 'रू 2,800.00', payment: 'COD', status: 'processing', date: '१० भाद्र २०८३' },
+            { id: '#ORD-2026-XYZ901', customer: 'Dinesh Maharjan', location: 'Khokana', product: 'Mustard Oil (5L)', amount: 'रू 3,500.00', payment: 'ESEWA', status: 'delivered', date: '९ भाद्र २०८३' },
+            { id: '#ORD-2026-ABC234', customer: 'Reshma Tamang', location: 'Budhanilkantha', product: 'Lokta Gift Box', amount: 'रू 1,200.00', payment: 'COD', status: 'delivered', date: '९ भाद्र २०८३' },
+            { id: '#ORD-2026-DEF567', customer: 'Ganesh Acharya', location: 'Tokha', product: 'Traditional Dhaka Fabric', amount: 'रू 4,600.00', payment: 'FONEPAY', status: 'pending', date: '८ भाद्र २०८३' },
+            { id: '#ORD-2026-GHI890', customer: 'Kamala Thapa', location: 'Balaju', product: 'Herbal Tea Mix', amount: 'रू 1,800.00', payment: 'KHALTI', status: 'delivered', date: '८ भाद्र २०८३' },
+            { id: '#ORD-2026-JKL123', customer: 'Shyam Dhakal', location: 'Chabahil', product: 'Bronze Statue', amount: 'रू 12,500.00', payment: 'COD', status: 'processing', date: '७ भाद्र २०८३' },
+            { id: '#ORD-2026-MNO456', customer: 'Rita Koirala', location: 'Bouddha', product: 'Prayer Wheel', amount: 'रू 3,900.00', payment: 'ESEWA', status: 'delivered', date: '७ भाद्र २०८३' },
+            { id: '#ORD-2026-PQR789', customer: 'Uttam Shahi', location: 'Swayambhu', product: 'Incense Holder', amount: 'रू 750.00', payment: 'COD', status: 'delivered', date: '६ भाद्र २०८३' },
+            { id: '#ORD-2026-STU012', customer: 'Sangita Rai', location: 'Jorpati', product: 'Felt Accessories', amount: 'रू 1,950.00', payment: 'FONEPAY', status: 'pending', date: '६ भाद्र २०८३' },
+            { id: '#ORD-2026-VWX345', customer: 'Bhim Bahadur', location: 'Gongabu', product: 'Traditional Drum', amount: 'रू 5,600.00', payment: 'KHALTI', status: 'delivered', date: '५ भाद्र २०८३' },
+            { id: '#ORD-2026-YZA678', customer: 'Nirmala Limbu', location: 'Maharajgunj', product: 'Handwoven Mat', amount: 'रू 2,100.00', payment: 'COD', status: 'delivered', date: '५ भाद्र २०८३' },
+            { id: '#ORD-2026-BCD901', customer: 'Arjun Silwal', location: 'Baneshwor', product: 'Copper Water Bottle', amount: 'रू 1,800.00', payment: 'ESEWA', status: 'processing', date: '४ भाद्र २०८३' },
+            { id: '#ORD-2026-EFG234', customer: 'Kabita Pun', location: 'Putalisadak', product: 'Organic Spice Set', amount: 'रू 2,400.00', payment: 'COD', status: 'delivered', date: '४ भाद्र २०८३' },
+            { id: '#ORD-2026-HIJ567', customer: 'Sanjay Rana', location: 'New Road', product: 'Pashmina Scarf', amount: 'रू 6,500.00', payment: 'FONEPAY', status: 'refunded', date: '३ भाद्र २०८३' },
+            { id: '#ORD-2026-KLM890', customer: 'Urmila Gurung', location: 'Asan', product: 'Silver Pendant', amount: 'रू 4,200.00', payment: 'KHALTI', status: 'delivered', date: '३ भाद्र २०८३' },
+            { id: '#ORD-2026-NOP123', customer: 'Tej Bahadur', location: 'Indra Chowk', product: 'Traditional Mask', amount: 'रू 3,800.00', payment: 'COD', status: 'processing', date: '२ भाद्र २०८३' },
+            { id: '#ORD-2026-QRS456', customer: 'Saraswati Bhatta', location: 'Basantapur', product: 'Handmade Candles', amount: 'रू 950.00', payment: 'ESEWA', status: 'delivered', date: '२ भाद्र २०८३' },
+            { id: '#ORD-2026-TUV789', customer: 'Mahesh Karki', location: 'Jawalakhel', product: 'Tibetan Carpet', amount: 'रू 18,500.00', payment: 'COD', status: 'delivered', date: '१ भाद्र २०८३' },
+            { id: '#ORD-2026-WXY012', customer: 'Lila Thapa', location: 'Ekantakuna', product: 'Organic Coffee', amount: 'रू 1,600.00', payment: 'FONEPAY', status: 'pending', date: '१ भाद्र २०८३' },
+            { id: '#ORD-2026-ZAB345', customer: 'Sandip Adhikari', location: 'Satdobato', product: 'Hemp Clothing', amount: 'रू 3,200.00', payment: 'KHALTI', status: 'delivered', date: '३१ श्रावण २०८३' }
+        ];
+
+        // Pagination state
+        let currentPage = 1;
+        let perPage = 10;
+        let currentFilter = 'all';
+        let currentSearch = '';
+
+        // Get filtered and paginated data
+        function getFilteredData() {
+            let filtered = orderData;
+            
+            // Apply status filter
+            if (currentFilter !== 'all') {
+                filtered = filtered.filter(order => order.status === currentFilter);
+            }
+            
+            // Apply search
+            if (currentSearch) {
+                const searchLower = currentSearch.toLowerCase();
+                filtered = filtered.filter(order => 
+                    order.id.toLowerCase().includes(searchLower) ||
+                    order.customer.toLowerCase().includes(searchLower) ||
+                    order.product.toLowerCase().includes(searchLower) ||
+                    order.location.toLowerCase().includes(searchLower)
+                );
+            }
+            
+            return filtered;
+        }
+
+        // Render table rows
+        function renderOrderTable() {
+            const tbody = document.getElementById('orderTableBody');
+            const filteredData = getFilteredData();
+            
+            // Calculate pagination
+            const totalItems = filteredData.length;
+            const totalPages = Math.ceil(totalItems / perPage);
+            const startIdx = (currentPage - 1) * perPage;
+            const endIdx = Math.min(startIdx + perPage, totalItems);
+            const pageData = filteredData.slice(startIdx, endIdx);
+            
+            // Clear existing rows
+            tbody.innerHTML = '';
+            
+            // Render rows with staggered animation
+            pageData.forEach((order, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'row-animate hover:bg-slate-50 transition';
+                tr.style.animationDelay = `${index * 30}ms`;
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-bold text-slate-900">${order.id}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-semibold text-slate-900">${order.customer}</div>
+                        <div class="text-xs text-slate-500">${order.location}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-slate-700">${order.product}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-bold text-slate-900">${order.amount}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-xs font-semibold text-slate-600 uppercase">${order.payment}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="status-badge status-${order.status}">${order.status}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-slate-600">${order.date}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <button class="button-bounce px-3 py-1.5 text-xs font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition">
+                            View
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+            
+            // Update pagination info
+            document.getElementById('orderRangeStart').textContent = totalItems > 0 ? startIdx + 1 : 0;
+            document.getElementById('orderRangeEnd').textContent = endIdx;
+            document.getElementById('totalOrders').textContent = totalItems;
+            document.getElementById('currentPage').textContent = currentPage;
+            document.getElementById('totalPages').textContent = totalPages;
+            
+            // Render pagination controls
+            renderPagination(totalPages);
+            
+            // Re-initialize Lucide icons
+            setTimeout(() => lucide.createIcons(), 100);
+        }
+
+        // Render pagination controls
+        function renderPagination(totalPages) {
+            const pageNumbers = document.getElementById('pageNumbers');
+            pageNumbers.innerHTML = '';
+            
+            // Calculate visible page range
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+            
+            // Render page number buttons
+            for (let i = startPage; i <= endPage; i++) {
+                const btn = document.createElement('button');
+                btn.className = `pagination-btn px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold ${i === currentPage ? 'active' : 'text-slate-700 bg-white'}`;
+                btn.textContent = i;
+                btn.onclick = () => goToPage(i);
+                pageNumbers.appendChild(btn);
+            }
+            
+            // Update navigation button states
+            document.getElementById('firstPageBtn').disabled = currentPage === 1;
+            document.getElementById('prevPageBtn').disabled = currentPage === 1;
+            document.getElementById('nextPageBtn').disabled = currentPage === totalPages || totalPages === 0;
+            document.getElementById('lastPageBtn').disabled = currentPage === totalPages || totalPages === 0;
+        }
+
+        // Navigation functions
+        function goToPage(page) {
+            currentPage = page;
+            renderOrderTable();
+        }
+
+        function nextPage() {
+            const filteredData = getFilteredData();
+            const totalPages = Math.ceil(filteredData.length / perPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderOrderTable();
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderOrderTable();
+            }
+        }
+
+        function firstPage() {
+            currentPage = 1;
+            renderOrderTable();
+        }
+
+        function lastPage() {
+            const filteredData = getFilteredData();
+            const totalPages = Math.ceil(filteredData.length / perPage);
+            currentPage = totalPages;
+            renderOrderTable();
+        }
+
+        // Event listeners
+        document.getElementById('firstPageBtn').onclick = firstPage;
+        document.getElementById('prevPageBtn').onclick = prevPage;
+        document.getElementById('nextPageBtn').onclick = nextPage;
+        document.getElementById('lastPageBtn').onclick = lastPage;
+
+        // Per page selector
+        document.getElementById('perPageSelect').addEventListener('change', (e) => {
+            perPage = parseInt(e.target.value);
+            currentPage = 1;
+            renderOrderTable();
+        });
+
+        // Status filter tabs
+        document.querySelectorAll('.status-filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active state
+                document.querySelectorAll('.status-filter-tab').forEach(t => {
+                    t.classList.remove('bg-white', 'shadow-sm', 'text-slate-700');
+                    t.classList.add('text-slate-600');
+                });
+                tab.classList.add('bg-white', 'shadow-sm', 'text-slate-700');
+                tab.classList.remove('text-slate-600');
+                
+                // Update filter
+                currentFilter = tab.dataset.status;
+                currentPage = 1;
+                renderOrderTable();
+            });
+        });
+
+        // Search functionality
+        document.getElementById('orderSearch').addEventListener('input', (e) => {
+            currentSearch = e.target.value;
+            currentPage = 1;
+            renderOrderTable();
+        });
+
+        // Chart.js Setup
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        
+        // Chart data for different periods
+        const chartDataSets = {
+            '7d': {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                data: [45000, 52000, 48000, 61000, 58000, 72000, 68000],
+                revenue: 'रू 4,04,000.00',
+                growth: '+15.2%'
+            },
+            '30d': {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                data: [180000, 195000, 210000, 196800],
+                revenue: 'रू 7,81,800.00',
+                growth: '+18.4%'
+            },
+            '3m': {
+                labels: ['Month 1', 'Month 2', 'Month 3'],
+                data: [650000, 720000, 781800],
+                revenue: 'रू 21,51,800.00',
+                growth: '+20.3%'
+            },
+            '12m': {
+                labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+                data: [2100000, 2450000, 2680000, 2920000],
+                revenue: 'रू 1,01,50,000.00',
+                growth: '+38.9%'
+            }
+        };
+
+        const salesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartDataSets['30d'].labels,
+                datasets: [{
+                    label: 'Sales',
+                    data: chartDataSets['30d'].data,
+                    borderColor: '#FF5B00',
+                    backgroundColor: (context) => {
+                        const chart = context.chart;
+                        const {ctx, chartArea} = chart;
+                        if (!chartArea) return null;
+                        
+                        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        gradient.addColorStop(0, 'rgba(255, 91, 0, 0.25)');
+                        gradient.addColorStop(1, 'rgba(255, 91, 0, 0)');
+                        return gradient;
+                    },
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#FF5B00',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointHoverBackgroundColor: '#FF5B00',
+                    pointHoverBorderColor: '#ffffff',
+                    pointHoverBorderWidth: 3,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        titleColor: '#ffffff',
+                        bodyColor: '#ffffff',
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return 'रू ' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        border: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 11,
+                                weight: 500
+                            },
+                            color: '#64748b'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)',
+                            drawBorder: false
+                        },
+                        border: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 11,
+                                weight: 500
+                            },
+                            color: '#64748b',
+                            callback: function(value) {
+                                return 'रू ' + (value / 1000) + 'k';
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+
+        // Period tabs
+        document.querySelectorAll('.period-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active state
+                document.querySelectorAll('.period-tab').forEach(t => {
+                    t.classList.remove('bg-orange-500', 'text-white');
+                    t.classList.add('text-slate-600');
+                });
+                tab.classList.add('bg-orange-500', 'text-white');
+                tab.classList.remove('text-slate-600');
+                
+                // Get period
+                const period = tab.dataset.period;
+                const dataset = chartDataSets[period];
+                
+                // Update chart with smooth transition
+                salesChart.data.labels = dataset.labels;
+                salesChart.data.datasets[0].data = dataset.data;
+                salesChart.update({
+                    duration: 750,
+                    easing: 'easeInOutCubic'
+                });
+                
+                // Update revenue text with fade transition
+                const revenueEl = document.getElementById('chartRevenue');
+                const growthEl = document.getElementById('chartGrowth');
+                
+                revenueEl.style.opacity = '0';
+                revenueEl.style.transform = 'translateY(-6px)';
+                growthEl.style.opacity = '0';
+                growthEl.style.transform = 'translateY(-6px)';
+                
+                setTimeout(() => {
+                    revenueEl.textContent = dataset.revenue;
+                    growthEl.textContent = dataset.growth;
+                    revenueEl.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+                    growthEl.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+                    revenueEl.style.opacity = '1';
+                    revenueEl.style.transform = 'translateY(0)';
+                    growthEl.style.opacity = '1';
+                    growthEl.style.transform = 'translateY(0)';
+                }, 200);
+            });
+        });
+
+        // Initial render
+        renderOrderTable();
+    </script>
+</body>
+</html>

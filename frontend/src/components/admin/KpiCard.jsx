@@ -15,6 +15,7 @@ export default function KpiCard({
 }) {
   const content = (
     <div
+      className={`card card-lift ${to ? 'btn-tactile' : ''}`}
       style={{
         background: '#fff',
         border: '1px solid var(--border)',
@@ -24,24 +25,9 @@ export default function KpiCard({
         display: 'flex',
         alignItems: 'center',
         gap: 16,
-        transition: 'all 0.2s ease',
         cursor: to ? 'pointer' : 'default',
         position: 'relative',
         ...style
-      }}
-      onMouseEnter={e => {
-        if (to) {
-          e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.06)'
-          e.currentTarget.style.transform = 'translateY(-1px)'
-          e.currentTarget.style.borderColor = '#cbd5e1'
-        }
-      }}
-      onMouseLeave={e => {
-        if (to) {
-          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)'
-          e.currentTarget.style.transform = 'translateY(0)'
-          e.currentTarget.style.borderColor = 'var(--border)'
-        }
       }}
     >
       {Icon && (

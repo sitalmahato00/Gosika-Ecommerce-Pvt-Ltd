@@ -2,9 +2,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import { NavLink, Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   ShoppingBag, Menu, X, LogOut, Bell,
-  Store, Wallet, Search, CheckCircle2, User,
+  Store, Wallet, Search, User,
   Settings, KeyRound, Headphones,
-  PanelLeftClose, PanelLeftOpen,
   LayoutDashboard, UserCheck,
   Calendar, ChevronDown, ChevronRight,
   HelpCircle, Shield, Truck
@@ -99,67 +98,44 @@ export default function DashboardLayout({
     ? (displayName.charAt(0) || 'V')
     : (user?.name ? user.name.charAt(0).toUpperCase() : 'A')
 
+  const portalShort = isDelivery ? 'Delivery Portal' : isVendor ? 'Vendor Portal' : 'Marketplace Control'
+  const home = homePath || (isDelivery ? '/delivery' : isVendor ? '/vendor' : '/admin')
+
   return (
-    <div className="dash-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+    <div
+      className="dash-shell"
+      style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: '#f8fafc' }}
+    >
       {open && (
-        <div className="overlay dash-sidebar-overlay" onClick={() => setOpen(false)} style={{ zIndex: 65 }} aria-hidden="true" />
+        <div
+          className="overlay dash-sidebar-overlay"
+          onClick={() => setOpen(false)}
+          style={{ zIndex: 65, backdropFilter: 'blur(4px)', background: 'rgba(15, 23, 42, 0.45)' }}
+          aria-hidden="true"
+        />
       )}
 
       {/* ============================================================
-          TOPBAR — Solid Brand Orange bar matching Image 2
+          STICKY GLASS HEADER (SaaS)
           ============================================================ */}
       <header
-        className="dash-topbar"
+        className="dash-topbar saas-glass gpu"
         style={{
           height: 64,
-          background: '#ff5500',
-          color: '#ffffff',
+          color: '#1e293b',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 20px',
-          zIndex: 60,
+          background: 'rgba(255, 255, 255, 0.82)',
+          boxShadow: '0 4px 18px rgba(2, 6, 23, 0.05)',
+          zIndex: 40,
           flexShrink: 0,
-          boxShadow: '0 2px 10px rgba(255, 85, 0, 0.25)',
-          borderBottom: '1px solid rgba(0,0,0,0.08)'
+          position: 'sticky',
+          top: 0,
         }}
       >
-        {/* Left Section: Logo + Hamburger Menu */}
-        <div className="flex items-center gap-3" style={{ minWidth: collapsed ? 'auto' : 220 }}>
-          <Link
-            to={isDelivery ? '/delivery' : isVendor ? '/vendor' : '/admin'}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: '#fff' }}
-          >
-            {logoUrl ? (
-              <img src={logoUrl} alt={brandName} style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
-            ) : (
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  background: '#ffffff',
-                  color: '#ff5500',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.12)'
-                }}
-              >
-                <ShoppingBag size={22} strokeWidth={2.4} />
-              </div>
-            )}
-            <div style={{ lineHeight: 1.15 }}>
-              <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: '0.04em', color: '#fff' }}>
-                {brandName}
-              </div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.02em' }}>
-                {isDelivery ? 'Delivery Partner' : isVendor ? 'Vendor Portal' : 'Marketplace Admin'}
-              </div>
-            </div>
-          </Link>
-
-          {/* Hamburger toggle button */}
+        {/* Left: collapse toggle + brand */}
+        <div className="dash-topbar-left flex items-center gap-3" style={{ minWidth: collapsed ? 'auto' : 220 }}>
           <button
             type="button"
             className="icon-btn"
@@ -172,13 +148,12 @@ export default function DashboardLayout({
             }}
             aria-label="Toggle navigation"
             style={{
-              marginLeft: 8,
-              background: 'rgba(255,255,255,0.15)',
-              border: 'none',
-              color: '#fff',
-              width: 36,
-              height: 36,
-              borderRadius: 8,
+              background: '#f1f5f9',
+              border: '1px solid #e2e8f0',
+              color: '#334155',
+              width: 38,
+              height: 38,
+              borderRadius: 10,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -187,9 +162,42 @@ export default function DashboardLayout({
           >
             <Menu size={20} />
           </button>
+
+          <Link
+            to={home}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}
+          >
+            {logoUrl ? (
+              <img src={logoUrl} alt={brandName} style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
+            ) : (
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: '#ff5500',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 6px 14px rgba(255, 85, 0, 0.32)'
+                }}
+              >
+                <ShoppingBag size={20} strokeWidth={2.4} />
+              </div>
+            )}
+            <div style={{ lineHeight: 1.15 }} className="dash-topbar-brand-text">
+              <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: '0.04em', color: '#161d2b' }}>
+                {brandName}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.02em' }}>
+                {isDelivery ? 'Delivery Partner' : isVendor ? 'Vendor Portal' : 'Marketplace Admin'}
+              </div>
+            </div>
+          </Link>
         </div>
 
-        {/* Center: Search input pill matching Image 2 */}
+        {/* Center: omni search pill */}
         <form
           onSubmit={handleGlobalSearch}
           className="hide-sm"
@@ -199,11 +207,12 @@ export default function DashboardLayout({
             size={16}
             style={{
               position: 'absolute',
-              left: 16,
+              left: 14,
               top: '50%',
               transform: 'translateY(-50%)',
               color: '#94a3b8',
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              zIndex: 1
             }}
           />
           <input
@@ -211,15 +220,24 @@ export default function DashboardLayout({
             style={{
               width: '100%',
               height: 40,
-              paddingLeft: 44,
+              paddingLeft: 40,
               paddingRight: 20,
               fontSize: 13.5,
-              background: '#ffffff',
+              background: '#f1f5f9',
               color: '#1e293b',
               borderRadius: 9999,
-              border: 'none',
+              border: '1px solid transparent',
               outline: 'none',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+              boxShadow: 'inset 0 1px 2px rgba(15, 23, 42, 0.04)',
+              transition: 'box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.background = '#ffffff'
+              e.target.style.boxShadow = '0 0 0 3px rgba(255, 85, 0, 0.14)'
+            }}
+            onBlur={(e) => {
+              e.target.style.background = '#f1f5f9'
+              e.target.style.boxShadow = 'inset 0 1px 2px rgba(15, 23, 42, 0.04)'
             }}
             placeholder={
               isDelivery ? 'Search deliveries, earnings, customers...'
@@ -231,20 +249,19 @@ export default function DashboardLayout({
           />
         </form>
 
-        {/* Right: Actions, Notifications, User Avatar */}
-        <div className="flex items-center gap-3">
-          {/* Duty status toggle for Rider */}
+        {/* Right: actions + user */}
+        <div className="flex items-center gap-2" style={{ gap: 8 }}>
           {isDelivery && (
             <button
               type="button"
               onClick={onToggleDuty}
               disabled={dutyToggling}
-              className="chip hide-sm"
+              className="chip hide-sm btn-tactile"
               style={{
                 cursor: 'pointer',
-                background: duty ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
-                color: '#fff',
-                border: '1px solid rgba(255,255,255,0.3)',
+                background: duty ? 'rgba(255, 85, 0, 0.1)' : '#f8fafc',
+                color: duty ? '#ff5500' : '#64748b',
+                border: `1px solid ${duty ? 'rgba(255, 85, 0, 0.28)' : '#e2e8f0'}`,
                 padding: '5px 12px',
                 borderRadius: 20,
                 fontSize: 11,
@@ -255,59 +272,59 @@ export default function DashboardLayout({
             </button>
           )}
 
-          {/* Notifications Bell with Red Badge matching Image 2 */}
           <Link
             to={isDelivery ? '/delivery/notifications' : isVendor ? '/vendor/notifications' : '/admin/system/notifications'}
+            className="btn-tactile"
             style={{
               position: 'relative',
               width: 38,
               height: 38,
               borderRadius: '50%',
-              background: 'rgba(255,255,255,0.15)',
+              background: '#f1f5f9',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#fff',
+              color: '#334155',
               textDecoration: 'none'
             }}
             title="Notifications"
           >
             <Bell size={18} />
             <span
+              className="badge-pop"
               style={{
                 position: 'absolute',
-                top: 2,
-                right: 2,
-                width: 17,
-                height: 17,
+                top: 0,
+                right: 0,
+                width: 16,
+                height: 16,
                 borderRadius: '50%',
                 background: '#ef4444',
                 color: '#fff',
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: 800,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '2px solid #ff5500'
+                border: '2px solid #ffffff'
               }}
             >
               5
             </span>
           </Link>
 
-          {/* Help Center Icon */}
           <Link
             to={isDelivery ? '/delivery/support' : isVendor ? '/vendor/support' : '/admin/customers/support'}
-            className="hide-sm"
+            className="hide-sm btn-tactile"
             style={{
               width: 38,
               height: 38,
               borderRadius: '50%',
-              background: 'rgba(255,255,255,0.15)',
+              background: '#f1f5f9',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#fff',
+              color: '#334155',
               textDecoration: 'none'
             }}
             title="Help & Support"
@@ -315,19 +332,18 @@ export default function DashboardLayout({
             <HelpCircle size={18} />
           </Link>
 
-          {/* Settings Icon */}
           <Link
             to={isDelivery ? '/delivery/settings' : isVendor ? '/vendor/stores' : '/admin/system/settings'}
-            className="hide-sm"
+            className="hide-sm btn-tactile"
             style={{
               width: 38,
               height: 38,
               borderRadius: '50%',
-              background: 'rgba(255,255,255,0.15)',
+              background: '#f1f5f9',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#fff',
+              color: '#334155',
               textDecoration: 'none'
             }}
             title="Settings"
@@ -335,21 +351,23 @@ export default function DashboardLayout({
             <Settings size={18} />
           </Link>
 
-          {/* User Profile Avatar block matching Image 2 */}
+          {/* User profile chip */}
           <div style={{ position: 'relative' }} ref={dropdownRef}>
             <button
               type="button"
               onClick={() => setUserDropdown(!userDropdown)}
+              className="btn-tactile"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 10,
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
                 cursor: 'pointer',
                 padding: '4px 12px 4px 5px',
                 borderRadius: 9999,
-                color: '#fff'
+                color: '#1e293b',
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)'
               }}
               aria-label="User profile menu"
             >
@@ -363,27 +381,26 @@ export default function DashboardLayout({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: 800
                 }}
               >
                 {userInitial}
               </span>
               <div className="hide-sm" style={{ textAlign: 'left', lineHeight: 1.2 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1e293b' }}>
                   {displayName}
                 </div>
-                <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.8)' }}>
+                <div style={{ fontSize: 10.5, color: '#64748b' }}>
                   {subRoleName}
                 </div>
               </div>
-              <ChevronDown size={14} style={{ color: 'rgba(255,255,255,0.85)' }} />
+              <ChevronDown size={14} style={{ color: '#94a3b8' }} />
             </button>
 
-            {/* Dropdown Card */}
             {userDropdown && (
               <div
-                className="card"
+                className="card modal-ease"
                 style={{
                   position: 'absolute',
                   top: 'calc(100% + 10px)',
@@ -475,43 +492,92 @@ export default function DashboardLayout({
       </header>
 
       {/* ============================================================
-          MAIN BODY: Left Dark Sidebar + Right Content Area
+          BODY: dual-zone sidebar + independent content pane
           ============================================================ */}
       <div className="dash-body" style={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
-        {/* Left Dark Sidebar matching Image 2 */}
+        {/* Left sidebar (pinned zones, only nav scrolls) */}
         <aside
           className={`dash-sidebar ${open ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}
           aria-label={`${title} navigation`}
           style={{
-            width: collapsed ? 72 : 220,
+            width: collapsed ? 72 : 224,
             background: '#161d2b',
             borderRight: '1px solid #20293a',
             display: 'flex',
             flexDirection: 'column',
             flexShrink: 0,
-            overflowY: 'auto',
+            height: '100%',
+            overflow: 'hidden',
             overflowX: 'hidden',
-            transition: 'width 0.2s ease',
+            transition: 'width 0.22s ease',
             zIndex: 50
           }}
         >
-          {/* Close button for mobile */}
-          <div className="dash-sidebar-header show-sm" style={{ padding: '12px 16px', display: 'none' }}>
-            <span style={{ color: '#fff', fontWeight: 800 }}>Navigation</span>
-            <button className="dash-sidebar-close" onClick={() => setOpen(false)} aria-label="Close navigation">
+          {/* PINNED brand zone */}
+          <div
+            className="dash-sidebar-brand shrink-0"
+            style={{
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: collapsed ? 'center' : 'space-between',
+              gap: 10,
+              padding: collapsed ? '14px 0' : '14px 16px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+              background: '#131924'
+            }}
+          >
+            <Link to={home} style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: '#fff', minWidth: 0 }}>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={brandName}
+                  style={{ height: 28, width: 'auto', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 9,
+                    background: '#ff5500',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 12px rgba(255, 85, 0, 0.35)'
+                  }}
+                >
+                  <ShoppingBag size={17} strokeWidth={2.4} />
+                </div>
+              )}
+              {!collapsed && (
+                <div style={{ lineHeight: 1.15, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 800, color: '#fff', letterSpacing: '0.03em', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                    {brandName}
+                  </div>
+                  <div style={{ fontSize: 10.5, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+                    {portalShort}
+                  </div>
+                </div>
+              )}
+            </Link>
+            <button className="dash-sidebar-close" onClick={() => setOpen(false)} aria-label="Close navigation" style={{ color: '#94a3b8' }}>
               <X size={18} />
             </button>
           </div>
 
-          {/* Delivery Rider Duty card if on delivery portal */}
+          {/* Delivery Rider duty card */}
           {isDelivery && !collapsed && (
             <div
               style={{
-                margin: '12px 12px 6px',
+                margin: '12px 12px 4px',
                 padding: '12px',
                 borderRadius: 10,
                 background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)'
+                border: '1px solid rgba(255,255,255,0.08)',
+                flexShrink: 0
               }}
             >
               <div className="flex items-center gap-3">
@@ -537,8 +603,8 @@ export default function DashboardLayout({
             </div>
           )}
 
-          {/* Nav Links categorized into sections */}
-          <nav className="dash-nav" aria-label="Dashboard menu" style={{ flex: 1, padding: '12px 10px' }}>
+          {/* SCROLLING nav zone */}
+          <nav className="dash-nav saas-scroll" aria-label="Dashboard menu" style={{ flex: 1, padding: '10px 10px', overflowY: 'auto', overflowX: 'hidden' }}>
             {nav.map((item, i) => {
               if (item.section) {
                 return (
@@ -586,24 +652,14 @@ export default function DashboardLayout({
                     fontWeight: isActive ? 600 : 500,
                     marginBottom: 3,
                     textDecoration: 'none',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
+                    transform: isActive ? 'translateX(2px)' : 'none'
                   })}
                 >
                   <Ic size={17} aria-hidden="true" style={{ flexShrink: 0 }} />
                   {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
                   {badgeCount && !collapsed && (
-                    <span
-                      style={{
-                        background: '#ff5500',
-                        color: '#ffffff',
-                        fontSize: 10.5,
-                        fontWeight: 800,
-                        padding: '1px 7px',
-                        borderRadius: 9999,
-                        minWidth: 20,
-                        textAlign: 'center'
-                      }}
-                    >
+                    <span className="badge-pop dash-nav-badge" style={{ minWidth: 20, textAlign: 'center' }}>
                       {badgeCount}
                     </span>
                   )}
@@ -612,10 +668,11 @@ export default function DashboardLayout({
             })}
           </nav>
 
-          {/* Bottom user profile snippet matching Image 2 */}
+          {/* PINNED profile footer */}
           <div
-            className="dash-sidebar-user-footer"
+            className="dash-sidebar-user-footer shrink-0 gpu"
             style={{
+              flexShrink: 0,
               padding: '12px 14px',
               borderTop: '1px solid rgba(255,255,255,0.08)',
               background: '#131924',
@@ -645,7 +702,7 @@ export default function DashboardLayout({
             </div>
             {!collapsed && (
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', truncate: true }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {displayName}
                 </div>
                 <div style={{ fontSize: 11, color: '#94a3b8' }}>
@@ -653,20 +710,22 @@ export default function DashboardLayout({
                 </div>
               </div>
             )}
-            {!collapsed && <ChevronDown size={14} color="#64748b" />}
+            {!collapsed && <ChevronDown size={14} color="#64748b" style={{ flexShrink: 0 }} />}
           </div>
         </aside>
 
-        {/* Right: Main Scrollable Content */}
+        {/* Right: independent scrollable content pane */}
         <main
           className={mobileNav ? 'dash-content with-bottom-nav' : 'dash-content'}
           style={{
             flex: 1,
+            minWidth: 0,
+            width: '100%',
+            maxWidth: '100%',
             overflowY: 'auto',
             overflowX: 'hidden',
-            background: '#f4f6f9',
-            padding: '18px 22px',
-            minWidth: 0
+            background: '#f8fafc',
+            padding: '22px 26px'
           }}
         >
           <Outlet />

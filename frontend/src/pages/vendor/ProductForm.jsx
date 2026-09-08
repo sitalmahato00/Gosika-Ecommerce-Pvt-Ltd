@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useParams } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FolderAdd, Folder, Image, Grid, Layout, Tag, Palette, CheckCircle, XCircle, Clock, Calendar, Trash, Check, Eye, Edit, Settings, MapPin, Mail, Phone, Heart, Shield, LayoutDash, Loader2 } from 'lucide-react'
+import { FolderPlus, Folder, Image, Grid, Layout, Tag, Palette, CheckCircle, XCircle, Clock, Calendar, Trash, Check, Eye, Edit, Settings, MapPin, Mail, Phone, Heart, Shield, LayoutDashboard, Loader2 } from 'lucide-react'
 import api from '../../api/client'
 import { useToast } from '../../context/ToastContext'
 

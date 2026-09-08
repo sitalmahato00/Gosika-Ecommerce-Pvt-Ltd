@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Search, RotateCcw, Filter } from 'lucide-react'
+import { useDebouncedValue } from '../../utils/useDebounce'
 
 export default function FilterBar({
   search,
@@ -8,12 +9,39 @@ export default function FilterBar({
   statusFilter,
   onStatusChange,
   statusOptions = [],
+  segmented = false,
+  debounceMs = 0,
   extraFilters,
   onReset,
   showReset = true,
   children
 }) {
   const hasActiveFilters = Boolean(search || (statusFilter && statusFilter !== 'all'))
+
+  // Opt-in debounce: local input value drives the visible box; onSearchChange
+  // fires `debounceMs` later. When debounceMs is 0, behavior is unchanged.
+  const [local, setLocal] = useState(search || '')
+  const debounced = useDebouncedValue(local, debounceMs || 400)
+  const [raf, setRaf] = useState(false)
+
+  useEffect(() => {
+    setLocal(search || '')
+  }, [search])
+
+  useEffect(() => {
+    if (!debounceMs || !raf) return
+    onSearchChange && onSearchChange(debounced)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced, raf])
+
+  const handleInput = (v) => {
+    setLocal(v)
+    if (!debounceMs) {
+      onSearchChange && onSearchChange(v)
+    } else {
+      setRaf(true)
+    }
+  }
 
   return (
     <div
@@ -48,22 +76,23 @@ export default function FilterBar({
             <input
               type="text"
               className="input"
-              value={search || ''}
-              onChange={e => onSearchChange(e.target.value)}
+              value={local}
+              onChange={e => handleInput(e.target.value)}
               placeholder={searchPlaceholder}
               style={{
                 paddingLeft: 34,
                 height: 36,
                 fontSize: 13,
                 borderRadius: 8,
-                width: '100%'
+                width: '100%',
+                transition: 'box-shadow 0.15s ease, border-color 0.15s ease'
               }}
             />
           </div>
         )}
 
         {/* Status Dropdown */}
-        {statusOptions.length > 0 && (
+        {(statusOptions.length > 0 && !segmented) && (
           <div style={{ minWidth: 140 }}>
             <select
               className="input"
@@ -87,13 +116,56 @@ export default function FilterBar({
           </div>
         )}
 
+        {/* Segmented sliding filter pill */}
+        {statusOptions.length > 0 && segmented && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              background: '#f1f5f9',
+              padding: 3,
+              borderRadius: 10,
+              overflowX: 'auto',
+              maxWidth: '100%'
+            }}
+          >
+            {[{ value: 'all', label: 'All' }, ...statusOptions].map(opt => {
+              const active = (statusFilter || 'all') === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onStatusChange(opt.value)}
+                  className="btn-tactile"
+                  style={{
+                    border: 'none',
+                    whiteSpace: 'nowrap',
+                    background: 'transparent',
+                    color: active ? '#ff5500' : '#64748b',
+                    fontWeight: 700,
+                    fontSize: 11.5,
+                    padding: '6px 13px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'all 0.18s ease'
+                  }}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {extraFilters}
 
         {/* Reset Filters */}
         {showReset && hasActiveFilters && onReset && (
           <button
             type="button"
-            className="btn btn-ghost btn-xs"
+            className="btn btn-ghost btn-xs btn-tactile"
             onClick={onReset}
             style={{
               height: 36,

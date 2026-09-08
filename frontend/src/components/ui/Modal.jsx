@@ -7,11 +7,19 @@ export default function Modal({ open, onClose, title, children, footer, size }) 
     const onKey = (e) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
+    // Always clean up on unmount or when open changes — regardless of open state
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
   }, [open, onClose])
+
+  // Also ensure overflow is restored if component unmounts while open
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
 
   if (!open) return null
   return (

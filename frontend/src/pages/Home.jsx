@@ -455,13 +455,13 @@ export default function Home() {
 
         {/* 6 Product Cards Grid */}
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+          <div className="product-grid">
             {Array.from({ length: 6 }).map((_, i) => (
               <ProductCardSkeletonMini key={i} />
             ))}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+          <div className="product-grid">
             {deals.map((p) => (
               <ProductCard key={p.id} product={p} onQuickView={setQuickView} variant="outline" />
             ))}
@@ -547,13 +547,13 @@ export default function Home() {
         </div>
 
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+          <div className="product-grid">
             {Array.from({ length: 6 }).map((_, i) => (
               <ProductCardSkeletonMini key={i} />
             ))}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+          <div className="product-grid">
             {newArrivals.map((p) => (
               <ProductCard key={p.id} product={p} onQuickView={setQuickView} variant="outline" />
             ))}

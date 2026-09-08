@@ -1,0 +1,203 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@theme {
+  --color-brand: #ff5500;
+  --color-brand-dark: #e04b00;
+  --color-brand-deep: #c23e00;
+  --color-brand-light: #ff7733;
+  --color-navy: #161d2b;
+  --color-navy-light: #1f293d;
+  --color-ink: #1e293b;
+  --color-muted: #64748b;
+  --color-muted-light: #94a3b8;
+  --color-surface: #ffffff;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ---------------------------------------------------------------------------
+   GOSIKA SaaS layer — Tailwind utilities layered ON TOP of the legacy design
+   system. Preflight is intentionally skipped so the legacy CSS is preserved.
+   New SaaS components use these classes; legacy pages keep working.
+   --------------------------------------------------------------------------- */
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+}
+
+/* Soft custom scrollbar for isolated panes */
+.saas-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+}
+.saas-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.saas-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.saas-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 9999px;
+}
+.saas-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
+}
+
+/* Glass header */
+.saas-glass {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* Tactile buttons */
+.btn-tactile {
+  transition:
+    transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+  will-change: transform;
+}
+.btn-tactile:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+.btn-tactile:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 75ms;
+}
+
+/* Metric card lift */
+.card-lift {
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 300ms ease;
+  will-change: transform;
+}
+.card-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+}
+
+/* Row/entrance stagger helper */
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.row-enter {
+  animation: row-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Icon / badge float-in entrance */
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Modal / drawer ease */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.modal-ease {
+  animation: modal-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.overlay-ease {
+  animation: overlay-in 220ms ease both;
+}
+
+/* Bouncy count badge */
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.badge-pop {
+  animation: badge-pop 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Sliding indicator pill for filter tabs */
+.saas-tab-pill {
+  position: relative;
+}
+.saas-tab-pill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: #ff5500;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 0;
+}
+.saas-tab-pill.active::before {
+  transform: scaleX(1);
+}
+.saas-tab-pill > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* GPU-friendly transitions */
+.gpu {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* Active nav accent indicator (layered over legacy .dash-nav-link.active) */
+.dash-nav-link.active {
+  position: relative;
+}
+.dash-nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #ffffff;
+  opacity: 0.9;
+  animation: badge-pop 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}

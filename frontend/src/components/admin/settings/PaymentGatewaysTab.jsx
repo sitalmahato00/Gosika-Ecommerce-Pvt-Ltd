@@ -164,7 +164,7 @@ export default function PaymentGatewaysTab({ form, onChange, disabled }) {
                   border: '1px solid var(--border)'
                 }}
               >
-                <Info size={16} style={{ flexShrink: 0, marginTop: 1 }} color="var(--primary)" />
+                <span style={{ flexShrink: 0, marginTop: 1, display: 'inline-flex' }}><Info size={16} color="var(--primary)" /></span>
                 <span style={{ flex: 1 }}>{config.info}</span>
                 {config.docs && (
                   <a

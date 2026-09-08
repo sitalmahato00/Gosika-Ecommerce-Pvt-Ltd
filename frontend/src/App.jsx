@@ -1,9 +1,10 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import CustomerHeader from './components/layout/CustomerHeader'
 import CustomerFooter from './components/layout/CustomerFooter'
+import CustomerBottomNav from './components/layout/CustomerBottomNav'
 import DashboardLayout from './components/layout/DashboardLayout'
 import { AuthRoute, GuestRoute, VendorRoute, AdminRoute, DeliveryRoute } from './components/layout/RouteGuards'
-import { VENDOR_NAV, ADMIN_NAV } from './utils/constants'
+import { VENDOR_NAV, ADMIN_NAV, VENDOR_MOBILE_NAV, ADMIN_MOBILE_NAV } from './utils/constants'
 
 import Home from './pages/Home'
 import Shop from './pages/Shop'
@@ -123,6 +124,7 @@ import DeliverySettings from './pages/delivery/DeliverySettings'
 import DeliverySupport from './pages/delivery/DeliverySupport'
 
 function CustomerLayout() {
+  const navigate = useNavigate()
   return (
     <div className="flex flex-col" style={{ minHeight: '100vh' }}>
       <CustomerHeader />
@@ -164,6 +166,7 @@ function CustomerLayout() {
         </Routes>
       </main>
       <CustomerFooter />
+      <CustomerBottomNav onSearchClick={() => navigate('/search')} />
     </div>
   )
 }
@@ -174,7 +177,7 @@ export default function App() {
       <Route path="/*" element={<CustomerLayout />} />
 
       {/* Vendor Portal */}
-      <Route path="/vendor" element={<VendorRoute><DashboardLayout nav={VENDOR_NAV} title="Vendor Panel" roleLabel="Vendor" /></VendorRoute>}>
+      <Route path="/vendor" element={<VendorRoute><DashboardLayout nav={VENDOR_NAV} title="Vendor Panel" roleLabel="Vendor" mobileNav={VENDOR_MOBILE_NAV} /></VendorRoute>}>
         <Route index element={<VendorDashboard />} />
         <Route path="orders" element={<VendorOrders />} />
         <Route path="orders/:id" element={<VendorOrderDetail />} />
@@ -209,7 +212,7 @@ export default function App() {
       </Route>
 
       {/* Admin Panel */}
-      <Route path="/admin" element={<AdminRoute><DashboardLayout nav={ADMIN_NAV} title="Admin Panel" roleLabel="Admin" /></AdminRoute>}>
+      <Route path="/admin" element={<AdminRoute><DashboardLayout nav={ADMIN_NAV} title="Admin Panel" roleLabel="Admin" mobileNav={ADMIN_MOBILE_NAV} /></AdminRoute>}>
         <Route index element={<AdminDashboard />} />
 
         {/* Marketplace */}

@@ -60,7 +60,7 @@ export default function ProductCard({ product, onQuickView, variant = 'outline' 
   return (
     <div className="card card-pad-none card-hover" style={{ display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
       <Link to={`/product/${slug}`} aria-label={product.name} style={{ position: 'relative', display: 'block' }}>
-        <div style={{ height: 190, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <div style={{ aspectRatio: '4 / 3', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           <img
             src={imageUrl}
             alt={product.name}

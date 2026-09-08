@@ -24,6 +24,7 @@ export default function EmptyState({
       }}
     >
       <div
+        className="row-enter gpu"
         style={{
           width: 52,
           height: 52,
@@ -33,7 +34,8 @@ export default function EmptyState({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: 14
+          marginBottom: 14,
+          animation: 'float-in 600ms cubic-bezier(0.16,1,0.3,1) both'
         }}
       >
         <Icon size={26} />

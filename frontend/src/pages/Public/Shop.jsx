@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useSearchParams, useNavigate } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Search, X, ChevronDown, FolderTree, Folder, Tag, CheckCircle, Trash2, SortUp, SortDown, Plus, Eye, Edit, Trash2:Trash2Icon } from 'lucide-react'
+import { Search, X, ChevronDown, FolderTree, Folder, Tag, CheckCircle, Trash2, Plus, Eye, Edit } from 'lucide-react'
 import api from '../../api/client'
 import ProductCard from '../../components/commerce/ProductCard'
 import EmptyState from '../../components/ui/EmptyState'

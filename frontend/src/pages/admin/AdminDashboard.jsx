@@ -4,15 +4,15 @@ import {
   ShoppingBag, ShoppingCart, Users, Store, Wallet,
   RefreshCw, ChevronRight, Package, AlertTriangle,
   Calendar, TrendingUp, TrendingDown, ArrowUpRight,
-  ChevronLeft, ArrowRight, Layers
+  ChevronLeft, ArrowRight, Search
 } from 'lucide-react'
 import api from '../../api/client'
 import { money } from '../../utils/format'
 import { getNepaliDate } from '../../utils/nepalDate'
 import { useToast } from '../../context/ToastContext'
-import SalesLineChart from '../../components/admin/charts/SalesLineChart'
-import SalesByCategoryDonut from '../../components/admin/charts/SalesByCategoryDonut'
 import ErrorState from '../../components/admin/ErrorState'
+import FluidLineChart from '../../components/admin/charts/fx/FluidLineChart'
+import AnimatedNumber from '../../components/admin/charts/fx/AnimatedNumber'
 
 const MOCK_ORDERS = [
   {
@@ -108,42 +108,6 @@ const TIMEFRAME_FALLBACKS = {
   ]
 }
 
-// Category fallbacks per filter range
-const CATEGORY_FALLBACKS = {
-  '7d': [
-    { category: 'Electronics', amount: 185000, share: 34, color: '#ff5500' },
-    { category: 'Fashion', amount: 120000, share: 22, color: '#ea580c' },
-    { category: 'Mobile & Accessories', amount: 95000, share: 18, color: '#3b82f6' },
-    { category: 'Beauty', amount: 62000, share: 11, color: '#eab308' },
-    { category: 'Home & Living', amount: 44000, share: 8, color: '#94a3b8' },
-    { category: 'Others', amount: 38000, share: 7, color: '#1e293b' },
-  ],
-  '30d': [
-    { category: 'Electronics', amount: 1370240, share: 32, color: '#ff5500' },
-    { category: 'Fashion', amount: 942180, share: 22, color: '#ea580c' },
-    { category: 'Mobile & Accessories', amount: 768930, share: 18, color: '#3b82f6' },
-    { category: 'Beauty', amount: 471260, share: 11, color: '#eab308' },
-    { category: 'Home & Living', amount: 342890, share: 8, color: '#94a3b8' },
-    { category: 'Others', amount: 390150, share: 9, color: '#1e293b' },
-  ],
-  '90d': [
-    { category: 'Electronics', amount: 3950000, share: 33, color: '#ff5500' },
-    { category: 'Fashion', amount: 2680000, share: 23, color: '#ea580c' },
-    { category: 'Mobile & Accessories', amount: 2150000, share: 18, color: '#3b82f6' },
-    { category: 'Beauty', amount: 1320000, share: 11, color: '#eab308' },
-    { category: 'Home & Living', amount: 980000, share: 8, color: '#94a3b8' },
-    { category: 'Others', amount: 840000, share: 7, color: '#1e293b' },
-  ],
-  'year': [
-    { category: 'Electronics', amount: 15400000, share: 35, color: '#ff5500' },
-    { category: 'Fashion', amount: 9800000, share: 22, color: '#ea580c' },
-    { category: 'Mobile & Accessories', amount: 7900000, share: 18, color: '#3b82f6' },
-    { category: 'Beauty', amount: 4800000, share: 11, color: '#eab308' },
-    { category: 'Home & Living', amount: 3500000, share: 8, color: '#94a3b8' },
-    { category: 'Others', amount: 2600000, share: 6, color: '#1e293b' },
-  ]
-}
-
 export default function AdminDashboard() {
   const toast = useToast()
   const navigate = useNavigate()
@@ -151,13 +115,14 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [timeframe, setTimeframe] = useState('30d')
-  const [activeCategoryRange, setActiveCategoryRange] = useState('30d')
   const [currentPage, setCurrentPage] = useState(1)
+  const [orderSearch, setOrderSearch] = useState('')
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all')
+  const ORDERS_PER_PAGE = 10
 
   const [data, setData] = useState({
     summary: null,
     salesTimeline: [],
-    categoryShare: [],
     recentOrders: [],
     pendingKycCount: 0,
     pendingPayoutsCount: 0,
@@ -175,14 +140,12 @@ export default function AdminDashboard() {
         ordersRes,
         summaryRes,
         salesTimelineRes,
-        categoryRes,
         kycRes,
         payoutsRes,
       ] = await Promise.allSettled([
         api.get('/admin/orders', { params: { per_page: 6 } }),
         api.get('/admin/analytics/summary', { params: { range: timeframe } }),
         api.get('/admin/analytics/sales-timeline', { params: { range: timeframe } }),
-        api.get('/admin/analytics/category-share', { params: { range: activeCategoryRange } }),
         api.get('/admin/vendors/kyc', { params: { status: 'submitted', per_page: 1 } }),
         api.get('/admin/wallet/payouts', { params: { status: 'pending', per_page: 1 } }),
       ])
@@ -190,7 +153,6 @@ export default function AdminDashboard() {
       const recentOrders = ordersRes.status === 'fulfilled' ? (ordersRes.value.data?.data || []) : []
       const summary = summaryRes.status === 'fulfilled' ? (summaryRes.value.data?.data || null) : null
       const salesTimeline = salesTimelineRes.status === 'fulfilled' ? (salesTimelineRes.value.data?.data || []) : []
-      const categoryShare = categoryRes.status === 'fulfilled' ? (categoryRes.value.data?.data || []) : []
 
       const pendingKycCount = kycRes.status === 'fulfilled'
         ? (kycRes.value.data?.meta?.pagination?.total ?? kycRes.value.data?.data?.length ?? 0)
@@ -203,7 +165,6 @@ export default function AdminDashboard() {
       setData({
         summary,
         salesTimeline,
-        categoryShare,
         recentOrders,
         pendingKycCount,
         pendingPayoutsCount,
@@ -216,25 +177,9 @@ export default function AdminDashboard() {
     }
   }
 
-  // Reload category share when dropdown changes
-  const loadCategoryData = async (range) => {
-    try {
-      const res = await api.get('/admin/analytics/category-share', { params: { range } })
-      if (res.data?.data && res.data.data.length > 0) {
-        setData(prev => ({ ...prev, categoryShare: res.data.data }))
-      }
-    } catch (err) {
-      console.warn('Category share fetch:', err)
-    }
-  }
-
   useEffect(() => {
     loadDashboardData()
   }, [timeframe])
-
-  useEffect(() => {
-    loadCategoryData(activeCategoryRange)
-  }, [activeCategoryRange])
 
   const s = data.summary || {}
   const grossRevenue = Number(s.gross_revenue || s.total_sales || 738692.86)
@@ -272,19 +217,7 @@ export default function AdminDashboard() {
     'year': 'previous year'
   }[timeframe] || 'previous 30 days'
 
-  // Dynamic Category Data based on activeCategoryRange:
-  const categoryItems = useMemo(() => {
-    if (data.categoryShare && data.categoryShare.length > 0) {
-      return data.categoryShare
-    }
-    return CATEGORY_FALLBACKS[activeCategoryRange] || CATEGORY_FALLBACKS['30d']
-  }, [data.categoryShare, activeCategoryRange])
-
-  const categoryTotal = useMemo(() => {
-    return categoryItems.reduce((acc, curr) => acc + Number(curr.amount || 0), 0)
-  }, [categoryItems])
-
-  // Orders list:
+  // Orders list
   const ordersList = data.recentOrders && data.recentOrders.length > 0
     ? data.recentOrders.map(ord => ({
         id: ord.order_number || ord.uuid || ord.id,
@@ -321,6 +254,28 @@ export default function AdminDashboard() {
     }
     return { bg: '#fffbeb', color: '#d97706', border: '#fde68a', label: 'Pending' }
   }
+
+  // Filtered + paginated orders for the table
+  const filteredOrders = useMemo(() => {
+    let list = ordersList
+    if (orderStatusFilter !== 'all') {
+      list = list.filter(o => getStatusBadgeStyle(o.status).label.toLowerCase() === orderStatusFilter)
+    }
+    if (orderSearch.trim()) {
+      const q = orderSearch.trim().toLowerCase()
+      list = list.filter(o =>
+        String(o.id).toLowerCase().includes(q) ||
+        o.customer.toLowerCase().includes(q) ||
+        o.product.toLowerCase().includes(q) ||
+        (o.city || '').toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [ordersList, orderStatusFilter, orderSearch])
+
+  const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE))
+  const safeOrderPage = Math.min(currentPage, totalOrderPages)
+  const pagedOrders = filteredOrders.slice((safeOrderPage - 1) * ORDERS_PER_PAGE, safeOrderPage * ORDERS_PER_PAGE)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, width: '100%', maxWidth: '100%', margin: 0 }}>
@@ -376,24 +331,24 @@ export default function AdminDashboard() {
 
         {/* 1. Total Sales */}
         <div
-          className="card"
+          className="card card-lift"
           style={{
             background: '#ffffff',
-            borderRadius: 12,
-            padding: '12px 14px',
+            borderRadius: 14,
+            padding: '14px 16px',
             border: '1px solid var(--border)',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
             minWidth: 0
           }}
         >
           <div
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
+              width: 42,
+              height: 42,
+              borderRadius: 12,
               background: '#fff0e6',
               display: 'flex',
               alignItems: 'center',
@@ -402,15 +357,15 @@ export default function AdminDashboard() {
               flexShrink: 0
             }}
           >
-            <ShoppingBag size={18} />
+            <ShoppingBag size={20} />
           </div>
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Total Sales</div>
-            <div style={{ fontSize: 16.5, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {money(grossRevenue)}
+            <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <AnimatedNumber value={grossRevenue} format={money} duration={750} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#16a34a', fontSize: 11, fontWeight: 700, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              <TrendingUp size={12} flexShrink={0} />
+              <TrendingUp size={12} style={{ flexShrink: 0 }} />
               <span>↑ 18.4%</span>
               <span style={{ color: '#94a3b8', fontWeight: 500 }}>vs last 30d</span>
             </div>
@@ -419,24 +374,24 @@ export default function AdminDashboard() {
 
         {/* 2. Total Orders */}
         <div
-          className="card"
+          className="card card-lift"
           style={{
             background: '#ffffff',
-            borderRadius: 12,
-            padding: '12px 14px',
+            borderRadius: 14,
+            padding: '14px 16px',
             border: '1px solid var(--border)',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
             minWidth: 0
           }}
         >
           <div
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
+              width: 42,
+              height: 42,
+              borderRadius: 12,
               background: '#e6f0fa',
               display: 'flex',
               alignItems: 'center',
@@ -445,15 +400,15 @@ export default function AdminDashboard() {
               flexShrink: 0
             }}
           >
-            <ShoppingCart size={18} />
+            <ShoppingCart size={20} />
           </div>
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Total Orders</div>
-            <div style={{ fontSize: 16.5, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {ordersCount.toLocaleString()}
+            <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <AnimatedNumber value={ordersCount} format={(v) => Math.round(v).toLocaleString()} duration={750} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#16a34a', fontSize: 11, fontWeight: 700, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              <TrendingUp size={12} flexShrink={0} />
+              <TrendingUp size={12} style={{ flexShrink: 0 }} />
               <span>↑ 12.8%</span>
               <span style={{ color: '#94a3b8', fontWeight: 500 }}>vs last 30d</span>
             </div>
@@ -462,24 +417,24 @@ export default function AdminDashboard() {
 
         {/* 3. Customers */}
         <div
-          className="card"
+          className="card card-lift"
           style={{
             background: '#ffffff',
-            borderRadius: 12,
-            padding: '12px 14px',
+            borderRadius: 14,
+            padding: '14px 16px',
             border: '1px solid var(--border)',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
             minWidth: 0
           }}
         >
           <div
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
+              width: 42,
+              height: 42,
+              borderRadius: 12,
               background: '#e6f7ec',
               display: 'flex',
               alignItems: 'center',
@@ -488,15 +443,15 @@ export default function AdminDashboard() {
               flexShrink: 0
             }}
           >
-            <Users size={18} />
+            <Users size={20} />
           </div>
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Customers</div>
-            <div style={{ fontSize: 16.5, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {newCustomers.toLocaleString()}
+            <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <AnimatedNumber value={newCustomers} format={(v) => Math.round(v).toLocaleString()} duration={750} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#16a34a', fontSize: 11, fontWeight: 700, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              <TrendingUp size={12} flexShrink={0} />
+              <TrendingUp size={12} style={{ flexShrink: 0 }} />
               <span>↑ 8.2%</span>
               <span style={{ color: '#94a3b8', fontWeight: 500 }}>vs last 30d</span>
             </div>
@@ -505,24 +460,24 @@ export default function AdminDashboard() {
 
         {/* 4. Active Sellers */}
         <div
-          className="card"
+          className="card card-lift"
           style={{
             background: '#ffffff',
-            borderRadius: 12,
-            padding: '12px 14px',
+            borderRadius: 14,
+            padding: '14px 16px',
             border: '1px solid var(--border)',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
             minWidth: 0
           }}
         >
           <div
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
+              width: 42,
+              height: 42,
+              borderRadius: 12,
               background: '#f3e8ff',
               display: 'flex',
               alignItems: 'center',
@@ -531,15 +486,15 @@ export default function AdminDashboard() {
               flexShrink: 0
             }}
           >
-            <Store size={18} />
+            <Store size={20} />
           </div>
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Active Sellers</div>
-            <div style={{ fontSize: 16.5, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {activeVendors.toLocaleString()}
+            <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <AnimatedNumber value={activeVendors} format={(v) => Math.round(v).toLocaleString()} duration={750} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#16a34a', fontSize: 11, fontWeight: 700, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              <TrendingUp size={12} flexShrink={0} />
+              <TrendingUp size={12} style={{ flexShrink: 0 }} />
               <span>↑ 6.4%</span>
               <span style={{ color: '#94a3b8', fontWeight: 500 }}>vs last 30d</span>
             </div>
@@ -548,24 +503,24 @@ export default function AdminDashboard() {
 
         {/* 5. Pending Payouts */}
         <div
-          className="card"
+          className="card card-lift"
           style={{
             background: '#ffffff',
-            borderRadius: 12,
-            padding: '12px 14px',
+            borderRadius: 14,
+            padding: '14px 16px',
             border: '1px solid var(--border)',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
             minWidth: 0
           }}
         >
           <div
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
+              width: 42,
+              height: 42,
+              borderRadius: 12,
               background: '#ffebeb',
               display: 'flex',
               alignItems: 'center',
@@ -574,12 +529,12 @@ export default function AdminDashboard() {
               flexShrink: 0
             }}
           >
-            <Wallet size={18} />
+            <Wallet size={20} />
           </div>
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Pending Payouts</div>
-            <div style={{ fontSize: 16.5, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {money(pendingPayouts)}
+            <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <AnimatedNumber value={pendingPayouts} format={money} duration={750} />
             </div>
             <Link
               to="/admin/finance/payouts"
@@ -634,8 +589,8 @@ export default function AdminDashboard() {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap', gap: 10 }}>
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>Sales Overview</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
-                {money(overviewSales)}
+              <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+                <AnimatedNumber value={overviewSales} format={money} duration={900} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#16a34a', fontSize: 11.5, fontWeight: 700, marginTop: 1 }}>
                 <TrendingUp size={12} />
@@ -644,13 +599,13 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Timeframe Filter Pills */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3, background: '#f1f5f9', padding: 3, borderRadius: 8 }}>
+            {/* Timeframe Filter Pills — sliding brand pill */}
+            <div className="saas-tab-pill-container" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 2, background: '#f1f5f9', padding: 3, borderRadius: 10 }}>
               {[
-                { label: '7 Days', val: '7d' },
-                { label: '30 Days', val: '30d' },
-                { label: '3 Months', val: '90d' },
-                { label: '12 Months', val: 'year' },
+                { label: '7D', val: '7d' },
+                { label: '30D', val: '30d' },
+                { label: '3M', val: '90d' },
+                { label: '1Y', val: 'year' },
               ].map(tab => {
                 const isActive = timeframe === tab.val
                 return (
@@ -658,17 +613,20 @@ export default function AdminDashboard() {
                     key={tab.val}
                     type="button"
                     onClick={() => setTimeframe(tab.val)}
+                    className="btn-tactile"
                     style={{
+                      position: 'relative',
+                      zIndex: 1,
                       border: 'none',
                       background: isActive ? '#ff5500' : 'transparent',
                       color: isActive ? '#ffffff' : '#64748b',
                       fontWeight: 700,
                       fontSize: 11.5,
-                      padding: '5px 12px',
-                      borderRadius: 6,
+                      padding: '6px 14px',
+                      borderRadius: 8,
                       cursor: 'pointer',
                       boxShadow: isActive ? '0 2px 6px rgba(255,85,0,0.3)' : 'none',
-                      transition: 'all 0.15s ease'
+                      transition: 'all 0.2s ease'
                     }}
                   >
                     {tab.label}
@@ -678,9 +636,13 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Chart container filling the entire height of the card */}
+          {/* Chart container filling the entire height of the card — morphs in place */}
           <div style={{ width: '100%', flex: 1, minHeight: 280, display: 'flex', flexDirection: 'column', marginTop: 6 }}>
-            <SalesLineChart data={chartData} />
+            <FluidLineChart
+              labels={chartData.map((pt) => pt.label)}
+              values={chartData.map((pt) => Number(pt.revenue || pt.value || 0))}
+              formatValue={(v, short) => money(short ? Math.round(v) : v, { decimals: 0 })}
+            />
           </div>
         </div>
 
@@ -867,65 +829,18 @@ export default function AdminDashboard() {
       </div>
 
       {/* ============================================================
-          BOTTOM SECTION: Sales by Category (330px) + Recent Orders (1fr)
-          With zero horizontal overflow and tight proportional height
+          BOTTOM SECTION: Recent Orders (full width)
           ============================================================ */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '390px minmax(0, 1fr)',
+          gridTemplateColumns: 'minmax(0, 1fr)',
           gap: 16,
           alignItems: 'stretch'
         }}
         id="admin-bottom-row"
       >
-        {/* Card 1: Sales by Category */}
-        <div
-          className="card"
-          style={{
-            background: '#ffffff',
-            borderRadius: 12,
-            padding: '16px 18px 12px',
-            border: '1px solid var(--border)',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            minWidth: 0
-          }}
-        >
-          {/* Card Header with Category Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>Sales by Category</div>
-            <select
-              style={{
-                padding: '4px 8px',
-                borderRadius: 6,
-                border: '1px solid var(--border)',
-                background: '#ffffff',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: 'var(--ink)',
-                cursor: 'pointer',
-                outline: 'none'
-              }}
-              value={activeCategoryRange}
-              onChange={(e) => setActiveCategoryRange(e.target.value)}
-            >
-              <option value="30d">30 Days</option>
-              <option value="7d">7 Days</option>
-              <option value="90d">3 Months</option>
-              <option value="year">1 Year</option>
-            </select>
-          </div>
-
-          {/* Donut Chart & Legend with zero void */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <SalesByCategoryDonut data={categoryItems} totalSales={categoryTotal} />
-          </div>
-        </div>
-
-        {/* Card 2: Recent Orders Table */}
+        {/* Recent Orders Table */}
         <div
           className="card"
           style={{
@@ -937,130 +852,131 @@ export default function AdminDashboard() {
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'space-between',
             minWidth: 0
           }}
         >
           {/* Table Header */}
           <div
             style={{
-              padding: '12px 18px',
+              padding: '14px 18px 12px',
               borderBottom: '1px solid var(--border)',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
+              flexDirection: 'column',
+              gap: 10
             }}
           >
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>Recent Orders</div>
-            <Link
-              to="/admin/orders"
-              style={{
-                color: '#ff5500',
-                fontSize: 12,
-                fontWeight: 700,
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4
-              }}
-            >
-              View All Orders →
-            </Link>
+            {/* Top row: title + view all */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>Recent Orders</div>
+              <Link
+                to="/admin/orders"
+                style={{ color: '#ff5500', fontSize: 12, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                View All Orders →
+              </Link>
+            </div>
+
+            {/* Controls row: search + status filter tabs */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              {/* Search */}
+              <div style={{ position: 'relative', flex: 1, minWidth: 180, maxWidth: 320 }}>
+                <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+                <input
+                  type="text"
+                  placeholder="Search orders, customers, products..."
+                  value={orderSearch}
+                  onChange={e => { setOrderSearch(e.target.value); setCurrentPage(1) }}
+                  style={{
+                    width: '100%', height: 34, paddingLeft: 30, paddingRight: 10,
+                    fontSize: 12.5, borderRadius: 8, border: '1px solid var(--border)',
+                    background: '#f8fafc', color: '#1e293b', outline: 'none'
+                  }}
+                  onFocus={e => { e.target.style.borderColor = '#ff5500'; e.target.style.background = '#fff' }}
+                  onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.background = '#f8fafc' }}
+                />
+              </div>
+
+              {/* Status filter pills */}
+              {['all', 'delivered', 'processing', 'pending', 'shipped', 'cancelled'].map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => { setOrderStatusFilter(s); setCurrentPage(1) }}
+                  style={{
+                    height: 30, padding: '0 12px', borderRadius: 20, fontSize: 11.5, fontWeight: 700,
+                    cursor: 'pointer', border: '1px solid',
+                    borderColor: orderStatusFilter === s ? '#ff5500' : '#e2e8f0',
+                    background: orderStatusFilter === s ? '#ff5500' : '#f8fafc',
+                    color: orderStatusFilter === s ? '#ffffff' : '#475569',
+                    transition: 'all 0.15s ease',
+                    textTransform: 'capitalize'
+                  }}
+                >
+                  {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Table Content */}
+          {/* Table */}
           <div style={{ overflowX: 'auto', flex: 1 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: '#fafbfc', borderBottom: '1px solid var(--border)', color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  <th style={{ padding: '9px 14px', fontWeight: 700 }}>Order ID</th>
-                  <th style={{ padding: '9px 14px', fontWeight: 700 }}>Customer</th>
-                  <th style={{ padding: '9px 14px', fontWeight: 700 }}>Product</th>
-                  <th style={{ padding: '9px 14px', fontWeight: 700 }}>Amount</th>
-                  <th style={{ padding: '9px 14px', fontWeight: 700 }}>Payment</th>
-                  <th style={{ padding: '9px 14px', fontWeight: 700 }}>Status</th>
+                  <th style={{ padding: '10px 16px', fontWeight: 700 }}>Order ID</th>
+                  <th style={{ padding: '10px 16px', fontWeight: 700 }}>Customer</th>
+                  <th style={{ padding: '10px 16px', fontWeight: 700 }}>Product</th>
+                  <th style={{ padding: '10px 16px', fontWeight: 700 }}>Amount</th>
+                  <th style={{ padding: '10px 16px', fontWeight: 700 }}>Payment</th>
+                  <th style={{ padding: '10px 16px', fontWeight: 700 }}>Status</th>
+                  <th style={{ padding: '10px 16px', fontWeight: 700 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {ordersList.slice(0, 5).map((ord, idx) => {
+                {pagedOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                      No orders match your search.
+                    </td>
+                  </tr>
+                ) : pagedOrders.map((ord, idx) => {
                   const badge = getStatusBadgeStyle(ord.status)
                   return (
                     <tr
                       key={ord.id || idx}
-                      style={{
-                        borderBottom: idx === 4 ? 'none' : '1px solid #f1f5f9',
-                        transition: 'background 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = '#fafbfc')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s ease' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#fafbfc')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
-                      {/* Order ID in bold orange link */}
-                      <td style={{ padding: '9px 14px' }}>
-                        <Link
-                          to={`/admin/orders/${ord.id}`}
-                          style={{
-                            color: '#ff5500',
-                            fontWeight: 700,
-                            textDecoration: 'none',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
+                      <td style={{ padding: '10px 16px' }}>
+                        <Link to={`/admin/orders/${ord.id}`} style={{ color: '#ff5500', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
                           #{ord.id}
                         </Link>
                       </td>
-
-                      {/* Customer name + city underneath */}
-                      <td style={{ padding: '9px 14px' }}>
+                      <td style={{ padding: '10px 16px' }}>
                         <div style={{ fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{ord.customer}</div>
                         <div style={{ fontSize: 10.5, color: '#94a3b8' }}>{ord.city}</div>
                       </td>
-
-                      {/* Product */}
-                      <td style={{ padding: '9px 14px', color: '#334155', fontWeight: 500, maxWidth: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <td style={{ padding: '10px 16px', color: '#334155', fontWeight: 500, maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {ord.product}
                       </td>
-
-                      {/* Amount in Nepali Rupee रु */}
-                      <td style={{ padding: '9px 14px', fontWeight: 800, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '10px 16px', fontWeight: 800, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
                         {money(ord.amount)}
                       </td>
-
-                      {/* Payment */}
-                      <td style={{ padding: '9px 14px' }}>
-                        <span
-                          style={{
-                            background: '#f8fafc',
-                            border: '1px solid var(--border)',
-                            color: '#475569',
-                            fontSize: 10.5,
-                            fontWeight: 600,
-                            padding: '2px 7px',
-                            borderRadius: 6,
-                            whiteSpace: 'nowrap',
-                            textTransform: 'uppercase'
-                          }}
-                        >
+                      <td style={{ padding: '10px 16px' }}>
+                        <span style={{ background: '#f8fafc', border: '1px solid var(--border)', color: '#475569', fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 6, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
                           {ord.payment}
                         </span>
                       </td>
-
-                      {/* Status badge */}
-                      <td style={{ padding: '9px 14px' }}>
-                        <span
-                          style={{
-                            background: badge.bg,
-                            color: badge.color,
-                            border: `1px solid ${badge.border}`,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            padding: '2px 8px',
-                            borderRadius: 20,
-                            display: 'inline-block',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
+                      <td style={{ padding: '10px 16px' }}>
+                        <span style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, display: 'inline-block', whiteSpace: 'nowrap' }}>
                           {badge.label}
                         </span>
+                      </td>
+                      <td style={{ padding: '10px 16px' }}>
+                        <Link to={`/admin/orders/${ord.id}`} style={{ color: '#ff5500', fontSize: 11.5, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 3 }}>
+                          View <ArrowRight size={12} />
+                        </Link>
                       </td>
                     </tr>
                   )
@@ -1069,7 +985,7 @@ export default function AdminDashboard() {
             </table>
           </div>
 
-          {/* Table Footer: Results info & Pagination */}
+          {/* Table Footer: count + pagination */}
           <div
             style={{
               padding: '10px 16px',
@@ -1079,62 +995,63 @@ export default function AdminDashboard() {
               justifyContent: 'space-between',
               flexWrap: 'wrap',
               gap: 8,
-              background: '#ffffff'
+              background: '#fafbfc'
             }}
           >
             <div style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>
-              Showing 1 to 5 of 1,284 orders
+              Showing {filteredOrders.length === 0 ? 0 : (safeOrderPage - 1) * ORDERS_PER_PAGE + 1}–{Math.min(safeOrderPage * ORDERS_PER_PAGE, filteredOrders.length)} of {filteredOrders.length} orders
             </div>
 
-            {/* Pagination Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            {/* Pagination controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {/* Prev */}
               <button
                 type="button"
                 className="page-btn"
-                disabled={currentPage === 1}
+                disabled={safeOrderPage === 1}
                 onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                style={{ width: 26, height: 26, borderRadius: 6, fontSize: 11 }}
+                style={{ width: 28, height: 28, borderRadius: 7, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <ChevronLeft size={13} />
               </button>
-              <button
-                type="button"
-                className={`page-btn ${currentPage === 1 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(1)}
-                style={{ width: 26, height: 26, borderRadius: 6, fontSize: 11 }}
-              >
-                1
-              </button>
-              <button
-                type="button"
-                className={`page-btn ${currentPage === 2 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(2)}
-                style={{ width: 26, height: 26, borderRadius: 6, fontSize: 11 }}
-              >
-                2
-              </button>
-              <button
-                type="button"
-                className={`page-btn ${currentPage === 3 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(3)}
-                style={{ width: 26, height: 26, borderRadius: 6, fontSize: 11 }}
-              >
-                3
-              </button>
-              <span style={{ color: '#94a3b8', fontSize: 11, padding: '0 2px' }}>...</span>
-              <button
-                type="button"
-                className={`page-btn ${currentPage === 257 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(257)}
-                style={{ width: 30, height: 26, borderRadius: 6, fontSize: 11 }}
-              >
-                257
-              </button>
+
+              {/* Page numbers — smart window of 5 */}
+              {(() => {
+                const total = totalOrderPages
+                const cur = safeOrderPage
+                let start = Math.max(1, cur - 2)
+                let end = Math.min(total, start + 4)
+                if (end - start < 4) start = Math.max(1, end - 4)
+                const pages = []
+                if (start > 1) {
+                  pages.push(
+                    <button key={1} type="button" className="page-btn" onClick={() => setCurrentPage(1)} style={{ width: 28, height: 28, borderRadius: 7, fontSize: 11 }}>1</button>
+                  )
+                  if (start > 2) pages.push(<span key="e1" style={{ color: '#94a3b8', fontSize: 11, padding: '0 2px' }}>…</span>)
+                }
+                for (let i = start; i <= end; i++) {
+                  pages.push(
+                    <button key={i} type="button" className={`page-btn${cur === i ? ' active' : ''}`} onClick={() => setCurrentPage(i)} style={{ width: 28, height: 28, borderRadius: 7, fontSize: 11 }}>
+                      {i}
+                    </button>
+                  )
+                }
+                if (end < total) {
+                  if (end < total - 1) pages.push(<span key="e2" style={{ color: '#94a3b8', fontSize: 11, padding: '0 2px' }}>…</span>)
+                  pages.push(
+                    <button key={total} type="button" className="page-btn" onClick={() => setCurrentPage(total)} style={{ width: 28, height: 28, borderRadius: 7, fontSize: 11 }}>{total}</button>
+                  )
+                }
+                return pages
+              })()}
+
+              {/* Next */}
               <button
                 type="button"
                 className="page-btn"
-                onClick={() => setCurrentPage(p => p + 1)}
-                style={{ width: 26, height: 26, borderRadius: 6, fontSize: 11 }}
+                disabled={safeOrderPage === totalOrderPages}
+                onClick={() => setCurrentPage(p => Math.min(p + 1, totalOrderPages))}
+                style={{ width: 28, height: 28, borderRadius: 7, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <ChevronRight size={13} />
               </button>

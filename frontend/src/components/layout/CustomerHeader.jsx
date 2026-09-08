@@ -41,7 +41,7 @@ function Logo({ size = 'md' }) {
       </span>
       <span style={{ fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', display: 'flex', alignItems: 'baseline' }}>
         {brandName}
-        <span style={{ color: '#ff5500', fontWeight: 700, marginLeft: 2, fontSize: 16 }}>Commerce</span>
+        <span className="brand-suffix" style={{ color: '#ff5500', fontWeight: 700, marginLeft: 2, fontSize: 16 }}>Commerce</span>
       </span>
     </Link>
   )
@@ -269,7 +269,7 @@ export default function CustomerHeader() {
               ) : (
                 <User size={20} color="#1e293b" />
               )}
-              <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
+              <div className="account-btn-text" style={{ textAlign: 'left', lineHeight: 1.2 }}>
                 <div style={{ fontSize: 11, color: '#64748b' }}>Welcome</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
                   {user ? user.name?.split(' ')[0] : 'Login / Register'}

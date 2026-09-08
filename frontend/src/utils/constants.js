@@ -184,6 +184,22 @@ export const DELIVERY_MOBILE_NAV = [
   { to: '/delivery/profile', label: 'Profile', icon: 'UserCircle' },
 ]
 
+export const ADMIN_MOBILE_NAV = [
+  { to: '/admin', label: 'Home', icon: 'LayoutDashboard', end: true },
+  { to: '/admin/orders', label: 'Orders', icon: 'ShoppingBag' },
+  { to: '/admin/marketplace/products', label: 'Products', icon: 'Package' },
+  { to: '/admin/customers', label: 'Customers', icon: 'Users' },
+  { to: '/admin/system/settings', label: 'More', icon: 'Settings' },
+]
+
+export const VENDOR_MOBILE_NAV = [
+  { to: '/vendor', label: 'Home', icon: 'LayoutDashboard', end: true },
+  { to: '/vendor/orders', label: 'Orders', icon: 'ShoppingBag' },
+  { to: '/vendor/products', label: 'Products', icon: 'Package' },
+  { to: '/vendor/earnings', label: 'Earnings', icon: 'TrendingUp' },
+  { to: '/vendor/profile', label: 'Profile', icon: 'UserCircle' },
+]
+
 export const ADMIN_NAV = [
   { section: 'OVERVIEW' },
   { to: '/admin', label: 'Dashboard', icon: 'LayoutDashboard', end: true },
