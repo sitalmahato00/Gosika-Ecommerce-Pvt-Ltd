@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class RefundService
 {
-    public function create(Payment $payment, User $actor, float $amount, ?string $reason): Refund
+    public function create(Payment $payment, User $actor, float $amount, ?string $reason, ?array $gateway = null): Refund
     {
         if (! $payment->isPaid()) {
             throw new DomainException('Only paid payments can be refunded.', 422);
@@ -26,7 +26,7 @@ class RefundService
             throw new DomainException('Refund amount exceeds the payment balance.', 422);
         }
 
-        return DB::transaction(function () use ($payment, $actor, $amount, $reason) {
+        return DB::transaction(function () use ($payment, $actor, $amount, $reason, $gateway) {
             $refund = new Refund();
             $refund->refund_number = ReferenceNumber::unique('REF');
             $refund->payment_id = $payment->id;
@@ -37,6 +37,15 @@ class RefundService
             $refund->status = RefundStatus::REQUESTED;
             $refund->initiated_by = $actor->id;
             $refund->initiated_at = now();
+
+            if (isset($gateway['provider_refund_id']) && $gateway['provider_refund_id'] !== null) {
+                $refund->provider_refund_id = (string) $gateway['provider_refund_id'];
+            }
+
+            if (isset($gateway['provider_response']) && is_array($gateway['provider_response'])) {
+                $refund->provider_response = $gateway['provider_response'];
+            }
+
             $refund->save();
 
             PaymentStatusHistory::create([

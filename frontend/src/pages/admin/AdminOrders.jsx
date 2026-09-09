@@ -114,11 +114,11 @@ export default function AdminOrders() {
       { label: 'Placed At' },
     ]
     const rows = orders.map((o) => {
-      const customer = o.user?.name || `${o.user?.first_name || ''} ${o.user?.last_name || ''}`.trim() || o.customer?.full_name || 'Customer'
+      const customer = o.customer?.full_name || o.user?.name || `${o.user?.first_name || ''} ${o.user?.last_name || ''}`.trim() || 'Customer'
       return [
         o.order_number || o.id,
         customer,
-        o.user?.phone || o.shipping_address_snapshot?.phone || '',
+        o.customer?.phone || o.shipping_address?.phone || o.user?.phone || '',
         o.payment_method || 'COD',
         o.payment_status || 'pending',
         o.status || 'pending',
@@ -155,8 +155,8 @@ export default function AdminOrders() {
     {
       header: 'Customer',
       render: item => {
-        const name = item.user?.name || `${item.user?.first_name || ''} ${item.user?.last_name || ''}`.trim() || item.customer?.full_name || 'Customer'
-        const phone = item.user?.phone || item.shipping_address_snapshot?.phone || ''
+        const name = item.customer?.full_name || item.user?.name || `${item.user?.first_name || ''} ${item.user?.last_name || ''}`.trim() || 'Customer'
+        const phone = item.customer?.phone || item.shipping_address?.phone || item.user?.phone || ''
         return (
           <div>
             <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13 }}>{name}</div>

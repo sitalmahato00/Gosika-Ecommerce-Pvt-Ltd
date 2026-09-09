@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
-  ShoppingBag, ArrowLeft, Store, Truck, CreditCard,
-  User, MapPin, Phone, Mail, Clock, Calendar, CheckCircle2,
-  XCircle, AlertTriangle, RotateCcw, Package, DollarSign,
-  Download, Printer
+  ShoppingBag, Store, Truck, CreditCard,
+  User, MapPin, Phone, Mail, Clock,
+  XCircle, Package, Printer, FileText
 } from 'lucide-react'
 import api from '../../api/client'
 import PageHeader from '../../components/admin/PageHeader'
@@ -13,13 +12,105 @@ import StatusBadge from '../../components/commerce/StatusBadge'
 import Timeline from '../../components/admin/Timeline'
 import { Skeleton } from '../../components/ui/Skeleton'
 import ErrorState from '../../components/admin/ErrorState'
-import { money, formatDate, formatDateTime, getProductImage, timeAgo } from '../../utils/format'
+import { money, formatDateTime } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+
+const esc = (v) =>
+  String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+const buildDocHtml = ({ docTitle, docLines, metaRows, billTo, addrHtml, groupsHtml, totalsHtml, footer }) => {
+  const meta = metaRows
+    .map(([l, v]) => `<div><b>${esc(l)}</b><span>${esc(v)}</span></div>`)
+    .join('')
+
+  const billToHtml = billTo
+    ? `<div class="addr"><h3>Billed To</h3><div class="box">${billTo}</div></div>`
+    : ''
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>${esc(docTitle)} - ${docLines ? esc(String(docLines).split('·')[0].trim()) : ''}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; padding: 32px; font-size: 13px; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #111; padding-bottom: 14px; margin-bottom: 18px; }
+  .wordmark { font-size: 26px; font-weight: 900; letter-spacing: 1px; }
+  .wordmark span { color: #e25700; }
+  .tagline { font-size: 11px; color: #555; margin-top: 2px; }
+  .doc { text-align: right; }
+  .doc h1 { margin: 0; font-size: 20px; letter-spacing: 3px; text-transform: uppercase; }
+  .doc .docline { font-size: 11.5px; color: #555; margin-top: 4px; }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; margin-bottom: 18px; font-size: 12.5px; }
+  .meta b { font-weight: 700; }
+  .meta div { display: flex; justify-content: space-between; border-bottom: 1px dotted #ccc; padding: 3px 0; }
+  .addr-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .addr { margin-bottom: 18px; }
+  .addr-duo .addr { margin-bottom: 0; }
+  .addr h3, .sec h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 6px; color: #555; }
+  .addr .box { border: 1px solid #bbb; padding: 10px 12px; line-height: 1.55; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th { background: #eee; text-align: left; padding: 7px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  td { padding: 7px 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
+  .c { text-align: center; }
+  .r { text-align: right; }
+  .psku { font-size: 11px; color: #666; margin-top: 2px; }
+  .group-head { display: flex; gap: 14px; align-items: baseline; margin-top: 16px; font-size: 13px; }
+  .group-head span { font-size: 11px; color: #555; }
+  .group-sep { height: 14px; }
+  .totals { width: 300px; margin-left: auto; margin-top: 18px; }
+  .trow { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+  .trow.total { border-top: 2px solid #111; margin-top: 4px; padding-top: 8px; font-size: 16px; font-weight: 900; }
+  .foot { margin-top: 34px; padding-top: 10px; border-top: 1px solid #ddd; text-align: center; font-size: 11.5px; color: #555; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <div class="wordmark">GOSI<span>KA</span></div>
+        <div class="tagline">The Gosika Marketplace Pvt. Ltd.</div>
+      </div>
+      <div class="doc">
+        <h1>${esc(docTitle)}</h1>
+        ${docLines ? `<div class="docline">${esc(docLines)}</div>` : ''}
+      </div>
+    </div>
+
+    <div class="meta">
+      ${meta}
+    </div>
+
+    <div class="addr-duo">
+      ${billToHtml}
+      <div class="addr">
+        <h3>Delivery Address</h3>
+        <div class="box">${addrHtml}</div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Items & Packages</h3>
+      ${groupsHtml}
+    </div>
+
+    <div class="totals">
+      ${totalsHtml}
+    </div>
+
+    <div class="foot">
+      ${footer}
+    </div>
+  </div>
+</body>
+</html>`
+}
 
 export default function AdminOrderDetail() {
   const { id } = useParams()
   const toast = useToast()
-  const navigate = useNavigate()
 
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -87,13 +178,25 @@ export default function AdminOrderDetail() {
     )
   }
 
-  const customerName = order.user?.name || order.user?.first_name ? `${order.user?.first_name || ''} ${order.user?.last_name || ''}`.trim() : (order.customer?.full_name || 'Customer')
-  const customerEmail = order.user?.email || order.customer?.email || '—'
-  const customerPhone = order.user?.phone || order.customer?.phone || '—'
-  const address = order.shipping_address_snapshot || order.shippingAddress || {}
-  const vendorOrders = Array.isArray(order.vendor_orders || order.vendorOrders) ? (order.vendor_orders || order.vendorOrders) : []
+  const customerName = order.customer?.full_name
+    || [order.customer?.first_name, order.customer?.last_name].filter(Boolean).join(' ').trim()
+    || 'Customer'
+  const customerEmail = order.customer?.email || '—'
+  const customerPhone = order.customer?.phone || order.shipping_address?.phone || '—'
+  const customerId = String(order.user_id || order.customer?.id || '')
+  const address = order.shipping_address || {}
+  const vendorOrders = Array.isArray(order.vendor_orders) ? order.vendor_orders : []
   const payments = Array.isArray(order.payments) ? order.payments : []
   const isCancellable = order.status !== 'cancelled' && order.status !== 'delivered' && order.status !== 'completed'
+
+  const addressLines = [
+    address.full_name || address.recipient_name || address.name || '',
+    [address.address_line_1, address.address_line_2].filter(Boolean).join(', '),
+    [address.municipality, address.district, address.province].filter(Boolean).join(', '),
+    address.postal_code ? `Postal Code: ${address.postal_code}` : '',
+    address.landmark ? `Landmark: ${address.landmark}` : '',
+    address.phone ? `Phone: ${address.phone}` : ''
+  ].filter(Boolean)
 
   // Build timeline events
   const timelineEvents = [
@@ -116,6 +219,125 @@ export default function AdminOrderDetail() {
     })
   }
 
+  const groups = vendorOrders.length > 0
+    ? vendorOrders.map((vo, i) => ({
+        store: vo.store?.name || vo.vendor_name || `Package #${i + 1}`,
+        no: vo.vendor_order_number || vo.id || '',
+        status: vo.status || '',
+        items: Array.isArray(vo.items) ? vo.items : []
+      }))
+    : [{
+        store: 'Order Items',
+        no: order.order_number || order.id || '',
+        status: order.status || '',
+        items: Array.isArray(order.items) ? order.items : []
+      }]
+
+  const addrBlock = addressLines.length > 0
+    ? addressLines.map(l => `<div>${esc(l)}</div>`).join('')
+    : '<div>Delivery address on file with customer.</div>'
+
+  const billToBlock = [
+    `<div style="font-weight:700">${esc(customerName)}</div>`,
+    `<div>${esc(customerEmail)}</div>`,
+    customerPhone !== '—' ? `<div>${esc(customerPhone)}</div>` : ''
+  ].filter(Boolean).join('')
+
+  const groupsHtml = groups.map((g, gi) => {
+    const rows = g.items.map((it, ri) => `
+      <tr>
+        <td class="c">${ri + 1}</td>
+        <td>
+          <div class="pname">${esc(it.product_name || it.name)}</div>
+          <div class="psku">SKU: ${esc(it.sku || '—')}${it.variant_name ? ' · ' + esc(it.variant_name) : ''}</div>
+        </td>
+        <td class="c">${it.quantity ?? ''}</td>
+        <td class="r">${money(it.unit_price ?? it.price)}</td>
+        <td class="r">${money(it.line_total ?? ((it.unit_price ?? 0) * (it.quantity ?? 0)))}</td>
+      </tr>`).join('')
+
+    return `
+      <div class="group">
+        <div class="group-head">
+          <strong>${esc(g.store)}</strong>
+          ${g.no ? `<span>Vendor Order #${esc(g.no)}</span>` : ''}
+          ${g.status ? `<span>${esc(g.status.replace(/_/g, ' ')).toUpperCase()}</span>` : ''}
+        </div>
+        <table>
+          <thead>
+            <tr><th class="c" style="width:36px">S.No</th><th>Item</th><th class="c">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`
+  }).join('<div class="group-sep"></div>')
+
+  const totalRows = `
+    <div class="trow"><span>Subtotal</span><span>${money(order.subtotal || order.grand_total || 0)}</span></div>
+    ${Number(order.discount) > 0 ? `<div class="trow"><span>Coupon Discount</span><span>- ${money(order.discount)}</span></div>` : ''}
+    ${Number(order.tax) > 0 ? `<div class="trow"><span>Tax</span><span>${money(order.tax)}</span></div>` : ''}
+    <div class="trow"><span>Delivery Charge</span><span>${money(order.delivery_charge || 0)}</span></div>
+    <div class="trow total"><span>Grand Total</span><span>${money(order.grand_total || order.total || 0)}</span></div>`
+
+  const baseMetaRows = [
+    ['Order #', order.order_number || order.id],
+    ['Placed', formatDateTime(order.created_at || order.placed_at)],
+    ['Customer', customerName],
+    ['Email', customerEmail],
+    ['Phone', customerPhone],
+    ['Payment Method', (order.payment_method || 'COD').toUpperCase()],
+    ['Payment Status', (order.payment_status || 'pending').toUpperCase()],
+    ['Currency', order.currency || 'NPR']
+  ]
+
+  const printWindow = (html) => {
+    const win = window.open('', '_blank', 'width=860,height=1000')
+    if (!win) {
+      toast.error('Popup blocked. Allow popups for this page to print.')
+      return
+    }
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    setTimeout(() => win.print(), 300)
+  }
+
+  const printSlip = () => {
+    printWindow(buildDocHtml({
+      docTitle: 'Package Slip / Bill',
+      docLines: `Date: ${formatDateTime(order.created_at || order.placed_at)}`,
+      metaRows: baseMetaRows,
+      billTo: null,
+      addrHtml: addrBlock,
+      groupsHtml,
+      totalsHtml: totalRows,
+      footer: `Thank you for shopping with Gosika Marketplace &nbsp;·&nbsp; This is a system-generated package slip / delivery bill for order ${esc(order.order_number || order.id)}. It is not a tax invoice.`
+    }))
+  }
+
+  const printInvoice = () => {
+    const today = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
+    printWindow(buildDocHtml({
+      docTitle: 'Tax Invoice',
+      docLines: `Invoice Date: ${today}`,
+      metaRows: [
+        ['Invoice #', order.order_number || order.id],
+        ['Order Date', formatDateTime(order.created_at || order.placed_at)],
+        ['Customer', customerName],
+        ['Email', customerEmail],
+        ['Phone', customerPhone],
+        ['Payment Method', (order.payment_method || 'COD').toUpperCase()],
+        ['Payment Status', (order.payment_status || 'pending').toUpperCase()],
+        ['Currency', order.currency || 'NPR']
+      ],
+      billTo: billToBlock,
+      addrHtml: addrBlock,
+      groupsHtml,
+      totalsHtml: totalRows,
+      footer: `Payment status: ${esc((order.payment_status || 'pending').toUpperCase())}. Amount is inclusive of applicable charges as per Gosika Marketplace terms. This tax invoice was generated for order ${esc(order.order_number || order.id)}.`
+    }))
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
@@ -130,7 +352,16 @@ export default function AdminOrderDetail() {
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              onClick={() => window.print()}
+              onClick={printSlip}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
+            >
+              <FileText size={14} /> Print Slip
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={printInvoice}
               style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
             >
               <Printer size={14} /> Print Invoice
@@ -211,8 +442,11 @@ export default function AdminOrderDetail() {
           <div className="card card-pad-none" style={{ borderRadius: 16, overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Store size={17} color="var(--primary)" /> Multi-Vendor Fulfillment Packages ({vendorOrders.length || 1})
+                <Store size={17} color="var(--primary)" /> Fulfillment Packages ({vendorOrders.length || 1})
               </h3>
+              <span style={{ fontSize: 11.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Package size={13} /> {order.item_count ?? ((order.items || []).reduce((s, i) => s + (i.quantity || 0), 0))} items
+              </span>
             </div>
 
             {vendorOrders.length === 0 ? (
@@ -235,7 +469,7 @@ export default function AdminOrderDetail() {
                         <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{it.sku || '—'}</td>
                         <td style={{ textAlign: 'right' }}>{money(it.unit_price || it.price)}</td>
                         <td style={{ textAlign: 'right', fontWeight: 700 }}>{it.quantity}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 800 }}>{money((it.unit_price || it.price) * it.quantity)}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 800 }}>{money(it.line_total ?? ((it.unit_price || it.price) * it.quantity))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -244,9 +478,9 @@ export default function AdminOrderDetail() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {vendorOrders.map((vo, voIdx) => {
-                  const storeName = vo.store?.name || vo.vendor?.company_name || `Vendor Package #${voIdx + 1}`
+                  const storeName = vo.store?.name || vo.vendor_name || `Vendor Package #${voIdx + 1}`
                   const items = Array.isArray(vo.items) ? vo.items : []
-                  const assignment = vo.assignments && vo.assignments.length > 0 ? vo.assignments[0] : null
+                  const assignment = Array.isArray(vo.assignments) && vo.assignments.length > 0 ? vo.assignments[0] : null
                   const rider = assignment?.delivery_partner || assignment?.deliveryPartner
 
                   return (
@@ -300,7 +534,7 @@ export default function AdminOrderDetail() {
                                     {it.product_name || it.name}
                                   </div>
                                   <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                                    SKU: {it.sku || '—'}
+                                    SKU: {it.sku || '—'}{it.variant_name ? ` · ${it.variant_name}` : ''}
                                   </div>
                                 </td>
                                 <td style={{ textAlign: 'right' }}>{money(it.unit_price || it.price)}</td>
@@ -308,6 +542,9 @@ export default function AdminOrderDetail() {
                                 <td style={{ textAlign: 'right', fontWeight: 800 }}>{money(it.line_total || (it.unit_price * it.quantity))}</td>
                               </tr>
                             ))}
+                            {items.length === 0 && (
+                              <tr><td colSpan={4} style={{ color: 'var(--muted)', fontSize: 12, textAlign: 'center', padding: 14 }}>No items in this package.</td></tr>
+                            )}
                           </tbody>
                         </table>
                       </div>
@@ -324,13 +561,19 @@ export default function AdminOrderDetail() {
                   <span style={{ color: 'var(--muted)' }}>Subtotal:</span>
                   <span style={{ fontWeight: 600 }}>{money(order.subtotal || order.grand_total || 0)}</span>
                 </div>
-                {order.delivery_charge > 0 && (
+                {Number(order.delivery_charge) > 0 && (
                   <div className="flex justify-between">
-                    <span style={{ color: 'var(--muted)' }}>Shipping Fee:</span>
+                    <span style={{ color: 'var(--muted)' }}>Delivery Charge:</span>
                     <span style={{ fontWeight: 600 }}>{money(order.delivery_charge)}</span>
                   </div>
                 )}
-                {order.discount > 0 && (
+                {Number(order.tax) > 0 && (
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--muted)' }}>Tax:</span>
+                    <span style={{ fontWeight: 600 }}>{money(order.tax)}</span>
+                  </div>
+                )}
+                {Number(order.discount) > 0 && (
                   <div className="flex justify-between" style={{ color: '#16a34a' }}>
                     <span>Coupon Discount:</span>
                     <span style={{ fontWeight: 700 }}>- {money(order.discount)}</span>
@@ -364,7 +607,9 @@ export default function AdminOrderDetail() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
               <div>
                 <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{customerName}</div>
-                <div style={{ color: 'var(--muted)', fontSize: 12 }}>User ID: #{order.user_id || 'Guest'}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                  User ID: {customerId ? `#${customerId.slice(0, 8)}` : 'Guest'}
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#334155' }}>
                 <Mail size={14} color="#94a3b8" />
@@ -377,25 +622,25 @@ export default function AdminOrderDetail() {
             </div>
           </div>
 
-          {/* Shipping Address */}
+          {/* Delivery Address */}
           <div className="card" style={{ padding: 20, borderRadius: 16 }}>
             <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <MapPin size={16} color="#e11d48" /> Shipping Address
+              <MapPin size={16} color="#e11d48" /> Delivery Address
             </h3>
 
-            <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.6 }}>
-              <div style={{ fontWeight: 700, color: 'var(--ink)' }}>
-                {address.recipient_name || address.full_name || customerName}
+            {addressLines.length > 0 ? (
+              <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.7 }}>
+                {addressLines.map((line, i) => (
+                  <div key={i} style={i === 0 ? { fontWeight: 700, color: 'var(--ink)' } : undefined}>{line}</div>
+                ))}
               </div>
-              <div>{address.address_line_1 || address.address_line1 || address.address || 'Address details on file'}</div>
-              {address.address_line_2 && <div>{address.address_line_2}</div>}
-              <div>
-                {address.city || address.municipality || ''} {address.district ? `· ${address.district}` : ''} {address.province ? `· Province ${address.province}` : ''}
+            ) : (
+              <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+                <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{customerName}</div>
+                <div>{customerPhone !== '—' ? `Phone: ${customerPhone}` : ''}</div>
+                <div>Delivery address on file with customer.</div>
               </div>
-              {address.phone && (
-                <div style={{ marginTop: 4, fontWeight: 600 }}>Phone: {address.phone}</div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Payment Details */}
@@ -413,10 +658,20 @@ export default function AdminOrderDetail() {
                 <span style={{ color: 'var(--muted)' }}>Payment Status:</span>
                 <StatusBadge status={order.payment_status || 'pending'} />
               </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span style={{ color: 'var(--muted)' }}>Order Value:</span>
+                <span style={{ fontWeight: 700 }}>{money(order.grand_total || order.total || 0)}</span>
+              </div>
               <div className="flex justify-between py-1">
                 <span style={{ color: 'var(--muted)' }}>Currency:</span>
-                <span style={{ fontWeight: 600 }}>NPR (Rs.)</span>
+                <span style={{ fontWeight: 600 }}>{order.currency || 'NPR'} (Rs.)</span>
               </div>
+              {payments.length > 0 && (
+                <div className="flex justify-between py-1">
+                  <span style={{ color: 'var(--muted)' }}>Transactions:</span>
+                  <span style={{ fontWeight: 600 }}>{payments.length}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

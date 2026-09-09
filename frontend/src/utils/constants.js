@@ -281,16 +281,13 @@ export const ADMIN_NAV = [
 
   { section: 'ORDER OPERATIONS' },
   { to: '/admin/orders', label: 'All Orders', icon: 'ShoppingBag', badge: '128' },
-  { to: '/admin/orders/split', label: 'Vendor Split Orders', icon: 'GitBranch' },
   { to: '/admin/orders/returns', label: 'Returns & Exchanges', icon: 'RotateCcw', badge: '16' },
   { to: '/admin/orders/refunds', label: 'Refunds Management', icon: 'Receipt' },
 
   { section: 'CATALOG & CURATION' },
   { to: '/admin/marketplace/products', label: 'All Products', icon: 'Package' },
-  { to: '/admin/marketplace/products/approval', label: 'Product Approval Queue', icon: 'ShieldCheck', badge: '24' },
   { to: '/admin/marketplace/categories', label: 'Categories & Tax', icon: 'FolderTree' },
   { to: '/admin/marketplace/brands', label: 'Brands & Authorizations', icon: 'Award' },
-  { to: '/admin/marketplace/attributes', label: 'Attributes & Variants', icon: 'SlidersHorizontal' },
   { to: '/admin/marketplace/reviews', label: 'Reviews & Q&A', icon: 'Star' },
 
   { section: 'MARKETPLACE & VENDORS' },

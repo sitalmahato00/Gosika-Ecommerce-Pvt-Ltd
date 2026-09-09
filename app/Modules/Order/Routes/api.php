@@ -18,7 +18,8 @@ Route::prefix('v1/admin/orders')->middleware(['auth:sanctum', 'ensure:admin'])->
     Route::get('/returns', [AdminOrderController::class, 'returns']);
     Route::post('/returns/{return}/approve', [AdminOrderController::class, 'approveReturn']);
     Route::post('/returns/{return}/reject', [AdminOrderController::class, 'rejectReturn']);
-    Route::get('/split', [AdminOrderController::class, 'split']);
+    Route::patch('/returns/{return}/status', [AdminOrderController::class, 'updateReturnStatus']);
+    Route::post('/returns/{return}/refund', [AdminOrderController::class, 'processReturnRefund']);
     Route::get('/{order}', [AdminOrderController::class, 'show']);
     Route::post('/{order}/cancel', [AdminOrderController::class, 'cancel']);
 });

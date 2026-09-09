@@ -1,87 +1,68 @@
-import React, { useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  Tag, Plus, Search, Edit, Trash2, UploadCloud, Package,
-  ShieldCheck, Award
+  Tag, Plus, Search, Edit, Trash2, Package,
+  ShieldCheck, Award, Eye, FileSearch
 } from 'lucide-react'
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import Modal from '../../components/ui/Modal'
-import Input from '../../components/ui/Input'
 import { Skeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
-import ErrorState from '../../components/ui/ErrorState'
 import { formatDate, errorMessage, apiImage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
-import { useApi } from '../../hooks/useApi'
+
+const PRESET_LOGOS = [
+  {
+    label: 'Nature / Organic',
+    url: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=300&q=80',
+  },
+  {
+    label: 'Heritage / Pashmina',
+    url: 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=300&q=80',
+  },
+  {
+    label: 'Handicraft / Artisan',
+    url: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&q=80',
+  },
+  {
+    label: 'Apparel / Fashion',
+    url: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=300&q=80',
+  },
+  {
+    label: 'Tech / Consumer',
+    url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&q=80',
+  },
+]
 
 export default function AdminBrands() {
   const toast = useToast()
-  const fileInputRef = useRef(null)
+  const navigate = useNavigate()
+  const [list, setList] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ name: '', slug: '', logo: '', description: '' })
+  const [deleting, setDeleting] = useState(null)
 
-  const { data: brands, loading, error, reload } = useApi(() => api.get('/admin/brands'))
-
-  const list = Array.isArray(brands) ? brands : []
-
-  const openModal = (brand = null) => {
-    setEditing(brand)
-    setForm(brand ? {
-      name: brand.name || '',
-      slug: brand.slug || '',
-      logo: brand.logo || '',
-      description: brand.description || '',
-    } : {
-      name: '',
-      slug: '',
-      logo: '',
-      description: '',
-    })
-    setModalOpen(true)
+  const load = () => {
+    setLoading(true)
+    api.get('/admin/brands')
+      .then((r) => setList(api.unwrapList(r.data)))
+      .catch((e) => setError(e))
+      .finally(() => setLoading(false))
   }
-
-  const handleFileUpload = (file) => {
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setForm((prev) => ({ ...prev, logo: e.target.result }))
-      toast.success('Uploaded custom brand logo')
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const saveBrand = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      const payload = { name: form.name, slug: form.slug, description: form.description, ...(form.logo && { logo: form.logo }) }
-      if (editing) {
-        await api.put(`/admin/brands/${editing.id}`, payload)
-        toast.success(`Brand "${form.name}" updated successfully`)
-      } else {
-        await api.post('/admin/brands', payload)
-        toast.success(`Brand "${form.name}" registered successfully`)
-      }
-      setModalOpen(false)
-      reload()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Failed to save brand.'))
-    } finally {
-      setSaving(false)
-    }
-  }
+  useEffect(load, [toast])
 
   const doDelete = async (id, name) => {
     if (!window.confirm(`Delete brand "${name}"?`)) return
+    setDeleting(id)
     try {
       await api.delete(`/admin/brands/${id}`)
       toast.success(`Brand "${name}" removed`)
-      reload()
+      load()
     } catch (err) {
       toast.error(errorMessage(err, 'Failed to delete brand.'))
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -108,7 +89,10 @@ export default function AdminBrands() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" className="btn btn-primary btn-sm flex items-center gap-1" onClick={() => openModal(null)}>
+          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={() => navigate('/admin/marketplace/brands/requests')}>
+            <FileSearch size={14} /> Authorization Requests
+          </button>
+          <button type="button" className="btn btn-primary btn-sm flex items-center gap-1" onClick={() => navigate('/admin/marketplace/brands/new')}>
             <Plus size={14} /> Add New Brand
           </button>
         </div>
@@ -182,12 +166,24 @@ export default function AdminBrands() {
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} height={70} />)}
         </div>
       ) : error ? (
-        <ErrorState message={errorMessage(error, 'Failed to load brands.')} onRetry={reload} />
+        <div style={{ margin: 0 }}>
+          <EmptyState
+            icon={Tag}
+            title="Failed to load brands"
+            message={errorMessage(error, 'Failed to load brands.')}
+            action={<button className="btn btn-outline btn-sm" onClick={load}>Retry</button>}
+          />
+        </div>
       ) : !filtered.length ? (
         <EmptyState
           icon={Tag}
           title={search ? `No brands matching "${search}"` : 'No brands registered'}
           message={search ? 'Try searching for a different brand name.' : 'Register official brands to organize catalog products.'}
+          action={
+            <button type="button" className="btn btn-primary" onClick={() => navigate('/admin/marketplace/brands/new')}>
+              <Plus size={14} /> Register Brand
+            </button>
+          }
         />
       ) : (
         <div className="card card-pad-none" style={{ overflow: 'hidden', margin: 0 }}>
@@ -206,7 +202,7 @@ export default function AdminBrands() {
               </thead>
               <tbody>
                 {filtered.map((b) => (
-                  <tr key={b.id}>
+                  <tr key={b.id} onClick={() => navigate(`/admin/marketplace/brands/${b.id}`)} style={{ cursor: 'pointer' }}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <span
@@ -256,7 +252,15 @@ export default function AdminBrands() {
                         <button
                           type="button"
                           className="btn btn-outline btn-xs"
-                          onClick={() => openModal(b)}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/admin/marketplace/brands/${b.id}`) }}
+                          title="View brand profile"
+                        >
+                          <Eye size={12} /> View
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-xs"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/admin/marketplace/brands/${b.id}/edit`) }}
                           title="Edit brand profile"
                         >
                           <Edit size={12} /> Edit
@@ -264,7 +268,8 @@ export default function AdminBrands() {
                         <button
                           type="button"
                           className="btn btn-danger-outline btn-xs"
-                          onClick={() => doDelete(b.id, b.name)}
+                          disabled={deleting === b.id}
+                          onClick={(e) => { e.stopPropagation(); doDelete(b.id, b.name) }}
                           title="Delete brand"
                         >
                           <Trash2 size={12} />
@@ -277,70 +282,6 @@ export default function AdminBrands() {
             </table>
           </div>
         </div>
-      )}
-
-      {modalOpen && (
-        <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? `Edit Brand: ${editing.name}` : 'Register New Brand Profile'}>
-          <form onSubmit={saveBrand} className="flex flex-col gap-3">
-            <Input
-              label="Brand / Manufacturer Name *"
-              required
-              value={form.name}
-              onChange={(e) => setForm({
-                ...form,
-                name: e.target.value,
-                slug: !editing ? e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : form.slug
-              })}
-              placeholder="e.g. Koshi Handicrafts"
-            />
-            <Input
-              label="URL Slug *"
-              required
-              value={form.slug}
-              onChange={(e) => setForm({ ...form, slug: e.target.value })}
-              placeholder="koshi-handicrafts"
-            />
-            <div className="form-group">
-              <label className="label">Description</label>
-              <textarea
-                className="textarea"
-                rows={3}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Short description of the brand, artisan guild, or manufacturer."
-              />
-            </div>
-
-            <div>
-              <label className="label block text-xs font-semibold mb-1">Brand Logo Emblem</label>
-              <div className="flex items-center gap-3">
-                <div style={{ width: 56, height: 56, borderRadius: 'var(--radius)', overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0 }}>
-                  <img src={apiImage(form.logo, form.name)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-                <div className="flex-1">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(e) => handleFileUpload(e.target.files[0])}
-                  />
-                  <button type="button" className="btn btn-outline btn-xs" onClick={() => fileInputRef.current?.click()}>
-                    <UploadCloud size={12} /> Upload Custom Logo
-                  </button>
-                  <div className="muted text-xs mt-1" style={{ fontSize: 11 }}>Recommended size: 200x200 PNG or JPEG</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setModalOpen(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
-                {saving ? 'Saving…' : editing ? 'Update Brand' : 'Create Brand'}
-              </button>
-            </div>
-          </form>
-        </Modal>
       )}
     </div>
   )

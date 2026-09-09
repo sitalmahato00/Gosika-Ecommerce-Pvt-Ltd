@@ -153,6 +153,69 @@ class CatalogTest extends TestCase
             ->assertJsonPath('data.rejection_reason', 'Inappropriate image');
     }
 
+    public function test_admin_can_change_product_status(): void
+    {
+        $setup = $this->approvedVendor();
+        $admin = $this->superAdmin();
+        $product = $this->publishedProduct($setup['vendor'], $setup['store']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson('/api/v1/admin/products/'.$product->uuid.'/status', [
+                'status' => ProductStatus::HIDDEN->value,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', ProductStatus::HIDDEN->value);
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'status' => ProductStatus::HIDDEN->value,
+        ]);
+    }
+
+    public function test_admin_cannot_set_invalid_product_status(): void
+    {
+        $setup = $this->approvedVendor();
+        $admin = $this->superAdmin();
+        $product = $this->publishedProduct($setup['vendor'], $setup['store']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson('/api/v1/admin/products/'.$product->uuid.'/status', [
+                'status' => 'not_a_real_status',
+            ])
+            ->assertStatus(422);
+    }
+
+    public function test_admin_suspend_hides_product(): void
+    {
+        $setup = $this->approvedVendor();
+        $admin = $this->superAdmin();
+        $product = $this->publishedProduct($setup['vendor'], $setup['store']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/admin/products/'.$product->uuid.'/suspend', [
+                'reason' => 'Counterfeit listing reported by buyer.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', ProductStatus::HIDDEN->value)
+            ->assertJsonPath('data.suspension_reason', 'Counterfeit listing reported by buyer.');
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'status' => ProductStatus::HIDDEN->value,
+        ]);
+    }
+
+    public function test_admin_suspend_requires_reason(): void
+    {
+        $setup = $this->approvedVendor();
+        $admin = $this->superAdmin();
+        $product = $this->publishedProduct($setup['vendor'], $setup['store']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/admin/products/'.$product->uuid.'/suspend', [])
+            ->assertStatus(422);
+    }
+
     public function test_vendor_can_update_own_product(): void
     {
         $setup = $this->approvedVendor();
@@ -260,14 +323,268 @@ class CatalogTest extends TestCase
         $this->assertDatabaseHas('brands', ['slug' => 'nepali-arts']);
     }
 
+    public function test_admin_product_detail_includes_delivered_stats(): void
+    {
+        $setup = $this->approvedVendor();
+        $admin = $this->superAdmin();
+        $product = $this->publishedProduct($setup['vendor'], $setup['store']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/admin/products/'.$product->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Woolen Shawl')
+            ->assertJsonPath('data.delivered_orders_count', 0)
+            ->assertJsonPath('data.delivered_units', 0)
+            ->assertJsonPath('data.delivered_revenue', 0);
+    }
+
+    public function test_admin_can_list_paginated_delivered_orders(): void
+    {
+        $setup = $this->approvedVendor();
+        $admin = $this->superAdmin();
+        $product = $this->publishedProduct($setup['vendor'], $setup['store']);
+
+        $customer = User::factory()->create();
+        $customer->assignRole(Roles::CUSTOMER);
+
+        foreach (['ORD-001', 'ORD-002', 'ORD-003'] as $num) {
+            $order = \App\Modules\Order\Infrastructure\Models\Order::query()->create([
+                'order_number' => $num,
+                'user_id' => $customer->id,
+                'payment_method' => 'cod',
+                'payment_status' => 'paid',
+                'status' => 'completed',
+                'subtotal' => 500.0,
+                'delivery_charge' => 50.0,
+                'tax' => 0,
+                'grand_total' => 550.0,
+                'currency' => 'NPR',
+                'placed_at' => now()->subDays(2),
+                'created_at' => now()->subDays(2),
+                'updated_at' => now()->subDay(),
+            ]);
+
+            \App\Modules\Order\Infrastructure\Models\OrderItem::query()->create([
+                'order_id' => $order->id,
+                'vendor_id' => $setup['vendor']->id,
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'sku' => $product->sku,
+                'quantity' => 2,
+                'unit_price' => 250.0,
+                'line_total' => 500.0,
+                'delivery_status' => 'delivered',
+                'created_at' => now()->subDays(2),
+                'updated_at' => now()->subDay(),
+            ]);
+        }
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/admin/products/'.$product->uuid.'/delivered-orders?per_page=2')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.pagination.total', 3)
+            ->assertJsonPath('meta.pagination.last_page', 2);
+    }
+
     public function test_customer_cannot_access_admin_product_review(): void
     {
         $customer = User::factory()->create();
         $customer->assignRole(Roles::CUSTOMER);
 
         $this->actingAs($customer, 'sanctum')
-            ->getJson('/api/v1/admin/products/pending')
+            ->getJson('/api/v1/admin/products')
             ->assertStatus(403);
+    }
+
+    public function test_admin_can_create_and_view_category_with_tax_rate(): void
+    {
+        $admin = $this->superAdmin();
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/admin/categories', [
+                'name' => 'Organic Foods',
+                'description' => 'Farm-to-table staples from Nepal.',
+                'icon' => 'leaf',
+                'image' => 'https://images.example.com/organic.jpg',
+                'tax_rate' => 13,
+                'sort_order' => 2,
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.slug', 'organic-foods')
+            ->assertJsonPath('data.tax_rate', 13)
+            ->assertJsonPath('data.icon', 'leaf');
+
+        $uuid = $response->json('data.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/admin/categories/'.$uuid)
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Organic Foods')
+            ->assertJsonPath('data.tax_rate', 13)
+            ->assertJsonPath('data.products_count', 0);
+    }
+
+    public function test_admin_can_update_category_tax_rate_and_status(): void
+    {
+        $admin = $this->superAdmin();
+        $category = Category::query()->create([
+            'name' => 'Electronics',
+            'slug' => 'electronics',
+            'tax_rate' => 13,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson('/api/v1/admin/categories/'.$category->uuid, [
+                'name' => 'Consumer Electronics',
+                'tax_rate' => 5,
+                'status' => 'inactive',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Consumer Electronics')
+            ->assertJsonPath('data.tax_rate', 5)
+            ->assertJsonPath('data.status', 'inactive');
+
+        $this->assertDatabaseHas('categories', [
+            'slug' => 'electronics',
+            'tax_rate' => 5,
+            'status' => 'inactive',
+        ]);
+    }
+
+    public function test_vendor_product_inherits_category_tax_rate(): void
+    {
+        $setup = $this->approvedVendor();
+        $category = Category::query()->create([
+            'name' => 'Handicrafts',
+            'slug' => 'handicrafts',
+            'tax_rate' => 13,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($setup['user'], 'sanctum')
+            ->postJson('/api/v1/vendor/products', [
+                'name' => 'Brass Singing Bowl',
+                'sku' => 'BOWL-001',
+                'price' => 1200.00,
+                'quantity' => 10,
+                'category_id' => $category->uuid,
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('products', [
+            'sku' => 'BOWL-001',
+            'category_id' => $category->id,
+            'tax_rate' => 13,
+        ]);
+    }
+
+    public function test_admin_can_create_view_and_update_brand_with_logo(): void
+    {
+        $admin = $this->superAdmin();
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/admin/brands', [
+                'name' => 'Koshi Ceramics',
+                'description' => 'Hand-thrown pottery from eastern Nepal.',
+                'logo' => 'data:image/png;base64,AAAA',
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.slug', 'koshi-ceramics')
+            ->assertJsonPath('data.logo', 'data:image/png;base64,AAAA');
+
+        $uuid = $response->json('data.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/admin/brands/'.$uuid)
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Koshi Ceramics')
+            ->assertJsonPath('data.products_count', 0);
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson('/api/v1/admin/brands/'.$uuid, [
+                'name' => 'Koshi Ceramics & Co',
+                'status' => 'inactive',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'inactive');
+    }
+
+    public function test_customer_can_ask_question_and_admin_answers(): void
+    {
+        $setup = $this->approvedVendor();
+        $admin = $this->superAdmin();
+        $product = $this->publishedProduct($setup['vendor'], $setup['store']);
+        $customer = User::factory()->create();
+        $customer->assignRole(Roles::CUSTOMER);
+
+        $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/v1/marketplace/products/'.$product->uuid.'/questions', [
+                'question' => 'Is this pashmina hand-woven?',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.status', ReviewStatus::PENDING->value);
+
+        $question = \App\Modules\Marketplace\Infrastructure\Models\ProductQuestion::query()->first();
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/admin/questions/'.$question->uuid.'/answer', [
+                'answer' => 'Yes, it is hand-woven in Kathmandu.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', ReviewStatus::APPROVED->value)
+            ->assertJsonPath('data.answer', 'Yes, it is hand-woven in Kathmandu.');
+
+        $this->getJson('/api/v1/marketplace/products/'.$product->uuid.'/questions')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.answer', 'Yes, it is hand-woven in Kathmandu.');
+    }
+
+    public function test_customer_cannot_duplicate_open_question(): void
+    {
+        $setup = $this->approvedVendor();
+        $product = $this->publishedProduct($setup['vendor'], $setup['store']);
+        $customer = User::factory()->create();
+        $customer->assignRole(Roles::CUSTOMER);
+
+        $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/v1/marketplace/products/'.$product->uuid.'/questions', [
+                'question' => 'What is the shipping time?',
+            ])
+            ->assertCreated();
+
+        $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/v1/marketplace/products/'.$product->uuid.'/questions', [
+                'question' => 'Another question.',
+            ])
+            ->assertStatus(409);
+    }
+
+    public function test_admin_can_reject_and_delete_question(): void
+    {
+        $setup = $this->approvedVendor();
+        $admin = $this->superAdmin();
+        $customer = User::factory()->create();
+        $customer->assignRole(Roles::CUSTOMER);
+        $product = $this->publishedProduct($setup['vendor'], $setup['store']);
+
+        $question = \App\Modules\Marketplace\Infrastructure\Models\ProductQuestion::query()->create([
+            'product_id' => $product->id,
+            'user_id' => $customer->id,
+            'question' => 'Spam text',
+            'status' => ReviewStatus::PENDING,
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/admin/questions/'.$question->uuid.'/reject', ['reason' => 'Spam'])
+            ->assertOk()
+            ->assertJsonPath('data.status', ReviewStatus::REJECTED->value);
+
+        $this->actingAs($admin, 'sanctum')
+            ->deleteJson('/api/v1/admin/questions/'.$question->uuid)
+            ->assertOk();
     }
 
     public function test_product_with_variant_image_uploads(): void

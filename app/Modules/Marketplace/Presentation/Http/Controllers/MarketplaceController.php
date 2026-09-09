@@ -7,6 +7,7 @@ use App\Modules\Marketplace\Application\Services\MarketplaceService;
 use App\Modules\Marketplace\Presentation\Http\Requests\ProductReviewRequest;
 use App\Modules\Marketplace\Presentation\Http\Requests\StoreReviewRequest;
 use App\Modules\Marketplace\Presentation\Resources\ProductReviewResource;
+use App\Modules\Marketplace\Presentation\Resources\ProductQuestionResource;
 use App\Modules\Marketplace\Presentation\Resources\PublicStoreResource;
 use App\Modules\Marketplace\Presentation\Resources\RecentlyViewedResource;
 use App\Modules\Marketplace\Presentation\Resources\StoreReviewResource;
@@ -121,6 +122,36 @@ class MarketplaceController extends Controller
             );
 
             return Response::created(new StoreReviewResource($review), 'Review submitted for approval.');
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    public function productQuestions(string $product): JsonResponse
+    {
+        $questions = $this->marketplaceService->productQuestions($product);
+
+        return Response::success(
+            ProductQuestionResource::collection($questions),
+            'Product questions retrieved.',
+            $this->paginatorMeta($questions)
+        );
+    }
+
+    public function submitProductQuestion(Request $request, string $product): JsonResponse
+    {
+        $validated = $request->validate([
+            'question' => ['required', 'string', 'max:500'],
+        ]);
+
+        try {
+            $question = $this->marketplaceService->submitProductQuestion(
+                request()->user(),
+                $product,
+                $validated['question']
+            );
+
+            return Response::created(new ProductQuestionResource($question), 'Question submitted for review.');
         } catch (DomainException $e) {
             return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
         }

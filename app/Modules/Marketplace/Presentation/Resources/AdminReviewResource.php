@@ -21,7 +21,7 @@ class AdminReviewResource extends JsonResource
             'verified_buyer' => $this->vendor_order_item_id !== null || $this->vendor_order_id !== null,
             'customer' => $this->whenLoaded('user', fn () => [
                 'id' => $this->user?->uuid,
-                'name' => $this->user?->name,
+                'name' => $this->user?->full_name ?: $this->user?->first_name,
                 'email' => $this->user?->email,
             ]),
             'target' => $type === 'product'

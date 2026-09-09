@@ -16,6 +16,15 @@ import { useBranding } from '../../context/BrandingContext'
 import { useAuth } from '../../context/AuthContext'
 import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
+const REFUND_STATUSES = [
+  { value: 'requested', label: 'Requested' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'refunded', label: 'Refunded (Completed)' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
+
 export default function AdminRefunds() {
   const { user } = useAuth()
   const branding = useBranding()
@@ -27,6 +36,7 @@ export default function AdminRefunds() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedRefund, setSelectedRefund] = useState(null)
+  const [refundDetailRef, setRefundDetailRef] = useState('')
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -65,6 +75,38 @@ export default function AdminRefunds() {
   useEffect(() => {
     loadRefunds()
   }, [page, statusFilter])
+
+  useEffect(() => {
+    setRefundDetailRef(selectedRefund?.provider_refund_id || '')
+  }, [selectedRefund])
+
+  const handleStatusChange = async (refund, status) => {
+    try {
+      const res = await api.patch(`/admin/refunds/${refund.uuid || refund.id}/status`, { status })
+      toast.success(`Refund #${refund.refund_number || refund.id} updated to ${status.replace(/_/g, ' ')}.`)
+      loadRefunds()
+      if (selectedRefund && (selectedRefund.uuid === refund.uuid || selectedRefund.id === refund.id)) {
+        setSelectedRefund(res.data?.data || refund)
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not update refund status.')
+    }
+  }
+
+  const handleSaveRefundDetails = async () => {
+    if (!selectedRefund) return
+    try {
+      const res = await api.patch(`/admin/refunds/${selectedRefund.uuid || selectedRefund.id}/status`, {
+        status: selectedRefund.status,
+        provider_refund_id: refundDetailRef.trim() || undefined
+      })
+      toast.success('Refund gateway details saved.')
+      setSelectedRefund(res.data?.data || selectedRefund)
+      loadRefunds()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not save refund details.')
+    }
+  }
 
   const handleAction = (action, refund) => {
     setDialogState({
@@ -182,8 +224,31 @@ export default function AdminRefunds() {
     },
     {
       header: 'Status',
-      accessor: 'status',
-      render: item => <StatusBadge status={item.status} />
+      render: item => {
+        const isTerminal = item.status === 'refunded'
+        return (
+          <select
+            className="input"
+            value={item.status}
+            disabled={isTerminal}
+            onChange={e => handleStatusChange(item, e.target.value)}
+            title={isTerminal ? 'Refunded transaction — locked' : 'Edit refund status'}
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              borderRadius: 8,
+              padding: '5px 8px',
+              cursor: isTerminal ? 'not-allowed' : 'pointer',
+              color: isTerminal ? '#16a34a' : 'var(--ink)',
+              minWidth: 150
+            }}
+          >
+            {REFUND_STATUSES.map(s => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+        )
+      }
     },
     {
       header: 'Initiated',
@@ -280,9 +345,9 @@ export default function AdminRefunds() {
           { value: 'requested', label: 'Requested (Pending Review)' },
           { value: 'approved', label: 'Approved' },
           { value: 'processing', label: 'Processing' },
-          { value: 'completed', label: 'Completed' },
-          { value: 'rejected', label: 'Rejected' },
+          { value: 'refunded', label: 'Refunded / Completed' },
           { value: 'failed', label: 'Failed' },
+          { value: 'cancelled', label: 'Cancelled' },
         ]}
         onReset={() => { setSearch(''); setStatusFilter('all') }}
       />
@@ -371,6 +436,51 @@ export default function AdminRefunds() {
               <div className="flex justify-between py-1">
                 <span style={{ color: 'var(--muted)' }}>Created At:</span>
                 <span>{formatDateTime(selectedRefund.created_at)}</span>
+              </div>
+            </div>
+
+            {/* Status Editor & Gateway Details */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+              <div>
+                <span style={{ color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Update Status:</span>
+                <select
+                  className="input"
+                  value={selectedRefund.status}
+                  disabled={selectedRefund.status === 'refunded'}
+                  onChange={e => handleStatusChange(selectedRefund, e.target.value)}
+                  title={selectedRefund.status === 'refunded' ? 'Refunded transaction — locked' : 'Save applies instantly'}
+                  style={{ height: 36, fontSize: 13, borderRadius: 8, fontWeight: 700, width: '100%' }}
+                >
+                  {REFUND_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+                {selectedRefund.status === 'refunded' ? (
+                  <div style={{ fontSize: 11.5, color: '#16a34a', marginTop: 4 }}>Terminal — refunded transactions cannot be modified.</div>
+                ) : (
+                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>Saving is instant. Setting to Refunded finalizes the payout.</div>
+                )}
+              </div>
+
+              <div>
+                <span style={{ color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Provider Refund ID:</span>
+                <input
+                  className="input"
+                  value={refundDetailRef}
+                  disabled={selectedRefund.status === 'refunded'}
+                  onChange={e => setRefundDetailRef(e.target.value)}
+                  placeholder="Gateway refund reference (e.g. PRF-XXXXXXXX)"
+                  style={{ height: 36, fontSize: 13, borderRadius: 8 }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  disabled={selectedRefund.status === 'refunded'}
+                  onClick={handleSaveRefundDetails}
+                >
+                  Save Gateway Details
+                </button>
               </div>
             </div>
 

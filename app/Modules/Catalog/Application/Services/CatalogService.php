@@ -33,10 +33,13 @@ class CatalogService
         $vendor = $this->vendorFor($user);
 
         return DB::transaction(function () use ($vendor, $dto) {
+            $categoryId = $this->resolveId(Category::class, $dto->category_id);
+            $taxRate = $dto->tax_rate ?: (Category::query()->find($categoryId)?->tax_rate ?? 0);
+
             $product = Product::query()->create([
                 'vendor_id' => $vendor->id,
                 'store_id' => $vendor->stores()->value('id'),
-                'category_id' => $this->resolveId(Category::class, $dto->category_id),
+                'category_id' => $categoryId,
                 'brand_id' => $this->resolveId(Brand::class, $dto->brand_id),
                 'name' => $dto->name,
                 'slug' => $this->uniqueProductSlug($dto->slug ?: $dto->name),
@@ -54,7 +57,7 @@ class CatalogService
                 'weight_grams' => $dto->weight_grams,
                 'dimensions' => $dto->dimensions,
                 'hs_code' => $dto->hs_code,
-                'tax_rate' => $dto->tax_rate,
+                'tax_rate' => $taxRate,
                 'manufacturer' => $dto->manufacturer,
                 'is_variant' => $dto->is_variant || ! empty($dto->variants),
                 'is_featured' => $dto->is_featured,
@@ -78,8 +81,11 @@ class CatalogService
         $this->assertEditable($product);
 
         return DB::transaction(function () use ($product, $dto) {
+            $categoryId = $this->resolveId(Category::class, $dto->category_id);
+            $taxRate = $dto->tax_rate ?: (Category::query()->find($categoryId)?->tax_rate ?? 0);
+
             $product->update([
-                'category_id' => $this->resolveId(Category::class, $dto->category_id),
+                'category_id' => $categoryId,
                 'brand_id' => $this->resolveId(Brand::class, $dto->brand_id),
                 'name' => $dto->name,
                 'slug' => $dto->slug && $dto->slug !== $product->slug
@@ -97,7 +103,7 @@ class CatalogService
                 'weight_grams' => $dto->weight_grams,
                 'dimensions' => $dto->dimensions,
                 'hs_code' => $dto->hs_code,
-                'tax_rate' => $dto->tax_rate,
+                'tax_rate' => $taxRate,
                 'manufacturer' => $dto->manufacturer,
                 'is_variant' => $dto->is_variant || ! empty($dto->variants),
                 'is_featured' => $dto->is_featured,

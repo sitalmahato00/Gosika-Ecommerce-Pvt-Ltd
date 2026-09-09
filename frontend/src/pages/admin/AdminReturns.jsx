@@ -9,9 +9,21 @@ import PageHeader from '../../components/admin/PageHeader'
 import DataTable from '../../components/admin/DataTable'
 import FilterBar from '../../components/admin/FilterBar'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
-import StatusBadge from '../../components/commerce/StatusBadge'
 import { money, formatDateTime, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+
+const RETURN_STATUSES = [
+  { value: 'requested', label: 'Requested' },
+  { value: 'under_review', label: 'Under Review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'collected', label: 'Collected' },
+  { value: 'inspected', label: 'Inspected' },
+  { value: 'refund_pending', label: 'Refund Pending' },
+  { value: 'refunded', label: 'Refunded' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
 
 export default function AdminReturns() {
   const toast = useToast()
@@ -23,10 +35,12 @@ export default function AdminReturns() {
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
-    action: null, // 'approve' | 'reject'
+    action: null, // 'approve' | 'reject' | 'process_refund'
     returnItem: null,
     loading: false
   })
+
+  const [refundDraft, setRefundDraft] = useState({ method: 'esewa', amount: '', notes: '' })
 
   const loadReturns = async () => {
     setLoading(true)
@@ -89,6 +103,54 @@ export default function AdminReturns() {
       loadReturns()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Operation failed.')
+      setDialogState(prev => ({ ...prev, loading: false }))
+    }
+  }
+
+  const handleStatusChange = async (item, status, notes) => {
+    try {
+      await api.patch(`/admin/orders/returns/${item.uuid || item.id}/status`, {
+        status,
+        notes: notes || null
+      })
+      toast.success(`Return #${item.return_number || item.id} marked as ${status.replace(/_/g, ' ')}.`)
+      loadReturns()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not update return status.')
+    }
+  }
+
+  const acceptExchange = (item) => handleStatusChange(
+    item,
+    'approved',
+    'Approved as exchange: replacement package to be dispatched by the store.'
+  )
+
+  const openRefundDialog = (item) => {
+    setRefundDraft({
+      method: item.order?.payment_method || 'esewa',
+      amount: item.refund_amount || '',
+      notes: ''
+    })
+    setDialogState({ isOpen: true, action: 'process_refund', returnItem: item, loading: false })
+  }
+
+  const submitRefund = async () => {
+    const { returnItem } = dialogState
+    if (!returnItem) return
+
+    setDialogState(prev => ({ ...prev, loading: true }))
+    try {
+      await api.post(`/admin/orders/returns/${returnItem.uuid || returnItem.id}/refund`, {
+        method: refundDraft.method,
+        amount: refundDraft.amount,
+        notes: refundDraft.notes || null
+      })
+      toast.success('Refund created (Requested). Complete it in Refunds Management.')
+      setDialogState({ isOpen: false, action: null, returnItem: null, loading: false })
+      loadReturns()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Refund creation failed.')
       setDialogState(prev => ({ ...prev, loading: false }))
     }
   }
@@ -166,8 +228,19 @@ export default function AdminReturns() {
     },
     {
       header: 'Status',
-      accessor: 'status',
-      render: item => <StatusBadge status={item.status} />
+      render: item => (
+        <select
+          className="input"
+          value={item.status}
+          onChange={e => handleStatusChange(item, e.target.value)}
+          title="Edit return status"
+          style={{ fontSize: 12, fontWeight: 700, borderRadius: 8, padding: '5px 8px', cursor: 'pointer', color: 'var(--ink)', minWidth: 132 }}
+        >
+          {RETURN_STATUSES.map(s => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+      )
     },
     {
       header: 'Requested',
@@ -181,9 +254,10 @@ export default function AdminReturns() {
       header: 'Actions',
       align: 'right',
       render: item => {
-        const isPending = item.status === 'requested' || item.status === 'pending'
+        const isPending = item.status === 'requested' || item.status === 'under_review'
+        const canRefund = ['approved', 'collected', 'inspected', 'refund_pending'].includes(item.status)
         return (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
             {isPending ? (
               <>
                 <button
@@ -191,9 +265,18 @@ export default function AdminReturns() {
                   className="btn btn-xs"
                   style={{ background: '#16a34a', color: '#fff', border: 'none' }}
                   onClick={() => handleAction('approve', item)}
-                  title="Approve Return"
+                  title="Approve as Refund"
                 >
-                  <Check size={13} /> Approve
+                  <Check size={13} /> Refund
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-xs"
+                  style={{ color: '#2563eb', borderColor: '#bfdbfe' }}
+                  onClick={() => acceptExchange(item)}
+                  title="Accept as Exchange"
+                >
+                  <RotateCcw size={13} /> Exchange
                 </button>
                 <button
                   type="button"
@@ -205,6 +288,16 @@ export default function AdminReturns() {
                   <X size={13} /> Reject
                 </button>
               </>
+            ) : canRefund ? (
+              <button
+                type="button"
+                className="btn btn-xs"
+                style={{ background: '#ff5500', color: '#fff', border: 'none' }}
+                onClick={() => openRefundDialog(item)}
+                title="Create a refund against the linked payment"
+              >
+                <RotateCcw size={13} /> Process Refund
+              </button>
             ) : (
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>Processed</span>
             )}
@@ -240,10 +333,16 @@ export default function AdminReturns() {
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
         statusOptions={[
-          { value: 'requested', label: 'Requested (Pending Review)' },
+          { value: 'requested', label: 'Requested' },
+          { value: 'under_review', label: 'Under Review' },
           { value: 'approved', label: 'Approved' },
           { value: 'rejected', label: 'Rejected' },
+          { value: 'collected', label: 'Collected' },
+          { value: 'inspected', label: 'Inspected' },
+          { value: 'refund_pending', label: 'Refund Pending' },
+          { value: 'refunded', label: 'Refunded' },
           { value: 'completed', label: 'Completed' },
+          { value: 'cancelled', label: 'Cancelled' },
         ]}
         onReset={() => setStatusFilter('all')}
       />
@@ -258,9 +357,115 @@ export default function AdminReturns() {
         emptyDescription="There are no active customer return requests matching your filter."
       />
 
+      {/* Process Refund Dialog */}
+      {dialogState.isOpen && dialogState.action === 'process_refund' && dialogState.returnItem && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setDialogState({ isOpen: false, action: null, returnItem: null, loading: false }) }}
+        >
+          <div
+            className="card"
+            style={{ width: '100%', maxWidth: 480, background: '#fff', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}
+          >
+            <div>
+              <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                Process Refund — Return #{dialogState.returnItem.return_number || dialogState.returnItem.id}
+              </h3>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                Order #{dialogState.returnItem.order?.order_number || dialogState.returnItem.order_id} · Item: {dialogState.returnItem.order_item?.product_name || 'Product'}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Payment Method</label>
+                <select
+                  className="input"
+                  value={refundDraft.method}
+                  onChange={e => setRefundDraft(d => ({ ...d, method: e.target.value }))}
+                  style={{ height: 38, fontSize: 13, borderRadius: 8, fontWeight: 600 }}
+                >
+                  <option value="esewa">eSewa</option>
+                  <option value="khalti">Khalti</option>
+                  <option value="fonepay">Fonepay</option>
+                  <option value="cod">Cash on Delivery</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Refund Amount</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={refundDraft.amount}
+                  onChange={e => setRefundDraft(d => ({ ...d, amount: e.target.value }))}
+                  style={{ height: 38, fontSize: 13, borderRadius: 8, fontWeight: 600 }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Notes (optional)</label>
+              <textarea
+                className="input"
+                rows={3}
+                value={refundDraft.notes}
+                onChange={e => setRefundDraft(d => ({ ...d, notes: e.target.value }))}
+                placeholder="Any administrative note for this refund..."
+                style={{ fontSize: 13, borderRadius: 8 }}
+              />
+            </div>
+
+            <div style={{ fontSize: 12, color: 'var(--muted)', background: '#f8fafc', padding: '8px 12px', borderRadius: 8, lineHeight: 1.5 }}>
+              {refundDraft.method === 'esewa' ? (
+                <>
+                  Creates a <strong>Requested</strong> refund and verifies the payment via the <strong>eSewa status API</strong>. The payout is issued from the
+                  eSewa merchant dashboard — finalize it in <strong>Refunds Management</strong> (eSewa must report the transaction refunded).
+                </>
+              ) : (
+                <>
+                  Creates a <strong>Requested</strong> refund against the order payment via <strong>{refundDraft.method.toUpperCase()}</strong> — finalize it in{' '}
+                  <strong>Refunds Management</strong>.
+                </>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => setDialogState({ isOpen: false, action: null, returnItem: null, loading: false })}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                disabled={dialogState.loading}
+                onClick={submitRefund}
+                style={{ background: '#ff5500', color: '#fff', border: 'none', fontWeight: 700 }}
+              >
+                {dialogState.loading ? 'Creating...' : 'Create Refund'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={dialogState.isOpen}
+        isOpen={dialogState.isOpen && (dialogState.action === 'approve' || dialogState.action === 'reject')}
         onClose={() => setDialogState({ isOpen: false, action: null, returnItem: null, loading: false })}
         onConfirm={handleConfirmAction}
         loading={dialogState.loading}

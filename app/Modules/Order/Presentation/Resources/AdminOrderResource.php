@@ -16,6 +16,7 @@ class AdminOrderResource extends JsonResource
 
         return [
             'id' => $this->uuid,
+            'user_id' => $this->user_id,
             'order_number' => $this->order_number,
             'customer' => new UserResource($this->whenLoaded('user')),
             'status' => $this->status->value,

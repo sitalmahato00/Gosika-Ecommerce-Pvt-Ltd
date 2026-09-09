@@ -4,6 +4,7 @@ namespace App\Modules\Marketplace\Application\Services;
 
 use App\Modules\Catalog\Infrastructure\Models\Product;
 use App\Modules\Identity\Infrastructure\Models\User;
+use App\Modules\Marketplace\Infrastructure\Models\ProductQuestion;
 use App\Modules\Marketplace\Infrastructure\Models\ProductReview;
 use App\Modules\Marketplace\Infrastructure\Models\RecentlyViewed;
 use App\Modules\Marketplace\Infrastructure\Models\StoreReview;
@@ -201,6 +202,42 @@ class MarketplaceService
 
             return $review->fresh();
         });
+    }
+
+    public function productQuestions(string $productUuid): object
+    {
+        return ProductQuestion::query()
+            ->approved()
+            ->whereHas('product', fn ($q) => $q->where('uuid', $productUuid))
+            ->with(['user', 'product.primaryImage'])
+            ->orderByDesc('created_at')
+            ->paginate(12);
+    }
+
+    public function submitProductQuestion(User $user, string $productUuid, string $question): ProductQuestion
+    {
+        $product = Product::query()->where('uuid', $productUuid)->first();
+
+        if (! $product) {
+            throw new DomainException('Product not found.', 404);
+        }
+
+        $open = ProductQuestion::query()
+            ->where('user_id', $user->id)
+            ->where('product_id', $product->id)
+            ->whereIn('status', [ReviewStatus::PENDING, ReviewStatus::APPROVED])
+            ->exists();
+
+        if ($open) {
+            throw new DomainException('You already have an open question about this product.', 409);
+        }
+
+        return ProductQuestion::create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'question' => $question,
+            'status' => ReviewStatus::PENDING,
+        ]);
     }
 
     protected function purchasedOrderItem(User $user, Product $product): ?OrderItem

@@ -20,6 +20,7 @@ class Category extends BaseModel
         'icon',
         'status',
         'sort_order',
+        'tax_rate',
         'deleted_by',
     ];
 

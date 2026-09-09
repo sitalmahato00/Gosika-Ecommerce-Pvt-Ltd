@@ -14,12 +14,16 @@ use App\Modules\Catalog\Presentation\Resources\BrandResource;
 use App\Modules\Catalog\Presentation\Resources\CategoryResource;
 use App\Modules\Catalog\Presentation\Resources\ProductResource;
 use App\Modules\Identity\Domain\Roles;
+use App\Modules\Order\Infrastructure\Models\OrderItem;
+use App\Modules\Shared\Domain\Enums\DeliveryStatus;
+use App\Modules\Shared\Domain\Enums\ProductStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class AdminCatalogController extends Controller
 {
@@ -68,7 +72,60 @@ class AdminCatalogController extends Controller
             throw new DomainException('Product not found.', 404);
         }
 
+        $deliveredQuery = OrderItem::query()
+            ->where('product_id', $product->id)
+            ->where('delivery_status', DeliveryStatus::DELIVERED);
+
+        $deliveredStats = (clone $deliveredQuery)
+            ->selectRaw('count(*) as order_count')
+            ->selectRaw('coalesce(sum(quantity), 0) as units')
+            ->selectRaw('coalesce(sum(line_total), 0) as revenue')
+            ->first();
+
+        $product->setAttribute('delivered_orders_count', (int) $deliveredStats->order_count);
+        $product->setAttribute('delivered_units', (int) $deliveredStats->units);
+        $product->setAttribute('delivered_revenue', (float) $deliveredStats->revenue);
+
         return Response::success(new ProductResource($product), 'Product retrieved.');
+    }
+
+    public function deliveredOrders(Request $request, string $productId): JsonResponse
+    {
+        $product = Product::query()
+            ->where('uuid', $productId)
+            ->orWhere('id', $productId)
+            ->first();
+
+        if (! $product) {
+            throw new DomainException('Product not found.', 404);
+        }
+
+        $orders = OrderItem::query()
+            ->where('product_id', $product->id)
+            ->where('delivery_status', DeliveryStatus::DELIVERED)
+            ->with('order.user')
+            ->orderByDesc('updated_at')
+            ->paginate((int) $request->integer('per_page', 12));
+
+        $deliveredOrders = $orders->getCollection()->map(fn (OrderItem $item) => [
+            'order_id' => $item->order?->uuid,
+            'order_number' => $item->order?->order_number,
+            'customer_name' => $item->order?->user?->name,
+            'customer_email' => $item->order?->user?->email,
+            'placed_at' => $item->order?->placed_at?->toISOString(),
+            'delivered_at' => $item->order?->completed_at?->toISOString(),
+            'quantity' => $item->quantity,
+            'line_total' => $item->line_total,
+        ])->values();
+
+        return Response::success($deliveredOrders, 'Delivered orders retrieved.', [
+            'pagination' => [
+                'total' => $orders->total(),
+                'per_page' => $orders->perPage(),
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+            ],
+        ]);
     }
 
     public function suspendProduct(Request $request, string $productId): JsonResponse
@@ -84,27 +141,35 @@ class AdminCatalogController extends Controller
             throw new DomainException('Product not found.', 404);
         }
 
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $meta = $product->meta ?? [];
+        $meta['suspension_reason'] = $validated['reason'];
+        $meta['suspended_at'] = now()->toISOString();
+        $meta['suspended_by'] = auth()->id();
+
         $product->update([
-            'status' => \App\Modules\Shared\Domain\Enums\ProductStatus::REJECTED,
+            'status' => ProductStatus::HIDDEN,
+            'meta' => $meta,
         ]);
 
         return Response::success(new ProductResource($product), 'Product suspended.');
     }
 
-    public function pendingProducts(Request $request): JsonResponse
+    public function updateProductStatus(Request $request, string $productId): JsonResponse
     {
-        $products = Product::query()
-            ->where('status', \App\Modules\Shared\Domain\Enums\ProductStatus::PENDING_REVIEW)
-            ->with(['vendor', 'store', 'category', 'brand'])
-            ->orderByDesc('created_at')
-            ->paginate((int) $request->integer('per_page', 20));
+        $this->authorize('products.approve');
 
-        return Response::success(ProductResource::collection($products), 'Pending products retrieved.', [
-            'current_page' => $products->currentPage(),
-            'per_page' => $products->perPage(),
-            'total' => $products->total(),
-            'last_page' => $products->lastPage(),
+        $validated = $request->validate([
+            'status' => ['required', Rule::enum(ProductStatus::class)],
         ]);
+
+        $product = $this->findProduct($productId);
+        $product->update(['status' => $validated['status']]);
+
+        return Response::success(new ProductResource($product), 'Product status updated.');
     }
 
     public function approveProduct(ProductReviewRequest $request, string $productId): JsonResponse
@@ -179,6 +244,23 @@ class AdminCatalogController extends Controller
         return Response::success(CategoryResource::collection($categories), 'Categories retrieved.');
     }
 
+    public function showCategory(string $categoryId): JsonResponse
+    {
+        $this->authorize('categories.manage');
+
+        $category = Category::query()
+            ->where('uuid', $categoryId)
+            ->with(['parent', 'children' => fn ($q) => $q->withCount('products')])
+            ->withCount('products')
+            ->first();
+
+        if (! $category) {
+            throw new DomainException('Category not found.', 404);
+        }
+
+        return Response::success(new CategoryResource($category), 'Category retrieved.');
+    }
+
     public function storeCategory(Request $request): JsonResponse
     {
         $this->authorize('categories.manage');
@@ -189,6 +271,8 @@ class AdminCatalogController extends Controller
             'slug' => ['nullable', 'string', 'max:170', 'regex:/^[a-z0-9-]+$/', 'unique:categories,slug'],
             'description' => ['nullable', 'string'],
             'icon' => ['nullable', 'string', 'max:100'],
+            'image' => ['nullable', 'string', 'max:500'],
+            'tax_rate' => ['nullable', 'integer', 'min:0', 'max:100'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
 
@@ -198,6 +282,8 @@ class AdminCatalogController extends Controller
             'slug' => $validated['slug'] ?? Str::slug($validated['name']),
             'description' => $validated['description'] ?? null,
             'icon' => $validated['icon'] ?? null,
+            'image' => $validated['image'] ?? null,
+            'tax_rate' => $validated['tax_rate'] ?? 0,
             'sort_order' => $validated['sort_order'] ?? 0,
             'status' => 'active',
         ]);
@@ -217,7 +303,9 @@ class AdminCatalogController extends Controller
             'slug' => ['nullable', 'string', 'max:170', 'regex:/^[a-z0-9-]+$/', 'unique:categories,slug,'.$category->id],
             'description' => ['nullable', 'string'],
             'icon' => ['nullable', 'string', 'max:100'],
+            'image' => ['nullable', 'string', 'max:500'],
             'status' => ['nullable', 'string', 'in:active,inactive'],
+            'tax_rate' => ['nullable', 'integer', 'min:0', 'max:100'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
 
@@ -227,7 +315,9 @@ class AdminCatalogController extends Controller
             'slug' => $validated['slug'] ?? $category->slug,
             'description' => $validated['description'] ?? null,
             'icon' => $validated['icon'] ?? null,
+            'image' => $validated['image'] ?? null,
             'status' => $validated['status'] ?? $category->status,
+            'tax_rate' => array_key_exists('tax_rate', $validated) ? $validated['tax_rate'] : $category->tax_rate,
             'sort_order' => $validated['sort_order'] ?? $category->sort_order,
         ]);
 
@@ -255,6 +345,19 @@ class AdminCatalogController extends Controller
         return Response::success(BrandResource::collection($brands), 'Brands retrieved.');
     }
 
+    public function showBrand(string $brandId): JsonResponse
+    {
+        $this->authorize('brands.manage');
+
+        $brand = Brand::query()->where('uuid', $brandId)->withCount('products')->first();
+
+        if (! $brand) {
+            throw new DomainException('Brand not found.', 404);
+        }
+
+        return Response::success(new BrandResource($brand), 'Brand retrieved.');
+    }
+
     public function storeBrand(Request $request): JsonResponse
     {
         $this->authorize('brands.manage');
@@ -263,12 +366,14 @@ class AdminCatalogController extends Controller
             'name' => ['required', 'string', 'max:150'],
             'slug' => ['nullable', 'string', 'max:170', 'regex:/^[a-z0-9-]+$/', 'unique:brands,slug'],
             'description' => ['nullable', 'string', 'max:1000'],
+            'logo' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $brand = Brand::query()->create([
             'name' => $validated['name'],
             'slug' => $validated['slug'] ?? Str::slug($validated['name']),
             'description' => $validated['description'] ?? null,
+            'logo' => $validated['logo'] ?? null,
             'status' => 'active',
         ]);
 
@@ -285,6 +390,7 @@ class AdminCatalogController extends Controller
             'name' => ['required', 'string', 'max:150'],
             'slug' => ['nullable', 'string', 'max:170', 'regex:/^[a-z0-9-]+$/', 'unique:brands,slug,'.$brand->id],
             'description' => ['nullable', 'string', 'max:1000'],
+            'logo' => ['nullable', 'string', 'max:2000'],
             'status' => ['nullable', 'string', 'in:active,inactive'],
         ]);
 
@@ -292,6 +398,7 @@ class AdminCatalogController extends Controller
             'name' => $validated['name'],
             'slug' => $validated['slug'] ?? $brand->slug,
             'description' => $validated['description'] ?? null,
+            'logo' => $validated['logo'] ?? null,
             'status' => $validated['status'] ?? $brand->status,
         ]);
 

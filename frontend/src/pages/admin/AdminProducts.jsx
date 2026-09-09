@@ -16,7 +16,7 @@ import { useBranding } from '../../context/BrandingContext'
 import { useAuth } from '../../context/AuthContext'
 import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
-export default function AdminProducts() {
+export default function AdminProducts({ initialStatus = 'all', title, description }) {
   const { user } = useAuth()
   const branding = useBranding()
   const toast = useToast()
@@ -27,7 +27,7 @@ export default function AdminProducts() {
   const [pagination, setPagination] = useState(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState(initialStatus)
   const [categoryFilter, setCategoryFilter] = useState('')
   const [categories, setCategories] = useState([])
 
@@ -257,7 +257,7 @@ export default function AdminProducts() {
       align: 'right',
       render: item => {
         const isPending = item.status === 'pending_review' || item.status === 'pending'
-        const isApproved = item.status === 'approved'
+        const isApproved = item.status === 'published' || item.status === 'approved'
 
         return (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
@@ -275,7 +275,10 @@ export default function AdminProducts() {
                   type="button"
                   className="btn btn-xs"
                   style={{ background: '#16a34a', color: '#fff', border: 'none' }}
-                  onClick={() => handleAction('approve', item)}
+                  onClick={e => {
+                    e.stopPropagation()
+                    handleAction('approve', item)
+                  }}
                   title="Approve & Publish"
                 >
                   <Check size={12} /> Approve
@@ -285,7 +288,10 @@ export default function AdminProducts() {
                   type="button"
                   className="btn btn-outline btn-xs"
                   style={{ color: '#dc2626', borderColor: '#fca5a5' }}
-                  onClick={() => handleAction('reject', item)}
+                  onClick={e => {
+                    e.stopPropagation()
+                    handleAction('reject', item)
+                  }}
                   title="Reject"
                 >
                   <X size={12} /> Reject
@@ -298,7 +304,10 @@ export default function AdminProducts() {
                 type="button"
                 className="btn btn-outline btn-xs"
                 style={{ color: '#dc2626', borderColor: '#fca5a5' }}
-                onClick={() => handleAction('suspend', item)}
+                onClick={e => {
+                  e.stopPropagation()
+                  handleAction('suspend', item)
+                }}
                 title="Suspend"
               >
                 Suspend
@@ -313,11 +322,11 @@ export default function AdminProducts() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        title="Product Moderation & Catalog"
-        description="Review seller listings, verify product quality and specifications, manage status, and monitor inventory."
+        title={title || 'Product Moderation & Catalog'}
+        description={description || 'Review seller listings, verify product quality and specifications, manage status, and monitor inventory.'}
         breadcrumbs={[
           { label: 'Marketplace', to: '/admin/marketplace/vendors' },
-          { label: 'Products' }
+          { label: title || 'Products' }
         ]}
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -351,9 +360,11 @@ export default function AdminProducts() {
         onStatusChange={setStatusFilter}
         statusOptions={[
           { value: 'pending_review', label: 'Pending Moderation' },
-          { value: 'approved', label: 'Approved / Live' },
+          { value: 'published', label: 'Approved / Live' },
           { value: 'draft', label: 'Draft' },
-          { value: 'rejected', label: 'Rejected' },
+          { value: 'hidden', label: 'Suspended / Hidden' },
+          { value: 'archived', label: 'Archived' },
+          { value: 'out_of_stock', label: 'Out of Stock' },
         ]}
         extraFilters={
           categories.length > 0 && (
@@ -404,7 +415,9 @@ export default function AdminProducts() {
         message={
           dialogState.action === 'approve'
             ? 'Approving will immediately publish this product on the marketplace for customer purchasing.'
-            : 'Please specify the reason for rejecting or suspending this listing.'
+            : dialogState.action === 'suspend'
+            ? 'Suspending hides this listing from the marketplace immediately. Provide the remark so the seller understands why.'
+            : 'Please specify the reason for rejecting this listing.'
         }
         variant={dialogState.action === 'approve' ? 'success' : 'danger'}
         confirmText={

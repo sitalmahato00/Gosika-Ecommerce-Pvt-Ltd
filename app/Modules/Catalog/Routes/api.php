@@ -39,11 +39,12 @@ Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group
 
 Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('products', [AdminCatalogController::class, 'products']);
-    Route::get('products/pending', [AdminCatalogController::class, 'pendingProducts']);
     Route::get('products/{product}', [AdminCatalogController::class, 'showProduct']);
+    Route::get('products/{product}/delivered-orders', [AdminCatalogController::class, 'deliveredOrders']);
     Route::post('products/{product}/approve', [AdminCatalogController::class, 'approveProduct']);
     Route::post('products/{product}/reject', [AdminCatalogController::class, 'rejectProduct']);
     Route::post('products/{product}/suspend', [AdminCatalogController::class, 'suspendProduct']);
+    Route::patch('products/{product}/status', [AdminCatalogController::class, 'updateProductStatus']);
 
     Route::get('brand-requests', [AdminCatalogController::class, 'brandRequests']);
     Route::post('brand-requests/{brandRequest}/approve', [AdminCatalogController::class, 'approveBrandRequest']);
@@ -51,11 +52,13 @@ Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(f
 
     Route::get('categories', [AdminCatalogController::class, 'categories']);
     Route::post('categories', [AdminCatalogController::class, 'storeCategory']);
+    Route::get('categories/{category}', [AdminCatalogController::class, 'showCategory']);
     Route::put('categories/{category}', [AdminCatalogController::class, 'updateCategory']);
     Route::delete('categories/{category}', [AdminCatalogController::class, 'deleteCategory']);
 
     Route::get('brands', [AdminCatalogController::class, 'brands']);
     Route::post('brands', [AdminCatalogController::class, 'storeBrand']);
+    Route::get('brands/{brand}', [AdminCatalogController::class, 'showBrand']);
     Route::put('brands/{brand}', [AdminCatalogController::class, 'updateBrand']);
     Route::delete('brands/{brand}', [AdminCatalogController::class, 'deleteBrand']);
 });

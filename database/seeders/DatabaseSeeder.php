@@ -63,6 +63,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ProductSeeder::class,
             DeliveryPartnerSeeder::class,
+            ReviewsSeeder::class,
         ]);
     }
 }

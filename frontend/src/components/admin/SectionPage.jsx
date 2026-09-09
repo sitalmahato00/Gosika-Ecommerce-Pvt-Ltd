@@ -37,7 +37,6 @@ export default function SectionPage({ section }) {
   const kpis = {
     admin: [
       { label: 'Total Orders', value: '128', icon: 'ShoppingBag', bg: '#fff0e6', fg: '#ff5500', to: '/admin/orders' },
-      { label: 'Pending Approvals', value: '24', icon: 'ShieldCheck', bg: '#e6f0fa', fg: '#2563eb', to: '/admin/marketplace/products/approval' },
       { label: 'Active Sellers', value: '1,284', icon: 'Store', bg: '#e6f7ec', fg: '#16a34a', to: '/admin/marketplace/vendors' },
       { label: 'Payouts Pending', value: 'रु 6,45,210', icon: 'Banknote', bg: '#f3e8ff', fg: '#9333ea', to: '/admin/finance/payouts' },
     ],

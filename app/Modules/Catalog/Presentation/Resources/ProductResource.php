@@ -27,6 +27,9 @@ class ProductResource extends JsonResource
             'currency' => $this->currency,
             'weight_grams' => $this->weight_grams,
             'dimensions' => $this->dimensions,
+            'hs_code' => $this->when($this->relationLoaded('vendor'), $this->hs_code),
+            'tax_rate' => $this->when($this->relationLoaded('vendor'), $this->tax_rate),
+            'manufacturer' => $this->when($this->relationLoaded('vendor'), $this->manufacturer),
             'is_variant' => $this->is_variant,
             'is_featured' => $this->is_featured,
             'is_negotiable' => $this->is_negotiable,
@@ -74,9 +77,14 @@ class ProductResource extends JsonResource
                 'values' => $attribute->relationLoaded('values') ? $attribute->values->pluck('value') : [],
             ])),
             'rejection_reason' => $this->when(isset($this->meta['rejection_reason']), fn () => $this->meta['rejection_reason']),
+            'suspension_reason' => $this->when(isset($this->meta['suspension_reason']), fn () => $this->meta['suspension_reason']),
+            'suspended_at' => $this->when(isset($this->meta['suspended_at']), fn () => $this->meta['suspended_at']),
             'meta' => $this->when($request->user()?->hasRole('super_admin'), $this->meta),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
+            'delivered_orders_count' => $this->when(array_key_exists('delivered_orders_count', $this->resource->getAttributes()), fn () => $this->delivered_orders_count),
+            'delivered_units' => $this->when(array_key_exists('delivered_units', $this->resource->getAttributes()), fn () => $this->delivered_units),
+            'delivered_revenue' => $this->when(array_key_exists('delivered_revenue', $this->resource->getAttributes()), fn () => $this->delivered_revenue),
         ];
     }
 }

@@ -36,6 +36,47 @@ class PaymentService
         return $this->providers[$method] ?? null;
     }
 
+    public function esewaRefundCheck(Payment $payment): array
+    {
+        if ($payment->method !== 'esewa' || ! $this->provider($payment->method) instanceof EsewaProvider) {
+            return ['available' => false, 'reason' => 'not_esewa'];
+        }
+
+        $transactionUuid = $this->esewaTransactionUuid($payment);
+
+        if ($transactionUuid === '') {
+            return ['available' => false, 'reason' => 'no_reference'];
+        }
+
+        try {
+            $data = $this->provider($payment->method)->lookup($transactionUuid, ['total_amount' => (float) $payment->amount]);
+        } catch (\Throwable $e) {
+            return ['available' => false, 'reason' => 'unavailable', 'message' => $e->getMessage()];
+        }
+
+        return [
+            'available' => true,
+            'status' => strtoupper((string) ($data['status'] ?? '')),
+            'ref_id' => (string) ($data['ref_id'] ?? ''),
+            'raw' => $data,
+        ];
+    }
+
+    protected function esewaTransactionUuid(Payment $payment): string
+    {
+        $uuid = (string) data_get($payment->provider_response, 'fields.transaction_uuid', '');
+
+        if ($uuid === '') {
+            $uuid = (string) data_get($payment->provider_response, 'transaction_uuid', '');
+        }
+
+        if ($uuid === '') {
+            $uuid = (string) $payment->payment_number;
+        }
+
+        return preg_replace('/[^a-zA-Z0-9\-]/', '', $uuid) ?? '';
+    }
+
     public function forUser(User $user, string $uuid): ?Payment
     {
         return Payment::query()->forUser($user->id)->where('uuid', $uuid)->first();

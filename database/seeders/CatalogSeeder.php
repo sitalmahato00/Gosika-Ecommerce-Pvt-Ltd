@@ -13,11 +13,11 @@ class CatalogSeeder extends Seeder
     public function run(): void
     {
         $categories = [
-            ['name' => 'Handicrafts', 'slug' => 'handicrafts', 'description' => 'Handmade Nepali crafts.', 'icon' => '🎨'],
-            ['name' => 'Food & Beverages', 'slug' => 'food-beverages', 'description' => 'Local food products.', 'icon' => '🍯'],
-            ['name' => 'Apparel', 'slug' => 'apparel', 'description' => 'Clothing and textiles.', 'icon' => '🧣'],
-            ['name' => 'Home & Living', 'slug' => 'home-living', 'description' => 'Home decor and furniture.', 'icon' => '🏠'],
-            ['name' => 'Beauty & Care', 'slug' => 'beauty-care', 'description' => 'Herbal and organic products.', 'icon' => '🌿'],
+            ['name' => 'Handicrafts', 'slug' => 'handicrafts', 'description' => 'Handmade Nepali crafts.', 'icon' => '🎨', 'tax_rate' => 13],
+            ['name' => 'Food & Beverages', 'slug' => 'food-beverages', 'description' => 'Local food products.', 'icon' => '🍯', 'tax_rate' => 5],
+            ['name' => 'Apparel', 'slug' => 'apparel', 'description' => 'Clothing and textiles.', 'icon' => '🧣', 'tax_rate' => 13],
+            ['name' => 'Home & Living', 'slug' => 'home-living', 'description' => 'Home decor and furniture.', 'icon' => '🏠', 'tax_rate' => 13],
+            ['name' => 'Beauty & Care', 'slug' => 'beauty-care', 'description' => 'Herbal and organic products.', 'icon' => '🌿', 'tax_rate' => 13],
         ];
 
         foreach ($categories as $index => $category) {
@@ -29,6 +29,7 @@ class CatalogSeeder extends Seeder
                     'description' => $category['description'],
                     'icon' => $category['icon'],
                     'status' => 'active',
+                    'tax_rate' => $category['tax_rate'],
                     'sort_order' => $index + 1,
                 ]
             );

@@ -91,10 +91,6 @@ class SecurityIsolationTest extends TestCase
         $this->actingAs($this->customer(), 'sanctum')
             ->getJson('/api/v1/admin/deliveries')
             ->assertStatus(403);
-
-        $this->actingAs($this->customer(), 'sanctum')
-            ->getJson('/api/v1/admin/products/pending')
-            ->assertStatus(403);
     }
 
     public function test_customer_cannot_access_vendor_routes(): void

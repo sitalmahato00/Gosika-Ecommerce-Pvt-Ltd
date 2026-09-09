@@ -72,7 +72,6 @@ import VendorSecurity from './pages/vendor/Security'
 
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminOrders from './pages/admin/AdminOrders'
-import AdminOrderSplit from './pages/admin/AdminOrderSplit'
 import AdminOrderDetail from './pages/admin/AdminOrderDetail'
 import AdminReturns from './pages/admin/AdminReturns'
 import AdminProducts from './pages/admin/AdminProducts'
@@ -80,7 +79,11 @@ import AdminProductDetail from './pages/admin/AdminProductDetail'
 import AdminKyc from './pages/admin/AdminKyc'
 import AdminStores from './pages/admin/AdminStores'
 import AdminCategories from './pages/admin/AdminCategories'
+import AdminCategoryForm from './pages/admin/AdminCategoryForm'
+import AdminCategoryDetail from './pages/admin/AdminCategoryDetail'
 import AdminBrands from './pages/admin/AdminBrands'
+import AdminBrandForm from './pages/admin/AdminBrandForm'
+import AdminBrandDetail from './pages/admin/AdminBrandDetail'
 import AdminBrandRequests from './pages/admin/AdminBrandRequests'
 import AdminReviews from './pages/admin/AdminReviews'
 import AdminCustomers from './pages/admin/AdminCustomers'
@@ -241,13 +244,18 @@ export default function App() {
         <Route path="marketplace/products" element={<AdminProducts />} />
         <Route path="marketplace/products/:id" element={<AdminProductDetail />} />
         <Route path="marketplace/categories" element={<AdminCategories />} />
+        <Route path="marketplace/categories/new" element={<AdminCategoryForm />} />
+        <Route path="marketplace/categories/:id/edit" element={<AdminCategoryForm />} />
+        <Route path="marketplace/categories/:id" element={<AdminCategoryDetail />} />
         <Route path="marketplace/brands" element={<AdminBrands />} />
+        <Route path="marketplace/brands/new" element={<AdminBrandForm />} />
+        <Route path="marketplace/brands/:id/edit" element={<AdminBrandForm />} />
+        <Route path="marketplace/brands/:id" element={<AdminBrandDetail />} />
         <Route path="marketplace/brands/requests" element={<AdminBrandRequests />} />
         <Route path="marketplace/reviews" element={<AdminReviews />} />
 
         {/* Orders & Service */}
         <Route path="orders" element={<AdminOrders />} />
-        <Route path="orders/split" element={<AdminOrderSplit />} />
         <Route path="orders/:id" element={<AdminOrderDetail />} />
         <Route path="orders/returns" element={<AdminReturns />} />
         <Route path="orders/refunds" element={<AdminRefunds />} />
