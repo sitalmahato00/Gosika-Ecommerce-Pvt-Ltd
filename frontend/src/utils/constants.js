@@ -294,7 +294,6 @@ export const ADMIN_NAV = [
   { to: '/admin/marketplace/vendors', label: 'All Sellers (1,284)', icon: 'Store' },
   { to: '/admin/marketplace/kyc', label: 'Seller Applications', icon: 'UserPlus', badge: '42' },
   { to: '/admin/marketplace/stores', label: 'Storefronts', icon: 'Building2' },
-  { to: '/admin/marketplace/kyc/compliance', label: 'KYC & Compliance', icon: 'Shield', badge: '9' },
   { to: '/admin/marketplace/tiers', label: 'Seller Tiers & Badges', icon: 'Medal' },
   { to: '/admin/marketplace/bulletins', label: 'Seller Inquiries & Bulletins', icon: 'Megaphone' },
 
