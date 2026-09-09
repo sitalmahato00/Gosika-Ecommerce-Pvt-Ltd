@@ -104,7 +104,16 @@ export default function DashboardLayout({
   return (
     <div
       className="dash-shell"
-      style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: '#f8fafc' }}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'auto 1fr',
+        gridTemplateRows: '64px 1fr',
+        gridTemplateAreas: '"sidebar header" "sidebar main"',
+        width: '100vw',
+        height: '100vh',
+        overflow: 'hidden',
+        background: '#f8fafc'
+      }}
     >
       {open && (
         <div
@@ -121,6 +130,7 @@ export default function DashboardLayout({
       <header
         className="dash-topbar saas-glass gpu"
         style={{
+          gridArea: 'header',
           height: 64,
           color: '#1e293b',
           display: 'flex',
@@ -134,8 +144,8 @@ export default function DashboardLayout({
           top: 0,
         }}
       >
-        {/* Left: collapse toggle + brand */}
-        <div className="dash-topbar-left flex items-center gap-3" style={{ minWidth: collapsed ? 'auto' : 220 }}>
+        {/* Left: collapse toggle */}
+        <div className="dash-topbar-left flex items-center" style={{ gap: 3 }}>
           <button
             type="button"
             className="icon-btn"
@@ -162,39 +172,6 @@ export default function DashboardLayout({
           >
             <Menu size={20} />
           </button>
-
-          <Link
-            to={home}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}
-          >
-            {logoUrl ? (
-              <img src={logoUrl} alt={brandName} style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
-            ) : (
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  background: '#ff5500',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 6px 14px rgba(255, 85, 0, 0.32)'
-                }}
-              >
-                <ShoppingBag size={20} strokeWidth={2.4} />
-              </div>
-            )}
-            <div style={{ lineHeight: 1.15 }} className="dash-topbar-brand-text">
-              <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: '0.04em', color: '#161d2b' }}>
-                {brandName}
-              </div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.02em' }}>
-                {isDelivery ? 'Delivery Partner' : isVendor ? 'Vendor Portal' : 'Marketplace Admin'}
-              </div>
-            </div>
-          </Link>
         </div>
 
         {/* Center: omni search pill */}
@@ -511,13 +488,12 @@ export default function DashboardLayout({
       {/* ============================================================
           BODY: dual-zone sidebar + independent content pane
           ============================================================ */}
-      <div className="dash-body" style={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
-        {/* Left sidebar (pinned zones, only nav scrolls) */}
-        <aside
-          className={`dash-sidebar ${open ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}
-          aria-label={`${title} navigation`}
-          style={{
-            width: collapsed ? 72 : 224,
+      <aside
+        className={`dash-sidebar ${open ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}
+        aria-label={`${title} navigation`}
+        style={{
+          gridArea: 'sidebar',
+          width: collapsed ? 72 : 224,
             background: '#161d2b',
             borderRight: '1px solid #20293a',
             display: 'flex',
@@ -735,6 +711,7 @@ export default function DashboardLayout({
         <main
           className={mobileNav ? 'dash-content with-bottom-nav' : 'dash-content'}
           style={{
+            gridArea: 'main',
             flex: 1,
             minWidth: 0,
             width: '100%',
@@ -748,7 +725,6 @@ export default function DashboardLayout({
           <Outlet />
         </main>
         {mobileNav && <MobileBottomNav items={mobileNav} />}
-      </div>
     </div>
   )
 }

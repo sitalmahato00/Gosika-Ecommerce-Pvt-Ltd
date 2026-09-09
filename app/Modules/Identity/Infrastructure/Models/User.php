@@ -70,6 +70,16 @@ class User extends Authenticatable
         return $this->hasOne(\App\Modules\Customer\Infrastructure\Models\CustomerProfile::class);
     }
 
+    public function customerWallet()
+    {
+        return $this->hasOne(\App\Modules\Customer\Infrastructure\Models\CustomerWallet::class);
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(\App\Modules\Order\Infrastructure\Models\Order::class);
+    }
+
     public function addresses()
     {
         return $this->hasMany(\App\Modules\Customer\Infrastructure\Models\CustomerAddress::class);

@@ -89,6 +89,8 @@ import AdminReviews from './pages/admin/AdminReviews'
 import AdminSellerTiers from './pages/admin/AdminSellerTiers'
 import AdminSellerBulletins from './pages/admin/AdminSellerBulletins'
 import AdminCustomers from './pages/admin/AdminCustomers'
+import AdminCustomerSegments from './pages/admin/AdminCustomerSegments'
+import AdminCustomerWallets from './pages/admin/AdminCustomerWallets'
 import AdminCustomerSupport from './pages/admin/AdminCustomerSupport'
 import AdminVendors from './pages/admin/AdminVendors'
 import AdminVendorDetail from './pages/admin/AdminVendorDetail'
@@ -278,7 +280,9 @@ export default function App() {
 
         {/* Customers */}
         <Route path="customers" element={<AdminCustomers />} />
+        <Route path="customers/segments" element={<AdminCustomerSegments />} />
         <Route path="customers/support" element={<AdminCustomerSupport />} />
+        <Route path="customers/wallets" element={<AdminCustomerWallets />} />
 
         {/* Marketing */}
         <Route path="marketing/promotions" element={<AdminPromotions />} />

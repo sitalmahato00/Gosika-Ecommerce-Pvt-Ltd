@@ -35,9 +35,6 @@ Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(f
     Route::post('users/{user}/roles', [AdminUserController::class, 'assignRoles']);
     Route::delete('users/{user}', [AdminUserController::class, 'destroy']);
 
-    Route::get('customers', [AdminUserController::class, 'index']);
-    Route::get('customers/{user}', [AdminUserController::class, 'show']);
-
     Route::get('roles', [AdminRoleController::class, 'roles']);
     Route::get('permissions', [AdminRoleController::class, 'permissions']);
     Route::post('roles', [AdminRoleController::class, 'store']);

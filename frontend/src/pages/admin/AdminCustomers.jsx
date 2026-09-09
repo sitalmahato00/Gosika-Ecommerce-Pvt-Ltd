@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Users, Search, Eye, CheckCircle2, Ban, Phone, Mail,
-  Download, Trash2, ShieldCheck, RefreshCw, X, User
+  Download, Trash2, ShieldCheck, RefreshCw, X, User,
+  ShoppingBag, Wallet
 } from 'lucide-react'
 import api from '../../api/client'
 import PageHeader from '../../components/admin/PageHeader'
 import DataTable from '../../components/admin/DataTable'
 import FilterBar from '../../components/admin/FilterBar'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
+import KpiCard from '../../components/admin/KpiCard'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import { formatDate, formatDateTime, timeAgo, initials } from '../../utils/format'
+import { formatDate, formatDateTime, timeAgo, initials, money } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useBranding } from '../../context/BrandingContext'
 import { useAuth } from '../../context/AuthContext'
@@ -21,6 +23,7 @@ export default function AdminCustomers() {
   const branding = useBranding()
   const toast = useToast()
   const [customers, setCustomers] = useState([])
+  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState(null)
   const [page, setPage] = useState(1)
@@ -38,23 +41,19 @@ export default function AdminCustomers() {
   const loadCustomers = async () => {
     setLoading(true)
     try {
-      const params = { role: 'customer', page, per_page: 15 }
+      const params = { page, per_page: 15 }
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter
       if (search.trim()) params.search = search.trim()
 
-      const res = await api.get('/admin/users', { params })
+      const res = await api.get('/admin/customers', { params })
       const data = api.unwrapList(res.data)
       setCustomers(data)
-      if (res.data?.meta?.pagination) {
-        setPagination(res.data.meta.pagination)
-      } else {
-        setPagination({
-          current_page: page,
-          last_page: 1,
-          total: data.length,
-          per_page: 15
-        })
-      }
+      setPagination(res.data?.meta?.pagination || {
+        current_page: page,
+        last_page: 1,
+        total: data.length,
+        per_page: 15
+      })
     } catch (err) {
       toast.error('Failed to load customers.')
     } finally {
@@ -62,9 +61,22 @@ export default function AdminCustomers() {
     }
   }
 
+  const loadStats = async () => {
+    try {
+      const res = await api.get('/admin/customers/stats')
+      setStats(res.data?.data || null)
+    } catch (err) {
+      // stats are non-critical
+    }
+  }
+
   useEffect(() => {
     loadCustomers()
   }, [page, statusFilter])
+
+  useEffect(() => {
+    loadStats()
+  }, [])
 
   const handleAction = (action, customer) => {
     setDialogState({
@@ -112,6 +124,9 @@ export default function AdminCustomers() {
         { label: 'Full Name' },
         { label: 'Email' },
         { label: 'Phone' },
+        { label: 'Orders' },
+        { label: 'Total Spent' },
+        { label: 'Wallet Balance' },
         { label: 'Status' },
         { label: 'Registered At' },
       ],
@@ -120,6 +135,9 @@ export default function AdminCustomers() {
         c.full_name || c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Customer',
         c.email || '',
         c.phone || '',
+        String(c.orders_count ?? 0),
+        money(c.total_spend || 0),
+        money(c.wallet_balance || 0),
         c.status || '',
         formatDate(c.created_at)
       ]),
@@ -172,6 +190,30 @@ export default function AdminCustomers() {
           <div>{item.email || '—'}</div>
           <div style={{ color: 'var(--muted)', fontSize: 11 }}>{item.phone || 'No phone registered'}</div>
         </div>
+      )
+    },
+    {
+      header: 'Orders',
+      render: item => (
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
+          {(item.orders_count ?? 0).toLocaleString()}
+        </span>
+      )
+    },
+    {
+      header: 'Total Spent',
+      render: item => (
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
+          {money(item.total_spend || 0)}
+        </span>
+      )
+    },
+    {
+      header: 'Wallet',
+      render: item => (
+        <span style={{ fontSize: 12, color: item.wallet_balance > 0 ? '#16a34a' : 'var(--muted)', fontWeight: 600 }}>
+          {(item.wallet_balance || 0) > 0 ? money(item.wallet_balance) : '—'}
+        </span>
       )
     },
     {
@@ -262,6 +304,13 @@ export default function AdminCustomers() {
         }
       />
 
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 14 }}>
+        <KpiCard label="Total Customers" value={(stats?.total_customers ?? 0).toLocaleString()} sub={`${stats?.new_this_month ?? 0} new this month`} Icon={Users} iconBg="#e6f7ec" iconColor="#16a34a" to="/admin/customers/segments" />
+        <KpiCard label="Active Accounts" value={(stats?.active_customers ?? 0).toLocaleString()} sub={`${stats?.inactive_customers ?? 0} inactive`} Icon={CheckCircle2} iconBg="#eff6ff" iconColor="#2563eb" />
+        <KpiCard label="Total Orders" value={(stats?.total_orders ?? 0).toLocaleString()} sub={`Avg ${stats ? money(stats.avg_order_value) : '—'} per order`} Icon={ShoppingBag} iconBg="#fff0e6" iconColor="#ff5500" to="/admin/orders" />
+        <KpiCard label="Wallet Balance" value={stats ? money(stats.wallet_balance) : '—'} sub={`${stats?.wallet_customers ?? 0} funded wallets`} Icon={Wallet} iconBg="#f3e8ff" iconColor="#9333ea" to="/admin/customers/wallets" />
+      </div>
+
       <FilterBar
         search={search}
         onSearchChange={setSearch}
@@ -345,6 +394,28 @@ export default function AdminCustomers() {
               <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
                 <span style={{ color: 'var(--muted)' }}>Registration Date:</span>
                 <span>{formatDateTime(selectedCustomer.created_at)}</span>
+              </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span style={{ color: 'var(--muted)' }}>Orders Placed:</span>
+                <span style={{ fontWeight: 700 }}>{selectedCustomer.orders_count ?? 0}</span>
+              </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span style={{ color: 'var(--muted)' }}>Total Spent:</span>
+                <span style={{ fontWeight: 700 }}>{money(selectedCustomer.total_spend || 0)}</span>
+              </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span style={{ color: 'var(--muted)' }}>Wallet Balance:</span>
+                <span style={{ fontWeight: 700, color: (selectedCustomer.wallet_balance || 0) > 0 ? '#16a34a' : 'var(--muted)' }}>
+                  {(selectedCustomer.wallet_balance || 0) > 0 ? money(selectedCustomer.wallet_balance) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span style={{ color: 'var(--muted)' }}>Last Order:</span>
+                <span>{selectedCustomer.last_order_at ? timeAgo(selectedCustomer.last_order_at) : 'No orders yet'}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span style={{ color: 'var(--muted)' }}>Saved Addresses:</span>
+                <span style={{ fontWeight: 700 }}>{selectedCustomer.addresses_count ?? 0}</span>
               </div>
             </div>
 

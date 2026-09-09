@@ -65,6 +65,7 @@ class DatabaseSeeder extends Seeder
             DeliveryPartnerSeeder::class,
             ReviewsSeeder::class,
             VendorMarketplaceSeeder::class,
+            CustomerExperienceSeeder::class,
         ]);
     }
 }

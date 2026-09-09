@@ -203,23 +203,48 @@ export default function AdminVendorDetail() {
       />
 
       {/* Hero Card with Banner & Logo */}
-      <div className="card card-pad-none" style={{ borderRadius: 16, overflow: 'hidden' }}>
-        <div style={{ height: 140, position: 'relative', overflow: 'hidden', background: '#0f172a' }}>
+      <div className="card card-pad-none" style={{ borderRadius: 16, overflow: 'hidden', position: 'relative' }}>
+        <div
+          style={{
+            height: 160,
+            position: 'relative',
+            overflow: 'hidden',
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+          }}
+        >
           {storeBanner && (
-            <img src={storeBanner} alt="Banner" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
+            <img
+              src={storeBanner}
+              alt="Cover"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', opacity: 0.55 }}
+            />
           )}
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,23,42,0.85) 0%, transparent 60%)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(2,6,23,0.75) 0%, rgba(2,6,23,0.1) 60%)' }} />
         </div>
 
-        <div style={{ padding: '0 24px 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: -36, flexWrap: 'wrap', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+        <div
+          style={{
+            padding: '0 24px 22px',
+            position: 'relative',
+            zIndex: 2
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr auto',
+              alignItems: 'end',
+              gap: 16,
+              marginTop: -44
+            }}
+          >
             <div
               style={{
-                width: 76,
-                height: 76,
-                borderRadius: 14,
+                width: 84,
+                height: 84,
+                borderRadius: 16,
                 border: '3px solid #fff',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                boxShadow: '0 6px 16px rgba(0,0,0,0.18)',
                 background: '#fff',
                 overflow: 'hidden',
                 flexShrink: 0
@@ -228,23 +253,51 @@ export default function AdminVendorDetail() {
               <img src={storeLogo} alt={vendor.company_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
 
-            <div>
-              <h2 style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink)', margin: 0 }}>
+            <div style={{ minWidth: 0, paddingTop: 44 }}>
+              <h2
+                style={{
+                  fontSize: 20,
+                  fontWeight: 900,
+                  color: 'var(--ink)',
+                  margin: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}
+              >
                 {vendor.company_name}
               </h2>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span>PAN/VAT: <strong>{vendor.pan_vat || '—'}</strong></span>
-                <span>·</span>
-                <span>Reg #: <strong>{vendor.registration_number || '—'}</strong></span>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: 'var(--muted)',
+                  marginTop: 3,
+                  minWidth: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}
+              >
+                PAN/VAT: <strong>{vendor.pan_vat || '—'}</strong>
+                <span style={{ margin: '0 8px' }}>·</span>
+                Reg #: <strong>{vendor.registration_number || '—'}</strong>
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <StatusBadge status={vendor.status} />
-            <span className="chip chip-sm" style={{ background: '#f1f5f9', fontWeight: 700, fontSize: 12 }}>
-              Commission: {vendor.commission_rate ?? 'Platform Default'}%
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14 }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+              <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{vendor.business_phone || '—'}</span>
+              <span style={{ margin: '0 8px' }}>·</span>
+              <span>{vendor.business_email}</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <StatusBadge status={vendor.status} />
+              <span className="chip chip-sm" style={{ background: '#f1f5f9', fontWeight: 700, fontSize: 12 }}>
+                Commission: {vendor.commission_rate ?? 'Platform Default'}%
+              </span>
+            </div>
           </div>
         </div>
       </div>
