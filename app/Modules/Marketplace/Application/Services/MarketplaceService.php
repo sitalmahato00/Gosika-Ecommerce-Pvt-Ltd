@@ -33,11 +33,13 @@ class MarketplaceService
             ->paginate(12);
     }
 
-    public function storeDetail(string $storeUuid): ?Store
+    public function storeDetail(string $storeKey): ?Store
     {
         return Store::query()
             ->where('status', \App\Modules\Shared\Domain\Enums\StoreStatus::ACTIVE)
-            ->where('uuid', $storeUuid)
+            ->where(function ($q) use ($storeKey) {
+                $q->where('uuid', $storeKey)->orWhere('slug', $storeKey);
+            })
             ->withCount(['products' => fn ($q) => $q->where('status', ProductStatus::PUBLISHED)])
             ->with([
                 'addresses',
@@ -47,11 +49,13 @@ class MarketplaceService
             ->first();
     }
 
-    public function storeProducts(string $storeUuid, array $filters): object
+    public function storeProducts(string $storeKey, array $filters): object
     {
         return Product::query()
             ->where('status', ProductStatus::PUBLISHED)
-            ->whereHas('store', fn ($q) => $q->where('uuid', $storeUuid))
+            ->whereHas('store', function ($q) use ($storeKey) {
+                $q->where('uuid', $storeKey)->orWhere('slug', $storeKey);
+            })
             ->with(['primaryImage', 'brand'])
             ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('name', 'like', '%'.$s.'%'))
             ->when($filters['category'] ?? null, fn ($q, $c) => $q->whereHas('category', fn ($q) => $q->where('slug', $c)->orWhere('uuid', $c)))

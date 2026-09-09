@@ -64,6 +64,7 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,
             DeliveryPartnerSeeder::class,
             ReviewsSeeder::class,
+            VendorMarketplaceSeeder::class,
         ]);
     }
 }

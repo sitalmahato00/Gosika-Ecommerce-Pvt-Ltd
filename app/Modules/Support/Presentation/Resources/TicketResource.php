@@ -3,6 +3,7 @@
 namespace App\Modules\Support\Presentation\Resources;
 
 use App\Modules\Identity\Presentation\Resources\UserResource;
+use App\Modules\Vendor\Presentation\Resources\VendorResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -19,6 +20,8 @@ class TicketResource extends JsonResource
             'priority' => $this->priority,
             'status' => $this->status->value,
             'customer' => new UserResource($this->whenLoaded('user')),
+            'vendor' => new VendorResource($this->whenLoaded('vendor')),
+            'vendor_id' => $this->vendor?->uuid,
             'order_id' => $this->order?->uuid,
             'order_number' => $this->order?->order_number,
             'assignee' => new UserResource($this->whenLoaded('assignee')),

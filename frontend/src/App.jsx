@@ -86,6 +86,8 @@ import AdminBrandForm from './pages/admin/AdminBrandForm'
 import AdminBrandDetail from './pages/admin/AdminBrandDetail'
 import AdminBrandRequests from './pages/admin/AdminBrandRequests'
 import AdminReviews from './pages/admin/AdminReviews'
+import AdminSellerTiers from './pages/admin/AdminSellerTiers'
+import AdminSellerBulletins from './pages/admin/AdminSellerBulletins'
 import AdminCustomers from './pages/admin/AdminCustomers'
 import AdminCustomerSupport from './pages/admin/AdminCustomerSupport'
 import AdminVendors from './pages/admin/AdminVendors'
@@ -253,6 +255,8 @@ export default function App() {
         <Route path="marketplace/brands/:id" element={<AdminBrandDetail />} />
         <Route path="marketplace/brands/requests" element={<AdminBrandRequests />} />
         <Route path="marketplace/reviews" element={<AdminReviews />} />
+        <Route path="marketplace/tiers" element={<AdminSellerTiers />} />
+        <Route path="marketplace/bulletins" element={<AdminSellerBulletins />} />
 
         {/* Orders & Service */}
         <Route path="orders" element={<AdminOrders />} />

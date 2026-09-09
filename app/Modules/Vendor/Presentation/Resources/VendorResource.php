@@ -15,12 +15,15 @@ class VendorResource extends JsonResource
             'business_email' => $this->business_email,
             'business_phone' => $this->business_phone,
             'pan_vat' => $this->pan_vat,
+            'registration_number' => $this->registration_number,
+            'logo' => $this->logo,
             'status' => $this->status,
             'commission_rate' => $this->commission_rate,
             'approved_at' => $this->approved_at?->toISOString(),
             'kyc' => new KycResource($this->whenLoaded('kyc')),
             'stores' => StoreResource::collection($this->whenLoaded('stores')),
             'bank_accounts' => BankAccountResource::collection($this->whenLoaded('bankAccounts')),
+            'documents' => $this->whenLoaded('documents'),
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

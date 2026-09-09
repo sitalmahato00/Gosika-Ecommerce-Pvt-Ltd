@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Vendor\Presentation\Http\Controllers\AdminSellerTierController;
 use App\Modules\Vendor\Presentation\Http\Controllers\AdminVendorController;
 use App\Modules\Vendor\Presentation\Http\Controllers\BankAccountController;
 use App\Modules\Vendor\Presentation\Http\Controllers\StoreController;
@@ -49,4 +50,13 @@ Route::prefix('v1/admin/vendors')->middleware(['auth:sanctum', 'ensure:admin'])-
 
     Route::post('stores/{store}/approve', [AdminVendorController::class, 'approveStore']);
     Route::post('stores/{store}/reject', [AdminVendorController::class, 'rejectStore']);
+});
+
+Route::prefix('v1/admin/marketplace/tiers')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
+    Route::get('assignments', [AdminSellerTierController::class, 'assignments']);
+    Route::get('/', [AdminSellerTierController::class, 'index']);
+    Route::post('/', [AdminSellerTierController::class, 'store']);
+    Route::post('vendors/{vendor}/assign', [AdminSellerTierController::class, 'assign']);
+    Route::put('{tier}', [AdminSellerTierController::class, 'update']);
+    Route::delete('{tier}', [AdminSellerTierController::class, 'destroy']);
 });

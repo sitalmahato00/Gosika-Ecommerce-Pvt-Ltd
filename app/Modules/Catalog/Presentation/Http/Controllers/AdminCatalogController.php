@@ -39,7 +39,19 @@ class AdminCatalogController extends Controller
         $query = Product::query()
             ->with(['vendor', 'store', 'category', 'brand', 'variants', 'images'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
-            ->when($request->filled('vendor_id'), fn ($q) => $q->where('vendor_id', $request->vendor_id))
+            ->when($request->filled('vendor_id'), function ($q) use ($request) {
+                $vendorId = $request->vendor_id;
+
+                if (! ctype_digit((string) $vendorId)) {
+                    $vendorId = \App\Modules\Vendor\Infrastructure\Models\Vendor::query()
+                        ->where('uuid', $vendorId)
+                        ->value('id');
+                }
+
+                if ($vendorId) {
+                    $q->where('vendor_id', $vendorId);
+                }
+            })
             ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->category_id))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $term = '%'.$request->search.'%';

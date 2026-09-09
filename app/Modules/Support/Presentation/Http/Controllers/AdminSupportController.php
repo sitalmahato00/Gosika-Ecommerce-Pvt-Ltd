@@ -27,7 +27,9 @@ class AdminSupportController extends Controller
     public function index(Request $request): JsonResponse
     {
         $tickets = SupportTicket::query()
-            ->with(['user', 'assignee'])
+            ->with(['user', 'assignee', 'vendor'])
+            ->when($request->input('channel') === 'vendor', fn ($q) => $q->whereNotNull('vendor_id'))
+            ->when($request->input('channel') === 'customer', fn ($q) => $q->whereNull('vendor_id'))
             ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->input('priority'), fn ($q, $s) => $q->where('priority', $s))
             ->when($request->input('search'), function ($q, $search) {
@@ -55,7 +57,7 @@ class AdminSupportController extends Controller
     public function show(string $ticketId): JsonResponse
     {
         $ticket = SupportTicket::query()
-            ->with(['user', 'assignee', 'order', 'messages.sender'])
+            ->with(['user', 'assignee', 'order', 'vendor', 'messages.sender'])
             ->where('uuid', $ticketId)
             ->firstOrFail();
 

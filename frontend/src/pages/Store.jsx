@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { MapPin, BadgeCheck, Store as StoreIcon } from 'lucide-react'
+import { MapPin, Mail, Phone, Clock, BadgeCheck, Store as StoreIcon, Calendar } from 'lucide-react'
 import api from '../api/client'
 import ProductCard from '../components/commerce/ProductCard'
 import ProductQuickView from '../components/commerce/ProductQuickView'
@@ -10,7 +10,7 @@ import ErrorState from '../components/ui/ErrorState'
 import EmptyState from '../components/ui/EmptyState'
 import Pagination from '../components/ui/Pagination'
 import { useList } from '../hooks/useApi'
-import { apiImage, errorMessage, getStoreImage, getStoreBanner } from '../utils/format'
+import { apiImage, errorMessage, getStoreImage, getStoreBanner, formatDate } from '../utils/format'
 
 export default function Store() {
   const { id } = useParams()
@@ -85,10 +85,55 @@ export default function Store() {
               {store.location && (
                 <span className="muted flex items-center gap-1"><MapPin size={13} /> {store.location}</span>
               )}
+              {store.member_since && (
+                <span className="muted flex items-center gap-1"><Calendar size={13} /> Member since {formatDate(store.member_since)}</span>
+              )}
             </div>
             {store.description && <p className="muted mt-2" style={{ maxWidth: 720 }}>{store.description}</p>}
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16, padding: '18px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>Contact & Location</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+            {store.contact_email && (
+              <span className="muted flex items-center gap-1.5" style={{ wordBreak: 'break-all' }}>
+                <Mail size={13} style={{ flexShrink: 0 }} /> {store.contact_email}
+              </span>
+            )}
+            {store.contact_phone && (
+              <span className="muted flex items-center gap-1.5"><Phone size={13} /> {store.contact_phone}</span>
+            )}
+            {store.location && (
+              <span className="muted flex items-start gap-1.5">
+                <MapPin size={13} style={{ marginTop: 2, flexShrink: 0 }} />
+                <span>
+                  {store.address?.address_line_1}
+                  {store.address?.address_line_2 ? `, ${store.address.address_line_2}` : ''}
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
+        {Array.isArray(store.operating_hours) && store.operating_hours.length > 0 && (
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>Operating Hours</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12.5 }}>
+              {store.operating_hours.map((h) => (
+                <div key={h.day_of_week} className="flex justify-between" style={{ color: 'var(--muted)' }}>
+                  <span className="flex items-center gap-1.5">
+                    <Clock size={12} /> {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][h.day_of_week] || 'Day'}
+                  </span>
+                  <span style={{ fontWeight: 700, color: h.is_closed ? '#dc2626' : 'var(--ink)' }}>
+                    {h.is_closed ? 'Closed' : `${h.opens_at?.slice(0, 5) || '—'} – ${h.closes_at?.slice(0, 5) || '—'}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-3 mt-3">

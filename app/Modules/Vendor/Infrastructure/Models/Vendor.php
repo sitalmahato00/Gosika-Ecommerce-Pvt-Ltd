@@ -22,6 +22,7 @@ class Vendor extends BaseModel
         'logo',
         'status',
         'commission_rate',
+        'seller_tier_id',
         'rejection_reason',
         'meta',
         'approved_by',
@@ -61,6 +62,11 @@ class Vendor extends BaseModel
     public function bankAccounts(): HasMany
     {
         return $this->hasMany(BankAccount::class);
+    }
+
+    public function sellerTier(): BelongsTo
+    {
+        return $this->belongsTo(SellerTier::class, 'seller_tier_id');
     }
 
     public function wallet()
