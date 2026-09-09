@@ -11,6 +11,9 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { formatDateTime, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 const TARGET_OPTIONS = [
   { value: 'all', label: 'All Platform Users' },
@@ -35,6 +38,8 @@ const emptyForm = () => ({
 })
 
 export default function AdminNotifications() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [targetFilter, setTargetFilter] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -94,15 +99,25 @@ export default function AdminNotifications() {
         l.message,
       ]),
     ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `gosika_notifications_ledger_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Notification ledger exported to CSV')
+    exportReportFromRows({
+      columns: [
+        { label: 'Broadcast Headline' },
+        { label: 'Target Type' },
+        { label: 'Channel' },
+        { label: 'Reach', align: 'right' },
+        { label: 'Status' },
+        { label: 'Dispatched At' },
+        { label: 'Message Content' },
+      ],
+      rows: rows.slice(1),
+      title: 'Noticeboard & Announcements Report',
+      subtitle: 'Broadcast announcements with target audiences, delivery channels and reach metrics.',
+      sectionLabel: 'Noticeboard Ledger',
+      fileName: `gosika_notifications_ledger_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Notification ledger exported as branded report.')
   }
 
   const totalReach = items.reduce((sum, l) => sum + (Number(l.reach) || 0), 0)

@@ -13,6 +13,9 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { money, formatDate, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 const STATUS_TABS = [
   { value: '', label: 'All Coupons' },
@@ -60,6 +63,8 @@ const discountLabel = (c) =>
   c.discount_type === 'percentage' ? `${Number(c.discount_value) || 0}%` : money(c.discount_value)
 
 export default function AdminCoupons() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [statusFilter, setStatusFilter] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -164,9 +169,21 @@ export default function AdminCoupons() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Coupon Code', 'Name', 'Description', 'Discount Type', 'Discount Value', 'Min Order (NPR)', 'Max Cap (NPR)', 'Usage Limit', 'Valid From', 'Valid Until', 'Status'],
-      ...items.map((c) => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Coupon Code' },
+        { label: 'Name' },
+        { label: 'Description' },
+        { label: 'Discount Type' },
+        { label: 'Discount Value', align: 'right' },
+        { label: 'Min Order (NPR)', align: 'right' },
+        { label: 'Max Cap (NPR)', align: 'right' },
+        { label: 'Usage Limit', align: 'right' },
+        { label: 'Valid From' },
+        { label: 'Valid Until' },
+        { label: 'Status' },
+      ],
+      rows: items.map((c) => [
         c.code,
         c.name || '',
         c.description || '',
@@ -179,16 +196,14 @@ export default function AdminCoupons() {
         c.valid_until || '',
         deriveStatus(c),
       ]),
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `gosika_coupons_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Coupons ledger exported to CSV')
+      title: 'Coupon & Voucher Report',
+      subtitle: 'Active and inactive coupon codes, discount rules and validity windows across the marketplace.',
+      sectionLabel: 'Coupon Ledger',
+      fileName: `gosika_coupons_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Coupon ledger exported as branded report.')
   }
 
   return (

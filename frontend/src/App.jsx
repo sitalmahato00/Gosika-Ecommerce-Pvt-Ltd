@@ -4,7 +4,8 @@ import CustomerFooter from './components/layout/CustomerFooter'
 import CustomerBottomNav from './components/layout/CustomerBottomNav'
 import DashboardLayout from './components/layout/DashboardLayout'
 import { AuthRoute, GuestRoute, VendorRoute, AdminRoute, DeliveryRoute } from './components/layout/RouteGuards'
-import { VENDOR_NAV, ADMIN_NAV, VENDOR_MOBILE_NAV, ADMIN_MOBILE_NAV } from './utils/constants'
+import { VENDOR_NAV, ADMIN_NAV, VENDOR_MOBILE_NAV, ADMIN_MOBILE_NAV, CUSTOMER_NAV, CUSTOMER_MOBILE_NAV } from './utils/constants'
+import SectionPage from './components/admin/SectionPage'
 
 import Home from './pages/Home'
 import Shop from './pages/Shop'
@@ -31,13 +32,12 @@ import BrandPage from './pages/Public/BrandPage'
 import DealsPage from './pages/Public/DealsPage'
 import SearchPage from './pages/Public/SearchPage'
 
-import AccountLayout from './pages/account/AccountLayout'
-import AccountDashboard from './pages/account/AccountDashboard'
 import AccountProfile from './pages/account/AccountProfile'
 import AccountAddresses from './pages/account/AccountAddresses'
 import AccountPayments from './pages/account/AccountPayments'
 import AccountReturns from './pages/account/Returns'
 import AccountSupport from './pages/account/AccountSupport'
+import CustomerDashboard from './pages/account/CustomerDashboard'
 
 import VendorRegister from './pages/vendor/VendorRegister'
 import VendorDashboard from './pages/vendor/VendorDashboard'
@@ -72,6 +72,7 @@ import VendorSecurity from './pages/vendor/Security'
 
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminOrders from './pages/admin/AdminOrders'
+import AdminOrderSplit from './pages/admin/AdminOrderSplit'
 import AdminOrderDetail from './pages/admin/AdminOrderDetail'
 import AdminReturns from './pages/admin/AdminReturns'
 import AdminProducts from './pages/admin/AdminProducts'
@@ -100,7 +101,7 @@ import AdminSupport from './pages/admin/AdminSupport'
 import AdminCoupons from './pages/admin/AdminCoupons'
 import AdminPromotions from './pages/admin/AdminPromotions'
 import AdminNotifications from './pages/admin/AdminNotifications'
-import AdminAnalytics from './pages/admin/AdminAnalytics'
+import AdminPerformanceReports from './pages/admin/AdminPerformanceReports'
 import AdminRoles from './pages/admin/AdminRoles'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminAuditLogs from './pages/admin/AdminAuditLogs'
@@ -153,15 +154,6 @@ function CustomerLayout() {
           <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
           <Route path="/social-auth" element={<SocialAuth />} />
           <Route path="/vendor/register" element={<VendorRegister />} />
-          <Route path="/account" element={<AuthRoute><AccountLayout /></AuthRoute>}>
-            <Route index element={<AccountDashboard />} />
-            <Route path="profile" element={<AccountProfile />} />
-            <Route path="addresses" element={<AccountAddresses />} />
-            <Route path="payments" element={<AccountPayments />} />
-            <Route path="returns" element={<AccountReturns />} />
-            <Route path="support" element={<AccountSupport />} />
-            <Route path="orders" element={<Navigate to="/orders" replace />} />
-          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
@@ -175,6 +167,31 @@ export default function App() {
   return (
     <Routes>
       <Route path="/*" element={<CustomerLayout />} />
+
+      {/* Customer / Buyer Portal */}
+      <Route path="/account" element={<AuthRoute><DashboardLayout nav={CUSTOMER_NAV} title="Buyer Portal" roleLabel="Customer" homePath="/account" mobileNav={CUSTOMER_MOBILE_NAV} /></AuthRoute>}>
+        <Route index element={<CustomerDashboard />} />
+        <Route path="orders" element={<Navigate to="/account" replace />} />
+        <Route path="profile" element={<AccountProfile />} />
+        <Route path="orders/active" element={<SectionPage />} />
+        <Route path="returns" element={<AccountReturns />} />
+        <Route path="refunds" element={<SectionPage />} />
+        <Route path="wallet" element={<SectionPage />} />
+        <Route path="payments" element={<AccountPayments />} />
+        <Route path="vouchers" element={<SectionPage />} />
+        <Route path="rewards" element={<SectionPage />} />
+        <Route path="wishlist" element={<SectionPage />} />
+        <Route path="stores" element={<SectionPage />} />
+        <Route path="buy-again" element={<SectionPage />} />
+        <Route path="recent" element={<SectionPage />} />
+        <Route path="reviews" element={<SectionPage />} />
+        <Route path="reviews/pending" element={<SectionPage />} />
+        <Route path="qa" element={<SectionPage />} />
+        <Route path="addresses" element={<AccountAddresses />} />
+        <Route path="security" element={<SectionPage />} />
+        <Route path="support" element={<AccountSupport />} />
+        <Route path="*" element={<SectionPage />} />
+      </Route>
 
       {/* Vendor Portal */}
       <Route path="/vendor" element={<VendorRoute><DashboardLayout nav={VENDOR_NAV} title="Vendor Panel" roleLabel="Vendor" mobileNav={VENDOR_MOBILE_NAV} /></VendorRoute>}>
@@ -209,6 +226,7 @@ export default function App() {
         <Route path="bank-accounts" element={<VendorBankAccounts />} />
         <Route path="brand-requests" element={<VendorBrandRequests />} />
         <Route path="profile" element={<VendorProfile />} />
+        <Route path="*" element={<SectionPage />} />
       </Route>
 
       {/* Admin Panel */}
@@ -229,6 +247,7 @@ export default function App() {
 
         {/* Orders & Service */}
         <Route path="orders" element={<AdminOrders />} />
+        <Route path="orders/split" element={<AdminOrderSplit />} />
         <Route path="orders/:id" element={<AdminOrderDetail />} />
         <Route path="orders/returns" element={<AdminReturns />} />
         <Route path="orders/refunds" element={<AdminRefunds />} />
@@ -255,11 +274,7 @@ export default function App() {
         <Route path="marketing/banners" element={<AdminPromotions />} />
 
         {/* Analytics */}
-        <Route path="analytics" element={<AdminAnalytics />} />
-        <Route path="analytics/sales" element={<AdminAnalytics />} />
-        <Route path="analytics/vendors" element={<AdminAnalytics />} />
-        <Route path="analytics/customers" element={<AdminAnalytics />} />
-        <Route path="analytics/products" element={<AdminAnalytics />} />
+        <Route path="analytics/reports" element={<AdminPerformanceReports />} />
 
         {/* System & Security */}
         <Route path="system/notifications" element={<AdminNotifications />} />
@@ -299,6 +314,7 @@ export default function App() {
         <Route path="audit-logs" element={<Navigate to="/admin/system/audit-logs" replace />} />
         <Route path="settings" element={<Navigate to="/admin/system/settings" replace />} />
         <Route path="notifications" element={<Navigate to="/admin/system/notifications" replace />} />
+        <Route path="*" element={<SectionPage />} />
       </Route>
 
       {/* Delivery Partner Portal */}
@@ -319,6 +335,7 @@ export default function App() {
         <Route path="vehicle" element={<DeliveryVehicle />} />
         <Route path="settings" element={<DeliverySettings />} />
         <Route path="support" element={<DeliverySupport />} />
+        <Route path="*" element={<SectionPage />} />
       </Route>
     </Routes>
   )

@@ -12,6 +12,9 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { formatDate, initials, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 const ROLE_FILTERS = [
   { value: '', label: 'All Users' },
@@ -28,6 +31,8 @@ const STATUS_OPTIONS = [
 ]
 
 export default function AdminUsers() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -89,9 +94,16 @@ export default function AdminUsers() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Name', 'Email', 'Phone', 'Roles', 'Status', 'Created'],
-      ...items.map((u) => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Name' },
+        { label: 'Email' },
+        { label: 'Phone' },
+        { label: 'Roles' },
+        { label: 'Status' },
+        { label: 'Created' },
+      ],
+      rows: items.map((u) => [
         u.full_name || [u.first_name, u.last_name].filter(Boolean).join(' '),
         u.email,
         u.phone || '',
@@ -99,16 +111,14 @@ export default function AdminUsers() {
         u.status,
         u.created_at || '',
       ]),
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `gosika_admin_staff_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Admin staff list exported to CSV')
+      title: 'Admin Staff Register Report',
+      subtitle: 'Internal administrative staff, roles and account statuses.',
+      sectionLabel: 'Admin Staff',
+      fileName: `gosika_admin_staff_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Admin staff list exported as branded report.')
   }
 
   return (

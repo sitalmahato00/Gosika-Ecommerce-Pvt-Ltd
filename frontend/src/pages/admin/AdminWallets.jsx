@@ -11,8 +11,13 @@ import FilterBar from '../../components/admin/FilterBar'
 import KpiCard from '../../components/admin/KpiCard'
 import { money, formatDateTime, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 export default function AdminWallets() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [wallets, setWallets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -85,24 +90,29 @@ export default function AdminWallets() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Vendor', 'Total Balance (NPR)', 'Available Balance', 'Pending Balance', 'Currency'],
-      ...wallets.map(w => [
-        `"${w.vendor_name || ''}"`,
+    exportReportFromRows({
+      columns: [
+        { label: 'Vendor' },
+        { label: 'Total Balance (NPR)', align: 'right' },
+        { label: 'Available Balance', align: 'right' },
+        { label: 'Pending Balance', align: 'right' },
+        { label: 'Currency' },
+      ],
+      rows: wallets.map(w => [
+        w.vendor_name || '',
         w.balance || 0,
         w.available_balance || 0,
         w.pending_balance || 0,
         w.currency || 'NPR'
-      ])
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
-    const link = document.createElement('a')
-    link.setAttribute('href', encodeURI(csvContent))
-    link.setAttribute('download', `gosika_vendor_wallets_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Wallets exported to CSV.')
+      ]),
+      title: 'Vendor Wallet Balances Report',
+      subtitle: 'Vendor wallet account balances across total, available and pending funds.',
+      sectionLabel: 'Vendor Wallets',
+      fileName: `gosika_vendor_wallets_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Wallets exported as branded report.')
   }
 
   const columns = [

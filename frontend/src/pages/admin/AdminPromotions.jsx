@@ -13,6 +13,9 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { formatDate, apiImage, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 const STATUS_TABS = [
   { value: '', label: 'All Banners' },
@@ -46,6 +49,8 @@ const statusStyle = (isActive) =>
   isActive ? { bg: '#ecfdf5', color: '#10b981' } : { bg: '#f8fafc', color: '#64748b' }
 
 export default function AdminPromotions() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [statusFilter, setStatusFilter] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -133,9 +138,18 @@ export default function AdminPromotions() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Title', 'Description', 'Position', 'Link', 'Sort Order', 'Starts At', 'Ends At', 'Status'],
-      ...items.map((b) => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Title' },
+        { label: 'Description' },
+        { label: 'Position' },
+        { label: 'Link' },
+        { label: 'Sort Order', align: 'right' },
+        { label: 'Starts At' },
+        { label: 'Ends At' },
+        { label: 'Status' },
+      ],
+      rows: items.map((b) => [
         b.title,
         b.description || '',
         b.position || '',
@@ -145,16 +159,14 @@ export default function AdminPromotions() {
         b.ends_at || '',
         b.is_active ? 'active' : 'inactive',
       ]),
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `gosika_banners_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Banners ledger exported to CSV')
+      title: 'Promotions & Campaign Banners Report',
+      subtitle: 'Marketplace featured banners, seasonal campaign slots and deal promotions.',
+      sectionLabel: 'Banner Ledger',
+      fileName: `gosika_banners_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Banners ledger exported as branded report.')
   }
 
   const activeCount = items.filter((b) => b.is_active).length

@@ -475,6 +475,23 @@ export default function DashboardLayout({
                     </>
                   )}
                 </div>
+                <div style={{ padding: '6px 8px' }}>
+                  <div style={{ padding: '6px 10px 8px', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', color: '#94a3b8' }}>SWITCH PORTAL</div>
+                  {[
+                    { label: 'Super Admin', sub: 'Marketplace control', icon: 'LayoutDashboard', to: '/admin' },
+                    { label: 'Merchant Hub', sub: 'Vendor & store ops', icon: 'Store', to: '/vendor' },
+                    { label: 'Logistics & Fleet', sub: 'Dispatch & delivery', icon: 'Truck', to: '/delivery' },
+                    { label: 'Buyer Portal', sub: 'Shop & account hub', icon: 'User', to: '/account' },
+                  ].map((p) => {
+                    const PortalIcon = Icons[p.icon]
+                    const activePortal = location.pathname.startsWith(p.to)
+                    return (
+                      <Link key={p.to} to={p.to} className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <PortalIcon size={15} color={activePortal ? '#ff5500' : '#94a3b8'} /> {p.label}
+                      </Link>
+                    )
+                  })}
+                </div>
                 <div style={{ padding: '6px 8px', borderTop: '1px solid var(--border)' }}>
                   <button
                     type="button"

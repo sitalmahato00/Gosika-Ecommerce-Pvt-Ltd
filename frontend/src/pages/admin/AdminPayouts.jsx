@@ -12,8 +12,13 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { money, formatDateTime, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 export default function AdminPayouts() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [payouts, setPayouts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -97,26 +102,33 @@ export default function AdminPayouts() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Payout #', 'Vendor', 'Bank Name', 'Account #', 'Amount', 'Status', 'Requested At'],
-      ...payouts.map(p => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Payout #' },
+        { label: 'Vendor' },
+        { label: 'Bank Name' },
+        { label: 'Account #' },
+        { label: 'Amount', align: 'right' },
+        { label: 'Status' },
+        { label: 'Requested At' },
+      ],
+      rows: payouts.map(p => [
         p.payout_number || p.id,
-        `"${p.vendor_name || p.vendor?.company_name || ''}"`,
+        p.vendor_name || p.vendor?.company_name || '',
         p.bank_account?.bank_name || 'Bank Transfer',
         p.bank_account?.account_number || '',
         p.amount || 0,
         p.status || '',
         formatDateTime(p.created_at || p.requested_at)
-      ])
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
-    const link = document.createElement('a')
-    link.setAttribute('href', encodeURI(csvContent))
-    link.setAttribute('download', `gosika_payouts_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Payouts exported to CSV.')
+      ]),
+      title: 'Vendor Payouts Report',
+      subtitle: 'Bank transfer payouts processed to merchant vendors with remittance details.',
+      sectionLabel: 'Payout Ledger',
+      fileName: `gosika_payouts_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Payouts exported as branded report.')
   }
 
   const columns = [

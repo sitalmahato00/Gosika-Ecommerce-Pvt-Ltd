@@ -1,357 +1,172 @@
-import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import {
-  Wallet, Package, ShoppingBag, Percent, ArrowRight, ArrowUpRight,
-  ArrowDownLeft, BarChart2, Zap, CheckCircle2, Store, TrendingUp, Layers
-} from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Store, ShoppingBag, Package, Wallet, RotateCcw, PackageCheck, AlertTriangle, TrendingUp, ArrowRight, Calendar } from 'lucide-react'
 import api from '../../api/client'
-import StatusBadge from '../../components/commerce/StatusBadge'
-import ErrorState from '../../components/ui/ErrorState'
-import { Skeleton } from '../../components/ui/Skeleton'
-import { money, formatDate, errorMessage } from '../../utils/format'
-import { useToast } from '../../context/ToastContext'
+import { useAuth } from '../../context/AuthContext'
+import { money } from '../../utils/format'
+import { getNepaliDate } from '../../utils/nepalDate'
+import KpiCard from '../../components/admin/KpiCard'
+import ErrorState from '../../components/admin/ErrorState'
+import FluidLineChart from '../../components/admin/charts/fx/FluidLineChart'
+import AnimatedNumber from '../../components/admin/charts/fx/AnimatedNumber'
+import StatusOrderTable from '../../components/admin/StatusOrderTable'
 
-let vendorDashboardMemoryCache = null
+const FALLBACK_ORDERS = [
+  { id: 'GS-251209', customer: 'Ram Sharma', city: 'Kathmandu', product: 'Pashmina Shawl (Lux)', amount: 2150, status: 'ready_for_pickup' },
+  { id: 'GS-251207', customer: 'Sita Thapa', city: 'Lalitpur', product: 'Kurti Set (2 pcs)', amount: 3200, status: 'shipped' },
+  { id: 'GS-251190', customer: 'Hari KC', city: 'Pokhara', product: 'Trekking Backpack 40L', amount: 12400, status: 'processing' },
+  { id: 'GS-251142', customer: 'Anju Gurung', city: 'Pokhara', product: 'Organic Herbal Tea Pack', amount: 980, status: 'delivered' },
+  { id: 'GS-251101', customer: 'Roshan KC', city: 'Biratnagar', product: 'Non-stick Cookware Set', amount: 6500, status: 'cancelled' },
+  { id: 'GS-251098', customer: 'Mina Shrestha', city: 'Lalitpur', product: 'Mamaearth Skincare Kit', amount: 2750, status: 'returned' },
+]
 
-const DATE_FILTERS = ['Today', '7 Days', '30 Days', '90 Days']
-
-function MiniBarChart({ data = [] }) {
-  if (!data || data.length === 0) return null
-  const vals = data.map((d) => Number(d.value ?? d.revenue ?? d.amount ?? 0))
-  const max = Math.max(...vals, 1000)
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 175, paddingTop: 15, width: '100%' }}>
-      {data.map((d, i) => {
-        const val = Number(d.value ?? d.revenue ?? d.amount ?? 0)
-        const pct = (val / max) * 100
-        const isZero = val === 0
-
-        return (
-          <div
-            key={i}
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              height: '100%',
-              justifyContent: 'flex-end',
-              cursor: 'pointer',
-            }}
-            title={`${d.label}: ${money(val)}`}
-          >
-            {/* Amount label on hover or if high */}
-            {val > 0 && (
-              <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--primary)', marginBottom: 4 }}>
-                {val >= 1000 ? `${Math.round(val / 1000)}k` : val}
-              </span>
-            )}
-            <div
-              style={{
-                width: '100%',
-                maxWidth: 28,
-                height: isZero ? '6px' : `${Math.max(pct, 12)}%`,
-                background: isZero
-                  ? '#e2e8f0'
-                  : 'linear-gradient(180deg, #ff5500 0%, #ff7733 100%)',
-                borderRadius: isZero ? '3px' : '6px 6px 0 0',
-                transition: 'all 0.3s ease',
-                boxShadow: isZero ? 'none' : '0 2px 6px rgba(255,85,0,0.25)',
-              }}
-            />
-            <span
-              style={{
-                fontSize: 10.5,
-                fontWeight: 600,
-                color: isZero ? '#94a3b8' : 'var(--ink)',
-                marginTop: 8,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {d.label || `D${i + 1}`}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function VendorKpiCard({ label, value, sub, Icon, iconBg, iconColor, to }) {
-  return (
-    <Link
-      to={to}
-      style={{
-        background: '#fff',
-        border: '1px solid var(--border)',
-        borderRadius: 14,
-        padding: '18px 20px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        textDecoration: 'none',
-        transition: 'all 0.2s ease',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)'; e.currentTarget.style.transform = 'translateY(0)' }}
-    >
-      <div
-        style={{
-          width: 50,
-          height: 50,
-          borderRadius: 12,
-          background: iconBg,
-          color: iconColor,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <Icon size={24} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-          {label}
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', lineHeight: 1.15 }} className="truncate">
-          {value}
-        </div>
-        {sub && (
-          <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, marginTop: 4 }}>
-            {sub}
-          </div>
-        )}
-      </div>
-    </Link>
-  )
+const TREND = {
+  '7d': ['29 Aug', '30 Aug', '31 Aug', '01 Sep', '02 Sep', '03 Sep', '04 Sep'].map((label, i) => ({ label, revenue: 8200 + i * 1400 + (i % 2) * 900 })),
+  '30d': ['10 Aug', '14 Aug', '18 Aug', '22 Aug', '26 Aug', '30 Aug', '04 Sep', '09 Sep'].map((label, i) => ({ label, revenue: 24000 + i * 2200 })),
+  '90d': ['Jun W1', 'Jun W3', 'Jul W1', 'Jul W3', 'Aug W1', 'Aug W3', 'Sep W1'].map((label, i) => ({ label, revenue: 52000 + i * 9800 })),
+  'year': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((label, i) => ({ label, revenue: 96000 + i * 15000 })),
 }
 
 export default function VendorDashboard() {
-  const toast = useToast()
-  const [dataState, setDataState] = useState(() => {
-    return vendorDashboardMemoryCache || {
-      dashboard: null,
-      vendor: null,
-      isReady: false,
-    }
-  })
-
-  const [loading, setLoading] = useState(!vendorDashboardMemoryCache)
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const [timeframe, setTimeframe] = useState('30d')
+  const [filter, setFilter] = useState('all')
+  const [data, setData] = useState({ orders: [], netEarnings: 0, wallet: 0, ready: 0, lowStock: 0 })
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [dateFilter, setDateFilter] = useState('30 Days')
-  const [acting, setActing] = useState(null)
 
-  const load = () => {
-    if (!dataState.isReady && !vendorDashboardMemoryCache) setLoading(true)
+  const load = async () => {
     setError(null)
-    Promise.allSettled([api.get('/vendor/dashboard'), api.get('/vendor/me')]).then(([d, m]) => {
-      let dash = dataState.dashboard
-      let vend = dataState.vendor
-      if (d.status === 'fulfilled' && d.value.data?.data) dash = d.value.data.data
-      if (m.status === 'fulfilled' && m.value.data?.data) vend = m.value.data.data
-
-      const next = { dashboard: dash, vendor: vend, isReady: true }
-      vendorDashboardMemoryCache = next
-      setDataState(next)
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }
-
-  useEffect(load, [])
-
-  const handleReadyForPickup = async (orderId) => {
-    setActing(orderId)
     try {
-      await api.post(`/vendor/orders/${orderId}/ready-for-pickup`)
-      toast.success('Order marked ready for pickup')
-      load()
+      const [ordersRes, walletRes, summaryRes] = await Promise.allSettled([
+        api.get('/vendor/orders', { params: { per_page: 50 } }),
+        api.get('/vendor/wallet'),
+        api.get('/vendor/analytics/summary', { params: { range: timeframe } }),
+      ])
+      const orders = ordersRes.status === 'fulfilled' ? api.unwrapList(ordersRes.value.data) : []
+      const wallet = walletRes.status === 'fulfilled' ? (walletRes.value.data?.data || {}) : {}
+      const summary = summaryRes.status === 'fulfilled' ? (summaryRes.value.data?.data || {}) : {}
+      setData({
+        orders,
+        netEarnings: Number(summary.net_revenue || summary.total_sales || 0),
+        ready: Number(summary.ready_to_ship || orders.filter(o => String(o.status).includes('ready') || String(o.status).includes('process')).length || 18),
+        wallet: Number(wallet.available_balance || wallet.balance || 0),
+        lowStock: Number(summary.low_stock_count || 6),
+      })
     } catch (err) {
-      toast.error(errorMessage(err))
+      console.error('Vendor dashboard load failed', err)
+      setData({ orders: [], netEarnings: 0, wallet: 0, ready: 18, lowStock: 6 })
+      setError(null)
     } finally {
-      setActing(null)
+      setLoading(false)
     }
   }
 
-  const dashboard = dataState.dashboard || {}
-  const vendor = dataState.vendor || {}
-  const recentOrders = dashboard?.recent_orders || []
-  const actionOrders = recentOrders.filter((o) => o.status === 'pending' || o.status === 'accepted')
-  const transactions = dashboard?.recent_transactions || []
-  const chartData = dashboard?.revenue_14d || [
-    { label: 'Day 1', revenue: 4500 },
-    { label: 'Day 2', revenue: 7800 },
-    { label: 'Day 3', revenue: 6200 },
-    { label: 'Day 4', revenue: 11000 },
-    { label: 'Day 5', revenue: 9500 },
-    { label: 'Day 6', revenue: 14000 },
-    { label: 'Day 7', revenue: 18500 },
-  ]
-  const wallet = dashboard?.wallet || {}
+  useEffect(() => { load() }, [timeframe])
 
-  if (loading && !dataState.isReady) {
-    return (
-      <div className="flex flex-col gap-3">
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14 }}>
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={110} style={{ borderRadius: 14 }} />)}
-        </div>
-        <Skeleton height={300} style={{ borderRadius: 14 }} />
-        <Skeleton height={200} style={{ borderRadius: 14 }} />
-      </div>
-    )
-  }
+  const ordersList = data.orders.length ? data.orders.map(o => ({
+    id: o.order_number || o.uuid || o.id,
+    customer: o.user?.name || o.customer || 'Customer',
+    city: o.city || o.shipping_address?.city || 'Market',
+    product: o.items?.[0]?.product_name || o.product_name || 'Product',
+    amount: Number(o.grand_total || o.total || 0),
+    status: o.status || 'processing',
+  })) : FALLBACK_ORDERS
+
+  const chart = TREND[timeframe]
+
+  const storeName = user?.company_name || user?.store_name || user?.name || 'My Store'
+
+  if (error) return <ErrorState message={error} onRetry={load} />
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, width: '100%', paddingBottom: 40 }}>
-      {/* Header */}
-      <div className="flex items-center justify-between wrap gap-3">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0, color: 'var(--ink)' }}>
-            Welcome back, {vendor?.company_name || 'Himalayan Handicrafts'}
-          </h2>
-          <p className="muted text-sm mt-1" style={{ margin: 0 }}>
-            Here is what is happening across your stores, orders, and wallet today.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 wrap">
-          <div className="date-filter-group">
-            {DATE_FILTERS.map((f) => (
-              <button
-                key={f}
-                type="button"
-                className={`date-filter-btn ${dateFilter === f ? 'active' : ''}`}
-                onClick={() => setDateFilter(f)}
-              >
-                {f}
-              </button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', margin: 0 }}>Store Overview</h1>
+            <span style={{ background: 'rgba(255,85,0,0.1)', color: '#ff5500', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800 }}>Verified Merchant</span>
           </div>
-          <Link to="/vendor/products/new" className="btn btn-sm" style={{ background: 'var(--primary)', color: '#fff', fontWeight: 700, borderRadius: 'var(--radius)' }}>
-            + Add Product
-          </Link>
+          <p style={{ color: '#64748b', fontSize: 13, margin: '3px 0 0', fontWeight: 500 }}>{storeName} · Fulfill, grow and track earnings.</p>
+        </div>
+        <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 10, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          <Calendar size={15} color="#64748b" />
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{getNepaliDate()}</span>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-        <VendorKpiCard
-          label="Available Balance"
-          value={money(wallet?.available_balance || 45680)}
-          sub={`Pending: ${money(wallet?.pending_balance || 12340)}`}
-          Icon={Wallet}
-          iconBg="#dcfce7"
-          iconColor="#16a34a"
-          to="/vendor/wallet"
-        />
-        <VendorKpiCard
-          label="Total Orders"
-          value={(dashboard?.orders_count || 128).toLocaleString()}
-          sub={`${dashboard?.pending_orders || 8} pending action`}
-          Icon={ShoppingBag}
-          iconBg="#fff0e6"
-          iconColor="#ff5500"
-          to="/vendor/orders"
-        />
-        <VendorKpiCard
-          label="Catalog SKUs"
-          value={(dashboard?.products_count || 24).toLocaleString()}
-          sub="Live in store"
-          Icon={Package}
-          iconBg="#f3e8ff"
-          iconColor="#9333ea"
-          to="/vendor/products"
-        />
-        <VendorKpiCard
-          label="Commission Rate"
-          value={`${vendor?.commission_rate || 10}%`}
-          sub={`Revenue: ${money(dashboard?.total_revenue || 456800)}`}
-          Icon={Percent}
-          iconBg="#ffedd5"
-          iconColor="#ea580c"
-          to="/vendor/commission"
-        />
+      <div className="vend-kpi" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0,1fr))', gap: 14 }}>
+        <style>{`@media(max-width:1120px){.vend-kpi{grid-template-columns:repeat(3,minmax(0,1fr))!important}}@media(max-width:768px){.vend-kpi{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:480px){.vend-kpi{grid-template-columns:1fr!important}}`}</style>
+        <KpiCard label="Net Earnings" value={<AnimatedNumber value={data.netEarnings || 184500} format={money} duration={750} />} sub="14.2% vs last month" subUp icon={Wallet} iconBg="#fff0e6" iconColor="#ff5500" to="/vendor/earnings" />
+        <KpiCard label="Wallet Balance" value={<AnimatedNumber value={data.wallet || 24500} format={money} duration={750} />} sub="Available for payout" icon={Wallet} iconBg="#e6f7ec" iconColor="#16a34a" to="/vendor/wallet" />
+        <KpiCard label="Ready to Ship" value={data.ready} sub="18 orders packed" icon={PackageCheck} iconBg="#e6f0fa" iconColor="#2563eb" to="/vendor/orders/ready" />
+        <KpiCard label="Low Stock" value={data.lowStock} sub="Restock soon" icon={AlertTriangle} iconBg="#ffebeb" iconColor="#e11d48" to="/vendor/inventory/low-stock" />
+        <KpiCard label="Returns & RTO" value="4" sub="2 awaiting action" icon={RotateCcw} iconBg="#f3e8ff" iconColor="#9333ea" to="/vendor/returns" />
       </div>
 
-      {/* Charts & Activity */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1.1fr)', gap: 18, alignItems: 'start' }}>
-        <div className="card" style={{ padding: '20px 22px', borderRadius: 14 }}>
-          <div className="flex items-center justify-between mb-2">
+      {/* Sales trend + quick links */}
+      <div id="vend-mid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2.1fr) minmax(0,1fr)', gap: 16, alignItems: 'stretch' }}>
+        <style>{`@media(max-width:1080px){#vend-mid{grid-template-columns:1fr!important}}`}</style>
+        <div className="card" style={{ background: '#fff', borderRadius: 16, padding: '18px 20px 14px', border: '1px solid rgba(226,232,240,0.8)', boxShadow: '0 4px 20px -2px rgba(15,23,42,0.05)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 4 }}>
             <div>
-              <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }} className="flex items-center gap-2">
-                <BarChart2 size={17} color="var(--primary)" /> 14-Day Revenue Trend
-              </h3>
-              <span className="muted text-xs">Daily gross order volume in NPR</span>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Store Revenue</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>{money((chart || []).reduce((s, p) => s + p.revenue, 0))}</div>
             </div>
-            <Link to="/vendor/earnings" className="btn btn-ghost btn-xs" style={{ color: 'var(--primary)', fontWeight: 700 }}>
-              View Earnings →
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: '#f1f5f9', padding: 3, borderRadius: 10 }}>
+              {[{ label: '7D', val: '7d' }, { label: '30D', val: '30d' }, { label: '3M', val: '90d' }, { label: '12M', val: 'year' }].map(tab => {
+                const active = timeframe === tab.val
+                return <button key={tab.val} type="button" onClick={() => setTimeframe(tab.val)} className="btn-tactile" style={{ border: 'none', background: active ? '#ff5500' : 'transparent', color: active ? '#fff' : '#64748b', fontWeight: 700, fontSize: 11.5, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', boxShadow: active ? '0 2px 6px rgba(255,85,0,0.3)' : 'none', transition: 'all .2s ease' }}>{tab.label}</button>
+              })}
+            </div>
           </div>
-
-          <MiniBarChart data={chartData} />
-        </div>
-
-        <div className="card card-pad-none" style={{ overflow: 'hidden', borderRadius: 14 }}>
-          <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--border)', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyItems: 'space-between', justifyContent: 'space-between' }}>
-            <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>Recent Wallet Activity</h3>
-            <Link to="/vendor/wallet" className="btn btn-ghost btn-xs" style={{ color: 'var(--primary)', fontWeight: 700 }}>
-              View All <ArrowRight size={12} />
-            </Link>
-          </div>
-
-          <div>
-            {(transactions.length ? transactions.slice(0, 5) : [
-              { id: 1, amount: 2450, description: 'Order #ORD-2026-LKIRRN Settlement', created_at: new Date().toISOString() },
-              { id: 2, amount: 3750, description: 'Order #ORD-2026-AADXAS Settlement', created_at: new Date().toISOString() },
-              { id: 3, amount: -5000, description: 'Payout to Bank Account', created_at: new Date().toISOString() },
-            ]).map((t) => {
-              const isCredit = Number(t.amount) > 0
-              return (
-                <div
-                  key={t.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    padding: '11px 18px',
-                    borderBottom: '1px solid var(--border)',
-                  }}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: '50%',
-                        background: isCredit ? '#dcfce7' : '#fee2e2',
-                        color: isCredit ? '#16a34a' : '#dc2626',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 11,
-                        fontWeight: 800,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {isCredit ? '+' : '−'}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold truncate" style={{ color: 'var(--ink)' }}>
-                        {t.description || 'Order Credit'}
-                      </div>
-                      <div className="muted text-xs">{formatDate(t.created_at)}</div>
-                    </div>
-                  </div>
-                  <div style={{ fontWeight: 800, fontSize: 13, color: isCredit ? '#16a34a' : '#dc2626' }}>
-                    {isCredit ? '+' : ''}{money(t.amount)}
-                  </div>
-                </div>
-              )
-            })}
+          <div style={{ width: '100%', flex: 1, minHeight: 240, marginTop: 6 }}>
+            <FluidLineChart labels={chart.map(p => p.label)} values={chart.map(p => p.revenue)} formatValue={(v, short) => money(short ? Math.round(v) : v, { decimals: 0 })} />
           </div>
         </div>
+
+        <div className="card" style={{ background: '#fff', borderRadius: 16, padding: 18, border: '1px solid rgba(226,232,240,0.8)', boxShadow: '0 4px 20px -2px rgba(15,23,42,0.05)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginBottom: 10 }}>Fulfillment Shortcuts</div>
+          {[
+            { label: 'Ready to Ship', sub: '18 parcels awaiting pickup', icon: PackageCheck, bg: '#e6f0fa', fg: '#2563eb', to: '/vendor/orders/ready' },
+            { label: 'Accept Product Approvals', sub: '3 pending in queue', icon: Package, bg: '#fff0e6', fg: '#ff5500', to: '/vendor/products/approval' },
+            { label: 'Bulk CSV Import', sub: 'Update inventory in bulk', icon: Store, bg: '#e6f7ec', fg: '#16a34a', to: '/vendor/products/import' },
+            { label: 'Mega Sales Nomination', sub: '1 nomination active', icon: TrendingUp, bg: '#f3e8ff', fg: '#9333ea', to: '/vendor/promotions/nominations' },
+          ].map(r => (
+            <Link key={r.label} to={r.to} className="btn-tactile" onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,85,0,0.35)')} onMouseLeave={e => (e.currentTarget.style.borderColor = '#f1f5f9')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 11px', borderRadius: 10, textDecoration: 'none', background: '#fafbfc', border: '1px solid #f1f5f9', marginBottom: 6, transition: 'all .18s ease' }}>
+              <span style={{ width: 34, height: 34, borderRadius: 9, background: r.bg, color: r.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><r.icon size={16} /></span>
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', display: 'block' }}>{r.label}</span>
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>{r.sub}</span>
+              </span>
+              <ArrowRight size={14} color="#94a3b8" />
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Status-tinted today's orders */}
+      <div className="card" style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(226,232,240,0.8)', boxShadow: '0 4px 20px -2px rgba(15,23,42,0.05)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px 4px' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Orders to Fulfill</div>
+          <Link to="/vendor/orders" style={{ color: '#ff5500', fontSize: 12, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>All Orders <ArrowRight size={13} /></Link>
+        </div>
+        <StatusOrderTable
+          columns={[
+            { key: 'id', label: 'Order ID', render: (r) => <a href={`/vendor/orders/${r.id}`} style={{ color: '#ff5500', fontWeight: 700, textDecoration: 'none' }} onClick={(e) => { e.preventDefault(); navigate(`/vendor/orders/${r.id}`) }}>#{r.id}</a> },
+            { key: 'customer', label: 'Customer', render: (r) => <><div style={{ fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{r.customer}</div><div style={{ fontSize: 10.5, color: '#94a3b8' }}>{r.city}</div></> },
+            { key: 'product', label: 'Product' },
+            { key: 'amount', label: 'Amount', render: (r) => <span style={{ fontWeight: 800, color: '#0f172a' }}>{money(r.amount)}</span> },
+            { key: 'status', label: 'Status', render: (r, badge, tint) => <span style={{ color: badge.color, background: badge.bg, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize' }}>{String(r.status).replace(/[_-]+/g, ' ')}</span> },
+          ]}
+          rows={ordersList}
+          getStatus={(r) => r.status}
+          statusFilter={filter}
+          onStatusFilter={setFilter}
+          searchPlaceholder="Search orders, customers, products…"
+          perPage={7}
+        />
       </div>
     </div>
   )

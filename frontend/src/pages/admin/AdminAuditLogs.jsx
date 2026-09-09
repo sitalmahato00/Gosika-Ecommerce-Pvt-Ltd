@@ -8,6 +8,9 @@ import ErrorState from '../../components/ui/ErrorState'
 import Pagination from '../../components/ui/Pagination'
 import { formatDateTime, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 const formatDiff = (v) => {
   if (v == null || v === '') return '—'
@@ -21,6 +24,8 @@ const formatDiff = (v) => {
 
 export default function AdminAuditLogs() {
   const toast = useToast()
+  const { user } = useAuth()
+  const branding = useBranding()
   const [search, setSearch] = useState('')
   const [actionFilter, setActionFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -45,7 +50,39 @@ export default function AdminAuditLogs() {
   const actionOptions = useMemo(() => [...new Set(items.map((l) => l.action).filter(Boolean))].sort(), [items])
 
   const exportLogs = () => {
-    toast.success('Audit security log exported to CSV')
+    if (!items.length) {
+      toast.error('No audit log entries to export.')
+      return
+    }
+    exportReportFromRows({
+      columns: [
+        { label: 'Log ID' },
+        { label: 'Admin User' },
+        { label: 'Action Performed' },
+        { label: 'Target Resource' },
+        { label: 'Previous Value' },
+        { label: 'New Value' },
+        { label: 'IP Address' },
+        { label: 'Timestamp' },
+      ],
+      rows: items.map((l) => [
+        l.id,
+        l.user?.name || 'System',
+        l.action,
+        l.resource_type ? `${l.resource_type}${l.resource_id != null ? ` #${l.resource_id}` : ''}` : '—',
+        formatDiff(l.old_values),
+        formatDiff(l.new_values),
+        l.ip_address || '—',
+        formatDateTime(l.created_at),
+      ]),
+      title: 'Security Audit & Activity Log',
+      subtitle: 'Immutable forensic record of administrative modifications, approvals, payments, and system accesses.',
+      sectionLabel: 'Audit Log',
+      fileName: `gosika_audit_log_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Audit security log exported as branded report.')
   }
 
   if (loading) {

@@ -12,8 +12,13 @@ import StatusBadge from '../../components/commerce/StatusBadge'
 import Timeline from '../../components/admin/Timeline'
 import { money, formatDateTime, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 export default function AdminDeliveries() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [deliveries, setDeliveries] = useState([])
   const [loading, setLoading] = useState(true)
@@ -86,26 +91,33 @@ export default function AdminDeliveries() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Assignment ID', 'Vendor Order #', 'Rider Name', 'Store', 'Customer Name', 'Delivery Status', 'Assigned At'],
-      ...deliveries.map(d => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Assignment ID' },
+        { label: 'Vendor Order #' },
+        { label: 'Rider Name' },
+        { label: 'Store' },
+        { label: 'Customer Name' },
+        { label: 'Delivery Status' },
+        { label: 'Assigned At' },
+      ],
+      rows: deliveries.map(d => [
         d.id,
         d.vendor_order_number || d.vendor_order?.vendor_order_number || '',
-        `"${d.delivery_partner?.name || 'Unassigned'}"`,
-        `"${d.store?.name || ''}"`,
-        `"${d.customer?.full_name || ''}"`,
+        d.delivery_partner?.name || 'Unassigned',
+        d.store?.name || '',
+        d.customer?.full_name || '',
         d.status || '',
         formatDateTime(d.assigned_at || d.created_at)
-      ])
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
-    const link = document.createElement('a')
-    link.setAttribute('href', encodeURI(csvContent))
-    link.setAttribute('download', `gosika_deliveries_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Delivery assignments exported to CSV.')
+      ]),
+      title: 'Delivery Assignments Report',
+      subtitle: 'Fulfilment assignments to riders with per-package delivery status.',
+      sectionLabel: 'Delivery Assignments',
+      fileName: `gosika_deliveries_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Delivery assignments exported as branded report.')
   }
 
   const columns = [

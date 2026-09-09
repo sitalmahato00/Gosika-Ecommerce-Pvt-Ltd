@@ -12,11 +12,16 @@ import FilterBar from '../../components/admin/FilterBar'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { money, formatDateTime, timeAgo } from '../../utils/format'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 
 export default function AdminOrders() {
   const toast = useToast()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const branding = useBranding()
 
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -98,29 +103,41 @@ export default function AdminOrders() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Order #', 'Customer', 'Payment Method', 'Payment Status', 'Fulfillment Status', 'Grand Total', 'Placed Date'],
-      ...orders.map(o => {
-        const customer = o.user?.name || `${o.user?.first_name || ''} ${o.user?.last_name || ''}`.trim() || 'Customer'
-        return [
-          o.order_number || o.id,
-          `"${customer}"`,
-          o.payment_method || 'COD',
-          o.payment_status || 'pending',
-          o.status || 'pending',
-          o.grand_total || o.total || 0,
-          formatDateTime(o.created_at || o.placed_at)
-        ]
-      })
+    const columns = [
+      { label: 'Order #' },
+      { label: 'Customer' },
+      { label: 'Customer Phone' },
+      { label: 'Payment Method' },
+      { label: 'Payment Status' },
+      { label: 'Fulfillment Status' },
+      { label: 'Grand Total', align: 'right' },
+      { label: 'Placed At' },
     ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
-    const link = document.createElement('a')
-    link.setAttribute('href', encodeURI(csvContent))
-    link.setAttribute('download', `gosika_orders_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Orders exported to CSV.')
+    const rows = orders.map((o) => {
+      const customer = o.user?.name || `${o.user?.first_name || ''} ${o.user?.last_name || ''}`.trim() || o.customer?.full_name || 'Customer'
+      return [
+        o.order_number || o.id,
+        customer,
+        o.user?.phone || o.shipping_address_snapshot?.phone || '',
+        o.payment_method || 'COD',
+        o.payment_status || 'pending',
+        o.status || 'pending',
+        money(o.grand_total || o.total || 0),
+        formatDateTime(o.created_at || o.placed_at),
+      ]
+    })
+    exportReportFromRows({
+      columns,
+      rows,
+      title: 'Marketplace Orders Report',
+      subtitle: 'All multi-vendor checkout transactions, fulfilment routing and payment lifecycles.',
+      sectionLabel: 'All Orders',
+      fileName: `gosika_orders_${new Date().toISOString().slice(0, 10)}`,
+      rangeLabel: 'All time',
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Orders exported as branded report.')
   }
 
   const columns = [

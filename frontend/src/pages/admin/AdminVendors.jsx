@@ -12,8 +12,13 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { formatDate, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 export default function AdminVendors() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -102,27 +107,35 @@ export default function AdminVendors() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Vendor ID', 'Company Name', 'Email', 'Phone', 'PAN/VAT', 'Commission Rate (%)', 'Status', 'Registered At'],
-      ...vendors.map((v) => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Vendor ID', align: 'right' },
+        { label: 'Company Name' },
+        { label: 'Email' },
+        { label: 'Phone' },
+        { label: 'PAN/VAT' },
+        { label: 'Commission Rate (%)', align: 'right' },
+        { label: 'Status' },
+        { label: 'Registered At' },
+      ],
+      rows: vendors.map((v) => [
         v.id,
-        `"${v.company_name || ''}"`,
+        v.company_name || '',
         v.business_email || '',
         v.business_phone || '',
         v.pan_vat || '',
         v.commission_rate ?? '',
         v.status || '',
         formatDate(v.created_at),
-      ])
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
-    const link = document.createElement('a')
-    link.setAttribute('href', encodeURI(csvContent))
-    link.setAttribute('download', `gosika_vendors_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Vendors exported to CSV.')
+      ]),
+      title: 'Vendor Register Report',
+      subtitle: 'Merchant vendors registered on the marketplace with compliance and commission details.',
+      sectionLabel: 'Vendor Register',
+      fileName: `gosika_vendors_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Vendors exported as branded report.')
   }
 
   const columns = [

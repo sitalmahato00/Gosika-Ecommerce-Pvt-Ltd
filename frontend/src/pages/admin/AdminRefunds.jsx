@@ -12,8 +12,13 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { money, formatDateTime, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 export default function AdminRefunds() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [refunds, setRefunds] = useState([])
   const [loading, setLoading] = useState(true)
@@ -98,25 +103,31 @@ export default function AdminRefunds() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Refund #', 'Order #', 'Customer', 'Refund Amount', 'Status', 'Date'],
-      ...refunds.map(r => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Refund #' },
+        { label: 'Order #' },
+        { label: 'Customer' },
+        { label: 'Refund Amount', align: 'right' },
+        { label: 'Status' },
+        { label: 'Date' },
+      ],
+      rows: refunds.map(r => [
         r.refund_number || r.id,
         r.order_number || r.order_id || '',
-        `"${r.customer?.full_name || r.user?.name || 'Customer'}"`,
+        r.customer?.full_name || r.user?.name || 'Customer',
         r.amount || 0,
         r.status || '',
         formatDateTime(r.created_at)
-      ])
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
-    const link = document.createElement('a')
-    link.setAttribute('href', encodeURI(csvContent))
-    link.setAttribute('download', `gosika_refunds_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Refunds exported to CSV.')
+      ]),
+      title: 'Refund Requests Report',
+      subtitle: 'Customer refund requests with amounts, statuses and processing dates.',
+      sectionLabel: 'Refund Ledger',
+      fileName: `gosika_refunds_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Refunds exported as branded report.')
   }
 
   const columns = [

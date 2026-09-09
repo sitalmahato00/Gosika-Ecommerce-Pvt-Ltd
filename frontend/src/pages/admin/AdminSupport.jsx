@@ -13,6 +13,9 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { formatDateTime, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 const STATUS_TABS = [
   { value: '', label: 'All' },
@@ -31,6 +34,8 @@ const PRIORITY_OPTIONS = [
 ]
 
 export default function AdminSupport() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [statusFilter, setStatusFilter] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('')
@@ -127,9 +132,16 @@ export default function AdminSupport() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Ticket Number', 'Subject', 'Requester', 'Priority', 'Status', 'Date Created'],
-      ...items.map((t) => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Ticket Number' },
+        { label: 'Subject' },
+        { label: 'Requester' },
+        { label: 'Priority' },
+        { label: 'Status' },
+        { label: 'Date Created' },
+      ],
+      rows: items.map((t) => [
         t.ticket_number,
         t.subject,
         t.customer?.full_name || t.customer?.email || '',
@@ -137,16 +149,14 @@ export default function AdminSupport() {
         t.status,
         t.created_at || '',
       ]),
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `gosika_support_tickets_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Support tickets ledger exported to CSV')
+      title: 'Support Ticket Ledger Report',
+      subtitle: 'Support desk tickets with requester, priority and resolution status.',
+      sectionLabel: 'Support Tickets',
+      fileName: `gosika_support_tickets_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Support tickets ledger exported as branded report.')
   }
 
   const openCount = items.filter((t) => t.status === 'open' || t.status === 'pending').length

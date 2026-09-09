@@ -12,8 +12,13 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { money, formatDateTime, formatDate, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 export default function AdminSettlements() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [settlements, setSettlements] = useState([])
   const [loading, setLoading] = useState(true)
@@ -121,27 +126,35 @@ export default function AdminSettlements() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Settlement #', 'Vendor', 'Period Start', 'Period End', 'Gross Sales', 'Commission', 'Net Payable', 'Status'],
-      ...settlements.map(s => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Settlement #' },
+        { label: 'Vendor' },
+        { label: 'Period Start' },
+        { label: 'Period End' },
+        { label: 'Gross Sales', align: 'right' },
+        { label: 'Commission', align: 'right' },
+        { label: 'Net Payable', align: 'right' },
+        { label: 'Status' },
+      ],
+      rows: settlements.map(s => [
         s.settlement_number || s.id,
-        `"${s.vendor_name || s.vendor?.company_name || ''}"`,
+        s.vendor_name || s.vendor?.company_name || '',
         s.period_start || '',
         s.period_end || '',
         s.gross_sales || 0,
         s.commission_total || 0,
         s.net_payable || 0,
         s.status || ''
-      ])
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
-    const link = document.createElement('a')
-    link.setAttribute('href', encodeURI(csvContent))
-    link.setAttribute('download', `gosika_settlements_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Settlements exported to CSV.')
+      ]),
+      title: 'Vendor Settlements Report',
+      subtitle: 'Periodic settlement statements with gross sales, commission and net payables.',
+      sectionLabel: 'Settlement Ledger',
+      fileName: `gosika_settlements_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Settlements exported as branded report.')
   }
 
   const columns = [

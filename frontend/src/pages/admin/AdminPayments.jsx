@@ -12,8 +12,13 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { money, formatDateTime, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 export default function AdminPayments() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -84,26 +89,33 @@ export default function AdminPayments() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Payment #', 'Order #', 'Customer', 'Gateway Provider', 'Amount', 'Status', 'Date'],
-      ...payments.map(p => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Payment #' },
+        { label: 'Order #' },
+        { label: 'Customer' },
+        { label: 'Gateway Provider' },
+        { label: 'Amount', align: 'right' },
+        { label: 'Status' },
+        { label: 'Date' },
+      ],
+      rows: payments.map(p => [
         p.payment_number || p.id,
         p.order_number || p.order_id || '',
-        `"${p.customer?.full_name || p.user?.name || 'Customer'}"`,
+        p.customer?.full_name || p.user?.name || 'Customer',
         p.provider || p.payment_method || 'COD',
         p.amount || 0,
         p.status || '',
         formatDateTime(p.created_at || p.initiated_at)
-      ])
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
-    const link = document.createElement('a')
-    link.setAttribute('href', encodeURI(csvContent))
-    link.setAttribute('download', `gosika_payments_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Payments exported to CSV.')
+      ]),
+      title: 'Payment Transactions Report',
+      subtitle: 'All captured payment transactions with gateway providers and settlement status.',
+      sectionLabel: 'Payment Ledger',
+      fileName: `gosika_payments_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Payments exported as branded report.')
   }
 
   const columns = [

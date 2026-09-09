@@ -12,8 +12,13 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { money, getProductImage, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 export default function AdminProducts() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -114,11 +119,21 @@ export default function AdminProducts() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Product ID', 'Name', 'SKU', 'Category', 'Store', 'Vendor', 'Price', 'Stock', 'Status'],
-      ...products.map(p => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Product ID', align: 'right' },
+        { label: 'Name' },
+        { label: 'SKU' },
+        { label: 'Category' },
+        { label: 'Store' },
+        { label: 'Vendor' },
+        { label: 'Price', align: 'right' },
+        { label: 'Stock', align: 'right' },
+        { label: 'Status' },
+      ],
+      rows: products.map(p => [
         p.id,
-        `"${p.name || ''}"`,
+        p.name || '',
         p.sku || '',
         p.category?.name || '',
         p.store?.name || '',
@@ -126,16 +141,15 @@ export default function AdminProducts() {
         p.price || 0,
         p.quantity || 0,
         p.status || ''
-      ])
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
-    const link = document.createElement('a')
-    link.setAttribute('href', encodeURI(csvContent))
-    link.setAttribute('download', `gosika_products_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Catalog exported to CSV.')
+      ]),
+      title: 'Product Catalog Report',
+      subtitle: 'Full catalog of listed products with categories, sellers and stock positions.',
+      sectionLabel: 'Catalog',
+      fileName: `gosika_products_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Catalog exported as branded report.')
   }
 
   const columns = [

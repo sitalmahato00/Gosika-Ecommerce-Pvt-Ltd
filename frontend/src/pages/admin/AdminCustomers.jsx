@@ -12,8 +12,13 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { formatDate, formatDateTime, timeAgo, initials } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
 export default function AdminCustomers() {
+  const { user } = useAuth()
+  const branding = useBranding()
   const toast = useToast()
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -101,25 +106,31 @@ export default function AdminCustomers() {
   }
 
   const exportCSV = () => {
-    const rows = [
-      ['Customer ID', 'Full Name', 'Email', 'Phone', 'Status', 'Registered At'],
-      ...customers.map(c => [
+    exportReportFromRows({
+      columns: [
+        { label: 'Customer ID' },
+        { label: 'Full Name' },
+        { label: 'Email' },
+        { label: 'Phone' },
+        { label: 'Status' },
+        { label: 'Registered At' },
+      ],
+      rows: customers.map(c => [
         c.id,
-        `"${c.full_name || c.name || ''}"`,
+        c.full_name || c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Customer',
         c.email || '',
         c.phone || '',
         c.status || '',
         formatDate(c.created_at)
-      ])
-    ]
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n')
-    const link = document.createElement('a')
-    link.setAttribute('href', encodeURI(csvContent))
-    link.setAttribute('download', `gosika_customers_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Customers exported to CSV.')
+      ]),
+      title: 'Customer Register Report',
+      subtitle: 'Registered consumer accounts, contact details and account status across the marketplace.',
+      sectionLabel: 'All Customers',
+      fileName: `gosika_customers_${new Date().toISOString().slice(0, 10)}`,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Customers exported as branded report.')
   }
 
   const columns = [
