@@ -76,12 +76,19 @@ export function BrandingProvider({ children }) {
       } catch {}
       applyBrandingToDOM(merged)
     } catch (err) {
-      // Non-fatal, use fallback
-      applyBrandingToDOM(branding)
+      // Non-fatal: apply whatever is already in state via the functional updater
+      // (avoids closing over `branding` which would add it to deps → infinite loop)
+      setBranding((current) => {
+        applyBrandingToDOM(current)
+        return current
+      })
     } finally {
       setLoading(false)
     }
-  }, [applyBrandingToDOM, branding])
+  // ⚠️  Do NOT add `branding` here — it would recreate fetchBranding on every
+  //     setBranding() call, causing useEffect below to loop infinitely and
+  //     crash the browser tab with "Page Unresponsive".
+  }, [applyBrandingToDOM])
 
   useEffect(() => {
     fetchBranding()

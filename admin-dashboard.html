@@ -131,6 +131,17 @@
             -webkit-backdrop-filter: blur(12px);
         }
 
+        /* Fix sticky header stacking — ensures it sits above content
+           but never swallows pointer events from sibling/child elements */
+        header.sticky {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            /* Isolate stacking context so child elements can't accidentally
+               bleed out and block clicks outside the header */
+            isolation: isolate;
+        }
+
         /* Badge Styles */
         .badge-orange {
             background: linear-gradient(135deg, #FF5B00 0%, #FF7A29 100%);
