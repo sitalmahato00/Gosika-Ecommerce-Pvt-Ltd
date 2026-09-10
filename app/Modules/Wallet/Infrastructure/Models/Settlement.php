@@ -21,6 +21,7 @@ class Settlement extends BaseModel
         'adjustments_total',
         'net_payable',
         'status',
+        'hold_reason',
         'generated_at',
         'paid_at',
         'meta',

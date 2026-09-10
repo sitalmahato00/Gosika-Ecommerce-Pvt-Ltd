@@ -72,13 +72,22 @@ class VendorWalletController extends Controller
     public function requestPayout(RequestPayoutRequest $request): JsonResponse
     {
         $vendor = $this->vendorFor($request);
+
+        $settlement = Settlement::query()
+            ->where('uuid', $request->input('settlement_id'))
+            ->where('vendor_id', $vendor->id)
+            ->first();
+
+        if (! $settlement) {
+            throw new DomainException('Settlement not found for this vendor.', 422);
+        }
+
         $bankAccount = $request->input('bank_account_id')
             ? $this->bankAccountId($vendor, $request->input('bank_account_id'))
             : null;
 
         $payout = $this->service->requestPayout(
-            $vendor,
-            (float) $request->input('amount'),
+            $settlement,
             $bankAccount,
             $request->user()
         );

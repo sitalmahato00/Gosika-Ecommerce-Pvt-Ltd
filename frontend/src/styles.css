@@ -621,6 +621,10 @@ button {
 .badge-payment_pending { background: #fef3c7; color: #92400e; }
 .badge-under_review { background: #fef3c7; color: #92400e; }
 .badge-verified { background: #dcfce7; color: #166534; }
+.badge-eligible { background: #dbeafe; color: #1e40af; }
+.badge-on_hold { background: #fef3c7; color: #92400e; }
+.badge-hold { background: #fef3c7; color: #92400e; }
+.badge-reversed { background: #f1f5f9; color: #475569; }
 .badge-info { background: #dbeafe; color: #1e40af; }
 .badge-default { background: #f1f5f9; color: #475569; }
 .badge-danger { background: #fee2e2; color: #991b1b; }

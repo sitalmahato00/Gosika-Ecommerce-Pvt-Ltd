@@ -113,8 +113,6 @@ class WalletService
                 $this->creditEarnings($vendorOrder);
             }
 
-            $wallet = $this->lockWallet($vendor->id);
-
             $grossSales = round($eligible->sum('grand_total'), 2);
             $commissionTotal = round($eligible->sum('commission_amount'), 2);
             $refundsTotal = 0.0;
@@ -131,58 +129,174 @@ class WalletService
             $settlement->refunds_total = $refundsTotal;
             $settlement->adjustments_total = $adjustmentsTotal;
             $settlement->net_payable = $netPayable;
-            $settlement->status = SettlementStatus::PENDING;
+            $settlement->status = SettlementStatus::ELIGIBLE;
+            $settlement->hold_reason = null;
             $settlement->generated_at = now();
             $settlement->meta = [
                 'vendor_order_ids' => $eligible->pluck('id')->map(fn ($id) => (string) $id)->all(),
             ];
             $settlement->save();
 
-            $this->mutate($wallet, function (VendorWallet $wallet) use ($netPayable) {
-                $wallet->pending_balance = round((float) $wallet->pending_balance - $netPayable, 2);
-                $wallet->available_balance = round((float) $wallet->available_balance + $netPayable, 2);
-            });
-
-            $this->ledger($wallet, WalletTransactionType::CREDIT_SETTLEMENT, $netPayable, [
-                'reference_type' => 'settlement',
-                'reference_id' => $settlement->id,
-                'description' => 'Settlement '.$settlement->settlement_number,
-            ]);
-
             return $settlement->fresh();
         });
     }
 
-    public function requestPayout(Vendor $vendor, float $amount, ?int $bankAccountId, User $user): PayoutRequest
+    public function holdSettlement(Settlement $settlement, User $user, string $reason): Settlement
     {
-        $wallet = $this->ensureWallet($vendor);
-
-        if ($amount <= 0) {
-            throw new DomainException('Payout amount must be greater than zero.', 422);
+        if (! in_array($settlement->status->value, [SettlementStatus::ELIGIBLE->value, SettlementStatus::PROCESSING->value], true)) {
+            throw new DomainException('Only eligible or processing settlements can be placed on hold.', 422);
         }
 
-        if ($amount > (float) $wallet->available_balance) {
-            throw new DomainException('Insufficient available balance for payout.', 422);
+        return DB::transaction(function () use ($settlement, $user, $reason) {
+            $settlement->status = SettlementStatus::HOLD;
+            $settlement->hold_reason = $reason;
+            $settlement->updated_by = $user->id;
+            $settlement->save();
+
+            return $settlement->fresh(['vendor']);
+        });
+    }
+
+    public function releaseSettlement(Settlement $settlement, User $user): Settlement
+    {
+        if ($settlement->status->value !== SettlementStatus::HOLD->value) {
+            throw new DomainException('Only held settlements can be released.', 422);
+        }
+
+        return DB::transaction(function () use ($settlement, $user) {
+            $hasOpenPayout = $settlement->payoutRequests()
+                ->whereIn('status', [
+                    PayoutStatus::PENDING->value,
+                    PayoutStatus::APPROVED->value,
+                    PayoutStatus::PROCESSING->value,
+                ])
+                ->exists();
+
+            $settlement->status = $hasOpenPayout ? SettlementStatus::PROCESSING : SettlementStatus::ELIGIBLE;
+            $settlement->hold_reason = null;
+            $settlement->updated_by = $user->id;
+            $settlement->save();
+
+            return $settlement->fresh(['vendor']);
+        });
+    }
+
+    public function distributeSettlement(Settlement $settlement, User $user): Settlement
+    {
+        if (! in_array($settlement->status->value, [SettlementStatus::ELIGIBLE->value, SettlementStatus::PROCESSING->value], true)) {
+            throw new DomainException('Only eligible or processing settlements can be distributed.', 422);
+        }
+
+        return DB::transaction(function () use ($settlement, $user) {
+            $settlement = $settlement->fresh();
+            $status = $settlement->status->value;
+
+            if ($status === SettlementStatus::ELIGIBLE->value) {
+                $hasOpenPayout = $settlement->payoutRequests()
+                    ->whereIn('status', [
+                        PayoutStatus::PENDING->value,
+                        PayoutStatus::APPROVED->value,
+                        PayoutStatus::PROCESSING->value,
+                    ])
+                    ->exists();
+
+                if ($hasOpenPayout) {
+                    throw new DomainException('Settlement has an active payout request. Approve and distribute it via the payout, or reject the payout first.', 422);
+                }
+
+                $wallet = $this->lockWallet($settlement->vendor_id);
+                $amount = round((float) $settlement->net_payable, 2);
+
+                $this->mutate($wallet, function (VendorWallet $wallet) use ($amount) {
+                    $wallet->pending_balance = round((float) $wallet->pending_balance - $amount, 2);
+                    $wallet->available_balance = round((float) $wallet->available_balance + $amount, 2);
+                });
+
+                $this->ledger($wallet, WalletTransactionType::CREDIT_SETTLEMENT, $amount, [
+                    'reference_type' => 'settlement',
+                    'reference_id' => $settlement->id,
+                    'description' => 'Distributed settlement '.$settlement->settlement_number.' to available balance',
+                ]);
+            } else {
+                $payout = $settlement->payoutRequests()
+                    ->whereIn('status', [
+                        PayoutStatus::PENDING->value,
+                        PayoutStatus::APPROVED->value,
+                        PayoutStatus::PROCESSING->value,
+                    ])
+                    ->orderBy('id')
+                    ->first();
+
+                if ($payout) {
+                    $record = new PayoutRecord();
+                    $record->payout_request_id = $payout->id;
+                    $record->provider_reference = null;
+                    $record->amount = (float) $payout->amount;
+                    $record->fee = 0.00;
+                    $record->net_amount = (float) $payout->amount;
+                    $record->status = 'paid';
+                    $record->paid_at = now();
+                    $record->created_by = $user->id;
+                    $record->save();
+
+                    $payout->status = PayoutStatus::PAID;
+                    $payout->paid_at = now();
+                    $payout->updated_by = $user->id;
+                    $payout->save();
+                }
+            }
+
+            $settlement->status = SettlementStatus::PAID;
+            $settlement->paid_at = now();
+            $settlement->updated_by = $user->id;
+            $settlement->save();
+
+            return $settlement->fresh(['vendor']);
+        });
+    }
+
+    public function eligibleSettlementsFor(Vendor $vendor): Collection
+    {
+        return Settlement::query()
+            ->where('vendor_id', $vendor->id)
+            ->where('status', SettlementStatus::ELIGIBLE->value)
+            ->with(['payoutRequests'])
+            ->orderByDesc('id')
+            ->get()
+            ->filter(fn (Settlement $settlement) => $this->isRequestable($settlement));
+    }
+
+    public function requestPayout(Settlement $settlement, ?int $bankAccountId, User $user): PayoutRequest
+    {
+        if (! $this->isRequestable($settlement)) {
+            throw new DomainException('Only eligible settlements with a completed cycle can be requested for payout.', 422);
+        }
+
+        $amount = round((float) $settlement->net_payable, 2);
+
+        if ($amount <= 0) {
+            throw new DomainException('Settlement net payable must be greater than zero.', 422);
         }
 
         if ($bankAccountId) {
-            $exists = BankAccount::query()->where('vendor_id', $vendor->id)->where('id', $bankAccountId)->exists();
+            $exists = BankAccount::query()->where('vendor_id', $settlement->vendor_id)->where('id', $bankAccountId)->exists();
 
             if (! $exists) {
                 throw new DomainException('Selected bank account does not belong to this vendor.', 422);
             }
         }
 
-        return DB::transaction(function () use ($vendor, $wallet, $amount, $bankAccountId, $user) {
-            $wallet = $this->lockWallet($vendor->id);
-
-            if ($amount > (float) $wallet->available_balance) {
-                throw new DomainException('Insufficient available balance for payout.', 422);
+        return DB::transaction(function () use ($settlement, $bankAccountId, $user, $amount) {
+            if (! $this->isRequestable($settlement)) {
+                throw new DomainException('Only eligible settlements with a completed cycle can be requested for payout.', 422);
             }
+
+            $wallet = $this->lockWallet($settlement->vendor_id);
 
             $payout = new PayoutRequest();
             $payout->payout_number = ReferenceNumber::unique('PO');
-            $payout->vendor_id = $vendor->id;
+            $payout->vendor_id = $settlement->vendor_id;
+            $payout->settlement_id = $settlement->id;
             $payout->wallet_id = $wallet->id;
             $payout->bank_account_id = $bankAccountId;
             $payout->amount = $amount;
@@ -192,18 +306,18 @@ class WalletService
             $payout->save();
 
             $this->mutate($wallet, function (VendorWallet $wallet) use ($amount) {
-                $wallet->available_balance = round((float) $wallet->available_balance - $amount, 2);
+                $wallet->pending_balance = round((float) $wallet->pending_balance - $amount, 2);
                 $wallet->balance = round((float) $wallet->balance - $amount, 2);
             });
 
             $this->ledger($wallet, WalletTransactionType::DEBIT_WITHDRAWAL, $amount, [
                 'reference_type' => 'payout_request',
                 'reference_id' => $payout->id,
-                'description' => 'Payout requested '.$payout->payout_number,
+                'description' => 'Payout requested '.$payout->payout_number.' (reserved from settlement '.$settlement->settlement_number.')',
                 'status' => 'held',
             ]);
 
-            return $payout->fresh(['bankAccount']);
+            return $payout->fresh(['bankAccount', 'settlement']);
         });
     }
 
@@ -218,7 +332,11 @@ class WalletService
             $payout->updated_by = $user->id;
             $payout->save();
 
-            $this->markSettlementProcessing($payout);
+            if ($payout->settlement && $payout->settlement->status->value === SettlementStatus::ELIGIBLE->value) {
+                $payout->settlement->status = SettlementStatus::PROCESSING;
+                $payout->settlement->hold_reason = null;
+                $payout->settlement->save();
+            }
 
             return $payout->fresh(['bankAccount', 'settlement']);
         });
@@ -238,14 +356,14 @@ class WalletService
 
             $this->mutate($wallet, function (VendorWallet $wallet) use ($payout) {
                 $amount = (float) $payout->amount;
-                $wallet->available_balance = round((float) $wallet->available_balance + $amount, 2);
+                $wallet->pending_balance = round((float) $wallet->pending_balance + $amount, 2);
                 $wallet->balance = round((float) $wallet->balance + $amount, 2);
             });
 
             $this->ledger($wallet, WalletTransactionType::CREDIT_ADJUSTMENT, (float) $payout->amount, [
                 'reference_type' => 'payout_request',
                 'reference_id' => $payout->id,
-                'description' => 'Rejected payout returned '.$payout->payout_number,
+                'description' => 'Rejected payout returned to pending '.$payout->payout_number,
             ]);
 
             return $payout->fresh(['bankAccount', 'settlement']);
@@ -273,7 +391,11 @@ class WalletService
             $payout->updated_by = $user->id;
             $payout->save();
 
-            $this->markSettlementPaid($payout);
+            if ($payout->settlement && $payout->settlement->status->value === SettlementStatus::PROCESSING->value) {
+                $payout->settlement->status = SettlementStatus::PAID;
+                $payout->settlement->paid_at = now();
+                $payout->settlement->save();
+            }
 
             return $payout->fresh(['bankAccount', 'settlement', 'records']);
         });
@@ -293,15 +415,20 @@ class WalletService
 
             $this->mutate($wallet, function (VendorWallet $wallet) use ($payout) {
                 $amount = (float) $payout->amount;
-                $wallet->available_balance = round((float) $wallet->available_balance + $amount, 2);
+                $wallet->pending_balance = round((float) $wallet->pending_balance + $amount, 2);
                 $wallet->balance = round((float) $wallet->balance + $amount, 2);
             });
 
             $this->ledger($wallet, WalletTransactionType::CREDIT_ADJUSTMENT, (float) $payout->amount, [
                 'reference_type' => 'payout_request',
                 'reference_id' => $payout->id,
-                'description' => 'Cancelled payout returned '.$payout->payout_number,
+                'description' => 'Cancelled payout returned to pending '.$payout->payout_number,
             ]);
+
+            if ($payout->settlement && $payout->settlement->status->value === SettlementStatus::PROCESSING->value) {
+                $payout->settlement->status = SettlementStatus::ELIGIBLE;
+                $payout->settlement->save();
+            }
 
             return $payout->fresh(['bankAccount', 'settlement']);
         });
@@ -353,7 +480,7 @@ class WalletService
     {
         return PayoutRequest::query()
             ->where('vendor_id', $vendor->id)
-            ->with(['bankAccount', 'records'])
+            ->with(['bankAccount', 'records', 'settlement'])
             ->orderByDesc('id')
             ->get();
     }
@@ -465,30 +592,41 @@ class WalletService
         ]));
     }
 
+    protected function isRequestable(Settlement $settlement): bool
+    {
+        if ($settlement->status->value !== SettlementStatus::ELIGIBLE->value) {
+            return false;
+        }
+
+        if (! $this->isCycleComplete($settlement)) {
+            return false;
+        }
+
+        $hasOpenPayout = PayoutRequest::query()
+            ->where('settlement_id', $settlement->id)
+            ->whereIn('status', [
+                PayoutStatus::PENDING->value,
+                PayoutStatus::APPROVED->value,
+                PayoutStatus::PROCESSING->value,
+            ])
+            ->exists();
+
+        return ! $hasOpenPayout;
+    }
+
+    protected function isCycleComplete(Settlement $settlement): bool
+    {
+        $periodEnd = $settlement->period_end instanceof Carbon
+            ? $settlement->period_end
+            : Carbon::parse($settlement->period_end);
+
+        return $periodEnd->copy()->endOfDay()->lte(now());
+    }
+
     protected function assertStatus(PayoutRequest $payout, PayoutStatus $expected, string $message): void
     {
         if ($payout->status->value !== $expected->value) {
             throw new DomainException($message, 422);
-        }
-    }
-
-    protected function markSettlementProcessing(PayoutRequest $payout): void
-    {
-        if ($payout->settlement_id) {
-            Settlement::query()
-                ->where('id', $payout->settlement_id)
-                ->where('status', SettlementStatus::PENDING->value)
-                ->update(['status' => SettlementStatus::PROCESSING->value, 'updated_at' => now()]);
-        }
-    }
-
-    protected function markSettlementPaid(PayoutRequest $payout): void
-    {
-        if ($payout->settlement_id) {
-            Settlement::query()
-                ->where('id', $payout->settlement_id)
-                ->whereIn('status', [SettlementStatus::PENDING->value, SettlementStatus::PROCESSING->value])
-                ->update(['status' => SettlementStatus::PAID->value, 'paid_at' => now(), 'updated_at' => now()]);
         }
     }
 }

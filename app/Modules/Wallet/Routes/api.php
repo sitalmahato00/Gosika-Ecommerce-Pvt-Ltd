@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('commissions', [AdminCommissionController::class, 'index']);
-    Route::put('commissions/vendors/{vendor}', [AdminCommissionController::class, 'updateRate']);
+    Route::put('commissions/categories/{category}', [AdminCommissionController::class, 'updateRate']);
+    Route::delete('commissions/categories/{category}', [AdminCommissionController::class, 'resetRate']);
 });
 
 Route::prefix('v1/vendor/wallet')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
@@ -24,15 +25,18 @@ Route::prefix('v1/admin/wallet')->middleware(['auth:sanctum', 'ensure:admin'])->
     Route::get('settlements', [AdminWalletController::class, 'allSettlements']);
 
     Route::get('vendors/{vendor}/wallet', [AdminWalletController::class, 'wallet']);
+    Route::get('vendors/{vendor}/ledger', [AdminWalletController::class, 'ledger']);
     Route::get('vendors/{vendor}/transactions', [AdminWalletController::class, 'transactions']);
     Route::get('vendors/{vendor}/commissions', [AdminWalletController::class, 'commissions']);
     Route::get('vendors/{vendor}/settlements', [AdminWalletController::class, 'settlements']);
     Route::post('vendors/{vendor}/wallet/adjust', [AdminWalletController::class, 'adjustBalance']);
+    Route::put('vendors/{vendor}/settlement-cycle', [AdminWalletController::class, 'updateSettlementCycle']);
     Route::get('vendors/{vendor}/payouts', [AdminWalletController::class, 'payouts']);
 
     Route::post('settlements/generate', [AdminWalletController::class, 'generateSettlement']);
-    Route::post('settlements/{settlement}/approve', [AdminWalletController::class, 'approveSettlement']);
-    Route::post('settlements/{settlement}/reject', [AdminWalletController::class, 'rejectSettlement']);
+    Route::post('settlements/{settlement}/hold', [AdminWalletController::class, 'holdSettlement']);
+    Route::post('settlements/{settlement}/release', [AdminWalletController::class, 'releaseSettlement']);
+    Route::post('settlements/{settlement}/distribute', [AdminWalletController::class, 'distributeSettlement']);
 
     Route::post('payouts/{payout}/approve', [AdminWalletController::class, 'approvePayout']);
     Route::post('payouts/{payout}/reject', [AdminWalletController::class, 'rejectPayout']);

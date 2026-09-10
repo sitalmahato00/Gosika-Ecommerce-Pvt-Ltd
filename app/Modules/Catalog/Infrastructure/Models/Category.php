@@ -34,6 +34,11 @@ class Category extends BaseModel
         return $this->hasMany(self::class, 'parent_id');
     }
 
+    public function commissionRule()
+    {
+        return $this->hasOne(\App\Modules\Wallet\Infrastructure\Models\CategoryCommissionRule::class, 'category_id');
+    }
+
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);

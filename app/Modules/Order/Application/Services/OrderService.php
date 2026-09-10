@@ -15,14 +15,18 @@ use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Infrastructure\Services\ReferenceNumber;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
+use App\Modules\Wallet\Application\Services\CategoryCommissionResolver;
 use App\Modules\Wallet\Application\Services\WalletService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class OrderService
 {
-    public function __construct(protected CartService $cartService, protected WalletService $walletService)
-    {
+    public function __construct(
+        protected CartService $cartService,
+        protected WalletService $walletService,
+        protected CategoryCommissionResolver $commissionResolver,
+    ) {
     }
 
     public function listFor(User $user): Collection
@@ -172,7 +176,7 @@ class OrderService
         $deliveryCharge = $vendorDeliveryCharges[$vendorId] ?? 0.0;
         $grandTotal = round($itemsSubtotal - $discount + $deliveryCharge + $tax, 2);
 
-        $commissionRate = $this->commissionRateFor($vendor);
+        $commissionRate = $this->commissionRateFor($group);
         $commissionAmount = round($grandTotal * $commissionRate / 100, 2);
 
         $vendorOrder = new VendorOrder();
@@ -225,26 +229,11 @@ class OrderService
         return $vendorOrder;
     }
 
-    protected function commissionRateFor(Vendor $vendor): float
+    protected function commissionRateFor(Collection $items): float
     {
-        foreach (['commission.product_rate', 'commission.category_rate'] as $key) {
-            $value = Setting::get($key);
+        $default = (float) Setting::get('commission.default_rate', 10);
 
-            if ($this->present($value)) {
-                return (float) $value;
-            }
-        }
-
-        if ($this->present($vendor->commission_rate)) {
-            return (float) $vendor->commission_rate;
-        }
-
-        return (float) Setting::get('commission.default_rate', 10);
-    }
-
-    protected function present(mixed $value): bool
-    {
-        return $value !== null && $value !== '' && $value !== 'null' && (float) $value != 0;
+        return $this->commissionResolver->blendedRate($items, $default);
     }
 
     protected function vendorDeliveryCharges($items): array

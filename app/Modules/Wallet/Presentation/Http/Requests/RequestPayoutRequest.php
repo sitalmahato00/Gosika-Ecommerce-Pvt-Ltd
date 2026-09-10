@@ -14,7 +14,7 @@ class RequestPayoutRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'amount' => ['required', 'numeric', 'gt:0'],
+            'settlement_id' => ['required', 'string', 'max:36'],
             'bank_account_id' => ['nullable', 'string', 'exists:bank_accounts,uuid'],
         ];
     }

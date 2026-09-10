@@ -25,7 +25,7 @@ export default function AdminPayouts() {
   const [pagination, setPagination] = useState(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('pending')
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -87,7 +87,7 @@ export default function AdminPayouts() {
         toast.success(`Payout #${payout.payout_number || payout.id} approved for disbursement.`)
       } else if (action === 'reject') {
         await api.post(`/admin/wallet/payouts/${targetId}/reject`, { reason })
-        toast.success(`Payout request rejected. Funds returned to vendor available balance.`)
+        toast.success(`Payout request rejected. Funds returned to vendor pending balance.`)
       } else if (action === 'mark-paid') {
         await api.post(`/admin/wallet/payouts/${targetId}/mark-paid`)
         toast.success(`Payout marked as paid / transferred.`)
@@ -148,9 +148,13 @@ export default function AdminPayouts() {
     {
       header: 'Merchant',
       render: item => (
-        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>
+        <Link
+          to={item.vendor_id ? `/admin/finance/settlements/vendors/${item.vendor_id}` : '#'}
+          style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', textDecoration: 'none' }}
+          className="hover:text-primary"
+        >
           {item.vendor_name || item.vendor?.company_name || 'Vendor'}
-        </div>
+        </Link>
       )
     },
     {
@@ -277,7 +281,7 @@ export default function AdminPayouts() {
           { value: 'paid', label: 'Disbursed / Paid' },
           { value: 'rejected', label: 'Rejected' },
         ]}
-        onReset={() => { setSearch(''); setStatusFilter('all') }}
+        onReset={() => { setSearch(''); setStatusFilter('pending') }}
       />
 
       <DataTable
@@ -305,9 +309,9 @@ export default function AdminPayouts() {
         }
         message={
           dialogState.action === 'approve'
-            ? 'Approving marks this withdrawal ready for treasury bank clearance.'
+            ? 'Approving promotes the linked settlement to processing and marks this withdrawal ready for treasury bank clearance.'
             : dialogState.action === 'reject'
-            ? 'Rejecting will refund the requested withdrawal amount back to the vendor wallet available balance.'
+            ? 'Rejecting will refund the reserved funds back to the vendor wallet pending balance and return the settlement to eligible.'
             : 'Confirm that bank wire/transfer transaction has been executed.'
         }
         variant={dialogState.action === 'reject' ? 'danger' : 'success'}

@@ -31,11 +31,12 @@ export default function VendorEarnings() {
 
   const summary = summaryApi.data || {}
   const trend = trendApi.data || []
-  const settlements = settleApi.data || []
+  const settlePayload = settleApi.data || {}
+  const settlements = Array.isArray(settlePayload) ? settlePayload : (settlePayload.data || [])
   const wallet = walletApi.data || {}
 
   const totalWithdrawn = (payoutsApi.data || [])
-    .filter((p) => ['approved', 'processing', 'paid', 'completed'].includes(p.status))
+    .filter((p) => ['approved', 'processing', 'paid'].includes(p.status))
     .reduce((s, p) => s + Number(p.amount || 0), 0)
 
   const exportCSV = () => {

@@ -23,7 +23,7 @@ const TYPE_FILTERS = [
   { value: 'debit_adjustment', label: 'Adjustment (debit)' },
 ]
 
-const STATUS_FILTERS = ['', 'pending', 'completed', 'processing', 'failed', 'cancelled']
+const STATUS_FILTERS = ['', 'completed', 'held']
 
 function typeIcon(type) {
   const t = (type || '').toLowerCase()

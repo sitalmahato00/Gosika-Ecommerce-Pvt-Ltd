@@ -22,6 +22,8 @@ class SettlementResource extends JsonResource
             'adjustments_total' => number_format((float) $this->adjustments_total, 2, '.', ''),
             'net_payable' => number_format((float) $this->net_payable, 2, '.', ''),
             'status' => $this->status->value,
+            'hold_reason' => $this->hold_reason,
+            'orders_count' => count($this->meta['vendor_order_ids'] ?? []),
             'generated_at' => $this->generated_at?->toISOString(),
             'paid_at' => $this->paid_at?->toISOString(),
             'payout_requests' => $this->whenLoaded('payoutRequests', fn () => $this->payoutRequests->map(fn ($p) => [

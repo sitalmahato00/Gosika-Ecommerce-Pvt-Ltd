@@ -305,10 +305,10 @@ export default function AdminCustomers() {
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 14 }}>
-        <KpiCard label="Total Customers" value={(stats?.total_customers ?? 0).toLocaleString()} sub={`${stats?.new_this_month ?? 0} new this month`} Icon={Users} iconBg="#e6f7ec" iconColor="#16a34a" to="/admin/customers/segments" />
+        <KpiCard label="Total Customers" value={(stats?.total_customers ?? 0).toLocaleString()} sub={`${stats?.new_this_month ?? 0} new this month`} Icon={Users} iconBg="#e6f7ec" iconColor="#16a34a" />
         <KpiCard label="Active Accounts" value={(stats?.active_customers ?? 0).toLocaleString()} sub={`${stats?.inactive_customers ?? 0} inactive`} Icon={CheckCircle2} iconBg="#eff6ff" iconColor="#2563eb" />
         <KpiCard label="Total Orders" value={(stats?.total_orders ?? 0).toLocaleString()} sub={`Avg ${stats ? money(stats.avg_order_value) : '—'} per order`} Icon={ShoppingBag} iconBg="#fff0e6" iconColor="#ff5500" to="/admin/orders" />
-        <KpiCard label="Wallet Balance" value={stats ? money(stats.wallet_balance) : '—'} sub={`${stats?.wallet_customers ?? 0} funded wallets`} Icon={Wallet} iconBg="#f3e8ff" iconColor="#9333ea" to="/admin/customers/wallets" />
+        <KpiCard label="Wallet Balance" value={stats ? money(stats.wallet_balance) : '—'} sub={`${stats?.wallet_customers ?? 0} funded wallets`} Icon={Wallet} iconBg="#f3e8ff" iconColor="#9333ea" />
       </div>
 
       <FilterBar

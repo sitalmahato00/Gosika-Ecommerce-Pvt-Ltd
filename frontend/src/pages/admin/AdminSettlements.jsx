@@ -1,43 +1,45 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  FileSpreadsheet, Calendar, CheckCircle2, Search,
-  Download, Clock, Plus, Building2, Percent, Check, X, RefreshCw
+  Plus, Download, RefreshCw, Building2
 } from 'lucide-react'
 import api from '../../api/client'
 import PageHeader from '../../components/admin/PageHeader'
-import DataTable from '../../components/admin/DataTable'
-import FilterBar from '../../components/admin/FilterBar'
-import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import { money, formatDateTime, formatDate, timeAgo } from '../../utils/format'
+import { money, formatDate } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useBranding } from '../../context/BrandingContext'
 import { useAuth } from '../../context/AuthContext'
 import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
 
+const STATUS_ORDER = {
+  processing: 0,
+  hold: 1,
+  eligible: 2,
+  paid: 3,
+}
+
+const toInputDate = (d) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export default function AdminSettlements() {
   const { user } = useAuth()
   const branding = useBranding()
   const toast = useToast()
-  const [settlements, setSettlements] = useState([])
+  const [summary, setSummary] = useState([])
   const [loading, setLoading] = useState(true)
-  const [pagination, setPagination] = useState(null)
-  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [cycleValues, setCycleValues] = useState({})
+  const [cycleSaving, setCycleSaving] = useState({})
 
   const [generateOpen, setGenerateOpen] = useState(false)
   const [generateForm, setGenerateForm] = useState({ vendor_id: '', period_start: '', period_end: '' })
   const [generating, setGenerating] = useState(false)
   const [vendors, setVendors] = useState([])
-
-  const [dialogState, setDialogState] = useState({
-    isOpen: false,
-    action: null, // 'approve' | 'reject'
-    settlement: null,
-    loading: false
-  })
 
   useEffect(() => {
     api.get('/admin/vendors', { params: { per_page: 100 } })
@@ -45,68 +47,57 @@ export default function AdminSettlements() {
       .catch(() => {})
   }, [])
 
-  const loadSettlements = async () => {
+  const loadSummary = async () => {
     setLoading(true)
     try {
-      const params = { page, per_page: 15 }
-      if (statusFilter && statusFilter !== 'all') params.status = statusFilter
+      const params = { group_by_vendor: 1 }
       if (search.trim()) params.search = search.trim()
-
       const res = await api.get('/admin/wallet/settlements', { params })
-      const data = api.unwrapList(res.data)
-      setSettlements(data)
-      if (res.data?.meta?.pagination) {
-        setPagination(res.data.meta.pagination)
-      } else {
-        setPagination({
-          current_page: page,
-          last_page: 1,
-          total: data.length,
-          per_page: 15
-        })
-      }
+      const items = api.unwrapList(res.data).sort((a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99))
+      setSummary(items)
+      setCycleValues(Object.fromEntries(items.map(it => [it.vendor_id, it.settlement_cycle_days ?? 14])))
     } catch (err) {
-      toast.error('Failed to load settlement statements.')
+      toast.error('Failed to load settlement summaries.')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadSettlements()
-  }, [page, statusFilter])
+    loadSummary()
+  }, [search])
 
-  const handleAction = (action, settlement) => {
-    setDialogState({
-      isOpen: true,
-      action,
-      settlement,
-      loading: false
-    })
+  const saveCycle = async (vendorId) => {
+    const raw = cycleValues[vendorId]
+    const days = Number(raw)
+    if (!raw || !Number.isInteger(days) || days < 1 || days > 120) {
+      toast.error('Settlement cycle must be a whole number between 1 and 120 days.')
+      loadSummary()
+      return
+    }
+    setCycleSaving(prev => ({ ...prev, [vendorId]: true }))
+    try {
+      await api.put(`/admin/wallet/vendors/${vendorId}/settlement-cycle`, { settlement_cycle_days: days })
+      toast.success('Settlement cycle updated.')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update settlement cycle.')
+    } finally {
+      setCycleSaving(prev => ({ ...prev, [vendorId]: false }))
+      loadSummary()
+    }
   }
 
-  const handleConfirmAction = async (reason) => {
-    const { action, settlement } = dialogState
-    if (!settlement) return
-
-    setDialogState(prev => ({ ...prev, loading: true }))
-    const targetId = settlement.uuid || settlement.id
-
-    try {
-      if (action === 'approve') {
-        await api.post(`/admin/wallet/settlements/${targetId}/approve`)
-        toast.success(`Settlement statement #${settlement.settlement_number || settlement.id} approved.`)
-      } else if (action === 'reject') {
-        await api.post(`/admin/wallet/settlements/${targetId}/reject`, { reason })
-        toast.success(`Settlement rejected.`)
-      }
-
-      setDialogState({ isOpen: false, action: null, settlement: null, loading: false })
-      loadSettlements()
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Settlement operation failed.')
-      setDialogState(prev => ({ ...prev, loading: false }))
-    }
+  const selectVendorForGenerate = (vendorId) => {
+    const found = summary.find(x => x.vendor_id === vendorId)
+    const days = found?.settlement_cycle_days ?? cycleValues[vendorId] ?? 14
+    const end = new Date()
+    const start = new Date()
+    start.setDate(end.getDate() - (days - 1))
+    setGenerateForm({
+      vendor_id: vendorId,
+      period_start: toInputDate(start),
+      period_end: toInputDate(end),
+    })
   }
 
   const handleGenerateSubmit = async (e) => {
@@ -117,7 +108,7 @@ export default function AdminSettlements() {
       toast.success('New settlement period batch generated successfully!')
       setGenerateOpen(false)
       setGenerateForm({ vendor_id: '', period_start: '', period_end: '' })
-      loadSettlements()
+      loadSummary()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to generate settlement statement.')
     } finally {
@@ -128,27 +119,25 @@ export default function AdminSettlements() {
   const exportCSV = () => {
     exportReportFromRows({
       columns: [
-        { label: 'Settlement #' },
-        { label: 'Vendor' },
-        { label: 'Period Start' },
-        { label: 'Period End' },
+        { label: 'Store / Vendor' },
+        { label: 'Statement Period Start' },
+        { label: 'Statement Period End' },
         { label: 'Gross Sales', align: 'right' },
-        { label: 'Commission', align: 'right' },
+        { label: 'Platform Commission', align: 'right' },
         { label: 'Net Payable', align: 'right' },
         { label: 'Status' },
       ],
-      rows: settlements.map(s => [
-        s.settlement_number || s.id,
-        s.vendor_name || s.vendor?.company_name || '',
+      rows: summary.map(s => [
+        s.vendor_name || '',
         s.period_start || '',
         s.period_end || '',
         s.gross_sales || 0,
         s.commission_total || 0,
         s.net_payable || 0,
-        s.status || ''
+        s.status || '',
       ]),
-      title: 'Vendor Settlements Report',
-      subtitle: 'Periodic settlement statements with gross sales, commission and net payables.',
+      title: 'Vendor Settlement Summaries',
+      subtitle: 'Aggregated settlement balances per store with gross sales, platform commission and net payables.',
       sectionLabel: 'Settlement Ledger',
       fileName: `gosika_settlements_${new Date().toISOString().slice(0, 10)}`,
       preparedBy: personLabel(user),
@@ -157,109 +146,11 @@ export default function AdminSettlements() {
     toast.success('Settlements exported as branded report.')
   }
 
-  const columns = [
-    {
-      header: 'Settlement Ref',
-      render: item => (
-        <div>
-          <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 13 }}>
-            #{item.settlement_number || item.id}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            Generated {timeAgo(item.created_at || item.generated_at)}
-          </div>
-        </div>
-      )
-    },
-    {
-      header: 'Merchant',
-      render: item => (
-        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>
-          {item.vendor_name || item.vendor?.company_name || 'Vendor'}
-        </div>
-      )
-    },
-    {
-      header: 'Statement Period',
-      render: item => (
-        <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
-          {formatDate(item.period_start)} → {formatDate(item.period_end)}
-        </span>
-      )
-    },
-    {
-      header: 'Gross Sales',
-      align: 'right',
-      render: item => (
-        <span style={{ fontWeight: 700, fontSize: 13 }}>
-          {money(item.gross_sales || 0)}
-        </span>
-      )
-    },
-    {
-      header: 'Platform Commission',
-      align: 'right',
-      render: item => (
-        <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 13 }}>
-          - {money(item.commission_total || 0)}
-        </span>
-      )
-    },
-    {
-      header: 'Net Payable',
-      align: 'right',
-      render: item => (
-        <span style={{ fontWeight: 900, color: '#16a34a', fontSize: 14 }}>
-          {money(item.net_payable || 0)}
-        </span>
-      )
-    },
-    {
-      header: 'Status',
-      accessor: 'status',
-      render: item => <StatusBadge status={item.status} />
-    },
-    {
-      header: 'Actions',
-      align: 'right',
-      render: item => {
-        const isPending = item.status === 'pending'
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-            {isPending && (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-xs"
-                  style={{ background: '#16a34a', color: '#fff', border: 'none' }}
-                  onClick={() => handleAction('approve', item)}
-                  title="Approve Settlement"
-                >
-                  <Check size={12} style={{ marginRight: 3 }} /> Approve
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-outline btn-xs"
-                  style={{ color: '#dc2626', borderColor: '#fca5a5' }}
-                  onClick={() => handleAction('reject', item)}
-                  title="Reject"
-                >
-                  <X size={12} /> Reject
-                </button>
-              </>
-            )}
-          </div>
-        )
-      }
-    }
-  ]
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        title="Periodic Settlements & Ledger"
-        description="Reconcile multi-vendor sales cycles, calculate marketplace commissions, and authorize payout disbursements."
+        title="Settlements & Vendor Wallets"
+        description="One row per store showing gross sales, platform commission and net payable still open — track settlement cycles, and hold or release settlements from this page. Payouts are requested by the vendor and approved here."
         breadcrumbs={[
           { label: 'Finance', to: '/admin/finance/payments' },
           { label: 'Settlements' }
@@ -287,7 +178,7 @@ export default function AdminSettlements() {
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              onClick={loadSettlements}
+              onClick={loadSummary}
               style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 8 }}
             >
               <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
@@ -296,29 +187,136 @@ export default function AdminSettlements() {
         }
       />
 
-      <FilterBar
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search by settlement # or vendor..."
-        statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
-        statusOptions={[
-          { value: 'pending', label: 'Pending Payout Approval' },
-          { value: 'paid', label: 'Completed & Disbursed' },
-          { value: 'rejected', label: 'Rejected' },
-        ]}
-        onReset={() => { setSearch(''); setStatusFilter('all') }}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <input
+          className="input"
+          style={{ maxWidth: 360, height: 36, fontSize: 13 }}
+          placeholder="Search by store / vendor name..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+          {summary.length} store{summary.length === 1 ? '' : 's'}
+        </span>
+      </div>
 
-      <DataTable
-        columns={columns}
-        data={settlements}
-        loading={loading}
-        pagination={pagination}
-        onPageChange={setPage}
-        emptyTitle="No settlement statements"
-        emptyDescription="There are no settlement batches matching your filters."
-      />
+      <div className="card card-pad-none" style={{ borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                  Store / Vendor
+                </th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                  Statement Period
+                </th>
+                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                  Gross Sales
+                </th>
+                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                  Platform Commission
+                </th>
+                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                  Net Payable (Left)
+                </th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                  Status
+                </th>
+                <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                  Cycle (Days)
+                </th>
+                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i}><td colSpan={8} style={{ padding: '18px 16px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Loading settlement summaries...</td></tr>
+                ))
+              ) : summary.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+                    No settlement summaries found.
+                  </td>
+                </tr>
+              ) : summary.map(s => (
+                <tr
+                  key={s.vendor_id}
+                  style={{
+                    borderBottom: '1px solid var(--border)',
+                    background: s.status === 'processing' ? '#fffbeb' : 'transparent',
+                  }}
+                >
+                  <td style={{ padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: '#eff6ff', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Building2 size={16} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 13 }}>
+                          {s.vendor_name}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          {s.settlements_count} settlement period(s)
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {formatDate(s.period_start)} → {formatDate(s.period_end)}
+                  </td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, fontSize: 13 }}>
+                    {money(s.gross_sales || 0)}
+                  </td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--primary)', fontSize: 13 }}>
+                    - {money(s.commission_total || 0)}
+                  </td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 900, color: '#16a34a', fontSize: 14 }}>
+                    {money(s.net_payable || 0)}
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <StatusBadge status={s.status} />
+                  </td>
+                  <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      className="input"
+                      value={cycleValues[s.vendor_id] ?? s.settlement_cycle_days ?? ''}
+                      onChange={e => setCycleValues(prev => ({ ...prev, [s.vendor_id]: e.target.value }))}
+                      onBlur={() => saveCycle(s.vendor_id)}
+                      onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+                      disabled={cycleSaving[s.vendor_id]}
+                      title="Settlement cycle length in days (saved on blur or Enter)"
+                      style={{ width: 70, height: 30, fontSize: 12, fontWeight: 700, textAlign: 'center' }}
+                    />
+                  </td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                      {s.open_count > 0 && (
+                        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
+                          {s.open_count} open
+                        </span>
+                      )}
+                      <Link
+                        to={`/admin/finance/settlements/vendors/${s.vendor_id}`}
+                        className="btn btn-outline btn-xs"
+                        style={{ textDecoration: 'none' }}
+                      >
+                        View Details
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* Generate Batch Modal */}
       {generateOpen && (
@@ -363,7 +361,7 @@ export default function AdminSettlements() {
                   className="input"
                   style={{ width: '100%', height: 38, fontSize: 13, fontWeight: 600 }}
                   value={generateForm.vendor_id}
-                  onChange={e => setGenerateForm({ ...generateForm, vendor_id: e.target.value })}
+                  onChange={e => selectVendorForGenerate(e.target.value)}
                   required
                 >
                   <option value="">Choose a merchant...</option>
@@ -371,6 +369,12 @@ export default function AdminSettlements() {
                     <option key={v.id} value={v.id}>{v.company_name} (PAN: {v.pan_vat || '—'})</option>
                   ))}
                 </select>
+                {generateForm.vendor_id && (
+                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6 }}>
+                    Period auto-filled from the configured settlement cycle of{' '}
+                    <strong>{cycleValues[generateForm.vendor_id] ?? 14} days</strong> — adjust the dates above if needed.
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -408,28 +412,6 @@ export default function AdminSettlements() {
           </div>
         </div>
       )}
-
-      {/* Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={dialogState.isOpen}
-        onClose={() => setDialogState({ isOpen: false, action: null, settlement: null, loading: false })}
-        onConfirm={handleConfirmAction}
-        loading={dialogState.loading}
-        title={
-          dialogState.action === 'approve'
-            ? `Approve Settlement #${dialogState.settlement?.settlement_number || dialogState.settlement?.id}?`
-            : `Reject Settlement #${dialogState.settlement?.settlement_number || dialogState.settlement?.id}?`
-        }
-        message={
-          dialogState.action === 'approve'
-            ? `Approving will credit ${money(dialogState.settlement?.net_payable || 0)} to the vendor wallet available balance.`
-            : 'Rejecting this settlement requires an explanation.'
-        }
-        variant={dialogState.action === 'approve' ? 'success' : 'danger'}
-        confirmText={dialogState.action === 'approve' ? 'Approve Settlement' : 'Reject'}
-        requireReason={dialogState.action === 'reject'}
-        reasonPlaceholder="Specify reason for rejecting settlement statement..."
-      />
     </div>
   )
 }

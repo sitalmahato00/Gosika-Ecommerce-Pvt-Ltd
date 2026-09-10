@@ -5,13 +5,19 @@ namespace App\Modules\Wallet\Presentation\Http\Controllers;
 use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
+use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Domain\Enums\PayoutStatus;
+use App\Modules\Shared\Domain\Enums\SettlementStatus;
 use App\Modules\Shared\Presentation\Http\Response;
+use App\Modules\Vendor\Infrastructure\Models\BankAccount;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
+use App\Modules\Vendor\Presentation\Resources\BankAccountResource;
 use App\Modules\Wallet\Application\Services\WalletService;
 use App\Modules\Wallet\Infrastructure\Models\PayoutRequest;
 use App\Modules\Wallet\Infrastructure\Models\Settlement;
 use App\Modules\Wallet\Infrastructure\Models\VendorWallet;
+use App\Modules\Wallet\Infrastructure\Models\WalletTransaction;
 use App\Modules\Wallet\Presentation\Http\Requests\AdjustBalanceRequest;
 use App\Modules\Wallet\Presentation\Http\Requests\GenerateSettlementRequest;
 use App\Modules\Wallet\Presentation\Http\Requests\MarkPayoutPaidRequest;
@@ -37,7 +43,13 @@ class AdminWalletController extends Controller
             'markPayoutPaid',
             'cancelPayout',
         ]);
-        $this->middleware('permission:'.Permissions::SETTLEMENTS_MANAGE)->only(['generateSettlement']);
+        $this->middleware('permission:'.Permissions::SETTLEMENTS_MANAGE)->only([
+            'generateSettlement',
+            'updateSettlementCycle',
+            'holdSettlement',
+            'releaseSettlement',
+            'distributeSettlement',
+        ]);
         $this->middleware('permission:'.Permissions::WALLETS_ADJUST)->only(['adjustBalance']);
     }
 
@@ -128,13 +140,58 @@ class AdminWalletController extends Controller
 
     public function allSettlements(Request $request): JsonResponse
     {
-        $settlements = Settlement::query()
+        $query = Settlement::query()
             ->with('vendor')
-            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->input('search'), function ($q, $s) {
                 $q->where('settlement_number', 'like', "%{$s}%")
                     ->orWhereHas('vendor', fn ($v) => $v->where('company_name', 'like', "%{$s}%"));
-            })
+            });
+
+        if ($request->boolean('group_by_vendor')) {
+            $settlements = $query->latest()->get();
+
+            $statusPriority = [
+                SettlementStatus::PROCESSING->value => 0,
+                SettlementStatus::HOLD->value => 1,
+                SettlementStatus::ELIGIBLE->value => 2,
+                SettlementStatus::PAID->value => 3,
+            ];
+
+            $grouped = $settlements
+                ->groupBy('vendor_id')
+                ->map(function ($rows) use ($statusPriority) {
+                    $vendor = $rows->first()->vendor;
+
+                    $statuses = $rows->pluck('status')->map->value;
+                    $bestStatus = $statuses
+                        ->sortBy(fn ($s) => $statusPriority[$s] ?? 99)
+                        ->first();
+
+                    $open = $rows->reject(fn ($r) => $r->status->value === SettlementStatus::PAID->value);
+
+                    return [
+                        'vendor_id' => $vendor?->uuid,
+                        'vendor_name' => $vendor?->company_name,
+                        'settlement_cycle_days' => $vendor ? $this->settlementCycleDays($vendor) : 14,
+                        'period_start' => $rows->min('period_start')?->toDateString(),
+                        'period_end' => $rows->max('period_end')?->toDateString(),
+                        'gross_sales' => number_format((float) $rows->sum(fn ($r) => (float) $r->gross_sales), 2, '.', ''),
+                        'commission_total' => number_format((float) $rows->sum(fn ($r) => (float) $r->commission_total), 2, '.', ''),
+                        'net_payable' => number_format((float) $open->sum(fn ($r) => (float) $r->net_payable), 2, '.', ''),
+                        'settled_amount' => number_format((float) $rows->filter(fn ($r) => $r->status->value === SettlementStatus::PAID->value)->sum(fn ($r) => (float) $r->net_payable), 2, '.', ''),
+                        'status' => $bestStatus,
+                        'settlements_count' => $rows->count(),
+                        'open_count' => $open->count(),
+                    ];
+                })
+                ->sortBy(fn ($v) => $statusPriority[$v['status']] ?? 99)
+                ->values();
+
+            return Response::success($grouped, 'Vendor settlement summaries retrieved.');
+        }
+
+        $settlements = $query
+            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
             ->latest()
             ->paginate($request->integer('per_page', 15));
 
@@ -150,6 +207,170 @@ class AdminWalletController extends Controller
         );
     }
 
+    public function ledger(Request $request, string $vendorId): JsonResponse
+    {
+        $vendor = $this->vendor($vendorId);
+
+        $wallet = $this->service->walletForVendor($vendor);
+
+        $settlementModels = $this->service->settlementsFor($vendor);
+
+        $settlementOrderMap = collect();
+        foreach ($settlementModels as $settlement) {
+            foreach ($settlement->meta['vendor_order_ids'] ?? [] as $orderId) {
+                $settlementOrderMap->put((int) $orderId, [
+                    'number' => $settlement->settlement_number,
+                    'status' => $settlement->status->value,
+                    'period_start' => $settlement->period_start?->toDateString(),
+                    'period_end' => $settlement->period_end?->toDateString(),
+                    'hold_reason' => $settlement->hold_reason,
+                    'paid' => $settlement->status->value === SettlementStatus::PAID->value,
+                ]);
+            }
+        }
+
+        $statsQuery = VendorOrder::query()->where('vendor_id', $vendor->id);
+        $stats = [
+            'orders_count' => (clone $statsQuery)->count(),
+            'total_gross' => number_format((float) (clone $statsQuery)->sum('grand_total'), 2, '.', ''),
+            'total_commission' => number_format((float) (clone $statsQuery)->sum('commission_amount'), 2, '.', ''),
+            'total_vendor_payable' => number_format((float) (clone $statsQuery)->sum('vendor_payable'), 2, '.', ''),
+            'total_settled' => number_format($settlementModels->where('status', SettlementStatus::PAID)->sum(fn ($s) => (float) $s->net_payable), 2, '.', ''),
+            'total_withdrawn' => number_format(PayoutRequest::query()->where('vendor_id', $vendor->id)->where('status', PayoutStatus::PAID->value)->sum('amount'), 2, '.', ''),
+        ];
+
+        $orderSearch = trim((string) $request->input('order_search', ''));
+        $ordersPaginator = VendorOrder::query()
+            ->where('vendor_id', $vendor->id)
+            ->with(['order', 'items', 'store'])
+            ->when($orderSearch !== '', function ($q, $s) {
+                $q->where(function ($q2) use ($s) {
+                    $q2->where('vendor_order_number', 'like', "%{$s}%")
+                        ->orWhereHas('order', fn ($o) => $o->where('order_number', 'like', "%{$s}%"))
+                        ->orWhereHas('items', fn ($i) => $i->where('product_name', 'like', "%{$s}%"));
+                });
+            })
+            ->latest('id')
+            ->paginate($request->integer('orders_per_page', 15), ['*'], 'orders_page');
+
+        $orders = $ordersPaginator->getCollection()->map(function (VendorOrder $vo) use ($settlementOrderMap) {
+            $itemsSubtotal = (float) $vo->items_subtotal;
+            $commissionAmount = (float) $vo->commission_amount;
+            $commissionRate = (float) $vo->commission_rate;
+
+            return [
+                'id' => $vo->uuid,
+                'vendor_order_number' => $vo->vendor_order_number,
+                'order_number' => $vo->order?->order_number,
+                'placed_at' => $vo->order?->placed_at?->toISOString(),
+                'status' => $vo->status->value,
+                'delivery_status' => $vo->delivery_status?->value,
+                'store_name' => $vo->store?->name,
+                'items_subtotal' => number_format($itemsSubtotal, 2, '.', ''),
+                'discount' => number_format((float) $vo->discount, 2, '.', ''),
+                'delivery_charge' => number_format((float) $vo->delivery_charge, 2, '.', ''),
+                'tax' => number_format((float) $vo->tax, 2, '.', ''),
+                'grand_total' => number_format((float) $vo->grand_total, 2, '.', ''),
+                'commission_rate' => number_format($commissionRate, 2, '.', ''),
+                'commission_amount' => number_format($commissionAmount, 2, '.', ''),
+                'vendor_payable' => number_format((float) $vo->vendor_payable, 2, '.', ''),
+                'settlement' => $settlementOrderMap->get($vo->id),
+                'items' => $vo->items->map(function ($item) use ($itemsSubtotal, $commissionAmount) {
+                    $lineTotal = (float) $item->line_total;
+                    $lineCommission = $itemsSubtotal > 0 ? round($commissionAmount * ($lineTotal / $itemsSubtotal), 2) : 0.0;
+
+                    return [
+                        'product_name' => $item->product_name,
+                        'sku' => $item->sku,
+                        'variant_name' => $item->variant_name,
+                        'quantity' => $item->quantity,
+                        'unit_price' => number_format((float) $item->unit_price, 2, '.', ''),
+                        'unit_discount' => number_format((float) ($item->unit_discount ?? 0), 2, '.', ''),
+                        'line_total' => number_format($lineTotal, 2, '.', ''),
+                        'line_commission' => number_format($lineCommission, 2, '.', ''),
+                        'line_vendor_payable' => number_format($lineTotal - $lineCommission, 2, '.', ''),
+                    ];
+                }),
+            ];
+        })->values();
+
+        $txnSearch = trim((string) $request->input('txn_search', ''));
+        $txnPaginator = WalletTransaction::query()
+            ->where('wallet_id', $wallet->id)
+            ->when($txnSearch !== '', function ($q, $s) {
+                $q->where(function ($q2) use ($s) {
+                    $q2->where('description', 'like', "%{$s}%")
+                        ->orWhere('transaction_type', 'like', "%{$s}%")
+                        ->orWhere('reference_id', ctype_digit($s) ? (int) $s : 0);
+                });
+            })
+            ->orderByDesc('id')
+            ->paginate($request->integer('txn_per_page', 15), ['*'], 'txn_page');
+
+        $transactions = $txnPaginator->getCollection()
+            ->map(fn ($t) => (new \App\Modules\Wallet\Presentation\Resources\WalletTransactionResource($t))->resolve($request))
+            ->values();
+
+        $settlementsPaginator = Settlement::query()
+            ->where('vendor_id', $vendor->id)
+            ->with(['payoutRequests'])
+            ->latest('id')
+            ->paginate($request->integer('settlements_per_page', 15), ['*'], 'settlements_page');
+
+        $settlements = $settlementsPaginator->getCollection()
+            ->map(fn ($s) => (new SettlementResource($s))->resolve($request))
+            ->values();
+
+        $payoutsPaginator = PayoutRequest::query()
+            ->where('vendor_id', $vendor->id)
+            ->with(['bankAccount', 'records', 'settlement'])
+            ->latest('id')
+            ->paginate($request->integer('payouts_per_page', 15), ['*'], 'payouts_page');
+
+        $payouts = $payoutsPaginator->getCollection()
+            ->map(fn ($p) => (new PayoutRequestResource($p))->resolve($request))
+            ->values();
+
+        $bankAccounts = BankAccount::query()
+            ->where('vendor_id', $vendor->id)
+            ->orderByDesc('is_default')
+            ->orderByDesc('is_verified')
+            ->latest('id')
+            ->get();
+
+        return Response::success([
+            'vendor' => [
+                'id' => $vendor->uuid,
+                'company_name' => $vendor->company_name,
+                'business_email' => $vendor->business_email,
+                'pan_vat' => $vendor->pan_vat,
+                'status' => $vendor->status->value,
+                'settlement_cycle_days' => $this->settlementCycleDays($vendor),
+            ],
+            'wallet' => new WalletResource($wallet),
+            'stats' => $stats,
+            'orders' => $orders,
+            'orders_pagination' => $this->paginationMeta($ordersPaginator),
+            'transactions' => $transactions,
+            'transactions_pagination' => $this->paginationMeta($txnPaginator),
+            'settlements' => $settlements,
+            'settlements_pagination' => $this->paginationMeta($settlementsPaginator),
+            'payouts' => $payouts,
+            'payouts_pagination' => $this->paginationMeta($payoutsPaginator),
+            'bank_accounts' => BankAccountResource::collection($bankAccounts),
+        ], 'Vendor finance ledger retrieved.');
+    }
+
+    protected function paginationMeta($paginator): array
+    {
+        return [
+            'total' => $paginator->total(),
+            'per_page' => $paginator->perPage(),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+        ];
+    }
+
     public function generateSettlement(GenerateSettlementRequest $request): JsonResponse
     {
         $vendor = $this->vendor($request->input('vendor_id'));
@@ -163,6 +384,32 @@ class AdminWalletController extends Controller
         app(AuditLogService::class)->record(request()->user(), 'settlement.generated', 'settlement', $settlement->uuid, null, ['vendor' => $vendor->uuid]);
 
         return Response::created(new SettlementResource($settlement), 'Settlement generated.');
+    }
+
+    public function updateSettlementCycle(Request $request, string $vendorId): JsonResponse
+    {
+        $vendor = $this->vendor($vendorId);
+
+        $validated = $request->validate([
+            'settlement_cycle_days' => ['required', 'integer', 'min:1', 'max:120'],
+        ]);
+
+        $days = (int) $validated['settlement_cycle_days'];
+        $meta = is_array($vendor->meta) ? $vendor->meta : [];
+        $meta['settlement_cycle_days'] = $days;
+        $vendor->update(['meta' => $meta]);
+
+        app(AuditLogService::class)->record(request()->user(), 'settlement.cycle_updated', 'vendor', $vendor->uuid, null, ['settlement_cycle_days' => $days]);
+
+        return Response::success([
+            'vendor_id' => $vendor->uuid,
+            'settlement_cycle_days' => $days,
+        ], 'Settlement cycle updated.');
+    }
+
+    protected function settlementCycleDays(Vendor $vendor): int
+    {
+        return (int) ($vendor->meta['settlement_cycle_days'] ?? 14);
     }
 
     public function payouts(string $vendorId): JsonResponse
@@ -236,34 +483,42 @@ class AdminWalletController extends Controller
         return Response::success(new WalletResource($wallet), 'Balance adjusted.');
     }
 
-    public function approveSettlement(string $settlementId): JsonResponse
+    public function holdSettlement(Request $request, string $settlementId): JsonResponse
     {
-        $settlement = Settlement::where('uuid', $settlementId)->orWhere('id', $settlementId)->firstOrFail();
-        $settlement->update([
-            'status' => 'approved',
-            'paid_at' => now(),
-        ]);
+        $settlement = $this->settlement($settlementId);
+        $settlement = $this->service->holdSettlement($settlement, request()->user(), $request->input('reason', 'Held by administrator'));
 
-        app(AuditLogService::class)->record(request()->user(), 'settlement.approved', 'settlement', $settlement->uuid, null, ['status' => 'approved']);
+        app(AuditLogService::class)->record(request()->user(), 'settlement.held', 'settlement', $settlement->uuid, ['status' => 'eligible'], ['status' => 'hold', 'reason' => $settlement->hold_reason]);
 
-        return Response::success(new SettlementResource($settlement), 'Settlement approved.');
+        return Response::success(new SettlementResource($settlement->load('vendor')), 'Settlement placed on hold.');
     }
 
-    public function rejectSettlement(Request $request, string $settlementId): JsonResponse
+    public function releaseSettlement(string $settlementId): JsonResponse
     {
-        $settlement = Settlement::where('uuid', $settlementId)->orWhere('id', $settlementId)->firstOrFail();
-        $settlement->update([
-            'status' => 'rejected',
-        ]);
+        $settlement = $this->settlement($settlementId);
+        $settlement = $this->service->releaseSettlement($settlement, request()->user());
 
-        app(AuditLogService::class)->record(request()->user(), 'settlement.rejected', 'settlement', $settlement->uuid, null, ['status' => 'rejected', 'reason' => $request->input('reason')]);
+        app(AuditLogService::class)->record(request()->user(), 'settlement.released', 'settlement', $settlement->uuid, ['status' => 'hold'], ['status' => $settlement->status->value]);
 
-        return Response::success(new SettlementResource($settlement), 'Settlement rejected.');
+        return Response::success(new SettlementResource($settlement->load('vendor')), 'Settlement released from hold.');
+    }
+
+    public function distributeSettlement(string $settlementId): JsonResponse
+    {
+        $settlement = $this->settlement($settlementId);
+        $settlement = $this->service->distributeSettlement($settlement, request()->user());
+
+        app(AuditLogService::class)->record(request()->user(), 'settlement.distributed', 'settlement', $settlement->uuid, ['status' => $settlement->status->value], ['status' => SettlementStatus::PAID->value]);
+
+        return Response::success(new SettlementResource($settlement->load('vendor')), 'Settlement distributed.');
     }
 
     protected function vendor(string $vendorId): Vendor
     {
-        $vendor = Vendor::query()->where('uuid', $vendorId)->orWhere('id', $vendorId)->first();
+        $vendor = Vendor::query()
+            ->where('uuid', $vendorId)
+            ->orWhere('id', ctype_digit($vendorId) ? (int) $vendorId : 0)
+            ->first();
 
         if (! $vendor) {
             throw new DomainException('Vendor not found.', 404);
@@ -274,12 +529,24 @@ class AdminWalletController extends Controller
 
     protected function payout(string $payoutId): PayoutRequest
     {
-        $payout = PayoutRequest::query()->with(['bankAccount', 'settlement', 'records'])->where('uuid', $payoutId)->orWhere('id', $payoutId)->first();
+        $payout = PayoutRequest::query()
+            ->with(['bankAccount', 'settlement', 'records'])
+            ->where('uuid', $payoutId)
+            ->orWhere('id', ctype_digit($payoutId) ? (int) $payoutId : 0)
+            ->first();
 
         if (! $payout) {
             throw new DomainException('Payout request not found.', 404);
         }
 
         return $payout;
+    }
+
+    protected function settlement(string $settlementId): Settlement
+    {
+        return Settlement::query()
+            ->where('uuid', $settlementId)
+            ->orWhere('id', ctype_digit($settlementId) ? (int) $settlementId : 0)
+            ->firstOrFail();
     }
 }

@@ -70,7 +70,8 @@ return new class extends Migration
             $table->decimal('refunds_total', 12, 2)->default(0);
             $table->decimal('adjustments_total', 12, 2)->default(0);
             $table->decimal('net_payable', 12, 2)->default(0);
-            $table->string('status', 20)->default('pending')->index();
+            $table->string('status', 20)->default('processing')->index();
+            $table->string('hold_reason', 500)->nullable();
             $table->timestamp('generated_at')->nullable();
             $table->timestamp('paid_at')->nullable();
             $table->json('meta')->nullable();

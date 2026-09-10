@@ -14,7 +14,7 @@ class BankAccountResource extends JsonResource
             'bank_name' => $this->bank_name,
             'branch_name' => $this->branch_name,
             'account_name' => $this->account_name,
-            'account_number' => '****'.substr((string) $this->account_number, -4),
+            'account_number' => $this->account_number,
             'account_type' => $this->account_type,
             'is_verified' => $this->is_verified,
             'is_default' => $this->is_default,

@@ -8,24 +8,28 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
-import Input from '../../components/ui/Input'
+import Select from '../../components/ui/Select'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import { useToast } from '../../context/ToastContext'
-import { money, formatDate, errorMessage } from '../../utils/format'
+import { money, formatDate, formatDateTime, errorMessage } from '../../utils/format'
 
-const MIN_PAYOUT = 1000
+const OPEN_PAYOUT_STATUSES = ['pending', 'approved', 'processing']
 
-const STATUSES = ['all', 'pending', 'eligible', 'processing', 'paid', 'failed', 'on_hold', 'reversed']
+const STATUSES = ['all', 'processing', 'eligible', 'hold', 'paid']
+
+const isRequestable = (s) =>
+  s.status === 'eligible' &&
+  Number(s.net_payable || 0) > 0 &&
+  !(s.payout_requests || []).some(p => OPEN_PAYOUT_STATUSES.includes(p.status))
 
 export default function VendorSettlements() {
   const toast = useToast()
   const [status, setStatus] = useState('all')
   const [payoutOpen, setPayoutOpen] = useState(false)
-  const [amount, setAmount] = useState('')
+  const [requestable, setRequestable] = useState([])
+  const [settlementId, setSettlementId] = useState('')
   const [requesting, setRequesting] = useState(false)
-
-  const walletApi = useApi(() => api.get('/vendor/wallet'))
 
   const fetcher = useCallback(
     (page, pageSize) => api.get('/vendor/wallet/settlements', {
@@ -44,20 +48,30 @@ export default function VendorSettlements() {
   })
 
   const netPayable = items.reduce((s, p) => s + Number(p.net_payable || 0), 0)
-  const available = Number(walletApi.data?.available_balance || 0)
+  const requestableOnPage = items.filter(isRequestable)
+  const requestableTotal = requestableOnPage.reduce((s, p) => s + Number(p.net_payable || 0), 0)
+
+  const openPayoutModal = async () => {
+    setPayoutOpen(true)
+    setSettlementId('')
+    try {
+      const res = await api.get('/vendor/wallet/settlements', { params: { status: 'eligible', per_page: 100 } })
+      setRequestable((res.data?.data || []).filter(isRequestable))
+    } catch {
+      setRequestable([])
+    }
+  }
 
   const requestPayout = async (e) => {
     e.preventDefault()
-    const amt = Number(amount)
-    if (!amt || amt <= 0) return toast.error('Enter a valid amount')
-    if (amt < MIN_PAYOUT) return toast.error(`Minimum payout is ${money(MIN_PAYOUT)}`)
+    if (!settlementId) return toast.error('Select a settlement to request payout for')
     setRequesting(true)
     try {
-      await api.post('/vendor/wallet/payouts', { amount: amt })
+      await api.post('/vendor/wallet/payouts', { settlement_id: settlementId })
       toast.success('Payout requested')
       setPayoutOpen(false)
-      setAmount('')
-      walletApi.reload()
+      reload()
+      setRequestable(prev => prev.filter(s => s.id !== settlementId))
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -78,6 +92,8 @@ export default function VendorSettlements() {
 
   if (error) return <ErrorState message={errorMessage(error)} onRetry={reload} />
 
+  const selected = requestable.find(s => s.id === settlementId)
+
   return (
     <div className="flex flex-col gap-4">
       <div className="page-header">
@@ -85,14 +101,14 @@ export default function VendorSettlements() {
           <h1>Settlements</h1>
           <p>Your payout cycles — every amount is tracked and transparent</p>
         </div>
-        <Button variant="primary" icon={Banknote} onClick={() => setPayoutOpen(true)}>Request payout</Button>
+        <Button variant="primary" icon={Banknote} onClick={openPayoutModal}>Request payout</Button>
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
         <div className="kpi-card">
-          <div className="kpi-label">Available for withdrawal</div>
-          <div className="kpi-value text-success">{money(available)}</div>
-          <div className="muted text-xs">Min. {money(MIN_PAYOUT)}</div>
+          <div className="kpi-label">Requestable (eligible settlements)</div>
+          <div className="kpi-value text-success">{money(requestableTotal)}</div>
+          <div className="muted text-xs">On this page, awaiting payout request</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Net payable</div>
@@ -140,7 +156,10 @@ export default function VendorSettlements() {
                       <td className="muted text-sm" style={{ textAlign: 'right' }}>{money(p.commission_total)}</td>
                       <td className="muted text-sm" style={{ textAlign: 'right' }}>{money(p.refunds_total)}</td>
                       <td className="font-semibold" style={{ textAlign: 'right' }}>{money(p.net_payable)}</td>
-                      <td><StatusBadge status={p.status} /></td>
+                      <td>
+                        <StatusBadge status={p.status} />
+                        {isRequestable(p) && <div className="muted text-xs">Awaiting payout request</div>}
+                      </td>
                       <td className="muted text-sm">{formatDate(p.paid_at)}</td>
                     </tr>
                   ))}
@@ -156,10 +175,27 @@ export default function VendorSettlements() {
 
       <Modal open={payoutOpen} onClose={() => setPayoutOpen(false)} title="Request payout">
         <form onSubmit={requestPayout} className="flex flex-col gap-2">
-          <p className="muted text-sm" style={{ marginTop: 0 }}>Minimum payout is {money(MIN_PAYOUT)}. Amounts are sent to your registered bank account.</p>
-          <Input label="Amount (NPR)" type="number" min={MIN_PAYOUT} step="1" required value={amount} onChange={(e) => setAmount(e.target.value)} hint={`Available: ${money(available)}`} />
-          <Button type="submit" block disabled={requesting}>
-            {requesting ? <Spinner size={15} color="#fff" /> : 'Request payout'}
+          <p className="muted text-sm" style={{ marginTop: 0 }}>
+            Request payout for an eligible settlement. The amount is locked to the settlement net payable.
+          </p>
+          <Select label="Eligible settlement" required value={settlementId} onChange={(e) => setSettlementId(e.target.value)}>
+            <option value="">Select a settlement</option>
+            {requestable.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.settlement_number} · {formatDate(s.period_start)} — {formatDate(s.period_end)} · {money(s.net_payable)}
+              </option>
+            ))}
+          </Select>
+          {!requestable.length && !loading && (
+            <div className="alert alert-warning">No eligible settlements to request right now. A settlement must have a completed cycle and no already-pending payout request.</div>
+          )}
+          {selected && (
+            <div className="alert" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', borderRadius: 10 }}>
+              Payout amount is locked to the settlement net payable: <strong>{money(selected.net_payable)}</strong>
+            </div>
+          )}
+          <Button type="submit" block disabled={requesting || !settlementId}>
+            {requesting ? <Spinner size={15} color="#fff" /> : `Request ${selected ? money(selected.net_payable) : 'payout'}`}
           </Button>
         </form>
       </Modal>

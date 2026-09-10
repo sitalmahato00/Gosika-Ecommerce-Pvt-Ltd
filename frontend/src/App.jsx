@@ -89,17 +89,15 @@ import AdminReviews from './pages/admin/AdminReviews'
 import AdminSellerTiers from './pages/admin/AdminSellerTiers'
 import AdminSellerBulletins from './pages/admin/AdminSellerBulletins'
 import AdminCustomers from './pages/admin/AdminCustomers'
-import AdminCustomerSegments from './pages/admin/AdminCustomerSegments'
-import AdminCustomerWallets from './pages/admin/AdminCustomerWallets'
 import AdminCustomerSupport from './pages/admin/AdminCustomerSupport'
 import AdminVendors from './pages/admin/AdminVendors'
 import AdminVendorDetail from './pages/admin/AdminVendorDetail'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminPayments from './pages/admin/AdminPayments'
 import AdminCommissions from './pages/admin/AdminCommissions'
-import AdminWallets from './pages/admin/AdminWallets'
 import AdminPayouts from './pages/admin/AdminPayouts'
 import AdminSettlements from './pages/admin/AdminSettlements'
+import AdminVendorFinance from './pages/admin/AdminVendorFinance'
 import AdminRefunds from './pages/admin/AdminRefunds'
 import AdminShipping from './pages/admin/AdminShipping'
 import AdminDeliveries from './pages/admin/AdminDeliveries'
@@ -274,15 +272,13 @@ export default function App() {
         {/* Finance & Ledger */}
         <Route path="finance/payments" element={<AdminPayments />} />
         <Route path="finance/commissions" element={<AdminCommissions />} />
-        <Route path="finance/wallets" element={<AdminWallets />} />
         <Route path="finance/settlements" element={<AdminSettlements />} />
+        <Route path="finance/settlements/vendors/:id" element={<AdminVendorFinance />} />
         <Route path="finance/payouts" element={<AdminPayouts />} />
 
         {/* Customers */}
         <Route path="customers" element={<AdminCustomers />} />
-        <Route path="customers/segments" element={<AdminCustomerSegments />} />
         <Route path="customers/support" element={<AdminCustomerSupport />} />
-        <Route path="customers/wallets" element={<AdminCustomerWallets />} />
 
         {/* Marketing */}
         <Route path="marketing/promotions" element={<AdminPromotions />} />
@@ -317,8 +313,8 @@ export default function App() {
         <Route path="delivery-partners" element={<Navigate to="/admin/fulfillment/partners" replace />} />
         <Route path="payments" element={<Navigate to="/admin/finance/payments" replace />} />
         <Route path="commissions" element={<Navigate to="/admin/finance/commissions" replace />} />
-        <Route path="wallets" element={<Navigate to="/admin/finance/wallets" replace />} />
-        <Route path="wallet" element={<Navigate to="/admin/finance/wallets" replace />} />
+        <Route path="wallets" element={<Navigate to="/admin/finance/settlements" replace />} />
+        <Route path="wallet" element={<Navigate to="/admin/finance/settlements" replace />} />
         <Route path="payouts" element={<Navigate to="/admin/finance/payouts" replace />} />
         <Route path="settlements" element={<Navigate to="/admin/finance/settlements" replace />} />
         <Route path="coupons" element={<Navigate to="/admin/marketing/coupons" replace />} />
