@@ -105,6 +105,9 @@ import AdminDeliveryPartners from './pages/admin/AdminDeliveryPartners'
 import AdminSupport from './pages/admin/AdminSupport'
 import AdminCoupons from './pages/admin/AdminCoupons'
 import AdminPromotions from './pages/admin/AdminPromotions'
+import AdminCampaigns from './pages/admin/AdminCampaigns'
+import AdminNominations from './pages/admin/AdminNominations'
+import AdminPages from './pages/admin/AdminPages'
 import AdminNotifications from './pages/admin/AdminNotifications'
 import AdminPerformanceReports from './pages/admin/AdminPerformanceReports'
 import AdminRoles from './pages/admin/AdminRoles'
@@ -281,9 +284,12 @@ export default function App() {
         <Route path="customers/support" element={<AdminCustomerSupport />} />
 
         {/* Marketing */}
+        <Route path="marketing/campaigns" element={<AdminCampaigns />} />
+        <Route path="marketing/nominations" element={<AdminNominations />} />
         <Route path="marketing/promotions" element={<AdminPromotions />} />
         <Route path="marketing/coupons" element={<AdminCoupons />} />
         <Route path="marketing/banners" element={<AdminPromotions />} />
+        <Route path="marketing/pages" element={<AdminPages />} />
 
         {/* Analytics */}
         <Route path="analytics/reports" element={<AdminPerformanceReports />} />

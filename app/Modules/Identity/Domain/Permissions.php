@@ -48,6 +48,9 @@ final class Permissions
 
     public const COUPONS_MANAGE = 'coupons.manage';
     public const BANNERS_MANAGE = 'banners.manage';
+    public const CAMPAIGNS_MANAGE = 'campaigns.manage';
+    public const PROMOTIONS_MANAGE = 'promotions.manage';
+    public const PAGES_MANAGE = 'pages.manage';
 
     public const TICKETS_MANAGE = 'tickets.manage';
     public const TICKETS_VIEW = 'tickets.view';
@@ -67,7 +70,7 @@ final class Permissions
         self::WALLETS_VIEW, self::WALLETS_ADJUST, self::SETTLEMENTS_MANAGE,
         self::PAYOUTS_APPROVE, self::PAYOUTS_REQUEST,
         self::DELIVERIES_MANAGE, self::DELIVERY_PARTNERS_MANAGE,
-        self::COUPONS_MANAGE, self::BANNERS_MANAGE,
+        self::COUPONS_MANAGE, self::BANNERS_MANAGE, self::CAMPAIGNS_MANAGE, self::PROMOTIONS_MANAGE, self::PAGES_MANAGE,
         self::TICKETS_MANAGE, self::TICKETS_VIEW,
         self::ANALYTICS_VIEW,
         self::SETTINGS_MANAGE,

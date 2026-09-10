@@ -67,6 +67,7 @@ class DatabaseSeeder extends Seeder
             VendorMarketplaceSeeder::class,
             CustomerExperienceSeeder::class,
             CategoryCommissionSeeder::class,
+            MarketingContentSeeder::class,
             DemoFinanceSeeder::class,
         ]);
     }

@@ -314,7 +314,7 @@ export const ADMIN_NAV = [
   { to: '/admin/finance/settlements', label: 'Settlements', icon: 'FileSpreadsheet' },
 
   { section: 'Marketing & Content' },
-  { to: '/admin/marketing/campaigns', label: 'Campaigns', icon: 'Megaphone', badge: '2' },
+  { to: '/admin/marketing/campaigns', label: 'Campaigns', icon: 'Megaphone' },
   { to: '/admin/marketing/nominations', label: 'Product Promotions', icon: 'Gift' },
   { to: '/admin/marketing/coupons', label: 'Coupons & Vouchers', icon: 'Ticket' },
   { to: '/admin/marketing/banners', label: 'Banners & Promotions', icon: 'Image' },

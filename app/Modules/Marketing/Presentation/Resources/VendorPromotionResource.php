@@ -23,6 +23,11 @@ class VendorPromotionResource extends JsonResource
             'status' => $this->status,
             'participating_items' => Product::where('vendor_id', $this->vendor_id)->count(),
             'created_at' => $this->created_at?->toISOString(),
+            'vendor' => $this->whenLoaded('vendor', fn () => [
+                'id' => $this->vendor->uuid,
+                'company_name' => $this->vendor->company_name,
+                'status' => $this->vendor->status,
+            ]),
         ];
     }
 }
