@@ -22,6 +22,10 @@ class DeliveryPartner extends BaseModel
         'email',
         'vehicle_type',
         'vehicle_number',
+        'vehicle_model',
+        'vehicle_color',
+        'vehicle_year',
+        'insurance_expiry',
         'service_areas',
         'status',
         'is_online',
@@ -45,6 +49,8 @@ class DeliveryPartner extends BaseModel
             'rating_count' => 'integer',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
+            'vehicle_year' => 'integer',
+            'insurance_expiry' => 'date',
             'last_location_at' => 'datetime',
             'meta' => 'array',
             'approved_by' => 'integer',
@@ -60,6 +66,11 @@ class DeliveryPartner extends BaseModel
     public function assignments(): HasMany
     {
         return $this->hasMany(DeliveryAssignment::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(DeliveryPartnerDocument::class);
     }
 
     public function scopeApproved($query)

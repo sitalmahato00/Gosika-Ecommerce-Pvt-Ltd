@@ -13,6 +13,8 @@ Route::prefix('v1/delivery-partner')->middleware(['auth:sanctum', 'ensure:delive
     Route::get('me', [DeliveryPartnerController::class, 'me']);
     Route::put('me', [DeliveryPartnerController::class, 'updateProfile']);
     Route::post('online', [DeliveryPartnerController::class, 'setOnline']);
+    Route::post('documents', [DeliveryPartnerController::class, 'uploadDocument']);
+    Route::delete('documents/{document}', [DeliveryPartnerController::class, 'deleteDocument']);
 
     Route::get('assignments', [DeliveryPartnerController::class, 'assignments']);
     Route::get('assignments/{assignment}', [DeliveryPartnerController::class, 'assignment']);

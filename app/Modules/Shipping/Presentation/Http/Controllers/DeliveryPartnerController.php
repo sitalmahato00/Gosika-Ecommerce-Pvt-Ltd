@@ -10,11 +10,13 @@ use App\Modules\Shipping\Application\DataTransferObjects\UpdateDeliveryPartnerPr
 use App\Modules\Shipping\Application\Services\DeliveryService;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryPartner;
+use App\Modules\Shipping\Infrastructure\Models\DeliveryPartnerDocument;
 use App\Modules\Shipping\Presentation\Http\Requests\ApplyDeliveryPartnerRequest;
 use App\Modules\Shipping\Presentation\Http\Requests\DeliveryConfirmationRequest;
 use App\Modules\Shipping\Presentation\Http\Requests\DeliveryFailureRequest;
 use App\Modules\Shipping\Presentation\Http\Requests\UpdateDeliveryPartnerProfileRequest;
 use App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource;
+use App\Modules\Shipping\Presentation\Resources\DeliveryPartnerDocumentResource;
 use App\Modules\Shipping\Presentation\Resources\DeliveryPartnerResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,7 +44,7 @@ class DeliveryPartnerController extends Controller
     {
         $partner = $this->partnerFor($request->user());
 
-        return Response::success(new DeliveryPartnerResource($partner), 'Delivery partner profile retrieved.');
+        return Response::success(new DeliveryPartnerResource($partner->load('documents')), 'Delivery partner profile retrieved.');
     }
 
     public function updateProfile(UpdateDeliveryPartnerProfileRequest $request): JsonResponse
@@ -52,7 +54,35 @@ class DeliveryPartnerController extends Controller
             UpdateDeliveryPartnerProfileDTO::fromArray($request->validated())
         );
 
-        return Response::success(new DeliveryPartnerResource($partner), 'Delivery partner profile updated.');
+        return Response::success(new DeliveryPartnerResource($partner->load('documents')), 'Delivery partner profile updated.');
+    }
+
+    public function uploadDocument(Request $request): JsonResponse
+    {
+        $request->validate([
+            'document_type' => ['required', 'string', 'max:40'],
+            'file' => ['required', 'file', 'max:5120', 'mimes:jpg,jpeg,png,pdf'],
+        ]);
+
+        $partner = $this->partnerFor($request->user());
+        $document = $this->service->addDocument(
+            $partner,
+            $request->input('document_type'),
+            $request->file('file')
+        );
+
+        return Response::created(
+            new DeliveryPartnerDocumentResource($document),
+            'Document uploaded for review.'
+        );
+    }
+
+    public function deleteDocument(Request $request, DeliveryPartnerDocument $document): JsonResponse
+    {
+        $partner = $this->partnerFor($request->user());
+        $this->service->deleteDocument($partner, $document);
+
+        return Response::success(null, 'Document removed.');
     }
 
     public function setOnline(Request $request): JsonResponse

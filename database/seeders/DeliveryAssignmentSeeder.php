@@ -9,9 +9,11 @@ use App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryPartner;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryTracking;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
+use App\Modules\Shipping\Infrastructure\Models\DeliveryPartnerDocument;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class DeliveryAssignmentSeeder extends Seeder
@@ -61,6 +63,7 @@ class DeliveryAssignmentSeeder extends Seeder
     public function run(): void
     {
         $this->ensureExtraPartners();
+        $this->seedDocuments();
 
         $partnerIds = DeliveryPartner::pluck('id')->toArray();
         if (empty($partnerIds)) {
@@ -314,6 +317,49 @@ class DeliveryAssignmentSeeder extends Seeder
         }
     }
 
+    private function seedDocuments(): void
+    {
+        $sources = [
+            'products/e587386d-a7e6-4a72-a6be-3a53fcf3ece2/50wiG97FxEmRSaD6drjBel8tnLH5CvBzSGfG0FG5.jpg',
+            'products/e587386d-a7e6-4a72-a6be-3a53fcf3ece2/PXm0VTfFRRloxsnc7QwRmBrLZaSUy9SHAJGjrf3Q.png',
+        ];
+        $labels = ['driving_license', 'vehicle_registration', 'insurance'];
+        $disk = Storage::disk('public');
+
+        foreach (DeliveryPartner::all() as $partner) {
+            if ($partner->documents()->exists()) {
+                continue;
+            }
+
+            $created = 0;
+            foreach ($labels as $i => $type) {
+                $source = $sources[$i % count($sources)];
+                $ext = Str::afterLast($source, '.');
+                $target = 'delivery-documents/'.$partner->uuid.'/'.Str::slug($type).'-'.Str::random(6).'.'.$ext;
+
+                if (! $disk->exists($source)) {
+                    continue;
+                }
+
+                $disk->copy($source, $target);
+
+                DeliveryPartnerDocument::create([
+                    'delivery_partner_id' => $partner->id,
+                    'document_type'       => $type,
+                    'file_path'           => $target,
+                    'mime_type'           => 'image/'.$ext,
+                    'file_size'           => $disk->size($target),
+                    'status'              => 'pending',
+                ]);
+                $created++;
+            }
+
+            if ($created > 0) {
+                $this->command?->info("Seeded {$created} documents for {$partner->name}.");
+            }
+        }
+    }
+
     private function ensureExtraPartners(): void
     {
         $extras = [
@@ -325,6 +371,10 @@ class DeliveryAssignmentSeeder extends Seeder
                 'name'       => 'Sanjay Thapa',
                 'vehicle'    => 'bicycle',
                 'plate'      => 'BA 2 PA 1122',
+                'model'      => 'Giant Escape 3',
+                'color'      => 'sliver',
+                'year'       => 2021,
+                'insurance'  => now()->addMonths(8)->toDateString(),
                 'lat'        => 27.7105,
                 'lng'        => 85.3135,
             ],
@@ -336,6 +386,10 @@ class DeliveryAssignmentSeeder extends Seeder
                 'name'       => 'Deepa Magar',
                 'vehicle'    => 'motorcycle',
                 'plate'      => 'BA 4 PA 9876',
+                'model'      => 'Bajaj Pulsar NS160',
+                'color'      => 'red',
+                'year'       => 2023,
+                'insurance'  => now()->addYear()->toDateString(),
                 'lat'        => 27.7080,
                 'lng'        => 85.3150,
             ],
@@ -365,6 +419,10 @@ class DeliveryAssignmentSeeder extends Seeder
                     'email'         => $e['email'],
                     'vehicle_type'  => $e['vehicle'],
                     'vehicle_number'=> $e['plate'],
+                    'vehicle_model' => $e['model'] ?? null,
+                    'vehicle_color' => $e['color'] ?? null,
+                    'vehicle_year'  => $e['year'] ?? null,
+                    'insurance_expiry' => $e['insurance'] ?? null,
                     'service_areas' => ['Kathmandu', 'Lalitpur', 'Bhaktapur'],
                     'status'        => DeliveryPartnerStatus::APPROVED,
                     'is_online'     => in_array($e['email'], ['rider2@gosika.com.np']),

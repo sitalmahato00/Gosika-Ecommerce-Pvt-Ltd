@@ -18,12 +18,15 @@ use App\Modules\Shipping\Application\DataTransferObjects\ApplyDeliveryPartnerDTO
 use App\Modules\Shipping\Application\DataTransferObjects\UpdateDeliveryPartnerProfileDTO;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryPartner;
+use App\Modules\Shipping\Infrastructure\Models\DeliveryPartnerDocument;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryTracking;
 use App\Modules\Shipping\Infrastructure\Models\ShippingZone;
 use App\Modules\Catalog\Infrastructure\Models\Product;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class DeliveryService
 {
@@ -64,12 +67,40 @@ class DeliveryService
             'email' => $dto->email,
             'vehicle_type' => $dto->vehicle_type,
             'vehicle_number' => $dto->vehicle_number,
+            'vehicle_model' => $dto->vehicle_model,
+            'vehicle_color' => $dto->vehicle_color,
+            'vehicle_year' => $dto->vehicle_year,
+            'insurance_expiry' => $dto->insurance_expiry,
             'service_areas' => $dto->service_areas,
             'latitude' => $dto->latitude,
             'longitude' => $dto->longitude,
         ], fn ($value) => $value !== null));
 
         return $partner;
+    }
+
+    public function addDocument(DeliveryPartner $partner, string $documentType, UploadedFile $file): DeliveryPartnerDocument
+    {
+        $path = $file->store('delivery-documents/'.$partner->uuid, 'public');
+
+        return DeliveryPartnerDocument::query()->create([
+            'delivery_partner_id' => $partner->id,
+            'document_type' => $documentType,
+            'file_path' => $path,
+            'mime_type' => $file->getMimeType(),
+            'file_size' => $file->getSize(),
+            'status' => 'pending',
+        ]);
+    }
+
+    public function deleteDocument(DeliveryPartner $partner, DeliveryPartnerDocument $document): void
+    {
+        if ($document->delivery_partner_id !== $partner->id) {
+            throw new DomainException('You do not have access to this document.', 403);
+        }
+
+        Storage::disk('public')->delete($document->file_path);
+        $document->delete();
     }
 
     public function setOnline(User $user, bool $isOnline): DeliveryPartner
