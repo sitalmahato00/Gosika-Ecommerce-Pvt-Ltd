@@ -173,43 +173,36 @@ export const VENDOR_NAV = [
 ]
 
 export const DELIVERY_NAV = [
-  { section: 'DISPATCH MONITOR' },
-  { to: '/delivery', label: 'Dispatch Overview', icon: 'LayoutDashboard', end: true },
-  { to: '/delivery/unassigned', label: 'Unassigned Parcels', icon: 'Inbox', badge: '19' },
+  { section: 'DELIVERY' },
+  { to: '/delivery', label: 'Dashboard', icon: 'LayoutDashboard', end: true },
+  { to: '/delivery/deliveries', label: 'My Deliveries', icon: 'Truck' },
+  { to: '/delivery/pickups', label: 'Pickup Tasks', icon: 'PackageCheck' },
+  { to: '/delivery/tasks', label: 'Delivery Tasks', icon: 'Navigation' },
+  { to: '/delivery/returns', label: 'Returns', icon: 'RotateCcw' },
 
-  { section: 'PICKUP & RTO' },
-  { to: '/delivery/pickups', label: 'Warehouse Pickups', icon: 'MapPin', badge: '32' },
-  { to: '/delivery/manifests', label: 'Pickup Manifest Scans', icon: 'ScanLine' },
-  { to: '/delivery/rto', label: 'Returns & RTO Inbound', icon: 'RotateCcw' },
-  { to: '/delivery/hubs', label: 'Hub Transfers', icon: 'Warehouse' },
+  { section: 'OPERATIONS' },
+  { to: '/delivery/route', label: 'Today\u2019s Route', icon: 'Map' },
+  { to: '/delivery/history', label: 'Delivery History', icon: 'History' },
+  { to: '/delivery/failures', label: 'Failed Deliveries', icon: 'AlertTriangle' },
 
-  { section: 'LAST-MILE DELIVERY' },
-  { to: '/delivery/deliveries', label: 'All Shipments', icon: 'Truck' },
-  { to: '/delivery/out', label: 'Out for Delivery', icon: 'Navigation', badge: '45' },
-  { to: '/delivery/pod', label: 'Proof of Delivery', icon: 'ClipboardCheck' },
-  { to: '/delivery/failures', label: 'Failed Delivery Logs', icon: 'AlertTriangle', badge: '7' },
+  { section: 'PAYMENTS' },
+  { to: '/delivery/cod-collection', label: 'COD Collection', icon: 'Banknote' },
+  { to: '/delivery/cod-settlement', label: 'COD Settlement', icon: 'FileSpreadsheet' },
+  { to: '/delivery/earnings', label: 'Earnings', icon: 'TrendingUp' },
 
-  { section: 'FLEET MANAGEMENT' },
-  { to: '/delivery/riders', label: 'Rider Directory', icon: 'Users' },
-  { to: '/delivery/riders/onboarding', label: 'Rider Onboarding & KYC', icon: 'IdCard' },
-  { to: '/delivery/attendance', label: 'Shift Attendance', icon: 'CalendarCheck' },
-  { to: '/delivery/vehicle', label: 'Vehicle & Fuel Logs', icon: 'Car' },
-
-  { section: 'COD SAFE & RECONCILIATION' },
-  { to: '/delivery/cod/cash-turn-in', label: 'Rider Cash Turn-In', icon: 'Banknote', badge: '12' },
-  { to: '/delivery/cod/vault', label: 'Hub Safe Deposit', icon: 'Vault' },
-  { to: '/delivery/cod/escrow', label: 'Escrow Transfer', icon: 'ArrowLeftRight' },
-
-  { section: 'ROUTING & SUPPORT' },
-  { to: '/delivery/zones', label: 'Zones & Hubs', icon: 'Map' },
-  { to: '/delivery/rates', label: 'Rate Cards & Slabs', icon: 'Weight' },
-  { to: '/delivery/sos', label: 'Rider SOS Alerts', icon: 'Siren' },
+  { section: 'ACCOUNT' },
+  { to: '/delivery/profile', label: 'Profile', icon: 'User' },
+  { to: '/delivery/vehicle', label: 'Vehicle & Documents', icon: 'Car' },
+  { to: '/delivery/availability', label: 'Availability', icon: 'Radio' },
+  { to: '/delivery/notifications', label: 'Notifications', icon: 'Bell' },
+  { to: '/delivery/security', label: 'Security', icon: 'Lock' },
+  { to: '/delivery/support', label: 'Support', icon: 'Headphones' },
 ]
 
 export const DELIVERY_MOBILE_NAV = [
   { to: '/delivery', label: 'Home', icon: 'LayoutDashboard', end: true },
   { to: '/delivery/deliveries', label: 'Deliveries', icon: 'Truck' },
-  { to: '/delivery/active', label: 'Active', icon: 'Navigation' },
+  { to: '/delivery/route', label: 'Route', icon: 'Map' },
   { to: '/delivery/earnings', label: 'Earnings', icon: 'TrendingUp' },
   { to: '/delivery/profile', label: 'Profile', icon: 'UserCircle' },
 ]

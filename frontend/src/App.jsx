@@ -148,6 +148,14 @@ import DeliveryProfile from './pages/delivery/DeliveryProfile'
 import DeliveryVehicle from './pages/delivery/DeliveryVehicle'
 import DeliverySettings from './pages/delivery/DeliverySettings'
 import DeliverySupport from './pages/delivery/DeliverySupport'
+import DeliveryPickupTasks from './pages/delivery/DeliveryPickupTasks'
+import DeliveryTasks from './pages/delivery/DeliveryTasks'
+import DeliveryRoutePage from './pages/delivery/DeliveryRoute'
+import DeliveryReturns from './pages/delivery/DeliveryReturns'
+import DeliveryFailures from './pages/delivery/DeliveryFailures'
+import DeliveryCodSettlement from './pages/delivery/DeliveryCodSettlement'
+import DeliveryAvailability from './pages/delivery/DeliveryAvailability'
+import DeliverySecurity from './pages/delivery/DeliverySecurity'
 
 function CustomerLayout() {
   const navigate = useNavigate()
@@ -371,10 +379,18 @@ export default function App() {
         <Route path="deliveries/:id/deliver" element={<DeliveryDeliver />} />
         <Route path="deliveries/:id/failure" element={<DeliveryFailure />} />
         <Route path="active" element={<DeliveryActiveRoute />} />
+        <Route path="route" element={<DeliveryRoutePage />} />
+        <Route path="pickups" element={<DeliveryPickupTasks />} />
+        <Route path="tasks" element={<DeliveryTasks />} />
+        <Route path="returns" element={<DeliveryReturns />} />
+        <Route path="failures" element={<DeliveryFailures />} />
         <Route path="history" element={<DeliveryHistory />} />
         <Route path="earnings" element={<DeliveryEarnings />} />
         <Route path="transactions" element={<DeliveryTransactions />} />
         <Route path="cod-collection" element={<DeliveryCodLedger />} />
+        <Route path="cod-settlement" element={<DeliveryCodSettlement />} />
+        <Route path="availability" element={<DeliveryAvailability />} />
+        <Route path="security" element={<DeliverySecurity />} />
         <Route path="notifications" element={<DeliveryNotifications />} />
         <Route path="profile" element={<DeliveryProfile />} />
         <Route path="vehicle" element={<DeliveryVehicle />} />

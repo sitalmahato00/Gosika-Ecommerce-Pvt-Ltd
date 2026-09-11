@@ -65,7 +65,7 @@ export default function DeliveryVehicle() {
     <div className="w-full flex flex-col gap-4 pb-8">
       <div className="page-header" style={{ marginBottom: 8 }}>
         <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>Vehicle Details</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>Vehicle & Documents</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>Vehicle information shown to the hub while dispatching.</p>
         </div>
       </div>

@@ -129,7 +129,7 @@ export default function DeliveryDeliveries() {
     <div className="w-full flex flex-col gap-4 pb-8">
       <div className="page-header" style={{ marginBottom: 8 }}>
         <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>Assigned Deliveries</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>My Deliveries</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
             {meta.total} assignment{meta.total === 1 ? '' : 's'} · Filter by status to focus your queue.
           </p>

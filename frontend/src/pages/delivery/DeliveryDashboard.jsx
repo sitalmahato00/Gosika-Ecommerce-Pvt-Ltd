@@ -26,7 +26,7 @@ export default function DeliveryDashboard() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', margin: 0 }}>Dispatch Overview</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', margin: 0 }}>Dashboard</h1>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ecfdf5', color: '#10b981', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800 }}>
               <Radio size={12} /> LIVE
             </span>

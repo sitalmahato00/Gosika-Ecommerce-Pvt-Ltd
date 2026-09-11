@@ -125,7 +125,7 @@ export default function DeliveryProfile() {
     <div className="w-full flex flex-col gap-4 pb-8">
       <div className="page-header" style={{ marginBottom: 8 }}>
         <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>Rider & Vehicle Profile</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>Profile</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>Update your personal and vehicle details.</p>
         </div>
       </div>
