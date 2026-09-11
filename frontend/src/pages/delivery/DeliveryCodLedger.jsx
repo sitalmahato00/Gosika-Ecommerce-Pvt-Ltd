@@ -27,11 +27,11 @@ export default function DeliveryCodLedger() {
   const [period, setPeriod] = useState('all')
   const history = useApi(async () => {
     const page1 = await api.get('/delivery-partner/history', { params: { per_page: 100 } })
-    let list = page1.data?.data?.data ?? []
+    let list = page1.data?.data ?? []
     const pag = page1.data?.meta?.pagination ?? {}
     for (let p = 2; p <= (pag.last_page || 1); p++) {
       const res = await api.get('/delivery-partner/history', { params: { per_page: 100, page: p } })
-      list = list.concat(res.data?.data?.data ?? [])
+      list = list.concat(res.data?.data ?? [])
     }
     return list
   })

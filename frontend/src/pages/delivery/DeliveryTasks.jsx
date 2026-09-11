@@ -17,7 +17,7 @@ export default function DeliveryTasks() {
   const assignments = useApi(() => api.get('/delivery-partner/assignments', { params: { per_page: 100 } }))
 
   const items = useMemo(
-    () => (assignments.data?.data ?? []).filter((a) => DELIVERY_STATUSES.includes(a.status)),
+    () => (assignments.data ?? []).filter((a) => DELIVERY_STATUSES.includes(a.status)),
     [assignments.data],
   )
 

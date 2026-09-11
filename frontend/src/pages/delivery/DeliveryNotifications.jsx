@@ -19,7 +19,7 @@ export default function DeliveryNotifications() {
   const history = useApi(() => api.get('/delivery-partner/history', { params: { per_page: 100 } }))
 
   const feed = useMemo(() => {
-    const list = history.data?.data ?? []
+    const list = history.data ?? []
     return list
       .slice()
       .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))

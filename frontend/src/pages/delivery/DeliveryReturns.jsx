@@ -20,7 +20,7 @@ export default function DeliveryReturns() {
   const [confirmReturn, setConfirmReturn] = useState(null)
 
   const items = useMemo(
-    () => (assignments.data?.data ?? []).filter((a) => RETURN_STATUSES.includes(a.status)),
+    () => (assignments.data ?? []).filter((a) => RETURN_STATUSES.includes(a.status)),
     [assignments.data],
   )
 

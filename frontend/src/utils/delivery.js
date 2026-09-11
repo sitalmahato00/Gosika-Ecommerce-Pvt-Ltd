@@ -106,15 +106,10 @@ export function nextStep(assignment) {
   }
 }
 
-// Normalizes a Laravel paginated collection response into the shape useList expects.
+// Passes the envelope through exactly like other list pages (e.g. /vendor/orders),
+// so useList can unwrap `data` (items) and `meta.pagination`.
 export function listFetcher(path, params = {}) {
   return async (page, per_page) => {
-    const res = await api.get(path, { params: { page, per_page, ...params } })
-    return {
-      data: {
-        data: res.data?.data?.data ?? [],
-        pagination: res.data?.meta?.pagination ?? {},
-      },
-    }
+    return api.get(path, { params: { page, per_page, ...params } })
   }
 }

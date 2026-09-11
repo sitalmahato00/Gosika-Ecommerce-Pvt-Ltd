@@ -26,11 +26,11 @@ export default function DeliveryRoute() {
   const [livePos, setLivePos] = useState(null)
 
   const active = useMemo(
-    () => (assignments.data?.data ?? []).filter((a) => ACTIVE_STATUSES.includes(a.status)),
+    () => (assignments.data ?? []).filter((a) => ACTIVE_STATUSES.includes(a.status)),
     [assignments.data],
   )
 
-  const rider = me.data?.data || me.data || {}
+  const rider = me.data || {}
   const partnerPos = livePos || (rider.latitude && rider.longitude ? { lat: rider.latitude, lng: rider.longitude } : null)
 
   const stops = useMemo(() => {

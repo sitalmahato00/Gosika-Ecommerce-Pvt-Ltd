@@ -20,7 +20,7 @@ export default function DeliveryPickupTasks() {
   const [confirmAccept, setConfirmAccept] = useState(null)
 
   const items = useMemo(
-    () => (assignments.data?.data ?? []).filter((a) => PICKUP_STATUSES.includes(a.status)),
+    () => (assignments.data ?? []).filter((a) => PICKUP_STATUSES.includes(a.status)),
     [assignments.data],
   )
 

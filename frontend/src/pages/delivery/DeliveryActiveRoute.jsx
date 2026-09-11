@@ -22,7 +22,7 @@ export default function DeliveryActiveRoute() {
   const [busyId, setBusyId] = useState(null)
   const [confirmAccept, setConfirmAccept] = useState(null)
 
-  const all = assignments.data?.data ?? []
+  const all = assignments.data ?? []
   const active = useMemo(() => all.filter((a) => ACTIVE_STATUSES.includes(a.status)), [all])
   const activeDelivery =
     active.find((a) => a.status === 'out_for_delivery') ||
