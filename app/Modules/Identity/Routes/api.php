@@ -30,9 +30,11 @@ Route::prefix('v1/auth')->group(function () {
 Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
     Route::get('users', [AdminUserController::class, 'index']);
     Route::get('users/{user}', [AdminUserController::class, 'show']);
+    Route::post('users', [AdminUserController::class, 'store']);
     Route::post('users/{user}/suspend', [AdminUserController::class, 'suspend']);
     Route::post('users/{user}/activate', [AdminUserController::class, 'activate']);
     Route::post('users/{user}/roles', [AdminUserController::class, 'assignRoles']);
+    Route::post('users/{user}/reset-password', [AdminUserController::class, 'resetPassword']);
     Route::delete('users/{user}', [AdminUserController::class, 'destroy']);
 
     Route::get('roles', [AdminRoleController::class, 'roles']);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShoppingBag, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { errorMessage } from '../utils/format'
 import api from '../api/client'
+import AuthBrand from '../components/layout/AuthBrand'
 
 const SOCIAL_BASE = '/api/v1/auth'
 
@@ -76,9 +77,7 @@ export default function Register() {
     <div className="page-shell container container-narrow">
       <div className="card" style={{ maxWidth: 480, margin: '0 auto', padding: '28px 24px' }}>
         <div className="text-center mb-2">
-          <span className="brand" style={{ justifyContent: 'center' }}>
-            <span className="brand-mark"><ShoppingBag size={18} /></span> GOSIKA
-          </span>
+          <AuthBrand />
           <h1 style={{ fontSize: 20, marginTop: 14 }}>Create your account</h1>
           <p className="muted m-0 text-sm">Join thousands of shoppers across Nepal.</p>
         </div>

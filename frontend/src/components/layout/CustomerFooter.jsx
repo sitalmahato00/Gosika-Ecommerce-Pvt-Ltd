@@ -4,6 +4,7 @@ import {
   ShoppingBag, Banknote, Wallet, CreditCard, Smartphone, Truck, Shield, Star, Headphones, ChevronRight, Mail, Phone, MapPin
 } from 'lucide-react'
 import { PAYMENT_BRAND_LOGOS } from '../../utils/constants'
+import { apiImage } from '../../utils/format'
 
 const Facebook = ({ size = 15, ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
@@ -80,6 +81,7 @@ export default function CustomerFooter() {
   const branding = useBranding()
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
   const footerText = `© ${new Date().getFullYear()} ${brandName} Pvt. Ltd. All rights reserved.`
+  const logoUrl = branding.logo_light || ''
 
   return (
     <footer className="footer" role="contentinfo" style={{ background: '#161d2b', color: '#94a3b8', fontSize: 13 }}>
@@ -89,27 +91,34 @@ export default function CustomerFooter() {
           {/* Brand column */}
           <div style={{ gridColumn: 'span 1' }}>
             <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', marginBottom: 16 }}>
-              <span
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: '50%',
-                  background: '#ff5500',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ffffff',
-                  fontWeight: 900,
-                  fontSize: 17,
-                  boxShadow: '0 2px 6px rgba(255,85,0,0.3)',
-                  flexShrink: 0
-                }}
-              >
-                G
-              </span>
-              <span style={{ fontWeight: 900, color: '#ffffff', fontSize: 20, letterSpacing: '-0.02em', display: 'flex', alignItems: 'baseline' }}>
+              {logoUrl ? (
+                <img
+                  src={apiImage(logoUrl)}
+                  alt={`${brandName} logo`}
+                  style={{ height: 44, width: 'auto', maxWidth: 230, objectFit: 'contain', flexShrink: 0 }}
+                />
+              ) : (
+                <span
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    background: '#ff5500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    fontWeight: 900,
+                    fontSize: 17,
+                    boxShadow: '0 2px 6px rgba(255,85,0,0.3)',
+                    flexShrink: 0
+                  }}
+                >
+                  G
+                </span>
+              )}
+              <span style={{ fontWeight: 900, color: '#ffffff', fontSize: 21, letterSpacing: '-0.02em' }}>
                 {brandName}
-                <span style={{ color: '#ff5500', fontWeight: 700, marginLeft: 2, fontSize: 15 }}>Commerce</span>
               </span>
             </Link>
             <p style={{ fontSize: 13, lineHeight: 1.6, maxWidth: 260, margin: '0 0 18px', color: '#94a3b8' }}>
@@ -225,7 +234,7 @@ export default function CustomerFooter() {
             <h4 style={{ color: '#ffffff', fontSize: 14, fontWeight: 700, marginBottom: 16 }}>For Sellers</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <Link to="/vendor/register" style={{ color: '#ff5500', fontWeight: 600, textDecoration: 'none' }}>Become a Seller</Link>
-              <Link to="/vendor" style={{ color: '#94a3b8', textDecoration: 'none' }}>Seller Hub</Link>
+              <Link to="/vendor/register" style={{ color: '#94a3b8', textDecoration: 'none' }}>Seller Hub</Link>
               <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Seller Guidelines</Link>
               <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Commission Rates</Link>
             </div>

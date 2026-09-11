@@ -7,6 +7,7 @@ import Spinner from '../components/ui/Spinner'
 import api from '../api/client'
 import { useToast } from '../context/ToastContext'
 import { errorMessage } from '../utils/format'
+import AuthBrand from '../components/layout/AuthBrand'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -72,8 +73,9 @@ export default function ResetPassword() {
     <div className="page-shell container container-narrow">
       <div className="card" style={{ maxWidth: 440, margin: '0 auto', padding: '28px 24px' }}>
         <div className="text-center mb-2">
-          <span className="avatar" style={{ width: 56, height: 56, margin: '0 auto 14px' }}><Lock size={26} /></span>
-          <h1 style={{ fontSize: 20 }}>Reset your password</h1>
+          <AuthBrand />
+          <span className="avatar" style={{ width: 56, height: 56, margin: '14px auto 0' }}><Lock size={26} /></span>
+          <h1 style={{ fontSize: 20, marginTop: 0 }}>Reset your password</h1>
           <p className="muted m-0 text-sm">Enter a new password for <strong>{email}</strong>.</p>
         </div>
         {error && <div className="alert alert-error">{error}</div>}

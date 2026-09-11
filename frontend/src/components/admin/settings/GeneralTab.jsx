@@ -29,7 +29,7 @@ export default function GeneralTab({ form, onChange, disabled }) {
                 handleChange('platform_name', e.target.value)
                 handleChange('site_name', e.target.value)
               }}
-              placeholder="e.g. GOSIKA Commerce"
+              placeholder="e.g. GOSIKA"
               disabled={disabled}
             />
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>Displayed on customer storefront, emails, and invoices</span>

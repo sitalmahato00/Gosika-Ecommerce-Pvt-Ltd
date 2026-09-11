@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import api from '../api/client'
+import AuthBrand from '../components/layout/AuthBrand'
 
 export default function SocialAuth() {
   const navigate = useNavigate()
@@ -45,7 +46,8 @@ export default function SocialAuth() {
   return (
     <div className="page-shell container container-narrow">
       <div className="card" style={{ maxWidth: 440, margin: '0 auto', textAlign: 'center', padding: '48px 24px' }}>
-        <Loader2 size={36} className="spin" color="var(--primary)" />
+        <AuthBrand />
+        <Loader2 size={36} className="spin" color="var(--primary)" style={{ marginTop: 24 }} />
         <h1 style={{ fontSize: 18, marginTop: 16 }}>Signing you in...</h1>
         <p className="muted text-sm">Please wait while we complete your login.</p>
       </div>

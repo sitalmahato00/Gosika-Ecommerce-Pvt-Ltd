@@ -1,158 +1,215 @@
-import React from 'react'
-import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom'
-import {
-  LayoutDashboard, Package, Heart, MapPin, CreditCard,
-  User, Headphones, RotateCcw, LogOut, ChevronRight
-} from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { NavLink, Outlet, Link, useLocation } from 'react-router-dom'
+import { LogOut, ChevronRight, Menu, X } from 'lucide-react'
+import * as Icons from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { useBranding } from '../../context/BrandingContext'
 import { initials, apiImage } from '../../utils/format'
+import { CUSTOMER_NAV } from '../../utils/constants'
+import { AccountNavContext } from './AccountUI'
 
-const NAV_ITEMS = [
-  { to: '/account', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/orders', label: 'My Orders', icon: Package },
-  { to: '/wishlist', label: 'Wishlist', icon: Heart },
-  { to: '/account/addresses', label: 'Addresses', icon: MapPin },
-  { to: '/account/payments', label: 'Payment Methods', icon: CreditCard },
-  { to: '/account/returns', label: 'Returns', icon: RotateCcw },
-  { to: '/account/profile', label: 'Profile', icon: User },
-  { to: '/account/support', label: 'Support', icon: Headphones },
-]
+function AccountNavItems({ onNavigate }) {
+  return CUSTOMER_NAV.map((item, idx) => {
+    if (item.section) {
+      return (
+        <div key={`s-${item.section}-${idx}`} className="acc-s-label">
+          <span className="acc-s-label-text">{item.section}</span>
+        </div>
+      )
+    }
+    const Icon = Icons[item.icon] || Icons.Circle
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        end={item.end}
+        onClick={onNavigate}
+        aria-label={item.label}
+        title={item.label}
+        className={({ isActive }) => `acc-nav-link${isActive ? ' active' : ''}`}
+      >
+        <Icon size={17} strokeWidth={2} aria-hidden="true" />
+        <span className="acc-nav-text">{item.label}</span>
+      </NavLink>
+    )
+  })
+}
 
 export default function AccountLayout() {
   const { user, logout } = useAuth()
-  const navigate = useNavigate()
-  const userInitials = initials(user?.name || user?.email || 'U')
+  const branding = useBranding()
+  const location = useLocation()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [label, setLabel] = useState('My Account')
+
+  const userInitials = useMemo(() => initials(user?.name || user?.email || 'U'), [user])
+  const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
+  const brandLogo = branding.logo_light || branding.logo_dark || ''
+
+  useEffect(() => { setMenuOpen(false) }, [location.pathname])
+
+  useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }) }, [location.pathname])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [menuOpen])
 
   const handleLogout = async () => {
     await logout()
-    navigate('/')
+    window.location.href = '/'
   }
 
+  const navCtx = useMemo(() => ({ label, setLabel }), [label])
+
   return (
-    <div className="page-shell container">
-      {/* Breadcrumb */}
-      <nav className="breadcrumb" aria-label="Breadcrumb">
-        <Link to="/">Home</Link>
-        <ChevronRight size={13} className="breadcrumb-sep" />
-        <span style={{ color: 'var(--ink)', fontWeight: 600 }}>My Account</span>
-      </nav>
+    <div className="page-shell container account-shell" style={{ paddingTop: 24, paddingBottom: 56 }}>
+      {/* Desktop breadcrumb */}
+      <BreadcrumbNav activeLabel={label} />
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr',
-          gap: 24,
-          alignItems: 'start',
-        }}
-        id="account-layout"
+      {/* Mobile account toolbar */}
+      <div className="acc-mobilebar">
+        <button
+          type="button"
+          className="acc-menu-btn"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Open account menu"
+          aria-expanded={menuOpen}
+        >
+          <Menu size={22} />
+        </button>
+        <div className="acc-current-title">{label}</div>
+        <Link to="/account/profile" className="acc-mobile-avatar" aria-label="Go to profile">
+          {user?.avatar ? (
+            <img src={apiImage(user.avatar)} alt="" />
+          ) : (
+            <span>{userInitials}</span>
+          )}
+        </Link>
+      </div>
+
+      {/* Mobile drawer + backdrop */}
+      {menuOpen && <div className="acc-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />}
+      <aside
+        className={`acc-drawer ${menuOpen ? 'open' : ''}`}
+        aria-hidden={!menuOpen}
+        aria-label="Account menu"
       >
-        <style>{`
-          @media (min-width: 768px) {
-            #account-layout { grid-template-columns: 240px 1fr !important; }
-          }
-        `}</style>
+        <div className="acc-drawer-head">
+          <BrandBlock link={false} brandName={brandName} brandLogo={brandLogo} />
+          <button
+            type="button"
+            className="acc-drawer-close"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Close menu"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-        {/* Sidebar */}
-        <aside style={{ position: 'sticky', top: 80, alignSelf: 'start' }}>
-          {/* User card */}
+        {user && (
+          <div className="acc-user">
+            {user.avatar ? (
+              <img className="acc-user-avatar" src={apiImage(user.avatar)} alt="" />
+            ) : (
+              <span className="acc-user-avatar">{userInitials}</span>
+            )}
+            <div className="acc-user-text">
+              <div className="acc-user-name">{user.name}</div>
+              <div className="acc-user-mail">{user.email}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="acc-nav-scroll">
+          <nav className="acc-nav" aria-label="Account navigation" onClick={() => setMenuOpen(false)}>
+            <AccountNavItems onNavigate={() => setMenuOpen(false)} />
+          </nav>
+        </div>
+
+        <button type="button" className="acc-logout" onClick={handleLogout}>
+          <LogOut size={17} />
+          <span className="acc-logout-text">Logout</span>
+        </button>
+      </aside>
+
+      {/* Desktop / tablet grid */}
+      <div className="account-layout" id="account-layout-grid">
+        <aside className="acc-sidebar">
+          <BrandBlock link brandName={brandName} brandLogo={brandLogo} />
           {user && (
-            <div className="card" style={{ marginBottom: 12, padding: 16 }}>
-              <div className="flex items-center gap-3">
-                {user.avatar ? (
-                  <img
-                    src={apiImage(user.avatar)}
-                    alt=""
-                    style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }}
-                  />
-                ) : (
-                  <span
-                    className="avatar"
-                    style={{ width: 48, height: 48, fontSize: 18, background: 'var(--primary)', color: '#fff' }}
-                  >
-                    {userInitials}
-                  </span>
-                )}
-                <div style={{ minWidth: 0 }}>
-                  <div className="font-semibold truncate" style={{ fontSize: 14 }}>{user.name}</div>
-                  <div className="muted text-xs truncate">{user.email}</div>
-                </div>
+            <div className="acc-user">
+              {user.avatar ? (
+                <img className="acc-user-avatar" src={apiImage(user.avatar)} alt="" />
+              ) : (
+                <span className="acc-user-avatar">{userInitials}</span>
+              )}
+              <div className="acc-user-text">
+                <div className="acc-user-name">{user.name}</div>
+                <div className="acc-user-mail">{user.email}</div>
               </div>
             </div>
           )}
-
-          {/* Nav */}
-          <nav className="card card-pad-none" style={{ overflow: 'hidden' }} aria-label="Account navigation">
-            {NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) => `
-                  flex items-center gap-3
-                  ${isActive
-                    ? 'text-primary font-semibold'
-                    : 'text-ink'
-                  }
-                `}
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '11px 16px',
-                  fontSize: 13.5,
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? 'var(--primary)' : 'var(--ink)',
-                  background: isActive ? 'var(--primary-50)' : 'transparent',
-                  borderLeft: isActive ? '3px solid var(--primary)' : '3px solid transparent',
-                  textDecoration: 'none',
-                  transition: 'all 0.15s ease',
-                })}
-                aria-label={item.label}
-              >
-                {({ isActive }) => (
-                  <>
-                    <item.icon size={16} color={isActive ? 'var(--primary)' : 'var(--muted)'} aria-hidden="true" />
-                    {item.label}
-                  </>
-                )}
-              </NavLink>
-            ))}
-            <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-            <button
-              className="flex items-center gap-3"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '11px 16px',
-                fontSize: 13.5,
-                fontWeight: 400,
-                color: 'var(--danger)',
-                background: 'transparent',
-                border: 'none',
-                borderLeft: '3px solid transparent',
-                cursor: 'pointer',
-                width: '100%',
-                textAlign: 'left',
-                fontFamily: 'inherit',
-                transition: 'all 0.15s ease',
-              }}
-              onClick={handleLogout}
-              aria-label="Logout"
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--danger-bg)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-            >
-              <LogOut size={16} aria-hidden="true" />
-              Logout
-            </button>
-          </nav>
+          <div className="acc-nav-scroll">
+            <nav className="acc-nav" aria-label="Account navigation">
+              <AccountNavItems />
+            </nav>
+          </div>
+          <button type="button" className="acc-logout" onClick={handleLogout}>
+            <LogOut size={17} />
+            <span className="acc-logout-text">Logout</span>
+          </button>
         </aside>
 
-        {/* Content */}
-        <main>
-          <Outlet />
+        <main className="account-main" style={{ minWidth: 0 }}>
+          <AccountNavContext.Provider value={navCtx}>
+            <Outlet />
+          </AccountNavContext.Provider>
         </main>
       </div>
     </div>
+  )
+}
+
+function BrandBlock({ link, brandName, brandLogo }) {
+  const logo = (
+    <>
+      {brandLogo ? (
+        <img className="acc-brand-logo" src={apiImage(brandLogo)} alt={`${brandName} logo`} />
+      ) : (
+        <span className="acc-brand-mark">G</span>
+      )}
+      <span className="acc-brand-text">{brandName}</span>
+    </>
+  )
+  return link ? (
+    <Link className="acc-brand" to="/" aria-label={`${brandName} Home`}>
+      {logo}
+    </Link>
+  ) : (
+    <div className="acc-brand">{logo}</div>
+  )
+}
+
+function BreadcrumbNav({ activeLabel }) {
+  return (
+    <nav className="acc-breadcrumb" aria-label="Breadcrumb">
+      <Link to="/">Home</Link>
+      <ChevronRight size={13} className="acc-breadcrumb-sep" />
+      <span>My Account</span>
+      {activeLabel && activeLabel !== 'My Account' && (
+        <>
+          <ChevronRight size={13} className="acc-breadcrumb-sep" />
+          <span className="acc-breadcrumb-here">{activeLabel}</span>
+        </>
+      )}
+    </nav>
   )
 }

@@ -150,16 +150,11 @@ export default function Returns() {
     : items
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div className="flex items-center justify-between wrap gap-3">
-        <div>
-          <h2 style={{ fontSize: 22, margin: 0 }}>My Returns</h2>
-          <p className="muted text-sm mt-1 m-0">Track and request returns for your orders.</p>
-        </div>
-        <button className="btn btn-primary btn-sm flex items-center gap-1" onClick={openRequestModal}>
-          <Plus size={14} /> Request a return
-        </button>
-      </div>
+    <AccountPage
+      title="My Returns"
+      subtitle="Track and request returns for your orders."
+      actions={<button className="btn btn-primary btn-sm flex items-center gap-1" onClick={openRequestModal}><Plus size={14} /> Request a return</button>}
+    >
 
       <div className="card" style={{ padding: '12px 16px' }}>
         <div className="flex items-center justify-between wrap gap-3">
@@ -261,7 +256,7 @@ export default function Returns() {
 
                     <td>
                       <Link
-                        to={`/orders/${r.order_id}`}
+                        to={`/account/orders/${r.order_id}`}
                         className="font-mono text-xs"
                         style={{ background: 'var(--bg)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', textDecoration: 'none', color: 'var(--ink)' }}
                       >
@@ -392,6 +387,6 @@ export default function Returns() {
         message={`Return ${cancelTarget?.return_number || ''} will be cancelled.`}
         confirmText="Cancel request"
       />
-    </div>
+    </AccountPage>
   )
 }

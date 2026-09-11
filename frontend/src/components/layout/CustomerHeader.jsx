@@ -18,30 +18,38 @@ import { useBranding } from '../../context/BrandingContext'
 function Logo({ size = 'md' }) {
   const branding = useBranding()
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
+  const logoUrl = branding.logo_light || ''
 
   return (
-    <Link to="/" className="brand" aria-label={`${brandName} Commerce`} style={{ fontSize: 21, display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-      <span
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: '50%',
-          background: '#ff5500',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#ffffff',
-          fontWeight: 900,
-          fontSize: 17,
-          boxShadow: '0 2px 6px rgba(255,85,0,0.3)',
-          flexShrink: 0
-        }}
-      >
-        G
-      </span>
-      <span style={{ fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', display: 'flex', alignItems: 'baseline' }}>
+    <Link to="/" className="brand" aria-label={brandName} style={{ fontSize: 22, display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+      {logoUrl ? (
+        <img
+          src={apiImage(logoUrl)}
+          alt={`${brandName} logo`}
+          style={{ height: 42, width: 'auto', maxWidth: 220, objectFit: 'contain', flexShrink: 0 }}
+        />
+      ) : (
+        <span
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            background: '#ff5500',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#ffffff',
+            fontWeight: 900,
+            fontSize: 17,
+            boxShadow: '0 2px 6px rgba(255,85,0,0.3)',
+            flexShrink: 0
+          }}
+        >
+          G
+        </span>
+      )}
+      <span style={{ fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
         {brandName}
-        <span className="brand-suffix" style={{ color: '#ff5500', fontWeight: 700, marginLeft: 2, fontSize: 16 }}>Commerce</span>
       </span>
     </Link>
   )

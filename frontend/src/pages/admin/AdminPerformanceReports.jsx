@@ -148,7 +148,7 @@ export default function AdminPerformanceReports() {
       : `gosika_report_${scope}_${fromIso}_${toIso}`
     return {
       title: 'Platform Performance Report',
-      subtitle: `Consolidated operational report for ${branding.brand_name || 'GOSIKA'} Commerce — ${fmtDate(fromIso)} to ${fmtDate(toIso)}.`,
+      subtitle: `Consolidated operational report for ${branding.brand_name || 'GOSIKA'} — ${fmtDate(fromIso)} to ${fmtDate(toIso)}.`,
       rangeLabel: `${fmtDate(fromIso)} – ${fmtDate(toIso)}`,
       preparedBy: personLabel(user),
       company: companyFromBranding(branding),

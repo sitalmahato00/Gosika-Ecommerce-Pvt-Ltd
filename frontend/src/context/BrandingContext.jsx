@@ -48,8 +48,8 @@ export function BrandingProvider({ children }) {
     document.documentElement.style.setProperty('--primary-600', primary)
     document.documentElement.style.setProperty('--primary-dark', dark)
 
-    // Update document title if site name specified
-    if (data.brand_name && document.title.includes('GOSIKA')) {
+    // Update document title if site name specified (avoid duplicating the brand name)
+    if (data.brand_name && document.title.includes('GOSIKA') && !document.title.includes(data.brand_name)) {
       document.title = document.title.replace(/GOSIKA/g, data.brand_name)
     }
 

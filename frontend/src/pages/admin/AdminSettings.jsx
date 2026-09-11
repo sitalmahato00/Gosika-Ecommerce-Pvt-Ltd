@@ -13,6 +13,7 @@ import ShippingTab from '../../components/admin/settings/ShippingTab'
 import PaymentGatewaysTab from '../../components/admin/settings/PaymentGatewaysTab'
 import VendorTab from '../../components/admin/settings/VendorTab'
 import { useToast } from '../../context/ToastContext'
+import { useBranding } from '../../context/BrandingContext'
 
 const TABS = [
   { id: 'general', label: 'General', icon: Globe, endpoint: '/admin/settings/general' },
@@ -25,6 +26,7 @@ const TABS = [
 
 export default function AdminSettings() {
   const toast = useToast()
+  const { reloadBranding } = useBranding()
   const [activeTab, setActiveTab] = useState('general')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -119,15 +121,29 @@ export default function AdminSettings() {
     const currentTabObj = TABS.find(t => t.id === activeTab)
 
     try {
-      await api.put(currentTabObj.endpoint, formData).catch(async () => {
-        // Fallback to legacy batch update
-        const payload = Object.entries(formData).map(([key, value]) => ({
-          key,
-          value,
-          group: activeTab === 'payment' ? 'payment' : activeTab === 'store' ? 'store' : activeTab,
-        }))
-        await api.put('/admin/settings', { settings: payload })
-      })
+      if (activeTab === 'branding') {
+        // Branding accepts file uploads → multipart/form-data
+        const fd = new FormData()
+        Object.entries(formData).forEach(([key, value]) => {
+          if (key.endsWith('_file')) {
+            if (value instanceof File) fd.append(key, value)
+          } else if (value !== undefined && value !== null) {
+            fd.append(key, value)
+          }
+        })
+        await api.post(currentTabObj.endpoint, fd)
+        reloadBranding()
+      } else {
+        await api.put(currentTabObj.endpoint, formData).catch(async () => {
+          // Fallback to legacy batch update
+          const payload = Object.entries(formData).map(([key, value]) => ({
+            key,
+            value,
+            group: activeTab === 'payment' ? 'payment' : activeTab === 'store' ? 'store' : activeTab,
+          }))
+          await api.put('/admin/settings', { settings: payload })
+        })
+      }
 
       setOriginalData({ ...formData })
       toast.success(`${currentTabObj.label} saved successfully.`)

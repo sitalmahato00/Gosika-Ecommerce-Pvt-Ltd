@@ -220,26 +220,28 @@ export const DELIVERY_MOBILE_NAV = [
 ]
 
 export const CUSTOMER_NAV = [
+  { section: 'GENERAL' },
+  { to: '/account', label: 'Account Overview', icon: 'LayoutDashboard', end: true },
+  { to: '/account/help', label: 'Help Center', icon: 'LifeBuoy' },
+
   { section: 'ORDERS' },
-  { to: '/account', label: 'My Orders', icon: 'ShoppingBag', end: true },
-  { to: '/account/orders/active', label: 'Active Order Tracking', icon: 'MapPin', badge: '1' },
+  { to: '/account/orders', label: 'My Orders', icon: 'ShoppingBag' },
+  { to: '/account/orders/active', label: 'Active Order Tracking', icon: 'MapPin' },
   { to: '/account/returns', label: 'Returns & Exchanges', icon: 'RotateCcw' },
   { to: '/account/refunds', label: 'Refund Status', icon: 'Receipt' },
 
   { section: 'ASSETS & SAVINGS' },
-  { to: '/account/wallet', label: 'My Wallet Balance', icon: 'Wallet' },
   { to: '/account/payments', label: 'Saved Payment Methods', icon: 'CreditCard' },
-  { to: '/account/vouchers', label: 'My Discount Vouchers', icon: 'Ticket', badge: '3' },
-  { to: '/account/rewards', label: 'Reward Points & Coins', icon: 'Coins' },
+  { to: '/account/vouchers', label: 'My Discount Vouchers', icon: 'Ticket' },
 
   { section: 'SHOPPING & LISTS' },
-  { to: '/account/wishlist', label: 'My Wishlist', icon: 'Heart', badge: '14' },
+  { to: '/account/wishlist', label: 'My Wishlist', icon: 'Heart' },
   { to: '/account/stores', label: 'Followed Stores', icon: 'Store' },
   { to: '/account/buy-again', label: 'Buy Again', icon: 'RefreshCcw' },
   { to: '/account/recent', label: 'Recently Viewed', icon: 'History' },
 
   { section: 'COMMUNITY & FEEDBACK' },
-  { to: '/account/reviews/pending', label: 'Pending Reviews', icon: 'Clock', badge: '2' },
+  { to: '/account/reviews/pending', label: 'Pending Reviews', icon: 'Clock' },
   { to: '/account/reviews', label: 'My Reviews & Photos', icon: 'Star' },
   { to: '/account/qa', label: 'My Questions & Answers', icon: 'MessageSquare' },
 
@@ -252,9 +254,9 @@ export const CUSTOMER_NAV = [
 
 export const CUSTOMER_MOBILE_NAV = [
   { to: '/account', label: 'Home', icon: 'LayoutDashboard', end: true },
-  { to: '/account/wallet', label: 'Wallet', icon: 'Wallet' },
+  { to: '/account/payments', label: 'Payments', icon: 'CreditCard' },
   { to: '/account/wishlist', label: 'Wishlist', icon: 'Heart' },
-  { to: '/account/returns', label: 'Orders', icon: 'ShoppingBag' },
+  { to: '/account/orders', label: 'Orders', icon: 'ShoppingBag' },
   { to: '/account/profile', label: 'Profile', icon: 'User' },
 ]
 

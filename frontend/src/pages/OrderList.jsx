@@ -22,7 +22,7 @@ const STATUS_TABS = [
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
-export default function OrderList() {
+export default function OrderList({ basePath = '/orders' }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const status = searchParams.get('status') || ''
 
@@ -112,7 +112,7 @@ export default function OrderList() {
       </div>
       <div className="flex flex-col gap-3 mt-2">
         {items.map((o) => (
-          <Link key={o.id} to={`/orders/${o.id}`} className="card card-hover" style={{ display: 'block' }}>
+          <Link key={o.id} to={`${basePath}/${o.id}`} className="card card-hover" style={{ display: 'block' }}>
             <div className="flex items-center justify-between wrap gap-2">
               <div>
                 <div className="flex items-center gap-2 wrap">
@@ -151,7 +151,7 @@ export default function OrderList() {
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      window.location.href = `/orders/${o.id}`
+                      window.location.href = `${basePath}/${o.id}`
                     }}
                   >
                     Pay Now

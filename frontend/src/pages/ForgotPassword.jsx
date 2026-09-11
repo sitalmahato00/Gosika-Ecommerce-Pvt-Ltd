@@ -1,12 +1,13 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShoppingBag, Mail, ArrowLeft } from 'lucide-react'
+import { Mail, ArrowLeft } from 'lucide-react'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import api from '../api/client'
 import { useToast } from '../context/ToastContext'
 import { errorMessage } from '../utils/format'
+import AuthBrand from '../components/layout/AuthBrand'
 
 export default function ForgotPassword() {
   const navigate = useNavigate()
@@ -55,9 +56,7 @@ export default function ForgotPassword() {
     <div className="page-shell container container-narrow">
       <div className="card" style={{ maxWidth: 440, margin: '0 auto', padding: '28px 24px' }}>
         <div className="text-center mb-2">
-          <span className="brand" style={{ justifyContent: 'center' }}>
-            <span className="brand-mark"><ShoppingBag size={18} /></span> GOSIKA
-          </span>
+          <AuthBrand />
           <h1 style={{ fontSize: 20, marginTop: 14 }}>Forgot your password?</h1>
           <p className="muted m-0 text-sm">Enter your email and we'll send you a reset link.</p>
         </div>

@@ -4,7 +4,7 @@ import CustomerFooter from './components/layout/CustomerFooter'
 import CustomerBottomNav from './components/layout/CustomerBottomNav'
 import DashboardLayout from './components/layout/DashboardLayout'
 import { AuthRoute, GuestRoute, VendorRoute, AdminRoute, DeliveryRoute } from './components/layout/RouteGuards'
-import { VENDOR_NAV, ADMIN_NAV, VENDOR_MOBILE_NAV, ADMIN_MOBILE_NAV, CUSTOMER_NAV, CUSTOMER_MOBILE_NAV } from './utils/constants'
+import { VENDOR_NAV, ADMIN_NAV, VENDOR_MOBILE_NAV, ADMIN_MOBILE_NAV } from './utils/constants'
 import SectionPage from './components/admin/SectionPage'
 
 import Home from './pages/Home'
@@ -38,6 +38,18 @@ import AccountPayments from './pages/account/AccountPayments'
 import AccountReturns from './pages/account/Returns'
 import AccountSupport from './pages/account/AccountSupport'
 import CustomerDashboard from './pages/account/CustomerDashboard'
+import AccountLayout from './pages/account/AccountLayout'
+import AccountActiveOrders from './pages/account/AccountActiveOrders'
+import AccountRefunds from './pages/account/AccountRefunds'
+import AccountVouchers from './pages/account/AccountVouchers'
+import AccountStores from './pages/account/AccountStores'
+import AccountBuyAgain from './pages/account/AccountBuyAgain'
+import AccountRecentlyViewed from './pages/account/AccountRecentlyViewed'
+import AccountPendingReviews from './pages/account/AccountPendingReviews'
+import AccountMyReviews from './pages/account/AccountMyReviews'
+import AccountMyQuestions from './pages/account/AccountMyQuestions'
+import AccountSecurity from './pages/account/AccountSecurity'
+import { AccountTitle } from './pages/account/AccountUI'
 
 import VendorRegister from './pages/vendor/VendorRegister'
 import VendorDashboard from './pages/vendor/VendorDashboard'
@@ -113,6 +125,8 @@ import AdminPerformanceReports from './pages/admin/AdminPerformanceReports'
 import AdminRoles from './pages/admin/AdminRoles'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminAuditLogs from './pages/admin/AdminAuditLogs'
+import AdminPaymentMethods from './pages/admin/AdminPaymentMethods'
+import AdminSystemLogs from './pages/admin/AdminSystemLogs'
 
 import DeliveryLayout from './components/layout/DeliveryLayout'
 import DeliveryDashboard from './pages/delivery/DeliveryDashboard'
@@ -162,6 +176,29 @@ function CustomerLayout() {
           <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
           <Route path="/social-auth" element={<SocialAuth />} />
           <Route path="/vendor/register" element={<VendorRegister />} />
+          <Route path="/account" element={<AuthRoute><AccountLayout /></AuthRoute>}>
+            <Route index element={<CustomerDashboard />} />
+            <Route path="help" element={<><AccountTitle label="Help Center" /><Help /></>} />
+            <Route path="orders" element={<><AccountTitle label="My Orders" /><OrderList basePath="/account/orders" /></>} />
+            <Route path="orders/active" element={<AccountActiveOrders />} />
+            <Route path="orders/:id" element={<><AccountTitle label="Order Detail" /><OrderDetail embedded basePath="/account/orders" /></>} />
+            <Route path="returns" element={<AccountReturns />} />
+            <Route path="refunds" element={<AccountRefunds />} />
+            <Route path="payments" element={<AccountPayments />} />
+            <Route path="vouchers" element={<AccountVouchers />} />
+            <Route path="wishlist" element={<><AccountTitle label="My Wishlist" /><Wishlist /></>} />
+            <Route path="stores" element={<AccountStores />} />
+            <Route path="buy-again" element={<AccountBuyAgain />} />
+            <Route path="recent" element={<AccountRecentlyViewed />} />
+            <Route path="reviews" element={<AccountMyReviews />} />
+            <Route path="reviews/pending" element={<AccountPendingReviews />} />
+            <Route path="qa" element={<AccountMyQuestions />} />
+            <Route path="profile" element={<AccountProfile />} />
+            <Route path="addresses" element={<AccountAddresses />} />
+            <Route path="security" element={<AccountSecurity />} />
+            <Route path="support" element={<AccountSupport />} />
+            <Route path="*" element={<Navigate to="/account" replace />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
@@ -175,31 +212,6 @@ export default function App() {
   return (
     <Routes>
       <Route path="/*" element={<CustomerLayout />} />
-
-      {/* Customer / Buyer Portal */}
-      <Route path="/account" element={<AuthRoute><DashboardLayout nav={CUSTOMER_NAV} title="Buyer Portal" roleLabel="Customer" homePath="/account" mobileNav={CUSTOMER_MOBILE_NAV} /></AuthRoute>}>
-        <Route index element={<CustomerDashboard />} />
-        <Route path="orders" element={<Navigate to="/account" replace />} />
-        <Route path="profile" element={<AccountProfile />} />
-        <Route path="orders/active" element={<SectionPage />} />
-        <Route path="returns" element={<AccountReturns />} />
-        <Route path="refunds" element={<SectionPage />} />
-        <Route path="wallet" element={<SectionPage />} />
-        <Route path="payments" element={<AccountPayments />} />
-        <Route path="vouchers" element={<SectionPage />} />
-        <Route path="rewards" element={<SectionPage />} />
-        <Route path="wishlist" element={<SectionPage />} />
-        <Route path="stores" element={<SectionPage />} />
-        <Route path="buy-again" element={<SectionPage />} />
-        <Route path="recent" element={<SectionPage />} />
-        <Route path="reviews" element={<SectionPage />} />
-        <Route path="reviews/pending" element={<SectionPage />} />
-        <Route path="qa" element={<SectionPage />} />
-        <Route path="addresses" element={<AccountAddresses />} />
-        <Route path="security" element={<SectionPage />} />
-        <Route path="support" element={<AccountSupport />} />
-        <Route path="*" element={<SectionPage />} />
-      </Route>
 
       {/* Vendor Portal */}
       <Route path="/vendor" element={<VendorRoute><DashboardLayout nav={VENDOR_NAV} title="Vendor Panel" roleLabel="Vendor" mobileNav={VENDOR_MOBILE_NAV} /></VendorRoute>}>
@@ -299,6 +311,8 @@ export default function App() {
         <Route path="system/users" element={<AdminUsers />} />
         <Route path="system/roles" element={<AdminRoles />} />
         <Route path="system/audit-logs" element={<AdminAuditLogs />} />
+        <Route path="system/gateways" element={<AdminPaymentMethods />} />
+        <Route path="system/logs" element={<AdminSystemLogs />} />
         <Route path="system/settings" element={<AdminSettings />} />
 
         {/* Backward-Compatible Redirects */}

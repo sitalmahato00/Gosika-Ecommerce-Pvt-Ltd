@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Platform\Presentation\Http\Controllers\AdminLogsController;
 use App\Modules\Platform\Presentation\Http\Controllers\AdminSettingsController;
 use App\Modules\Platform\Presentation\Http\Controllers\GeoController;
 use App\Modules\Platform\Presentation\Http\Controllers\PlatformConfigController;
@@ -42,4 +43,9 @@ Route::prefix('v1/admin/settings')->middleware(['auth:sanctum', 'ensure:admin', 
     Route::put('/', [SettingsController::class, 'batchUpdate']);
     Route::put('{key}', [SettingsController::class, 'update']);
     Route::delete('{key}', [SettingsController::class, 'destroy']);
+});
+
+Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin', 'throttle:admin'])->group(function () {
+    Route::get('logs', [AdminLogsController::class, 'index']);
+    Route::get('logs/view', [AdminLogsController::class, 'show']);
 });

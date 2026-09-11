@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react'
+import { User, Lock } from 'lucide-react'
 import api from '../../api/client'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import Select from '../../components/ui/Select'
 import Spinner from '../../components/ui/Spinner'
-import { Skeleton } from '../../components/ui/Skeleton'
-import ErrorState from '../../components/ui/ErrorState'
 import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../context/AuthContext'
 import { errorMessage, apiImage } from '../../utils/format'
+import { AccountPage, AccountSection, AccountSkeleton, AccountError } from './AccountUI'
 
 const GENDERS = [
   { value: '', label: 'Prefer not to say' },
@@ -132,118 +132,116 @@ export default function AccountProfile() {
 
   if (loading) {
     return (
-      <div className="card">
-        <Skeleton height={22} width={140} />
-        <div className="flex flex-col gap-3 mt-3">
-          <Skeleton height={40} />
-          <Skeleton height={40} />
-          <Skeleton height={40} />
-          <Skeleton height={40} />
-        </div>
-      </div>
+      <AccountPage title="Personal Profile" subtitle="Update your personal information.">
+        <AccountSkeleton rows={4} height={44} asCards={false} />
+      </AccountPage>
     )
   }
 
   if (error) {
-    return <ErrorState message={errorMessage(error)} onRetry={load} />
+    return (
+      <AccountPage title="Personal Profile" subtitle="Update your personal information.">
+        <AccountError message={errorMessage(error)} onRetry={load} />
+      </AccountPage>
+    )
   }
 
   return (
-    <div className="card">
-      <h2 style={{ fontSize: 17, fontWeight: 700 }}>Profile</h2>
-      <p className="muted text-sm mb-4">Update your personal information.</p>
-      
+    <AccountPage title="Personal Profile" subtitle="Update your personal information.">
       {/* Profile Picture Section */}
-      <div className="flex items-center gap-4 mb-4" style={{ paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          style={{ display: 'none' }} 
-          accept="image/*" 
-          onChange={handleAvatarChange} 
-        />
-        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-50)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 'bold', overflow: 'hidden', border: '2px solid var(--border)' }}>
-          {form.avatar ? (
-            <img src={apiImage(form.avatar)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            (form.first_name || 'U')[0].toUpperCase()
-          )}
+      <AccountSection title="Profile Picture" subtitle="Your photo appears across the marketplace." icon={User} pad={22}>
+        <div className="flex items-center gap-4 wrap">
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            accept="image/*"
+            onChange={handleAvatarChange}
+          />
+          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--primary-50)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 'bold', overflow: 'hidden', border: '2px solid var(--border)' }}>
+            {form.avatar ? (
+              <img src={apiImage(form.avatar)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              (form.first_name || 'U')[0].toUpperCase()
+            )}
+          </div>
+          <div>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarUploading}
+            >
+              {avatarUploading ? 'Uploading…' : 'Change Picture'}
+            </button>
+            <div className="muted text-xs mt-1">JPG, GIF or PNG. Max size of 2MB.</div>
+          </div>
         </div>
-        <div>
-          <button 
-            type="button" 
-            className="btn btn-outline btn-sm" 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={avatarUploading}
-          >
-            {avatarUploading ? 'Uploading…' : 'Change Picture'}
-          </button>
-          <div className="muted text-xs mt-1">JPG, GIF or PNG. Max size of 2MB.</div>
-        </div>
-      </div>
+      </AccountSection>
 
-      <form onSubmit={save}>
-        <div className="form-row">
-          <Input label="First name" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
-          <Input label="Last name" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
-        </div>
-        
-        <div className="form-row">
-          <Input label="Email address" type="email" value={form.email || 'customer@gosika.com'} disabled hint="Email cannot be changed." />
-          <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="98XXXXXXXX" />
-        </div>
-        
-        <div className="form-row">
-          <Input label="Date of birth" type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
-          <Select label="Gender" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
-            {GENDERS.map((g) => (
-              <option key={g.value} value={g.value}>{g.label}</option>
-            ))}
-          </Select>
-        </div>
-        
-        <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-          <Button type="submit" disabled={saving || loading}>
-            {saving && <Spinner size={14} color="#fff" />} Save changes
-          </Button>
-        </div>
-      </form>
+      {/* Personal details */}
+      <AccountSection title="Personal Information" subtitle="Your name, contact details and preferences." icon={User} pad={22}>
+        <form onSubmit={save}>
+          <div className="form-row">
+            <Input label="First name" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+            <Input label="Last name" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+          </div>
+
+          <div className="form-row">
+            <Input label="Email address" type="email" value={form.email || 'customer@gosika.com'} disabled hint="Email cannot be changed." />
+            <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="98XXXXXXXX" />
+          </div>
+
+          <div className="form-row">
+            <Input label="Date of birth" type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
+            <Select label="Gender" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+              {GENDERS.map((g) => (
+                <option key={g.value} value={g.value}>{g.label}</option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+            <Button type="submit" disabled={saving || loading}>
+              {saving && <Spinner size={14} color="#fff" />} Save changes
+            </Button>
+          </div>
+        </form>
+      </AccountSection>
 
       {/* Security Section */}
-      <div className="mt-6 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Security</h3>
-        <p className="muted text-sm mb-4">Update your password to keep your account secure.</p>
+      <AccountSection title="Security" subtitle="Update your password to keep your account secure." icon={Lock} pad={22}>
         <form onSubmit={handlePasswordChange}>
           <div className="form-row">
-            <Input 
-              label="Current Password" 
-              type="password" 
-              required 
-              value={passwordForm.current_password} 
-              onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })} 
+            <Input
+              label="Current Password"
+              type="password"
+              required
+              value={passwordForm.current_password}
+              onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
             />
-            <Input 
-              label="New Password" 
-              type="password" 
-              required 
-              value={passwordForm.password} 
-              onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value })} 
+            <Input
+              label="New Password"
+              type="password"
+              required
+              value={passwordForm.password}
+              onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value })}
             />
           </div>
           <div className="form-row">
-            <Input 
-              label="Confirm New Password" 
-              type="password" 
-              required 
-              value={passwordForm.password_confirmation} 
-              onChange={(e) => setPasswordForm({ ...passwordForm, password_confirmation: e.target.value })} 
+            <Input
+              label="Confirm New Password"
+              type="password"
+              required
+              value={passwordForm.password_confirmation}
+              onChange={(e) => setPasswordForm({ ...passwordForm, password_confirmation: e.target.value })}
             />
           </div>
           <button type="submit" className="btn btn-primary btn-sm mt-2" disabled={passwordSaving}>
             {passwordSaving ? 'Updating…' : 'Update Password'}
           </button>
         </form>
-      </div>
-    </div>
+      </AccountSection>
+    </AccountPage>
   )
 }

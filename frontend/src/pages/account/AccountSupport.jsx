@@ -11,6 +11,7 @@ import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
 import { formatDateTime, errorMessage, apiImage } from '../../utils/format'
+import { AccountPage, AccountTitle } from './AccountUI'
 
 export default function AccountSupport() {
   const toast = useToast()
@@ -148,6 +149,7 @@ export default function AccountSupport() {
   if (view === 'new') {
     return (
       <div className="card">
+        <AccountTitle label="Create Support Ticket" />
         <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
           <button type="button" className="btn btn-ghost btn-xs flex items-center gap-1" onClick={() => setView('list')}>
             <ArrowLeft size={14} /> Back to Tickets
@@ -257,6 +259,8 @@ export default function AccountSupport() {
   if (view === 'detail' && activeTicket) {
     const isClosed = activeTicket.status === 'closed'
     return (
+      <>
+      <AccountTitle label="Support Tickets" />
       <div className="card card-pad-none" style={{ display: 'flex', flexDirection: 'column', height: '640px', overflow: 'hidden' }}>
         {/* Detail Header */}
         <div style={{ padding: '14px 18px', background: 'var(--bg)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
@@ -392,20 +396,16 @@ export default function AccountSupport() {
           </div>
         )}
       </div>
+      </>
     )
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4 wrap gap-2">
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Customer Support</h2>
-          <p className="muted text-xs mt-0.5">Submit support inquiries and chat with our team in real-time.</p>
-        </div>
-        <button className="btn btn-primary btn-sm flex items-center gap-1.5" onClick={() => setView('new')}>
-          <Plus size={14} /> New Ticket
-        </button>
-      </div>
+    <AccountPage
+      title="Customer Support"
+      subtitle="Submit support inquiries and chat with our team in real-time."
+      actions={<button className="btn btn-primary btn-sm flex items-center gap-1.5" onClick={() => setView('new')}><Plus size={14} /> New Ticket</button>}
+    >
 
       {loading ? (
         <div className="card" style={{ padding: 30, textAlign: 'center' }}>
@@ -458,6 +458,6 @@ export default function AccountSupport() {
           action={<button className="btn btn-primary" onClick={() => setView('new')}><Plus size={14} /> Open Support Ticket</button>} 
         />
       )}
-    </div>
+    </AccountPage>
   )
 }

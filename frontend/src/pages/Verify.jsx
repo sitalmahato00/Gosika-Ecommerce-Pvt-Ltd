@@ -1,12 +1,12 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail } from 'lucide-react'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import api from '../api/client'
 import { useToast } from '../context/ToastContext'
 import { errorMessage } from '../utils/format'
+import AuthBrand from '../components/layout/AuthBrand'
 
 export default function Verify() {
   const toast = useToast()
@@ -44,8 +44,8 @@ export default function Verify() {
     <div className="page-shell container container-narrow">
       <div className="card" style={{ maxWidth: 440, margin: '0 auto' }}>
         <div className="text-center mb-2">
-          <span className="avatar" style={{ width: 56, height: 56, marginBottom: 10 }}><Mail size={26} /></span>
-          <h1 style={{ fontSize: 20 }}>Verify your email</h1>
+          <AuthBrand />
+          <h1 style={{ fontSize: 20, marginTop: 14 }}>Verify your email</h1>
           <p className="muted text-sm m-0">Enter the verification code we sent to your email.</p>
         </div>
         <form onSubmit={verify}>

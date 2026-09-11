@@ -11,7 +11,7 @@ import {
 import * as Icons from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useBranding } from '../../context/BrandingContext'
-import { initials } from '../../utils/format'
+import { initials, apiImage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import MobileBottomNav from './MobileBottomNav'
 
@@ -22,7 +22,8 @@ export default function DashboardLayout({
   const { user, logout, isSuperAdmin } = useAuth()
   const branding = useBranding()
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
-  const logoUrl = branding.logo_light || branding.logo_dark
+  const brandLogo = branding.logo_dark || branding.logo_light || ''
+  const logoUrl = brandLogo ? apiImage(brandLogo) : ''
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [userDropdown, setUserDropdown] = useState(false)
@@ -525,7 +526,7 @@ export default function DashboardLayout({
                 <img
                   src={logoUrl}
                   alt={brandName}
-                  style={{ height: 28, width: 'auto', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+                  style={{ height: 34, width: 'auto', objectFit: 'contain' }}
                 />
               ) : (
                 <div

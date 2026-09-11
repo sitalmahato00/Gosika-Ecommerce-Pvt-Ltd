@@ -1,11 +1,12 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
-  Users, Search, Trash2, Ban, UserCheck, Download
+  Users, Search, Trash2, Ban, UserCheck, Download, UserPlus, Shield, KeyRound
 } from 'lucide-react'
 import api from '../../api/client'
 import { useList } from '../../hooks/useApi'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import { Skeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
@@ -40,6 +41,25 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [busyId, setBusyId] = useState(null)
+
+  const [roleOptions, setRoleOptions] = useState([])
+  const [createOpen, setCreateOpen] = useState(false)
+  const [rolesTarget, setRolesTarget] = useState(null)
+  const [createForm, setCreateForm] = useState({
+    first_name: '', last_name: '', email: '', phone: '', password: '', password_confirmation: '', roles: ['super_admin'],
+  })
+  const [selectedRoles, setSelectedRoles] = useState([])
+  const [formSaving, setFormSaving] = useState(false)
+
+  useEffect(() => {
+    api.get('/admin/roles')
+      .then((res) => setRoleOptions(res.data?.data || []))
+      .catch(() => setRoleOptions([]))
+  }, [])
+
+  const roleNames = roleOptions.length > 0
+    ? roleOptions.map((r) => r.name)
+    : ['super_admin', 'vendor_admin', 'delivery_partner', 'customer']
 
   const fetchUsers = (page, perPage) =>
     api.get('/admin/users', {
@@ -93,6 +113,74 @@ export default function AdminUsers() {
       .catch((err) => toast.error(errorMessage(err)))
   }
 
+  const handleCreate = () => {
+    if (!createForm.first_name.trim() || !createForm.email.trim() || !createForm.password) {
+      toast.error('Name, email and password are required.')
+      return
+    }
+    if (createForm.password !== createForm.password_confirmation) {
+      toast.error('Password confirmation does not match.')
+      return
+    }
+    setFormSaving(true)
+    api.post('/admin/users', { ...createForm, roles: createForm.roles })
+      .then(() => {
+        toast.success('Admin user created')
+        setCreateOpen(false)
+        setCreateForm({ first_name: '', last_name: '', email: '', phone: '', password: '', password_confirmation: '', roles: ['super_admin'] })
+        reload()
+      })
+      .catch((err) => toast.error(errorMessage(err)))
+      .finally(() => setFormSaving(false))
+  }
+
+  const openRolesModal = (u) => {
+    setRolesTarget(u)
+    setSelectedRoles(u.roles || [])
+  }
+
+  const handleSaveRoles = () => {
+    if (!rolesTarget) return
+    setFormSaving(true)
+    api.post(`/admin/users/${rolesTarget.id}/roles`, { roles: selectedRoles })
+      .then(() => {
+        toast.success('Roles updated')
+        setRolesTarget(null)
+        reload()
+      })
+      .catch((err) => toast.error(errorMessage(err)))
+      .finally(() => setFormSaving(false))
+  }
+
+  const handleResetPassword = (u) => {
+    const password = window.prompt(`Set a new password for ${u.full_name || u.email}:`, '')
+    if (!password) return
+    const confirm = window.prompt('Confirm the new password:', '')
+    if (confirm !== password) {
+      toast.error('Passwords do not match.')
+      return
+    }
+    setBusyId(u.id)
+    api.post(`/admin/users/${u.id}/reset-password`, { password, password_confirmation: confirm })
+      .then(() => {
+        toast.success('Password reset. Existing sessions revoked.')
+        reload()
+      })
+      .catch((err) => toast.error(errorMessage(err)))
+      .finally(() => setBusyId(null))
+  }
+
+  const toggleCreateRole = (name) => {
+    setCreateForm((f) => ({
+      ...f,
+      roles: f.roles.includes(name) ? f.roles.filter((r) => r !== name) : [...f.roles, name],
+    }))
+  }
+
+  const toggleRoles = (name) => {
+    setSelectedRoles((prev) => (prev.includes(name) ? prev.filter((r) => r !== name) : [...prev, name]))
+  }
+
   const exportCSV = () => {
     exportReportFromRows({
       columns: [
@@ -133,6 +221,9 @@ export default function AdminUsers() {
         <div className="flex items-center gap-2">
           <button className="btn btn-outline btn-sm" onClick={exportCSV}>
             <Download size={14} /> Export CSV
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => setCreateOpen(true)}>
+            <UserPlus size={14} /> Add Admin
           </button>
         </div>
       </div>
@@ -245,6 +336,22 @@ export default function AdminUsers() {
                       <td className="muted text-xs">{formatDate(u.created_at)}</td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                          <button
+                            className="btn btn-outline btn-xs"
+                            disabled={busy}
+                            onClick={() => openRolesModal(u)}
+                            title="Manage roles"
+                          >
+                            <Shield size={12} /> Roles
+                          </button>
+                          <button
+                            className="btn btn-outline btn-xs"
+                            disabled={busy}
+                            onClick={() => handleResetPassword(u)}
+                            title="Reset password"
+                          >
+                            <KeyRound size={12} /> Password
+                          </button>
                           {isSuspended ? (
                             <button
                               className="btn btn-success btn-xs"
@@ -293,6 +400,88 @@ export default function AdminUsers() {
           confirmText="Delete User"
         />
       )}
+
+      {/* Create Admin User */}
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Add Admin User" size="md">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label className="label">First Name *</label>
+              <input className="input" value={createForm.first_name} onChange={(e) => setCreateForm({ ...createForm, first_name: e.target.value })} placeholder="e.g. Aarti" />
+            </div>
+            <div>
+              <label className="label">Last Name</label>
+              <input className="input" value={createForm.last_name} onChange={(e) => setCreateForm({ ...createForm, last_name: e.target.value })} placeholder="e.g. Sharma" />
+            </div>
+          </div>
+          <div>
+            <label className="label">Email *</label>
+            <input className="input" type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="admin@gosika.com.np" />
+          </div>
+          <div>
+            <label className="label">Phone</label>
+            <input className="input" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder="98XXXXXXXX" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label className="label">Password *</label>
+              <input className="input" type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} placeholder="Min 8 characters" />
+            </div>
+            <div>
+              <label className="label">Confirm Password *</label>
+              <input className="input" type="password" value={createForm.password_confirmation} onChange={(e) => setCreateForm({ ...createForm, password_confirmation: e.target.value })} placeholder="Repeat password" />
+            </div>
+          </div>
+          <div>
+            <label className="label">Roles</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {roleNames.map((name) => (
+                <label key={name} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={createForm.roles.includes(name)}
+                    onChange={() => toggleCreateRole(name)}
+                  />
+                  <span style={{ textTransform: 'capitalize' }}>{humanizeEnum(name)}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setCreateOpen(false)}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={handleCreate} disabled={formSaving}>
+              {formSaving ? 'Creating…' : 'Create Admin User'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Assign Roles */}
+      <Modal open={!!rolesTarget} onClose={() => setRolesTarget(null)} title={`Manage Roles — ${rolesTarget?.full_name || rolesTarget?.email || ''}`} size="md">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+            Assign administrative scopes. Changes take effect immediately and are written to the audit log.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {roleNames.map((name) => (
+              <label key={name} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={selectedRoles.includes(name)}
+                  onChange={() => toggleRoles(name)}
+                />
+                <span style={{ textTransform: 'capitalize' }}>{humanizeEnum(name)}</span>
+              </label>
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setRolesTarget(null)}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={handleSaveRoles} disabled={formSaving}>
+              {formSaving ? 'Saving…' : 'Save Roles'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

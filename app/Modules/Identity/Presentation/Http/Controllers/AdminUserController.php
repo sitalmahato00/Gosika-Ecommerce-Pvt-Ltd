@@ -23,6 +23,8 @@ class AdminUserController extends Controller
         $this->middleware('auth:sanctum');
         $this->middleware('role:'.Roles::SUPER_ADMIN);
         $this->middleware('permission:'.Permissions::USERS_VIEW);
+        $this->middleware('permission:'.Permissions::USERS_CREATE)->only(['store']);
+        $this->middleware('permission:'.Permissions::USERS_UPDATE)->only(['resetPassword']);
         $this->middleware('permission:'.Permissions::USERS_DELETE)->only(['destroy']);
         $this->middleware('permission:'.Permissions::USERS_MANAGE_ROLES)->only(['assignRoles']);
     }
@@ -61,6 +63,58 @@ class AdminUserController extends Controller
         $user = User::query()->with(['roles', 'vendor', 'customerProfile', 'addresses', 'deliveryPartner'])->where('uuid', $userId)->firstOrFail();
 
         return Response::success(new UserResource($user), 'User retrieved.');
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:80'],
+            'last_name'  => ['nullable', 'string', 'max:80'],
+            'email'      => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'phone'      => ['nullable', 'string', 'max:20'],
+            'password'   => ['required', 'string', 'min:8', 'confirmed'],
+            'roles'      => ['nullable', 'array'],
+            'roles.*'    => ['string', 'in:'.implode(',', Roles::ALL)],
+        ]);
+
+        $user = DB::transaction(function () use ($validated) {
+            $user = User::create([
+                'first_name' => $validated['first_name'],
+                'last_name'  => $validated['last_name'] ?? null,
+                'email'      => $validated['email'],
+                'phone'      => $validated['phone'] ?? null,
+                'password'   => $validated['password'],
+                'status'     => UserStatus::ACTIVE,
+            ]);
+
+            $roleNames = $validated['roles'] ?? [Roles::SUPER_ADMIN];
+            $user->syncRoles(Role::whereIn('name', $roleNames)->get());
+
+            return $user;
+        });
+
+        app(AuditLogService::class)->record($request->user(), 'user.created', 'user', $user->uuid, null, [
+            'email' => $user->email,
+            'roles' => $user->getRoleNames()->toArray(),
+        ]);
+
+        return Response::success(new UserResource($user->load('roles')), 'Admin user created successfully.', [], 201);
+    }
+
+    public function resetPassword(Request $request, string $userId): JsonResponse
+    {
+        $request->validate([
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = User::where('uuid', $userId)->firstOrFail();
+        $user->forceFill(['password' => $request->input('password')])->save();
+
+        $user->tokens()->delete();
+
+        app(AuditLogService::class)->record($request->user(), 'user.password_reset', 'user', $user->uuid, null, ['email' => $user->email]);
+
+        return Response::success(new UserResource($user->load('roles')), 'Password updated successfully. Existing sessions were revoked.');
     }
 
     public function suspend(Request $request, string $userId): JsonResponse

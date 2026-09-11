@@ -7,7 +7,7 @@ import Spinner from '../components/ui/Spinner'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBranding } from '../context/BrandingContext'
-import { errorMessage } from '../utils/format'
+import { errorMessage, apiImage } from '../utils/format'
 
 const SOCIAL_BASE = '/api/v1/auth'
 
@@ -28,7 +28,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
 
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
-  const logoUrl = branding.logo_light
+  const logoUrl = branding.logo_light || ''
   const loginHeading = branding.login_heading || 'Welcome back'
   const loginDescription = branding.login_description || `Login to continue shopping across Nepal.`
 
@@ -57,7 +57,7 @@ export default function Login() {
         <div className="text-center mb-2">
           <span className="brand" style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8 }}>
             {logoUrl ? (
-              <img src={logoUrl} alt={brandName} style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
+              <img src={apiImage(logoUrl)} alt={brandName} style={{ height: 40, width: 'auto', objectFit: 'contain' }} />
             ) : (
               <span className="brand-mark"><ShoppingBag size={18} /></span>
             )}

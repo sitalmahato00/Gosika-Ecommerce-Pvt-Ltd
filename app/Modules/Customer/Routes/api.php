@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Customer\Presentation\Http\Controllers\AdminCustomerController;
+use App\Modules\Customer\Presentation\Http\Controllers\CustomerAccountController;
 use App\Modules\Customer\Presentation\Http\Controllers\CustomerAddressController;
 use App\Modules\Customer\Presentation\Http\Controllers\CustomerProfileController;
 use Illuminate\Support\Facades\Route;
@@ -27,4 +28,9 @@ Route::prefix('v1/customer')->middleware('auth:sanctum')->group(function () {
     Route::put('addresses/{address}', [CustomerAddressController::class, 'update']);
     Route::delete('addresses/{address}', [CustomerAddressController::class, 'destroy']);
     Route::put('addresses/{address}/default', [CustomerAddressController::class, 'setDefault']);
+
+    Route::get('stores', [CustomerAccountController::class, 'myStores']);
+    Route::get('reviews', [CustomerAccountController::class, 'myReviews']);
+    Route::get('reviews/pending', [CustomerAccountController::class, 'pendingReviews']);
+    Route::get('questions', [CustomerAccountController::class, 'myQuestions']);
 });

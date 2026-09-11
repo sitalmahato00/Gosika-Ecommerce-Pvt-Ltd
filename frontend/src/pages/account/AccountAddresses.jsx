@@ -11,6 +11,7 @@ import ErrorState from '../../components/ui/ErrorState'
 import LocationMapPicker from '../../components/common/LocationMapPicker'
 import { useToast } from '../../context/ToastContext'
 import { errorMessage } from '../../utils/format'
+import { AccountPage } from './AccountUI'
 
 const EMPTY_FORM = {
   address_type: 'shipping',
@@ -189,17 +190,11 @@ export default function AccountAddresses() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Saved Delivery Addresses</h2>
-          <p className="muted text-xs mt-0.5">Manage your shipping destinations across Nepal.</p>
-        </div>
-        <button className="btn btn-primary btn-sm flex items-center gap-1" onClick={openAdd}>
-          <Plus size={14} /> Add New Address
-        </button>
-      </div>
-
+    <AccountPage
+      title="Saved Delivery Addresses"
+      subtitle="Manage your shipping destinations across Nepal."
+      actions={<button className="btn btn-primary btn-sm flex items-center gap-1" onClick={openAdd}><Plus size={14} /> Add New Address</button>}
+    >
       {loading ? (
         <div className="card" style={{ padding: 30, textAlign: 'center' }}>
           <Spinner size={20} color="var(--primary)" />
@@ -323,6 +318,6 @@ export default function AccountAddresses() {
         message={`"${deleteTarget?.label || deleteTarget?.full_name || 'This address'}" will be removed.`}
         confirmText="Delete"
       />
-    </div>
+    </AccountPage>
   )
 }
