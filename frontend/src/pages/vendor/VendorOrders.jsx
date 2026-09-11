@@ -26,9 +26,28 @@ const STATUS_TABS = [
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
-export default function VendorOrders() {
+const VIEW_META = {
+  all: {
+    title: 'Vendor Orders Management',
+    subtitle: 'Track incoming customer purchases, manage fulfillment status, and coordinate delivery dispatches.',
+    status: '',
+  },
+  ready: {
+    title: 'To Ship',
+    subtitle: 'Orders that are packed and ready to be handed over for shipment.',
+    status: 'ready_for_pickup',
+  },
+  shipped: {
+    title: 'Shipped',
+    subtitle: 'Orders that have been dispatched to the delivery partner.',
+    status: 'out_for_delivery',
+  },
+}
+
+export default function VendorOrders({ view = 'all' }) {
+  const viewMeta = VIEW_META[view] || VIEW_META.all
   const toast = useToast()
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState(meta.status)
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(null)
   const [rejectTarget, setRejectTarget] = useState(null)
@@ -136,9 +155,9 @@ export default function VendorOrders() {
     <div style={{ paddingBottom: 40 }}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Vendor Orders Management</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800 }}>{viewMeta.title}</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Track incoming customer purchases, manage fulfillment status, and coordinate delivery dispatches.
+            {viewMeta.subtitle}
           </p>
         </div>
         <div className="flex items-center gap-2">

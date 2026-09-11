@@ -24,10 +24,16 @@ const STATUS_TABS = [
   { id: 'out_of_stock', label: 'Out of Stock' },
 ]
 
-export default function VendorInventory() {
+const VIEW_META = {
+  inventory: { title: 'Inventory & Stock Management', subtitle: '' },
+  low: { title: 'Low Stock', subtitle: 'Items that are at or below their reorder level need restocking.' },
+}
+
+export default function VendorInventory({ view = 'inventory' }) {
+  const viewMeta = VIEW_META[view] || VIEW_META.inventory
   const toast = useToast()
-  const [tab, setTab] = useState('')
-  const [lowOnly, setLowOnly] = useState(false)
+  const [tab, setTab] = useState(view === 'low' ? 'low_stock' : '')
+  const [lowOnly, setLowOnly] = useState(view === 'low')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
 
@@ -103,9 +109,9 @@ export default function VendorInventory() {
     <div style={{ paddingBottom: 40 }}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Inventory & Stock Management</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800 }}>{viewMeta.title}</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Monitor real-time warehouse stock levels, low-stock threshold alerts, and perform quick restocks.
+            {viewMeta.subtitle || 'Monitor real-time warehouse stock levels, low-stock threshold alerts, and perform quick restocks.'}
           </p>
         </div>
         <div className="flex items-center gap-2">

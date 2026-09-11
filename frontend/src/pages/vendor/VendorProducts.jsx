@@ -56,9 +56,15 @@ function ActionMenu({ product, onSubmit, onDelete }) {
   )
 }
 
-export default function VendorProducts() {
+const VIEW_META = {
+  products: { title: 'Products', subtitle: 'Manage your product catalog' },
+  approval: { title: 'Approval Status', subtitle: 'Track your products through the review process' },
+}
+
+export default function VendorProducts({ view = 'products' }) {
+  const viewMeta = VIEW_META[view] || VIEW_META.products
   const toast = useToast()
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(view === 'approval' ? 'pending_review' : '')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -110,8 +116,8 @@ export default function VendorProducts() {
       {/* Page header */}
       <div className="page-header">
         <div className="page-header-left">
-          <h1>Products</h1>
-          <p>Manage your product catalog</p>
+          <h1>{viewMeta.title}</h1>
+          <p>{viewMeta.subtitle}</p>
         </div>
         <Link to="/vendor/products/new" className="btn btn-primary">
           <Plus size={15} /> Add Product

@@ -81,6 +81,9 @@ import VendorNotifications from './pages/vendor/Notifications'
 import VendorSupport from './pages/vendor/Support'
 import VendorNewTicket from './pages/vendor/VendorNewTicket'
 import VendorSecurity from './pages/vendor/Security'
+import VendorShipping from './pages/vendor/VendorShipping'
+import VendorShippingLabels from './pages/vendor/VendorShippingLabels'
+import VendorVerification from './pages/vendor/VendorVerification'
 
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminOrders from './pages/admin/AdminOrders'
@@ -211,17 +214,24 @@ function CustomerLayout() {
 export default function App() {
   return (
     <Routes>
+      {/* Explicit registration route: must precede the /* layout catch-all so /vendor/register renders the
+          public layout instead of being shadowed by the /vendor portal branch (which redirects to login). */}
+      <Route path="/vendor/register" element={<CustomerLayout />} />
       <Route path="/*" element={<CustomerLayout />} />
 
       {/* Vendor Portal */}
       <Route path="/vendor" element={<VendorRoute><DashboardLayout nav={VENDOR_NAV} title="Vendor Panel" roleLabel="Vendor" mobileNav={VENDOR_MOBILE_NAV} /></VendorRoute>}>
         <Route index element={<VendorDashboard />} />
         <Route path="orders" element={<VendorOrders />} />
+        <Route path="orders/ready" element={<VendorOrders view="ready" />} />
+        <Route path="orders/shipped" element={<VendorOrders view="shipped" />} />
         <Route path="orders/:id" element={<VendorOrderDetail />} />
         <Route path="products" element={<VendorProducts />} />
         <Route path="products/new" element={<VendorProductForm />} />
+        <Route path="products/approval" element={<VendorProducts view="approval" />} />
         <Route path="products/:id/edit" element={<VendorProductForm />} />
         <Route path="inventory" element={<VendorInventory />} />
+        <Route path="inventory/low-stock" element={<VendorInventory view="low" />} />
         <Route path="reviews" element={<VendorReviews />} />
         <Route path="discounts" element={<VendorDiscounts />} />
         <Route path="coupons" element={<VendorCoupons />} />
@@ -239,6 +249,9 @@ export default function App() {
         <Route path="security" element={<VendorSecurity />} />
         <Route path="payouts" element={<VendorPayouts />} />
         <Route path="settlements" element={<VendorSettlements />} />
+        <Route path="shipping" element={<VendorShipping />} />
+        <Route path="shipping/labels" element={<VendorShippingLabels />} />
+        <Route path="verification" element={<VendorVerification />} />
         <Route path="stores" element={<VendorStores />} />
         <Route path="stores/edit" element={<VendorStoreEdit />} />
         <Route path="stores/:id/edit" element={<VendorStoreEdit />} />
