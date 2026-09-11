@@ -19,11 +19,21 @@ import { money, formatDateTime, errorMessage } from '../../utils/format'
 const STATUS_TABS = [
   { value: '', label: 'All Orders' },
   { value: 'pending', label: 'Pending' },
+  { value: 'payment_pending', label: 'Payment Pending' },
+  { value: 'confirmed', label: 'Confirmed' },
   { value: 'accepted', label: 'Accepted' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'preparing', label: 'Preparing' },
   { value: 'ready_for_pickup', label: 'Ready for Pickup' },
+  { value: 'picked_up', label: 'Picked Up' },
   { value: 'out_for_delivery', label: 'Out for Delivery' },
   { value: 'delivered', label: 'Delivered' },
+  { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
+  { value: 'returned', label: 'Returned' },
+  { value: 'refunded', label: 'Refunded' },
+  { value: 'failed', label: 'Failed' },
 ]
 
 const VIEW_META = {
