@@ -66,6 +66,7 @@ class DatabaseSeeder extends Seeder
             ReviewsSeeder::class,
             VendorMarketplaceSeeder::class,
             CustomerExperienceSeeder::class,
+            DeliveryAssignmentSeeder::class,
             CategoryCommissionSeeder::class,
             MarketingContentSeeder::class,
             DemoFinanceSeeder::class,
