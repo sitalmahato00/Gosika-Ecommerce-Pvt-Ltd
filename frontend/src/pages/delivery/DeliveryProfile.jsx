@@ -92,7 +92,7 @@ export default function DeliveryProfile() {
     }
     setSaving(true)
     try {
-      await api.post('/delivery-partner/profile', payload)
+      await api.put('/delivery-partner/me', payload)
       await reload({ silent: true })
       toast.success('Profile updated.')
     } catch (err) {
