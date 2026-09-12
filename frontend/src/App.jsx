@@ -117,6 +117,7 @@ import AdminRefunds from './pages/admin/AdminRefunds'
 import AdminShipping from './pages/admin/AdminShipping'
 import AdminDeliveries from './pages/admin/AdminDeliveries'
 import AdminDeliveryPartners from './pages/admin/AdminDeliveryPartners'
+import AdminDeliveryDashboard from './pages/admin/AdminDeliveryDashboard'
 import AdminSupport from './pages/admin/AdminSupport'
 import AdminCoupons from './pages/admin/AdminCoupons'
 import AdminPromotions from './pages/admin/AdminPromotions'
@@ -302,6 +303,7 @@ export default function App() {
         <Route path="orders/refunds" element={<AdminRefunds />} />
 
         {/* Fulfillment */}
+        <Route path="fulfillment/dashboard" element={<AdminDeliveryDashboard />} />
         <Route path="fulfillment/partners" element={<AdminDeliveryPartners />} />
         <Route path="fulfillment/assignments" element={<AdminDeliveries />} />
         <Route path="fulfillment/zones" element={<AdminShipping />} />

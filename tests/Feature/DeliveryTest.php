@@ -9,6 +9,7 @@ use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Enums\DeliveryPartnerStatus;
+use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Enums\ProductStatus;
@@ -528,6 +529,7 @@ class DeliveryTest extends TestCase
         $response = $this->actingAs($this->admin(), 'sanctum')
             ->postJson('/api/v1/admin/deliveries/'.$assignment->uuid.'/reassign', [
                 'delivery_partner_id' => $newPartner->uuid,
+                'reason' => 'Customer unavailable on first attempt',
             ])
             ->assertOk()
             ->assertJsonPath('data.delivery_partner_id', $newPartner->uuid);
@@ -535,7 +537,6 @@ class DeliveryTest extends TestCase
         $this->assertDatabaseHas('delivery_assignments', [
             'id' => $assignment->id,
             'status' => 'failed',
-            'failure_reason' => 'Reassigned to another delivery partner.',
         ]);
         $this->assertDatabaseHas('delivery_assignments', [
             'delivery_partner_id' => $newPartner->id,
@@ -566,6 +567,165 @@ class DeliveryTest extends TestCase
         $this->actingAs($otherVendor->user, 'sanctum')
             ->postJson('/api/v1/vendor/orders/'.$vendorOrder->uuid.'/accept')
             ->assertForbidden();
+    }
+
+    public function test_dispatch_list_includes_pending_and_assigned_orders(): void
+    {
+        $vendor = $this->approvedVendor($this->vendorUser());
+        $product = $this->productFor($vendor, 'L');
+        $partner = $this->approvedPartner($this->partnerUser(), 'L');
+
+        // An accepted (dispatch-ready but unassigned) vendor order.
+        [, $readyOrder] = $this->acceptedVendorOrder($vendor, $product);
+
+        // An assigned vendor order.
+        [, , $assignment] = $this->assignedDelivery(
+            $vendor,
+            $this->productFor($vendor, 'L2'),
+            $partner
+        );
+
+        $response = $this->actingAs($this->admin(), 'sanctum')
+            ->getJson('/api/v1/admin/deliveries/dispatch?per_page=15')
+            ->assertOk();
+
+        $vendorOrderNumbers = collect($response->json('data'))->pluck('vendor_order_number')->all();
+
+        $this->assertContains($readyOrder->vendor_order_number, $vendorOrderNumbers);
+        $this->assertContains($assignment->vendorOrder->vendor_order_number, $vendorOrderNumbers);
+
+        $readyRow = collect($response->json('data'))->firstWhere('vendor_order_number', $readyOrder->vendor_order_number);
+        $this->assertSame('pending_assignment', $readyRow['dispatch_status']);
+        $this->assertTrue($readyRow['can_assign']);
+        $this->assertNull($readyRow['delivery_partner']);
+
+        $assignedRow = collect($response->json('data'))->firstWhere('vendor_order_number', $assignment->vendorOrder->vendor_order_number);
+        $this->assertSame('assigned', $assignedRow['dispatch_status']);
+        $this->assertSame($partner->uuid, $assignedRow['delivery_partner']['id']);
+
+        $this->assertGreaterThanOrEqual(1, $response->json('meta.summary.pending_assignment'));
+        $this->assertGreaterThanOrEqual(1, $response->json('meta.summary.assigned'));
+    }
+
+    public function test_dispatch_filter_by_status_returns_only_matching_rows(): void
+    {
+        $vendor = $this->approvedVendor($this->vendorUser());
+        $product = $this->productFor($vendor, 'M');
+        $partner = $this->approvedPartner($this->partnerUser(), 'M');
+
+        $this->acceptedVendorOrder($vendor, $product);
+
+        $response = $this->actingAs($this->admin(), 'sanctum')
+            ->getJson('/api/v1/admin/deliveries/dispatch?status=pending_assignment&per_page=15')
+            ->assertOk();
+
+        $rows = $response->json('data');
+        $this->assertNotEmpty($rows);
+        foreach ($rows as $row) {
+            $this->assertSame('pending_assignment', $row['dispatch_status']);
+        }
+    }
+
+    public function test_assigning_an_already_assigned_order_conflicts(): void
+    {
+        $vendor = $this->approvedVendor($this->vendorUser());
+        $product = $this->productFor($vendor, 'N');
+        $partner = $this->approvedPartner($this->partnerUser(), 'N');
+        $otherPartner = $this->approvedPartner($this->partnerUser(), 'N2');
+
+        [, $vendorOrder, $assignment] = $this->assignedDelivery($vendor, $product, $partner);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/v1/admin/deliveries', [
+                'vendor_order_id' => $vendorOrder->uuid,
+                'delivery_partner_id' => $otherPartner->uuid,
+            ])
+            ->assertStatus(409);
+
+        $this->assertDatabaseHas('delivery_assignments', [
+            'id' => $assignment->id,
+            'status' => 'assigned',
+        ]);
+        $this->assertDatabaseMissing('delivery_assignments', [
+            'vendor_order_id' => $vendorOrder->id,
+            'delivery_partner_id' => $otherPartner->id,
+        ]);
+    }
+
+    public function test_reassign_requires_reason(): void
+    {
+        $vendor = $this->approvedVendor($this->vendorUser());
+        $product = $this->productFor($vendor, 'O');
+        $partner = $this->approvedPartner($this->partnerUser(), 'O');
+        $newPartner = $this->approvedPartner($this->partnerUser(), 'O2');
+
+        [, , $assignment] = $this->assignedDelivery($vendor, $product, $partner);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/v1/admin/deliveries/'.$assignment->uuid.'/reassign', [
+                'delivery_partner_id' => $newPartner->uuid,
+            ])
+            ->assertStatus(422);
+    }
+
+    public function test_dispatch_detail_contains_history_and_timeline(): void
+    {
+        $vendor = $this->approvedVendor($this->vendorUser());
+        $product = $this->productFor($vendor, 'P');
+        $partner = $this->approvedPartner($this->partnerUser(), 'P');
+
+        [, $vendorOrder, $assignment] = $this->assignedDelivery($vendor, $product, $partner);
+
+        $response = $this->actingAs($this->admin(), 'sanctum')
+            ->getJson('/api/v1/admin/deliveries/dispatch/'.$vendorOrder->uuid)
+            ->assertOk();
+
+        $data = $response->json('data');
+        $this->assertSame('assigned', $data['dispatch_status']);
+        $this->assertSame($vendorOrder->uuid, $data['id']);
+        $this->assertNotEmpty($data['items']);
+        $this->assertCount(1, $data['history']);
+        $this->assertSame($assignment->uuid, $data['current_assignment']['id']);
+        $this->assertNotEmpty($data['timeline']);
+    }
+
+    public function test_reassign_works_for_stale_pending_order_with_assignment(): void
+    {
+        $vendor = $this->approvedVendor($this->vendorUser());
+        $product = $this->productFor($vendor, 'Q');
+        $partner = $this->approvedPartner($this->partnerUser(), 'Q');
+        $newPartner = $this->approvedPartner($this->partnerUser(), 'Q2');
+
+        // A vendor order that is still pending but already has an assigned delivery (stale state).
+        [$order, $vendorOrder] = $this->pendingVendorOrder($vendor, $product);
+
+        $assignment = DeliveryAssignment::query()->create([
+            'vendor_order_id' => $vendorOrder->id,
+            'delivery_partner_id' => $partner->id,
+            'status' => DeliveryStatus::ASSIGNED,
+            'delivery_fee' => 80.00,
+            'cod_amount' => 0.00,
+            'recipient_name' => 'Recipient One',
+            'recipient_phone' => '9801111111',
+            'assigned_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/v1/admin/deliveries/'.$assignment->uuid.'/reassign', [
+                'delivery_partner_id' => $newPartner->uuid,
+                'reason' => 'Rider unavailable',
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('delivery_assignments', [
+            'id' => $assignment->id,
+            'status' => 'failed',
+            'failure_reason' => 'Reassigned to Partner Q2: Rider unavailable',
+        ]);
+        $this->assertDatabaseHas('delivery_assignments', [
+            'delivery_partner_id' => $newPartner->id,
+            'status' => 'assigned',
+        ]);
     }
 
     public function test_partner_history_lists_completed_deliveries(): void

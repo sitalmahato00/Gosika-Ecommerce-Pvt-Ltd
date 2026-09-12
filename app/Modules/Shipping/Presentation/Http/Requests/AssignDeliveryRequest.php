@@ -18,6 +18,7 @@ class AssignDeliveryRequest extends FormRequest
             'delivery_partner_id' => ['nullable', 'string'],
             'delivery_fee' => ['nullable', 'numeric', 'min:0'],
             'cod_amount' => ['nullable', 'numeric', 'min:0'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

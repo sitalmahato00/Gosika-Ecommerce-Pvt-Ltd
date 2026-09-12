@@ -614,13 +614,19 @@ export default function AdminOrderDetail() {
                 {vendorOrders.map((vo, voIdx) => {
                   const storeName = vo.store?.name || vo.vendor_name || `Vendor Package #${voIdx + 1}`
                   const items = Array.isArray(vo.items) ? vo.items : []
-                  const assignment = vo.assignment
-                    || (Array.isArray(vo.assignments)
+                  // Active assignment = one that is NOT in a terminal state.
+                  // Terminal states must NOT block the "Assign Delivery Partner" button.
+                  const TERMINAL = ['delivered', 'failed', 'returned_to_vendor', 'cancelled']
+                  const activeAssignment = (vo.assignment && !TERMINAL.includes(vo.assignment?.status))
+                    ? vo.assignment
+                    : (Array.isArray(vo.assignments)
                         ? vo.assignments.find(a => ['assigned', 'accepted', 'picked_up', 'out_for_delivery'].includes(a.status))
-                          || vo.assignments[0]
                         : null)
-                  const rider = assignment?.delivery_partner || assignment?.deliveryPartner
-                  const riderName = rider?.name || rider?.user?.name || assignment?.delivery_partner_name
+                  // Last known assignment for display purposes (shows rider info even after delivery)
+                  const lastAssignment = vo.assignment || (Array.isArray(vo.assignments) ? vo.assignments[0] : null)
+                  const assignment = activeAssignment
+                  const rider = lastAssignment?.delivery_partner || lastAssignment?.deliveryPartner
+                  const riderName = rider?.name || rider?.user?.name || lastAssignment?.delivery_partner_name
                   const riderPhone = rider?.phone || rider?.user?.phone
                   const canAssign = vo.status !== 'cancelled' && order.status !== 'cancelled'
 
@@ -656,7 +662,7 @@ export default function AdminOrderDetail() {
                                 {riderPhone && <span style={{ color: 'var(--muted)', fontSize: 11 }}>({riderPhone})</span>}
                                 <StatusBadge status={assignment.status} />
                               </div>
-                              {canAssign && assignment.status !== 'delivered' && (
+                              {canAssign && !['delivered', 'returned_to_vendor'].includes(assignment.status) && (
                                 <button
                                   type="button"
                                   className="btn btn-ghost btn-xs"
@@ -669,16 +675,25 @@ export default function AdminOrderDetail() {
                               )}
                             </div>
                           ) : (
-                            canAssign && (
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-xs"
-                                style={{ display: 'flex', alignItems: 'center', gap: 6, borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 600, padding: '6px 12px', borderRadius: 8 }}
-                                onClick={() => handleOpenAssignModal(vo)}
-                              >
-                                <Truck size={13} /> Assign Delivery Partner
-                              </button>
-                            )
+                            <>
+                              {lastAssignment && riderName && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)', background: '#f8fafc', padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)' }}>
+                                  <Truck size={13} color="#94a3b8" />
+                                  <span>Last rider: <strong style={{ color: 'var(--ink)' }}>{riderName}</strong></span>
+                                  <StatusBadge status={lastAssignment.status} />
+                                </div>
+                              )}
+                              {canAssign && (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-xs"
+                                  style={{ display: 'flex', alignItems: 'center', gap: 6, borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 600, padding: '6px 12px', borderRadius: 8 }}
+                                  onClick={() => handleOpenAssignModal(vo)}
+                                >
+                                  <Truck size={13} /> Assign Delivery Partner
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>

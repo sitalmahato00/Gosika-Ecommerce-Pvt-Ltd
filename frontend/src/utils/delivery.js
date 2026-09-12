@@ -11,6 +11,7 @@ export const DELIVERY_STATUS_ORDER = [
 ]
 
 export const DELIVERY_STATUS_META = {
+  pending_assignment: { label: 'Pending', color: '#64748b', bg: 'rgba(100, 116, 139, 0.12)' },
   assigned: { label: 'Assigned', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.12)' },
   accepted: { label: 'Accepted', color: '#2563eb', bg: 'rgba(37, 99, 235, 0.12)' },
   picked_up: { label: 'Picked Up', color: '#d97706', bg: 'rgba(217, 119, 6, 0.12)' },
@@ -22,6 +23,17 @@ export const DELIVERY_STATUS_META = {
 
 export const ACTIVE_STATUSES = ['assigned', 'accepted', 'picked_up', 'out_for_delivery']
 export const FINAL_STATUSES = ['delivered', 'failed', 'returned_to_vendor']
+
+export const DISPATCH_TABS = [
+  { value: 'pending_assignment', label: 'Pending' },
+  { value: 'assigned', label: 'Assigned' },
+  { value: 'accepted', label: 'Pickup' },
+  { value: 'picked_up', label: 'In Transit' },
+  { value: 'out_for_delivery', label: 'On Route' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'needs_reassignment', label: 'Reassign' },
+]
 
 export function statusMeta(status) {
   return DELIVERY_STATUS_META[status] || {

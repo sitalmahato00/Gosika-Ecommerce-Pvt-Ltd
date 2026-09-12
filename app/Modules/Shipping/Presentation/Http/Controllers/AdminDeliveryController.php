@@ -16,9 +16,11 @@ use App\Modules\Shipping\Presentation\Http\Requests\AssignDeliveryRequest;
 use App\Modules\Shipping\Presentation\Http\Requests\ReassignDeliveryRequest;
 use App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource;
 use App\Modules\Shipping\Presentation\Resources\DeliveryPartnerResource;
+use App\Modules\Shipping\Presentation\Resources\DispatchItemResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Carbon;
 
 class AdminDeliveryController extends Controller
 {
@@ -28,6 +30,56 @@ class AdminDeliveryController extends Controller
         $this->middleware('role:'.Roles::SUPER_ADMIN);
         $this->middleware('permission:'.Permissions::DELIVERY_PARTNERS_MANAGE.'|'.Permissions::DELIVERIES_MANAGE);
         $this->middleware('permission:'.Permissions::DELIVERY_PARTNERS_MANAGE)->only(['partners', 'partner', 'approve', 'reject', 'suspend', 'activate']);
+    }
+
+    public function dashboard(Request $request): JsonResponse
+    {
+        $data = $this->service->dashboard($this->resolveRange($request));
+
+        return Response::success($data, 'Delivery dashboard retrieved.');
+    }
+
+    public function dispatch(Request $request): JsonResponse
+    {
+        $list = $this->service->dispatchList([
+            'status' => (string) $request->input('status', 'all'),
+            'search' => (string) $request->input('search', ''),
+            'partner_id' => (string) $request->input('partner_id', ''),
+            'store_id' => (string) $request->input('store_id', ''),
+            'payment_method' => (string) $request->input('payment_method', ''),
+            'from' => (string) $request->input('from', ''),
+            'to' => (string) $request->input('to', ''),
+            'per_page' => $request->integer('per_page', 15),
+        ]);
+
+        $summary = $this->service->dispatchSummary();
+
+        return Response::success(
+            DispatchItemResource::collection($list),
+            'Order dispatch list retrieved.',
+            [
+                'pagination' => [
+                    'total' => $list->total(),
+                    'per_page' => $list->perPage(),
+                    'current_page' => $list->currentPage(),
+                    'last_page' => $list->lastPage(),
+                ],
+                'summary' => $summary,
+            ]
+        );
+    }
+
+    public function dispatchDetail(VendorOrder $vendorOrder): JsonResponse
+    {
+        return Response::success($this->service->dispatchDetail($vendorOrder), 'Order dispatch detail retrieved.');
+    }
+
+    public function dispatchPartners(VendorOrder $vendorOrder): JsonResponse
+    {
+        return Response::success(
+            ['eligible_partners' => $this->service->eligiblePartnersForOrder($vendorOrder)],
+            'Eligible delivery partners retrieved.'
+        );
     }
 
     public function partners(Request $request): JsonResponse
@@ -193,6 +245,7 @@ class AdminDeliveryController extends Controller
                 $partner,
                 $request->filled('delivery_fee') ? (float) $request->input('delivery_fee') : null,
                 $request->filled('cod_amount') ? (float) $request->input('cod_amount') : null,
+                $request->input('notes'),
             );
 
             return Response::created(
@@ -218,6 +271,8 @@ class AdminDeliveryController extends Controller
                 $partner,
                 $request->filled('delivery_fee') ? (float) $request->input('delivery_fee') : null,
                 $request->filled('cod_amount') ? (float) $request->input('cod_amount') : null,
+                (string) $request->input('reason'),
+                $request->input('notes'),
             );
 
             return Response::success(
@@ -226,6 +281,36 @@ class AdminDeliveryController extends Controller
             );
         } catch (DomainException $e) {
             return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    protected function resolveRange(Request $request): array
+    {
+        $range = (string) $request->input('range', 'today');
+        $now = now();
+
+        return match ($range) {
+            'yesterday' => [$now->copy()->subDay()->startOfDay(), $now->copy()->subDay()->endOfDay(), 'Yesterday'],
+            '7d' => [$now->copy()->subDays(6)->startOfDay(), $now->copy()->endOfDay(), 'Last 7 Days'],
+            'custom' => [
+                $this->parseDate($request->input('from'), $now->copy()->startOfDay()),
+                $this->parseDate($request->input('to'), $now->copy()->endOfDay()),
+                'Custom Range',
+            ],
+            default => [$now->copy()->startOfDay(), $now->copy()->endOfDay(), 'Today'],
+        };
+    }
+
+    protected function parseDate(mixed $value, Carbon $fallback): Carbon
+    {
+        if (! is_string($value) || $value === '') {
+            return $fallback;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return $fallback;
         }
     }
 }

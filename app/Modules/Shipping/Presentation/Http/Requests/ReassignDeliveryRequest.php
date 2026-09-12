@@ -15,8 +15,17 @@ class ReassignDeliveryRequest extends FormRequest
     {
         return [
             'delivery_partner_id' => ['required', 'string'],
+            'reason' => ['required', 'string', 'max:500'],
             'delivery_fee' => ['nullable', 'numeric', 'min:0'],
             'cod_amount' => ['nullable', 'numeric', 'min:0'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'reason.required' => 'A reassignment reason is required.',
         ];
     }
 }

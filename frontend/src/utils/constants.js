@@ -292,6 +292,7 @@ export const ADMIN_NAV = [
   { to: '/admin/customers/support', label: 'Support', icon: 'Headphones', badge: '5' },
 
   { section: 'Logistics' },
+  { to: '/admin/fulfillment/dashboard', label: 'Delivery Dashboard', icon: 'Gauge' },
   { to: '/admin/fulfillment/partners', label: 'Delivery Partners', icon: 'Truck' },
   { to: '/admin/fulfillment/assignments', label: 'Order Dispatch', icon: 'Send' },
   { to: '/admin/fulfillment/zones', label: 'Shipping & Delivery', icon: 'MapPin' },

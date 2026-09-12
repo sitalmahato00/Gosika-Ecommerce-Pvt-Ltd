@@ -39,6 +39,10 @@ Route::prefix('v1/admin/delivery-partners')->middleware(['auth:sanctum', 'ensure
 });
 
 Route::prefix('v1/admin/deliveries')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
+    Route::get('dashboard', [AdminDeliveryController::class, 'dashboard']);
+    Route::get('dispatch', [AdminDeliveryController::class, 'dispatch']);
+    Route::get('dispatch/{vendorOrder}', [AdminDeliveryController::class, 'dispatchDetail']);
+    Route::get('dispatch/{vendorOrder}/partners', [AdminDeliveryController::class, 'dispatchPartners']);
     Route::get('/', [AdminDeliveryController::class, 'assignments']);
     Route::post('/', [AdminDeliveryController::class, 'assign']);
     Route::get('{assignment}', [AdminDeliveryController::class, 'assignment']);

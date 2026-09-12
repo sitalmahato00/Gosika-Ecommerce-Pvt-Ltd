@@ -9,6 +9,7 @@ use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class VendorOrder extends BaseModel
@@ -76,5 +77,12 @@ class VendorOrder extends BaseModel
     public function assignments(): HasMany
     {
         return $this->hasMany(\App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment::class)->latest('id');
+    }
+
+    public function latestAssignment(): HasOne
+    {
+        return $this
+            ->hasOne(\App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment::class)
+            ->ofMany('id', 'max');
     }
 }
