@@ -198,19 +198,36 @@ class DeliveryService
                 throw new DomainException('Vendor order must be accepted and ready for pickup before assignment.', 422);
             }
 
-            if ($vendorOrder->assignments()->active()->exists()) {
-                throw new DomainException('This vendor order already has an active delivery assignment.');
+            // Gracefully replace any previous active assignments so new assignment takes over cleanly
+            $activeAssignments = $vendorOrder->assignments()->active()->get();
+            if ($activeAssignments->isNotEmpty()) {
+                foreach ($activeAssignments as $act) {
+                    $act->update([
+                        'status' => DeliveryStatus::FAILED,
+                        'failed_at' => now(),
+                        'failure_reason' => 'Replaced by delivery assignment to ' . $partner->name,
+                    ]);
+                    $this->recordTracking($act, DeliveryStatus::FAILED, 'Replaced by assignment to ' . $partner->name, null);
+                }
             }
 
             $order = $vendorOrder->order;
-            $isCod = $order->payment_method === PaymentMethod::COD->value;
+            $isPaid = $order->payment_status === OrderPaymentStatus::PAID;
+            $isCod = ! $isPaid && (
+                strcasecmp((string) $order->payment_method, PaymentMethod::COD->value) === 0
+                || stripos((string) $order->payment_method, 'cod') !== false
+                || stripos((string) $order->payment_method, 'cash') !== false
+            );
+
+            $defaultDeliveryFee = (float) $vendorOrder->delivery_charge ?: (float) ($order->delivery_charge ?? 0);
+            $defaultCodAmount = $isCod ? ((float) $vendorOrder->grand_total ?: (float) ($order->grand_total ?? 0)) : 0.00;
 
             $assignment = DeliveryAssignment::query()->create([
                 'vendor_order_id' => $vendorOrder->id,
                 'delivery_partner_id' => $partner->id,
                 'status' => DeliveryStatus::ASSIGNED,
-                'delivery_fee' => $deliveryFee ?? (float) $vendorOrder->delivery_charge,
-                'cod_amount' => $codAmount ?? ($isCod ? (float) $vendorOrder->grand_total : 0.00),
+                'delivery_fee' => $deliveryFee !== null ? $deliveryFee : $defaultDeliveryFee,
+                'cod_amount' => $codAmount !== null ? $codAmount : $defaultCodAmount,
                 'pickup_address' => $this->pickupAddressFor($vendorOrder),
                 'dropoff_address' => $this->dropoffAddressFor($order),
                 'recipient_name' => $this->recipientNameFor($order),
@@ -224,15 +241,15 @@ class DeliveryService
 
             $this->transitionDelivery($vendorOrder, DeliveryStatus::ASSIGNED, $admin);
 
-            $this->recordTracking($assignment, DeliveryStatus::ASSIGNED, 'Order assigned to delivery partner.', null);
+            $this->recordTracking($assignment, DeliveryStatus::ASSIGNED, 'Order assigned to delivery partner: ' . $partner->name, null);
 
             return $assignment;
         });
     }
 
-    public function reassign(User $admin, DeliveryAssignment $assignment, DeliveryPartner $newPartner): DeliveryAssignment
+    public function reassign(User $admin, DeliveryAssignment $assignment, DeliveryPartner $newPartner, ?float $deliveryFee = null, ?float $codAmount = null): DeliveryAssignment
     {
-        return DB::transaction(function () use ($admin, $assignment, $newPartner) {
+        return DB::transaction(function () use ($admin, $assignment, $newPartner, $deliveryFee, $codAmount) {
             if (! in_array($assignment->status, [DeliveryStatus::ASSIGNED, DeliveryStatus::ACCEPTED, DeliveryStatus::PICKED_UP, DeliveryStatus::OUT_FOR_DELIVERY, DeliveryStatus::FAILED], true)) {
                 throw new DomainException('This delivery cannot be reassigned in its current state.');
             }
@@ -247,15 +264,21 @@ class DeliveryService
                 throw new DomainException('Vendor order is no longer assignable.', 422);
             }
 
-            $assignment->update([
-                'status' => DeliveryStatus::FAILED,
-                'failed_at' => $assignment->failed_at ?? now(),
-                'failure_reason' => 'Reassigned to another delivery partner.',
-            ]);
+            $resolvedDeliveryFee = $deliveryFee !== null ? $deliveryFee : (float) $assignment->delivery_fee;
+            $resolvedCodAmount = $codAmount !== null ? $codAmount : (float) $assignment->cod_amount;
 
-            $this->recordTracking($assignment, DeliveryStatus::FAILED, 'Reassigned to another delivery partner.', null);
+            // Mark this and any other active assignments for this vendor order as reassigned
+            $activeAssignments = $vendorOrder->assignments()->active()->get();
+            foreach ($activeAssignments as $act) {
+                $act->update([
+                    'status' => DeliveryStatus::FAILED,
+                    'failed_at' => now(),
+                    'failure_reason' => 'Reassigned to ' . $newPartner->name,
+                ]);
+                $this->recordTracking($act, DeliveryStatus::FAILED, 'Reassigned to ' . $newPartner->name, null);
+            }
 
-            return $this->assign($admin, $vendorOrder, $newPartner);
+            return $this->assign($admin, $vendorOrder, $newPartner, $resolvedDeliveryFee, $resolvedCodAmount);
         });
     }
 

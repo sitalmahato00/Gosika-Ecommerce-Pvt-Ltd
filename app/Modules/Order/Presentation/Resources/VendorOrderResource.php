@@ -50,6 +50,10 @@ class VendorOrderResource extends JsonResource
             }
         }
 
+        $activeAssignment = $this->relationLoaded('assignments')
+            ? ($this->assignments->first(fn ($a) => in_array($a->status?->value ?? $a->status, ['assigned', 'accepted', 'picked_up', 'out_for_delivery'], true)) ?: $this->assignments->first())
+            : null;
+
         return [
             'id' => $this->uuid,
             'vendor_order_number' => $this->vendor_order_number,
@@ -68,6 +72,7 @@ class VendorOrderResource extends JsonResource
             'vendor_payable' => number_format((float) $this->vendor_payable, 2, '.', ''),
             'shipping_address' => $shipping,
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
+            'assignment' => $activeAssignment ? new \App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource($activeAssignment) : null,
             'assignments' => \App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource::collection($this->whenLoaded('assignments')),
             'created_at' => $this->created_at?->toISOString(),
         ];

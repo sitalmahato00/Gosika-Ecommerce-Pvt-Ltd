@@ -212,7 +212,13 @@ class AdminDeliveryController extends Controller
             ->firstOrFail();
 
         try {
-            $assignment = $this->service->reassign($request->user(), $assignment, $partner);
+            $assignment = $this->service->reassign(
+                $request->user(),
+                $assignment,
+                $partner,
+                $request->filled('delivery_fee') ? (float) $request->input('delivery_fee') : null,
+                $request->filled('cod_amount') ? (float) $request->input('cod_amount') : null,
+            );
 
             return Response::success(
                 new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder', 'deliveryPartner'])),

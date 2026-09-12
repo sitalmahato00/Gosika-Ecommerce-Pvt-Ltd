@@ -15,6 +15,8 @@ class ReassignDeliveryRequest extends FormRequest
     {
         return [
             'delivery_partner_id' => ['required', 'string'],
+            'delivery_fee' => ['nullable', 'numeric', 'min:0'],
+            'cod_amount' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

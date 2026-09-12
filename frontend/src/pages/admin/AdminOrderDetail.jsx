@@ -149,27 +149,74 @@ export default function AdminOrderDetail() {
 
   const handleOpenAssignModal = (vo) => {
     fetchDeliveryPartners()
-    const isCod = order?.payment_method === 'cod' || order?.payment_method === 'cash_on_delivery'
+
+    const paymentStatus = String(order?.payment_status || '').toLowerCase()
+    const paymentMethod = String(order?.payment_method || '').toLowerCase()
+    const isPaid = paymentStatus === 'paid'
+    const isCod = !isPaid && (paymentMethod.includes('cod') || paymentMethod.includes('cash') || !paymentMethod)
+
+    // Delivery fee from package, fallback to order delivery charge
+    const fee = Number(vo?.delivery_charge) > 0
+      ? Number(vo.delivery_charge).toFixed(2)
+      : (Number(order?.delivery_charge) > 0 ? Number(order.delivery_charge).toFixed(2) : '0.00')
+
+    // Package total amount or order grand total
+    const totalAmount = Number(vo?.grand_total) > 0
+      ? Number(vo.grand_total).toFixed(2)
+      : (Number(order?.grand_total) > 0 ? Number(order.grand_total).toFixed(2) : '0.00')
+
+    // If COD: collect full total amount.
+    // If Online Payment Paid: default 0.00, can be edited.
+    const defaultCod = isPaid ? '0.00' : totalAmount
+
     setPartnerModal({
       isOpen: true,
       vendorOrder: vo,
       assignment: null,
       partnerId: '',
-      deliveryFee: vo.delivery_charge ? String(vo.delivery_charge) : '',
-      codAmount: isCod && vo.grand_total ? String(vo.grand_total) : '0',
+      deliveryFee: fee,
+      codAmount: defaultCod,
+      totalAmount,
+      isPaid,
+      isCod,
+      paymentMethodName: order?.payment_method?.toUpperCase() || (isPaid ? 'ONLINE' : 'COD'),
       submitting: false
     })
   }
 
   const handleOpenReassignModal = (vo, assignment) => {
     fetchDeliveryPartners()
+
+    const paymentStatus = String(order?.payment_status || '').toLowerCase()
+    const paymentMethod = String(order?.payment_method || '').toLowerCase()
+    const isPaid = paymentStatus === 'paid'
+    const isCod = !isPaid && (paymentMethod.includes('cod') || paymentMethod.includes('cash') || !paymentMethod)
+
+    const fee = assignment.delivery_fee !== null && assignment.delivery_fee !== undefined
+      ? Number(assignment.delivery_fee).toFixed(2)
+      : (Number(vo?.delivery_charge) > 0
+          ? Number(vo.delivery_charge).toFixed(2)
+          : (Number(order?.delivery_charge) > 0 ? Number(order.delivery_charge).toFixed(2) : '0.00'))
+
+    const totalAmount = Number(vo?.grand_total) > 0
+      ? Number(vo.grand_total).toFixed(2)
+      : (Number(order?.grand_total) > 0 ? Number(order.grand_total).toFixed(2) : '0.00')
+
+    const codVal = assignment.cod_amount !== null && assignment.cod_amount !== undefined
+      ? Number(assignment.cod_amount).toFixed(2)
+      : (isPaid ? '0.00' : totalAmount)
+
     setPartnerModal({
       isOpen: true,
       vendorOrder: vo,
       assignment: assignment,
       partnerId: assignment.delivery_partner_id || assignment.delivery_partner?.id || '',
-      deliveryFee: assignment.delivery_fee ? String(assignment.delivery_fee) : '',
-      codAmount: assignment.cod_amount ? String(assignment.cod_amount) : '',
+      deliveryFee: fee,
+      codAmount: codVal,
+      totalAmount,
+      isPaid,
+      isCod,
+      paymentMethodName: order?.payment_method?.toUpperCase() || (isPaid ? 'ONLINE' : 'COD'),
       submitting: false
     })
   }
@@ -180,10 +227,15 @@ export default function AdminOrderDetail() {
 
     setPartnerModal(prev => ({ ...prev, submitting: true }))
     try {
+      const deliveryFee = partnerModal.deliveryFee !== '' ? Number(partnerModal.deliveryFee) : undefined
+      const codAmount = partnerModal.codAmount !== '' ? Number(partnerModal.codAmount) : undefined
+
       if (partnerModal.assignment) {
         const targetId = partnerModal.assignment.id || partnerModal.assignment.uuid
         await api.post(`/admin/deliveries/${targetId}/reassign`, {
-          delivery_partner_id: partnerModal.partnerId
+          delivery_partner_id: partnerModal.partnerId,
+          delivery_fee: deliveryFee,
+          cod_amount: codAmount
         })
         toast.success('Delivery rider reassigned successfully.')
       } else {
@@ -191,8 +243,8 @@ export default function AdminOrderDetail() {
         await api.post('/admin/deliveries', {
           vendor_order_id: voId,
           delivery_partner_id: partnerModal.partnerId,
-          delivery_fee: partnerModal.deliveryFee ? Number(partnerModal.deliveryFee) : undefined,
-          cod_amount: partnerModal.codAmount ? Number(partnerModal.codAmount) : undefined
+          delivery_fee: deliveryFee,
+          cod_amount: codAmount
         })
         toast.success('Delivery partner assigned successfully. Package is ready in delivery portal.')
       }
@@ -562,7 +614,11 @@ export default function AdminOrderDetail() {
                 {vendorOrders.map((vo, voIdx) => {
                   const storeName = vo.store?.name || vo.vendor_name || `Vendor Package #${voIdx + 1}`
                   const items = Array.isArray(vo.items) ? vo.items : []
-                  const assignment = Array.isArray(vo.assignments) && vo.assignments.length > 0 ? vo.assignments[0] : null
+                  const assignment = vo.assignment
+                    || (Array.isArray(vo.assignments)
+                        ? vo.assignments.find(a => ['assigned', 'accepted', 'picked_up', 'out_for_delivery'].includes(a.status))
+                          || vo.assignments[0]
+                        : null)
                   const rider = assignment?.delivery_partner || assignment?.deliveryPartner
                   const riderName = rider?.name || rider?.user?.name || assignment?.delivery_partner_name
                   const riderPhone = rider?.phone || rider?.user?.phone
@@ -850,12 +906,24 @@ export default function AdminOrderDetail() {
             </div>
 
             <form onSubmit={handlePartnerModalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: 8, fontSize: 12.5, color: '#334155' }}>
+              <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: 8, fontSize: 12.5, color: '#334155', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div><strong>Package:</strong> {partnerModal.vendorOrder?.store?.name || partnerModal.vendorOrder?.vendor_name || 'Store Package'}</div>
                 <div><strong>Vendor Order #:</strong> {partnerModal.vendorOrder?.vendor_order_number || partnerModal.vendorOrder?.id}</div>
                 {order.shipping_address && (
                   <div><strong>Destination:</strong> {[order.shipping_address.address_line_1, order.shipping_address.municipality, order.shipping_address.district].filter(Boolean).join(', ')}</div>
                 )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                  <strong>Payment Status:</strong>
+                  {partnerModal.isPaid ? (
+                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 6, fontWeight: 700, fontSize: 11.5 }}>
+                      ✓ PAID via {partnerModal.paymentMethodName} (Order Total: NPR {partnerModal.totalAmount})
+                    </span>
+                  ) : (
+                    <span style={{ background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: 6, fontWeight: 700, fontSize: 11.5 }}>
+                      📦 Cash on Delivery (COD) · Total to Collect: NPR {partnerModal.totalAmount}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -878,40 +946,68 @@ export default function AdminOrderDetail() {
                 </select>
               </div>
 
-              {!partnerModal.assignment && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label className="label" style={{ fontSize: 12, fontWeight: 700, marginBottom: 4, display: 'block' }}>
-                      Delivery Fee (NPR)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="input"
-                      style={{ width: '100%', height: 38, fontSize: 13 }}
-                      value={partnerModal.deliveryFee}
-                      onChange={e => setPartnerModal(prev => ({ ...prev, deliveryFee: e.target.value }))}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="label" style={{ fontSize: 12, fontWeight: 700, marginBottom: 4, display: 'block' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="label" style={{ fontSize: 12, fontWeight: 700, marginBottom: 4, display: 'block' }}>
+                    Delivery Fee (NPR)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="input"
+                    style={{ width: '100%', height: 38, fontSize: 13 }}
+                    value={partnerModal.deliveryFee}
+                    onChange={e => setPartnerModal(prev => ({ ...prev, deliveryFee: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>
+                    Auto-loaded from shipping fee.
+                  </span>
+                </div>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label className="label" style={{ fontSize: 12, fontWeight: 700, margin: 0 }}>
                       COD Amount to Collect (NPR)
                     </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="input"
-                      style={{ width: '100%', height: 38, fontSize: 13 }}
-                      value={partnerModal.codAmount}
-                      onChange={e => setPartnerModal(prev => ({ ...prev, codAmount: e.target.value }))}
-                      placeholder="0.00"
-                    />
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs"
+                        style={{ fontSize: 10, padding: '1px 5px', height: 'auto', color: 'var(--primary)' }}
+                        onClick={() => setPartnerModal(prev => ({ ...prev, codAmount: '0.00' }))}
+                        title="Set to 0.00"
+                      >
+                        0.00
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs"
+                        style={{ fontSize: 10, padding: '1px 5px', height: 'auto', color: 'var(--primary)' }}
+                        onClick={() => setPartnerModal(prev => ({ ...prev, codAmount: partnerModal.totalAmount || '0.00' }))}
+                        title={`Set to full total (${partnerModal.totalAmount})`}
+                      >
+                        Total
+                      </button>
+                    </div>
                   </div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="input"
+                    style={{ width: '100%', height: 38, fontSize: 13 }}
+                    value={partnerModal.codAmount}
+                    onChange={e => setPartnerModal(prev => ({ ...prev, codAmount: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                  <span style={{ fontSize: 11, marginTop: 3, display: 'block', color: partnerModal.isPaid ? '#16a34a' : '#d97706' }}>
+                    {partnerModal.isPaid
+                      ? `Paid online (${partnerModal.paymentMethodName}). Default is 0.00 (editable).`
+                      : `COD: collect full NPR ${partnerModal.totalAmount} on delivery.`}
+                  </span>
                 </div>
-              )}
+              </div>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
                 <button

@@ -75,6 +75,6 @@ class VendorOrder extends BaseModel
 
     public function assignments(): HasMany
     {
-        return $this->hasMany(\App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment::class);
+        return $this->hasMany(\App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment::class)->latest('id');
     }
 }
