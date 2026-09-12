@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ShoppingBag, PackageCheck, RotateCcw, Heart, Ticket, Clock, Store, History, ArrowRight } from 'lucide-react'
+import { ShoppingBag, PackageCheck, RotateCcw, Heart, Ticket, Clock, ArrowRight, Star, MapPin, LifeBuoy, Lock } from 'lucide-react'
 import api from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { useWishlist } from '../../context/WishlistContext'
@@ -99,9 +99,10 @@ export default function CustomerDashboard() {
       <AccountGrid min={170}>
         {[
           { label: 'Track Order', to: '/account/orders/active', icon: Clock, tone: 'primary' },
-          { label: 'Buy Again', to: '/account/buy-again', icon: ShoppingBag, tone: 'success' },
-          { label: 'Followed Stores', to: '/account/stores', icon: Store, tone: 'purple' },
-          { label: 'Recently Viewed', to: '/account/recent', icon: History, tone: 'blue' },
+          { label: 'My Reviews', to: '/account/reviews', icon: Star, tone: 'success' },
+          { label: 'Addresses', to: '/account/addresses', icon: MapPin, tone: 'purple' },
+          { label: 'Help Center', to: '/account/help', icon: LifeBuoy, tone: 'blue' },
+          { label: 'Security', to: '/account/security', icon: Lock, tone: 'danger' },
         ].map((a) => (
           <Link key={a.label} to={a.to}
             style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', color: '#0f172a', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>

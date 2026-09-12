@@ -34,20 +34,13 @@ import SearchPage from './pages/Public/SearchPage'
 
 import AccountProfile from './pages/account/AccountProfile'
 import AccountAddresses from './pages/account/AccountAddresses'
-import AccountPayments from './pages/account/AccountPayments'
 import AccountReturns from './pages/account/Returns'
 import AccountSupport from './pages/account/AccountSupport'
 import CustomerDashboard from './pages/account/CustomerDashboard'
 import AccountLayout from './pages/account/AccountLayout'
 import AccountActiveOrders from './pages/account/AccountActiveOrders'
-import AccountRefunds from './pages/account/AccountRefunds'
 import AccountVouchers from './pages/account/AccountVouchers'
-import AccountStores from './pages/account/AccountStores'
-import AccountBuyAgain from './pages/account/AccountBuyAgain'
-import AccountRecentlyViewed from './pages/account/AccountRecentlyViewed'
-import AccountPendingReviews from './pages/account/AccountPendingReviews'
 import AccountMyReviews from './pages/account/AccountMyReviews'
-import AccountMyQuestions from './pages/account/AccountMyQuestions'
 import AccountSecurity from './pages/account/AccountSecurity'
 import { AccountTitle } from './pages/account/AccountUI'
 
@@ -196,16 +189,9 @@ function CustomerLayout() {
             <Route path="orders/active" element={<AccountActiveOrders />} />
             <Route path="orders/:id" element={<><AccountTitle label="Order Detail" /><OrderDetail embedded basePath="/account/orders" /></>} />
             <Route path="returns" element={<AccountReturns />} />
-            <Route path="refunds" element={<AccountRefunds />} />
-            <Route path="payments" element={<AccountPayments />} />
             <Route path="vouchers" element={<AccountVouchers />} />
-            <Route path="wishlist" element={<><AccountTitle label="My Wishlist" /><Wishlist /></>} />
-            <Route path="stores" element={<AccountStores />} />
-            <Route path="buy-again" element={<AccountBuyAgain />} />
-            <Route path="recent" element={<AccountRecentlyViewed />} />
+            <Route path="wishlist" element={<><AccountTitle label="Wishlist" /><Wishlist /></>} />
             <Route path="reviews" element={<AccountMyReviews />} />
-            <Route path="reviews/pending" element={<AccountPendingReviews />} />
-            <Route path="qa" element={<AccountMyQuestions />} />
             <Route path="profile" element={<AccountProfile />} />
             <Route path="addresses" element={<AccountAddresses />} />
             <Route path="security" element={<AccountSecurity />} />

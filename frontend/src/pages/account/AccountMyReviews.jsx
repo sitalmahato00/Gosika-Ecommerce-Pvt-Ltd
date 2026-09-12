@@ -28,7 +28,7 @@ export default function AccountMyReviews() {
 
   if (loading) {
     return (
-      <AccountPage title="My Reviews & Photos" subtitle="Everything you have shared with the community.">
+      <AccountPage title="My Reviews" subtitle="Everything you have shared with the community.">
         <AccountSkeleton rows={3} height={96} />
       </AccountPage>
     )
@@ -36,20 +36,20 @@ export default function AccountMyReviews() {
 
   if (error) {
     return (
-      <AccountPage title="My Reviews & Photos" subtitle="Everything you have shared with the community.">
+      <AccountPage title="My Reviews" subtitle="Everything you have shared with the community.">
         <AccountError message="Could not load your reviews." onRetry={load} />
       </AccountPage>
     )
   }
 
   return (
-    <AccountPage title="My Reviews & Photos" subtitle="Everything you have shared with the community.">
+    <AccountPage title="My Reviews" subtitle="Everything you have shared with the community.">
       {reviews.length === 0 ? (
         <AccountEmpty
           icon={MessageSquare}
           title="No reviews yet"
           message="Once you review a purchased product, it shows up here with its approval status."
-          action={<Link to="/account/reviews/pending" className="btn btn-primary">Review Purchases</Link>}
+          action={<Link to="/account/orders" className="btn btn-primary">Review a Purchase</Link>}
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

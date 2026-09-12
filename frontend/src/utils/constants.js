@@ -208,44 +208,27 @@ export const DELIVERY_MOBILE_NAV = [
 ]
 
 export const CUSTOMER_NAV = [
-  { section: 'GENERAL' },
-  { to: '/account', label: 'Account Overview', icon: 'LayoutDashboard', end: true },
-  { to: '/account/help', label: 'Help Center', icon: 'LifeBuoy' },
-
   { section: 'ORDERS' },
   { to: '/account/orders', label: 'My Orders', icon: 'ShoppingBag' },
-  { to: '/account/orders/active', label: 'Active Order Tracking', icon: 'MapPin' },
-  { to: '/account/returns', label: 'Returns & Exchanges', icon: 'RotateCcw' },
-  { to: '/account/refunds', label: 'Refund Status', icon: 'Receipt' },
+  { to: '/account/orders/active', label: 'Track Orders', icon: 'MapPin' },
+  { to: '/account/returns', label: 'Returns & Refunds', icon: 'RotateCcw' },
 
-  { section: 'ASSETS & SAVINGS' },
-  { to: '/account/payments', label: 'Saved Payment Methods', icon: 'CreditCard' },
-  { to: '/account/vouchers', label: 'My Discount Vouchers', icon: 'Ticket' },
+  { section: 'SHOPPING' },
+  { to: '/account/wishlist', label: 'Wishlist', icon: 'Heart' },
+  { to: '/account/vouchers', label: 'Vouchers', icon: 'Ticket' },
 
-  { section: 'SHOPPING & LISTS' },
-  { to: '/account/wishlist', label: 'My Wishlist', icon: 'Heart' },
-  { to: '/account/stores', label: 'Followed Stores', icon: 'Store' },
-  { to: '/account/buy-again', label: 'Buy Again', icon: 'RefreshCcw' },
-  { to: '/account/recent', label: 'Recently Viewed', icon: 'History' },
+  { section: 'REVIEWS' },
+  { to: '/account/reviews', label: 'My Reviews', icon: 'Star' },
 
-  { section: 'COMMUNITY & FEEDBACK' },
-  { to: '/account/reviews/pending', label: 'Pending Reviews', icon: 'Clock' },
-  { to: '/account/reviews', label: 'My Reviews & Photos', icon: 'Star' },
-  { to: '/account/qa', label: 'My Questions & Answers', icon: 'MessageSquare' },
+  { section: 'SUPPORT' },
+  { to: '/account/help', label: 'Help Center', icon: 'LifeBuoy' },
+  { to: '/account/support', label: 'Support Tickets', icon: 'Headphones' },
 
   { section: 'ACCOUNT' },
+  { to: '/account', label: 'Account Overview', icon: 'LayoutDashboard', end: true },
   { to: '/account/profile', label: 'Personal Profile', icon: 'User' },
-  { to: '/account/addresses', label: 'Delivery Address Book', icon: 'MapPin' },
-  { to: '/account/security', label: 'Security & Password', icon: 'Lock' },
-  { to: '/account/support', label: 'Support Tickets', icon: 'Headphones' },
-]
-
-export const CUSTOMER_MOBILE_NAV = [
-  { to: '/account', label: 'Home', icon: 'LayoutDashboard', end: true },
-  { to: '/account/payments', label: 'Payments', icon: 'CreditCard' },
-  { to: '/account/wishlist', label: 'Wishlist', icon: 'Heart' },
-  { to: '/account/orders', label: 'Orders', icon: 'ShoppingBag' },
-  { to: '/account/profile', label: 'Profile', icon: 'User' },
+  { to: '/account/addresses', label: 'Addresses', icon: 'MapPin' },
+  { to: '/account/security', label: 'Security', icon: 'Lock' },
 ]
 
 export const ADMIN_MOBILE_NAV = [

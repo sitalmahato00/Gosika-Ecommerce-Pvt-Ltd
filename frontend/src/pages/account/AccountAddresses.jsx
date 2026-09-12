@@ -191,7 +191,7 @@ export default function AccountAddresses() {
 
   return (
     <AccountPage
-      title="Saved Delivery Addresses"
+      title="Addresses"
       subtitle="Manage your shipping destinations across Nepal."
       actions={<button className="btn btn-primary btn-sm flex items-center gap-1" onClick={openAdd}><Plus size={14} /> Add New Address</button>}
     >

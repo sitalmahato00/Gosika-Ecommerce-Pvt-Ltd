@@ -56,10 +56,9 @@ export default function SectionPage({ section }) {
     ],
     customer: [
       { label: 'Active Order', value: '1', icon: 'ShoppingBag', bg: '#fff0e6', fg: '#ff5500', to: '/account' },
-      { label: 'Wallet Balance', value: 'रु 2,450', icon: 'Wallet', bg: '#e6f7ec', fg: '#16a34a', to: '/account/wallet' },
       { label: 'Vouchers', value: '3', icon: 'Ticket', bg: '#f3e8ff', fg: '#9333ea', to: '/account/vouchers' },
       { label: 'Wishlist Items', value: '14', icon: 'Heart', bg: '#ffebeb', fg: '#e11d48', to: '/account/wishlist' },
-      { label: 'Pending Reviews', value: '2', icon: 'Clock', bg: '#e6f0fa', fg: '#2563eb', to: '/account/reviews/pending' },
+      { label: 'My Reviews', value: '2', icon: 'Star', bg: '#e6f0fa', fg: '#2563eb', to: '/account/reviews' },
     ],
   }[role] || []
 

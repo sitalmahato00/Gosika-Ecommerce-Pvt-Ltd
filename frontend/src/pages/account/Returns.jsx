@@ -151,7 +151,7 @@ export default function Returns() {
 
   return (
     <AccountPage
-      title="My Returns"
+      title="Returns & Refunds"
       subtitle="Track and request returns for your orders."
       actions={<button className="btn btn-primary btn-sm flex items-center gap-1" onClick={openRequestModal}><Plus size={14} /> Request a return</button>}
     >

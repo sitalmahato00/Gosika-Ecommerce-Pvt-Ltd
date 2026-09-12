@@ -5,7 +5,7 @@ import { AccountPage, AccountEmpty } from './AccountUI'
 
 export default function AccountVouchers() {
   return (
-    <AccountPage title="My Discount Vouchers" subtitle="Vouchers and promo codes you can use at checkout.">
+    <AccountPage title="Vouchers" subtitle="Vouchers and promo codes you can use at checkout.">
       <AccountEmpty
         icon={Ticket}
         title="No vouchers yet"

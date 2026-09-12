@@ -31,7 +31,7 @@ export default function AccountActiveOrders() {
 
   if (loading) {
     return (
-      <AccountPage title="Active Order Tracking" subtitle="Orders that are confirmed, preparing or on the way to you.">
+      <AccountPage title="Track Orders" subtitle="Orders that are confirmed, preparing or on the way to you.">
         <AccountSkeleton rows={3} height={92} />
       </AccountPage>
     )
@@ -39,7 +39,7 @@ export default function AccountActiveOrders() {
 
   if (error) {
     return (
-      <AccountPage title="Active Order Tracking" subtitle="Orders that are confirmed, preparing or on the way to you.">
+      <AccountPage title="Track Orders" subtitle="Orders that are confirmed, preparing or on the way to you.">
         <AccountError message="Could not load your orders." onRetry={load} />
       </AccountPage>
     )
@@ -47,7 +47,7 @@ export default function AccountActiveOrders() {
 
   return (
     <AccountPage
-      title="Active Order Tracking"
+      title="Track Orders"
       subtitle="Orders that are confirmed, preparing or on the way to you."
       actions={<Link to="/account/orders" className="btn btn-outline btn-sm">All Orders</Link>}
     >

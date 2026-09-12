@@ -47,7 +47,7 @@ export default function AccountSecurity() {
   }
 
   return (
-    <AccountPage title="Security & Password" subtitle="Keep your account safe — update your password and manage your sessions.">
+    <AccountPage title="Security" subtitle="Keep your account safe — update your password and manage your sessions.">
       <AccountSection title="Change Password" subtitle="Use at least 8 characters with letters & numbers." icon={KeyRound} pad={22} className="account-form-card">
         {error && <div className="alert alert-error">{error}</div>}
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 480 }}>

@@ -45,7 +45,7 @@ const ACCOUNT_LINKS = [
   { label: 'My Orders', to: '/orders' },
   { label: 'Wishlist', to: '/wishlist' },
   { label: 'Addresses', to: '/account/addresses' },
-  { label: 'Payment Methods', to: '/account/payments' },
+  { label: 'Support Tickets', to: '/account/support' },
 ]
 
 const SELLER_LINKS = [

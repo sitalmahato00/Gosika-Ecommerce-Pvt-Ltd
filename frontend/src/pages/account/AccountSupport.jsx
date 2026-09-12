@@ -402,7 +402,7 @@ export default function AccountSupport() {
 
   return (
     <AccountPage
-      title="Customer Support"
+      title="Support Tickets"
       subtitle="Submit support inquiries and chat with our team in real-time."
       actions={<button className="btn btn-primary btn-sm flex items-center gap-1.5" onClick={() => setView('new')}><Plus size={14} /> New Ticket</button>}
     >
