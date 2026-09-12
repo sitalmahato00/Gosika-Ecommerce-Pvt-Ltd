@@ -243,7 +243,7 @@ class DeliveryService
 
             $vendorOrder = $assignment->vendorOrder;
 
-            if (! in_array($vendorOrder->status, [OrderStatus::ACCEPTED, OrderStatus::PREPARING, OrderStatus::READY_FOR_PICKUP], true)) {
+            if (! in_array($vendorOrder->status, [OrderStatus::PENDING, OrderStatus::CONFIRMED, OrderStatus::ACCEPTED, OrderStatus::PREPARING, OrderStatus::READY_FOR_PICKUP], true)) {
                 throw new DomainException('Vendor order is no longer assignable.', 422);
             }
 

@@ -62,7 +62,9 @@ class AdminSellerTierController extends Controller
 
     public function update(Request $request, string $tierId): JsonResponse
     {
-        $tier = SellerTier::where('uuid', $tierId)->orWhere('id', $tierId)->firstOrFail();
+        $tier = SellerTier::where('uuid', $tierId)
+            ->when(ctype_digit($tierId), fn ($q) => $q->orWhere('id', (int) $tierId))
+            ->firstOrFail();
         $data = $this->validated($request);
         $data['slug'] = $data['slug'] ?? Str::slug($data['name']);
 
@@ -75,7 +77,9 @@ class AdminSellerTierController extends Controller
 
     public function destroy(Request $request, string $tierId): JsonResponse
     {
-        $tier = SellerTier::where('uuid', $tierId)->orWhere('id', $tierId)->firstOrFail();
+        $tier = SellerTier::where('uuid', $tierId)
+            ->when(ctype_digit($tierId), fn ($q) => $q->orWhere('id', (int) $tierId))
+            ->firstOrFail();
 
         if ($tier->vendors()->exists()) {
             throw new DomainException('This tier is assigned to vendors. Unassign vendors first before deleting.', 409);
@@ -136,7 +140,9 @@ class AdminSellerTierController extends Controller
             'tier_id' => ['nullable', 'uuid', 'exists:seller_tiers,uuid'],
         ]);
 
-        $vendor = Vendor::where('uuid', $vendorId)->orWhere('id', $vendorId)->firstOrFail();
+        $vendor = Vendor::where('uuid', $vendorId)
+            ->when(ctype_digit($vendorId), fn ($q) => $q->orWhere('id', (int) $vendorId))
+            ->firstOrFail();
         $tier = $request->input('tier_id') ? SellerTier::where('uuid', $request->input('tier_id'))->firstOrFail() : null;
 
         $vendor->update(['seller_tier_id' => $tier?->id]);

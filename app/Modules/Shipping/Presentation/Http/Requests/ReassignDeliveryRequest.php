@@ -14,7 +14,7 @@ class ReassignDeliveryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'delivery_partner_id' => ['required', 'string', 'exists:delivery_partners,uuid'],
+            'delivery_partner_id' => ['required', 'string'],
         ];
     }
 }

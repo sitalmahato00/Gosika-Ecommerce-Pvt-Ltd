@@ -19,10 +19,17 @@ class CheckoutService
     {
     }
 
-    public function summary(User $user): array
+    public function summary(User $user, ?array $selectedItemUuids = null): array
     {
         $cart = $this->cartService->getCart($user);
         $items = $cart->items;
+
+        if (!empty($selectedItemUuids) && is_array($selectedItemUuids)) {
+            $filtered = $items->whereIn('uuid', $selectedItemUuids);
+            if ($filtered->isNotEmpty()) {
+                $items = $filtered;
+            }
+        }
 
         $subtotal = (float) $items->sum(fn (CartItem $item) => $item->total_price);
         $tax = $this->taxFor($items);
@@ -49,6 +56,10 @@ class CheckoutService
             throw new DomainException('Your cart is empty.', 422);
         }
 
+        $selectedItemUuids = isset($data['item_ids']) && is_array($data['item_ids'])
+            ? array_values(array_filter($data['item_ids']))
+            : null;
+
         $shippingAddress = $this->ownedAddress($user, $data['shipping_address_id']);
 
         if (! $shippingAddress) {
@@ -62,7 +73,7 @@ class CheckoutService
             $billingAddress = $shippingAddress;
         }
 
-        $summary = $this->summary($user);
+        $summary = $this->summary($user, $selectedItemUuids);
         $codEnabled = Setting::get('checkout.cod_enabled', 'true') === 'true';
         $maxCod = (float) Setting::get('checkout.cod_max_amount', 50000);
         $minOrder = (float) Setting::get('checkout.min_order_amount', 0);
@@ -91,7 +102,7 @@ class CheckoutService
             throw new DomainException('Order exceeds the maximum Cash on Delivery amount.', 422);
         }
 
-        return DB::transaction(function () use ($user, $cart, $shippingAddress, $billingAddress, $summary, $data, $paymentMethod) {
+        return DB::transaction(function () use ($user, $cart, $shippingAddress, $billingAddress, $summary, $data, $paymentMethod, $selectedItemUuids) {
             $session = new CheckoutSession();
             $session->user_id = $user->id;
             $session->cart_id = $cart->id;
@@ -104,6 +115,9 @@ class CheckoutService
             $session->tax = $summary['tax'];
             $session->total = $summary['total'];
             $session->status = 'pending';
+            $session->meta = [
+                'selected_item_ids' => $selectedItemUuids,
+            ];
             $session->expires_at = now()->addMinutes((int) Setting::get('checkout.session_ttl_minutes', 30));
             $session->save();
 

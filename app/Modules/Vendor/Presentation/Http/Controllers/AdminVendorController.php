@@ -78,7 +78,9 @@ class AdminVendorController extends Controller
 
     public function suspend(Request $request, string $vendorId): JsonResponse
     {
-        $vendor = Vendor::where('uuid', $vendorId)->orWhere('id', $vendorId)->firstOrFail();
+        $vendor = Vendor::where('uuid', $vendorId)
+            ->when(ctype_digit($vendorId), fn ($q) => $q->orWhere('id', (int) $vendorId))
+            ->firstOrFail();
         $vendor->update([
             'status' => \App\Modules\Shared\Domain\Enums\VendorStatus::SUSPENDED,
             'rejection_reason' => $request->input('reason', 'Suspended by admin'),
@@ -89,7 +91,9 @@ class AdminVendorController extends Controller
 
     public function activate(Request $request, string $vendorId): JsonResponse
     {
-        $vendor = Vendor::where('uuid', $vendorId)->orWhere('id', $vendorId)->firstOrFail();
+        $vendor = Vendor::where('uuid', $vendorId)
+            ->when(ctype_digit($vendorId), fn ($q) => $q->orWhere('id', (int) $vendorId))
+            ->firstOrFail();
         $vendor->update([
             'status' => \App\Modules\Shared\Domain\Enums\VendorStatus::APPROVED,
             'rejection_reason' => null,
@@ -149,7 +153,7 @@ class AdminVendorController extends Controller
         $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::query()
             ->with(['vendor', 'documents'])
             ->where('uuid', $kycId)
-            ->orWhere('id', $kycId)
+            ->when(ctype_digit($kycId), fn ($q) => $q->orWhere('id', (int) $kycId))
             ->firstOrFail();
 
         return Response::success($kyc, 'KYC detail retrieved.');
@@ -157,7 +161,9 @@ class AdminVendorController extends Controller
 
     public function approveKyc(Request $request, string $kycId): JsonResponse
     {
-        $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::where('uuid', $kycId)->orWhere('id', $kycId)->firstOrFail();
+        $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::where('uuid', $kycId)
+            ->when(ctype_digit($kycId), fn ($q) => $q->orWhere('id', (int) $kycId))
+            ->firstOrFail();
         $kyc->update([
             'status' => KycStatus::APPROVED,
             'reviewed_by' => $request->user()->id,
@@ -180,7 +186,9 @@ class AdminVendorController extends Controller
     {
         $request->validate(['reason' => 'required|string|max:1000']);
 
-        $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::where('uuid', $kycId)->orWhere('id', $kycId)->firstOrFail();
+        $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::where('uuid', $kycId)
+            ->when(ctype_digit($kycId), fn ($q) => $q->orWhere('id', (int) $kycId))
+            ->firstOrFail();
         $kyc->update([
             'status' => KycStatus::REJECTED,
             'reviewed_by' => $request->user()->id,
@@ -195,7 +203,9 @@ class AdminVendorController extends Controller
     {
         $request->validate(['notes' => 'required|string|max:1000']);
 
-        $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::where('uuid', $kycId)->orWhere('id', $kycId)->firstOrFail();
+        $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::where('uuid', $kycId)
+            ->when(ctype_digit($kycId), fn ($q) => $q->orWhere('id', (int) $kycId))
+            ->firstOrFail();
         $kyc->update([
             'status' => KycStatus::RESUBMISSION_REQUIRED,
             'reviewed_by' => $request->user()->id,
@@ -208,7 +218,9 @@ class AdminVendorController extends Controller
 
     public function approveStore(string $storeId): JsonResponse
     {
-        $store = Store::where('uuid', $storeId)->orWhere('id', $storeId)->firstOrFail();
+        $store = Store::where('uuid', $storeId)
+            ->when(ctype_digit($storeId), fn ($q) => $q->orWhere('id', (int) $storeId))
+            ->firstOrFail();
         $store = $this->service->approveStore(request()->user(), $store);
 
         return Response::success(new StoreResource($store), 'Store approved.');
@@ -216,7 +228,9 @@ class AdminVendorController extends Controller
 
     public function rejectStore(VendorReviewRequest $request, string $storeId): JsonResponse
     {
-        $store = Store::where('uuid', $storeId)->orWhere('id', $storeId)->firstOrFail();
+        $store = Store::where('uuid', $storeId)
+            ->when(ctype_digit($storeId), fn ($q) => $q->orWhere('id', (int) $storeId))
+            ->firstOrFail();
 
         if (! $request->input('reason')) {
             throw new DomainException('A rejection reason is required.');

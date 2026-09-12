@@ -102,7 +102,9 @@ class AdminRefundController extends Controller
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $refund = Refund::where('uuid', $refundId)->orWhere('id', $refundId)->firstOrFail();
+        $refund = Refund::where('uuid', $refundId)
+            ->when(ctype_digit($refundId), fn ($q) => $q->orWhere('id', (int) $refundId))
+            ->firstOrFail();
 
         if ($refund->status->value === RefundStatus::REFUNDED->value) {
             return Response::error('A refunded transaction cannot be modified.', ['status' => 'refunded'], 422);

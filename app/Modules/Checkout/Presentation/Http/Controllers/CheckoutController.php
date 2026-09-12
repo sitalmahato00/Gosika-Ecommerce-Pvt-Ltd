@@ -18,7 +18,15 @@ class CheckoutController extends Controller
 
     public function summary(): JsonResponse
     {
-        $summary = $this->checkoutService->summary(request()->user());
+        $rawItems = request()->query('items') ?? request()->query('selected_item_ids') ?? request()->input('item_ids');
+        $selected = null;
+        if (is_array($rawItems)) {
+            $selected = array_values(array_filter($rawItems));
+        } elseif (is_string($rawItems) && trim($rawItems) !== '') {
+            $selected = array_values(array_filter(explode(',', $rawItems)));
+        }
+
+        $summary = $this->checkoutService->summary(request()->user(), $selected);
 
         return Response::success([
             'item_count' => $summary['item_count'],

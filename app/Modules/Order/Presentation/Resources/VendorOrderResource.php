@@ -68,6 +68,7 @@ class VendorOrderResource extends JsonResource
             'vendor_payable' => number_format((float) $this->vendor_payable, 2, '.', ''),
             'shipping_address' => $shipping,
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
+            'assignments' => \App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource::collection($this->whenLoaded('assignments')),
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

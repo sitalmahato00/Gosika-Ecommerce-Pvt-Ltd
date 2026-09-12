@@ -174,9 +174,16 @@ class AdminDeliveryController extends Controller
 
     public function assign(AssignDeliveryRequest $request): JsonResponse
     {
-        $vendorOrder = VendorOrder::where('uuid', $request->input('vendor_order_id'))->firstOrFail();
+        $vendorOrderId = (string) $request->input('vendor_order_id');
+        $vendorOrder = VendorOrder::where('uuid', $vendorOrderId)
+            ->when(ctype_digit($vendorOrderId), fn ($q) => $q->orWhere('id', (int) $vendorOrderId))
+            ->firstOrFail();
+
+        $partnerId = (string) $request->input('delivery_partner_id');
         $partner = $request->filled('delivery_partner_id')
-            ? DeliveryPartner::where('uuid', $request->input('delivery_partner_id'))->firstOrFail()
+            ? DeliveryPartner::where('uuid', $partnerId)
+                ->when(ctype_digit($partnerId), fn ($q) => $q->orWhere('id', (int) $partnerId))
+                ->firstOrFail()
             : $this->service->resolvePartnerForOrder($vendorOrder);
 
         try {
@@ -199,7 +206,10 @@ class AdminDeliveryController extends Controller
 
     public function reassign(ReassignDeliveryRequest $request, DeliveryAssignment $assignment): JsonResponse
     {
-        $partner = DeliveryPartner::where('uuid', $request->input('delivery_partner_id'))->firstOrFail();
+        $partnerId = (string) $request->input('delivery_partner_id');
+        $partner = DeliveryPartner::where('uuid', $partnerId)
+            ->when(ctype_digit($partnerId), fn ($q) => $q->orWhere('id', (int) $partnerId))
+            ->firstOrFail();
 
         try {
             $assignment = $this->service->reassign($request->user(), $assignment, $partner);

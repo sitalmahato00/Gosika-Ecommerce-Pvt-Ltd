@@ -67,9 +67,13 @@ class AdminOrderController extends Controller
     {
         $order = Order::query()
             ->with(['user', 'items', 'vendorOrders.items', 'vendorOrders.store', 'vendorOrders.assignments.deliveryPartner', 'payments', 'shippingAddress'])
-            ->where('uuid', $orderId)
-            ->orWhere('id', $orderId)
-            ->orWhere('order_number', $orderId)
+            ->where(function ($q) use ($orderId) {
+                $q->where('uuid', $orderId)
+                  ->orWhere('order_number', $orderId);
+                if (ctype_digit($orderId)) {
+                    $q->orWhere('id', (int) $orderId);
+                }
+            })
             ->firstOrFail();
 
         return Response::success(new AdminOrderResource($order), 'Order retrieved.');
@@ -97,7 +101,9 @@ class AdminOrderController extends Controller
 
     public function approveReturn(Request $request, string $returnId): JsonResponse
     {
-        $return = ReturnRequest::where('uuid', $returnId)->orWhere('id', $returnId)->firstOrFail();
+        $return = ReturnRequest::where('uuid', $returnId)
+            ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
+            ->firstOrFail();
         $return->status = ReturnStatus::APPROVED;
         $return->reviewed_by = $request->user()->id;
         $return->reviewed_at = now();
@@ -111,7 +117,9 @@ class AdminOrderController extends Controller
     {
         $request->validate(['reason' => 'required|string|max:500']);
 
-        $return = ReturnRequest::where('uuid', $returnId)->orWhere('id', $returnId)->firstOrFail();
+        $return = ReturnRequest::where('uuid', $returnId)
+            ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
+            ->firstOrFail();
         $return->status = ReturnStatus::REJECTED;
         $return->reviewed_by = $request->user()->id;
         $return->reviewed_at = now();
@@ -128,7 +136,9 @@ class AdminOrderController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $return = ReturnRequest::where('uuid', $returnId)->orWhere('id', $returnId)->firstOrFail();
+        $return = ReturnRequest::where('uuid', $returnId)
+            ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
+            ->firstOrFail();
         $return->status = ReturnStatus::from($request->input('status'));
 
         if ($request->filled('notes')) {
@@ -168,7 +178,7 @@ class AdminOrderController extends Controller
         $return = ReturnRequest::query()
             ->with(['order.payments', 'orderItem', 'vendorOrder'])
             ->where('uuid', $returnId)
-            ->orWhere('id', $returnId)
+            ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
             ->firstOrFail();
 
         $refundable = [

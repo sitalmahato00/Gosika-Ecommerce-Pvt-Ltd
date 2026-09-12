@@ -76,7 +76,7 @@ class AdminCatalogController extends Controller
     {
         $product = Product::query()
             ->where('uuid', $productId)
-            ->orWhere('id', $productId)
+            ->when(ctype_digit($productId), fn ($q) => $q->orWhere('id', (int) $productId))
             ->with(['vendor', 'store', 'category', 'brand', 'variants', 'images', 'attributes.values'])
             ->first();
 
@@ -105,7 +105,7 @@ class AdminCatalogController extends Controller
     {
         $product = Product::query()
             ->where('uuid', $productId)
-            ->orWhere('id', $productId)
+            ->when(ctype_digit($productId), fn ($q) => $q->orWhere('id', (int) $productId))
             ->first();
 
         if (! $product) {
@@ -146,7 +146,7 @@ class AdminCatalogController extends Controller
 
         $product = Product::query()
             ->where('uuid', $productId)
-            ->orWhere('id', $productId)
+            ->when(ctype_digit($productId), fn ($q) => $q->orWhere('id', (int) $productId))
             ->first();
 
         if (! $product) {

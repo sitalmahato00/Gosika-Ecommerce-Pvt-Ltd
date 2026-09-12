@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   MapPin, Plus, CreditCard, Banknote, CheckCircle2,
   Lock, ArrowRight, ArrowLeft, ChevronRight, Wallet
@@ -28,8 +28,36 @@ const STEPS = [
 export default function Checkout() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const { cart, loading: cartLoading, fetchCart } = useCart()
   const toast = useToast()
+
+  const selectedItemIds = useMemo(() => {
+    if (location.state?.selectedItemIds && Array.isArray(location.state.selectedItemIds)) {
+      return location.state.selectedItemIds
+    }
+    try {
+      const saved = localStorage.getItem('gosika_selected_cart_items')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch {}
+    return null
+  }, [location.state?.selectedItemIds])
+
+  const checkoutItems = useMemo(() => {
+    if (!cart?.items) return []
+    if (selectedItemIds && selectedItemIds.length > 0) {
+      const filtered = cart.items.filter((i) => selectedItemIds.includes(i.id))
+      return filtered.length > 0 ? filtered : cart.items
+    }
+    return cart.items
+  }, [cart?.items, selectedItemIds])
+
+  const itemsSubtotal = useMemo(() => {
+    return checkoutItems.reduce((sum, i) => sum + Number(i.total_price || 0), 0)
+  }, [checkoutItems])
 
   const [summary, setSummary] = useState(null)
   const [addresses, setAddresses] = useState([])
@@ -55,8 +83,9 @@ export default function Checkout() {
       return
     }
     setLoading(true)
+    const summaryParams = selectedItemIds?.length ? { items: selectedItemIds.join(',') } : {}
     Promise.all([
-      api.get('/checkout/summary'),
+      api.get('/checkout/summary', { params: summaryParams }),
       api.get('/customer/addresses'),
       api.get('/platform/config'),
       api.get('/platform/provinces'),
@@ -195,6 +224,7 @@ export default function Checkout() {
         shipping_address_id: shippingId,
         billing_address_id: sameAsBilling ? null : billingId || shippingId,
         payment_method: paymentMethod,
+        item_ids: selectedItemIds?.length ? selectedItemIds : undefined,
       })
       const session = res.data.data
       const orderRes = await api.post('/orders', {
@@ -203,7 +233,7 @@ export default function Checkout() {
       })
       const order = orderRes.data.data
       
-      // Order created successfully, cart is cleared on backend. Refresh frontend cart.
+      localStorage.removeItem('gosika_selected_cart_items')
       fetchCart()
 
       if (paymentMethod === 'khalti') {
@@ -547,8 +577,8 @@ export default function Checkout() {
 
               <div style={{ padding: '0 4px' }}>
                 <div className="flex justify-between py-1 text-sm">
-                  <span className="muted">Subtotal ({cart.item_count} items)</span>
-                  <span className="font-semibold">{money(summary?.subtotal || cart.subtotal)}</span>
+                  <span className="muted">Subtotal ({checkoutItems.length} items)</span>
+                  <span className="font-semibold">{money(summary?.subtotal || itemsSubtotal)}</span>
                 </div>
                 {Number(summary?.discount) > 0 && (
                   <div className="flex justify-between py-1 text-sm">
@@ -569,7 +599,7 @@ export default function Checkout() {
                 <div className="flex justify-between items-center" style={{ borderTop: '2px solid var(--border)', paddingTop: 14, marginTop: 10 }}>
                   <span className="font-extrabold" style={{ fontSize: 16 }}>Grand Total</span>
                   <span className="price-current" style={{ fontSize: 24, color: 'var(--primary-darker)' }}>
-                    {money(summary?.total || cart.subtotal)}
+                    {money(summary?.total || itemsSubtotal)}
                   </span>
                 </div>
               </div>
@@ -587,7 +617,7 @@ export default function Checkout() {
                   {submitting ? (
                     <><Spinner size={16} color="#fff" /> Processing…</>
                   ) : (
-                    <>Place Order ({money(summary?.total || cart.subtotal)}) <ArrowRight size={16} /></>
+                    <>Place Order ({money(summary?.total || itemsSubtotal)}) <ArrowRight size={16} /></>
                   )}
                 </button>
               </div>
@@ -598,18 +628,19 @@ export default function Checkout() {
         {/* Right Column: Persistent Order Summary */}
         <div className="order-summary-panel">
           <div className="order-summary-header">
-            Items in Order ({cart.item_count})
+            Items in Order ({checkoutItems.length})
           </div>
           <div className="order-summary-body">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 280, overflowY: 'auto' }}>
-              {cart.items.map((item) => (
+              {checkoutItems.map((item) => (
                 <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '48px 1fr auto', gap: 10, alignItems: 'center' }}>
-                  <span className="thumb" style={{ width: 48, height: 48 }}>
+                  <span className="thumb" style={{ width: 48, height: 48, borderRadius: 6, overflow: 'hidden', background: 'var(--bg)' }}>
                     <img
-                      src={item.image ? apiImage(item.image) : getProductImage(item)}
-                      alt=""
+                      src={item.image ? apiImage(item.image, item.name) : getProductImage(item, 0, true)}
+                      alt={item.name || ''}
                       className="thumb-img"
-                      onError={(e) => { e.target.onerror = null; e.target.src = getProductImage(item) }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => { e.target.onerror = null; e.target.src = getProductImage(item, 0, true) }}
                     />
                   </span>
                   <div style={{ minWidth: 0 }}>
@@ -625,17 +656,27 @@ export default function Checkout() {
 
             <div className="order-summary-row">
               <span className="muted text-sm">Subtotal</span>
-              <span className="font-semibold">{money(summary?.subtotal || cart.subtotal)}</span>
+              <span className="font-semibold">{money(summary?.subtotal || itemsSubtotal)}</span>
             </div>
+            {Number(summary?.discount) > 0 && (
+              <div className="order-summary-row">
+                <span className="muted text-sm">Promotional Discount</span>
+                <span className="text-success font-semibold text-sm">-{money(summary.discount)}</span>
+              </div>
+            )}
             <div className="order-summary-row">
               <span className="muted text-sm">Shipping</span>
               <span className="text-success font-semibold text-sm">
                 {Number(summary?.delivery_charge) > 0 ? money(summary.delivery_charge) : 'Free'}
               </span>
             </div>
+            <div className="order-summary-row">
+              <span className="muted text-sm">Tax</span>
+              <span className="font-semibold text-sm">{money(summary?.tax || 0)}</span>
+            </div>
             <div className="order-summary-total">
               <span>Total</span>
-              <span>{money(summary?.total || cart.subtotal)}</span>
+              <span>{money(summary?.total || itemsSubtotal)}</span>
             </div>
 
             <div className="flex items-center gap-1 justify-center muted text-xs mt-3">

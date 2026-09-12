@@ -50,26 +50,29 @@ export function apiImage(path, fallbackKey = 0) {
     const idx = Math.abs(Number(fallbackKey) || 0)
     return FALLBACK_PRODUCT_IMAGES[idx % FALLBACK_PRODUCT_IMAGES.length]
   }
-  if (/^https?:\/\//.test(path)) return path
-  if (/^data:/.test(path)) return path
-  if (path.startsWith('/storage/')) return path
-  return `/storage/${path}`
+  const cleanPath = String(path).replace(/^.*?\/storage\/(https?:\/\/)/i, '$1')
+  if (/^https?:\/\//.test(cleanPath)) return cleanPath
+  if (/^data:/.test(cleanPath)) return cleanPath
+  if (cleanPath.startsWith('/storage/')) return cleanPath
+  return `/storage/${cleanPath}`
 }
 
-export function getProductImage(product, index = 0) {
+export function getProductImage(product, index = 0, isFallback = false) {
   if (!product) return FALLBACK_PRODUCT_IMAGES[0]
-  const explicit = product.primary_image?.url ||
-    product.images?.[index]?.url ||
-    product.primary_image ||
-    product.image ||
-    product.cover_image
+  if (!isFallback) {
+    const explicit = product.primary_image?.url ||
+      product.images?.[index]?.url ||
+      product.primary_image ||
+      product.image ||
+      product.cover_image
 
-  if (explicit && typeof explicit === 'string' && explicit.trim()) {
-    return apiImage(explicit)
+    if (explicit && typeof explicit === 'string' && explicit.trim()) {
+      return apiImage(explicit, product.product_name || product.name || index)
+    }
   }
 
   const nameOrCategory = `${product.product_name || ''} ${product.name || ''} ${product.title || ''} ${product.category?.name || ''} ${product.category?.slug || ''}`
-  return apiImage(null, nameOrCategory || product.id || index)
+  return apiImage(null, nameOrCategory.trim() || product.id || index)
 }
 
 export const FALLBACK_STORE_BANNERS = [

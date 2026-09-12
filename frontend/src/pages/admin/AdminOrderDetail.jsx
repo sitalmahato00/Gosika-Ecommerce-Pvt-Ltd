@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import {
   ShoppingBag, Store, Truck, CreditCard,
   User, MapPin, Phone, Mail, Clock,
-  XCircle, Package, Printer, FileText
+  XCircle, Package, Printer, FileText, RefreshCw
 } from 'lucide-react'
 import api from '../../api/client'
 import PageHeader from '../../components/admin/PageHeader'
@@ -121,6 +121,88 @@ export default function AdminOrderDetail() {
     action: null, // 'cancel' | 'refund'
     loading: false
   })
+
+  const [partnerModal, setPartnerModal] = useState({
+    isOpen: false,
+    vendorOrder: null,
+    assignment: null,
+    partnerId: '',
+    deliveryFee: '',
+    codAmount: '',
+    submitting: false
+  })
+  const [deliveryPartners, setDeliveryPartners] = useState([])
+  const [loadingPartners, setLoadingPartners] = useState(false)
+
+  const fetchDeliveryPartners = async () => {
+    if (deliveryPartners.length > 0) return
+    setLoadingPartners(true)
+    try {
+      const res = await api.get('/admin/delivery-partners', { params: { per_page: 100 } })
+      setDeliveryPartners(api.unwrapList(res.data))
+    } catch {
+      // ignore
+    } finally {
+      setLoadingPartners(false)
+    }
+  }
+
+  const handleOpenAssignModal = (vo) => {
+    fetchDeliveryPartners()
+    const isCod = order?.payment_method === 'cod' || order?.payment_method === 'cash_on_delivery'
+    setPartnerModal({
+      isOpen: true,
+      vendorOrder: vo,
+      assignment: null,
+      partnerId: '',
+      deliveryFee: vo.delivery_charge ? String(vo.delivery_charge) : '',
+      codAmount: isCod && vo.grand_total ? String(vo.grand_total) : '0',
+      submitting: false
+    })
+  }
+
+  const handleOpenReassignModal = (vo, assignment) => {
+    fetchDeliveryPartners()
+    setPartnerModal({
+      isOpen: true,
+      vendorOrder: vo,
+      assignment: assignment,
+      partnerId: assignment.delivery_partner_id || assignment.delivery_partner?.id || '',
+      deliveryFee: assignment.delivery_fee ? String(assignment.delivery_fee) : '',
+      codAmount: assignment.cod_amount ? String(assignment.cod_amount) : '',
+      submitting: false
+    })
+  }
+
+  const handlePartnerModalSubmit = async (e) => {
+    e.preventDefault()
+    if (!partnerModal.partnerId) return
+
+    setPartnerModal(prev => ({ ...prev, submitting: true }))
+    try {
+      if (partnerModal.assignment) {
+        const targetId = partnerModal.assignment.id || partnerModal.assignment.uuid
+        await api.post(`/admin/deliveries/${targetId}/reassign`, {
+          delivery_partner_id: partnerModal.partnerId
+        })
+        toast.success('Delivery rider reassigned successfully.')
+      } else {
+        const voId = partnerModal.vendorOrder.id || partnerModal.vendorOrder.uuid
+        await api.post('/admin/deliveries', {
+          vendor_order_id: voId,
+          delivery_partner_id: partnerModal.partnerId,
+          delivery_fee: partnerModal.deliveryFee ? Number(partnerModal.deliveryFee) : undefined,
+          cod_amount: partnerModal.codAmount ? Number(partnerModal.codAmount) : undefined
+        })
+        toast.success('Delivery partner assigned successfully. Package is ready in delivery portal.')
+      }
+      setPartnerModal(prev => ({ ...prev, isOpen: false, submitting: false }))
+      loadOrder()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update delivery assignment.')
+      setPartnerModal(prev => ({ ...prev, submitting: false }))
+    }
+  }
 
   const loadOrder = async () => {
     setLoading(true)
@@ -482,6 +564,9 @@ export default function AdminOrderDetail() {
                   const items = Array.isArray(vo.items) ? vo.items : []
                   const assignment = Array.isArray(vo.assignments) && vo.assignments.length > 0 ? vo.assignments[0] : null
                   const rider = assignment?.delivery_partner || assignment?.deliveryPartner
+                  const riderName = rider?.name || rider?.user?.name || assignment?.delivery_partner_name
+                  const riderPhone = rider?.phone || rider?.user?.phone
+                  const canAssign = vo.status !== 'cancelled' && order.status !== 'cancelled'
 
                   return (
                     <div
@@ -505,14 +590,41 @@ export default function AdminOrderDetail() {
                           </div>
                         </div>
 
-                        {/* Delivery Assignment Status */}
-                        {rider && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, background: '#f8fafc', padding: '4px 10px', borderRadius: 8 }}>
-                            <Truck size={14} color="#10b981" />
-                            <span>Rider: <strong>{rider.name || rider.user?.name}</strong></span>
-                            <StatusBadge status={assignment.status} />
-                          </div>
-                        )}
+                        {/* Delivery Assignment Status & Actions */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          {assignment ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                                <Truck size={14} color="#10b981" />
+                                <span>Rider: <strong>{riderName || 'Assigned'}</strong></span>
+                                {riderPhone && <span style={{ color: 'var(--muted)', fontSize: 11 }}>({riderPhone})</span>}
+                                <StatusBadge status={assignment.status} />
+                              </div>
+                              {canAssign && assignment.status !== 'delivered' && (
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-xs"
+                                  style={{ color: 'var(--primary)', fontWeight: 600, padding: '2px 6px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
+                                  onClick={() => handleOpenReassignModal(vo, assignment)}
+                                  title="Reassign another rider"
+                                >
+                                  <RefreshCw size={11} /> Reassign
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            canAssign && (
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-xs"
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 600, padding: '6px 12px', borderRadius: 8 }}
+                                onClick={() => handleOpenAssignModal(vo)}
+                              >
+                                <Truck size={13} /> Assign Delivery Partner
+                              </button>
+                            )
+                          )}
+                        </div>
                       </div>
 
                       {/* Items Table */}
@@ -690,6 +802,138 @@ export default function AdminOrderDetail() {
         requireReason={true}
         reasonPlaceholder="State the administrative reason for cancelling this order..."
       />
+
+      {/* Assign / Reassign Delivery Partner Modal */}
+      {partnerModal.isOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+          onClick={e => { if (e.target === e.currentTarget && !partnerModal.submitting) setPartnerModal(prev => ({ ...prev, isOpen: false })) }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: 500,
+              background: '#fff',
+              borderRadius: 16,
+              padding: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Truck size={20} color="var(--primary)" />
+                <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                  {partnerModal.assignment ? 'Reassign Delivery Rider' : 'Assign Delivery Partner'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                onClick={() => setPartnerModal(prev => ({ ...prev, isOpen: false }))}
+                disabled={partnerModal.submitting}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handlePartnerModalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: 8, fontSize: 12.5, color: '#334155' }}>
+                <div><strong>Package:</strong> {partnerModal.vendorOrder?.store?.name || partnerModal.vendorOrder?.vendor_name || 'Store Package'}</div>
+                <div><strong>Vendor Order #:</strong> {partnerModal.vendorOrder?.vendor_order_number || partnerModal.vendorOrder?.id}</div>
+                {order.shipping_address && (
+                  <div><strong>Destination:</strong> {[order.shipping_address.address_line_1, order.shipping_address.municipality, order.shipping_address.district].filter(Boolean).join(', ')}</div>
+                )}
+              </div>
+
+              <div>
+                <label className="label" style={{ fontSize: 12, fontWeight: 700, marginBottom: 4, display: 'block' }}>
+                  Select Delivery Partner / Rider *
+                </label>
+                <select
+                  className="input"
+                  style={{ width: '100%', height: 40, fontSize: 13, fontWeight: 600 }}
+                  value={partnerModal.partnerId}
+                  onChange={e => setPartnerModal(prev => ({ ...prev, partnerId: e.target.value }))}
+                  required
+                >
+                  <option value="">{loadingPartners ? 'Loading delivery partners...' : 'Choose a delivery partner / rider...'}</option>
+                  {deliveryPartners.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.vehicle_type || 'Rider'}{p.vehicle_number ? ` - ${p.vehicle_number}` : ''} · {p.phone}) {p.is_online ? '🟢 Online' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {!partnerModal.assignment && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label className="label" style={{ fontSize: 12, fontWeight: 700, marginBottom: 4, display: 'block' }}>
+                      Delivery Fee (NPR)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="input"
+                      style={{ width: '100%', height: 38, fontSize: 13 }}
+                      value={partnerModal.deliveryFee}
+                      onChange={e => setPartnerModal(prev => ({ ...prev, deliveryFee: e.target.value }))}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="label" style={{ fontSize: 12, fontWeight: 700, marginBottom: 4, display: 'block' }}>
+                      COD Amount to Collect (NPR)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="input"
+                      style={{ width: '100%', height: 38, fontSize: 13 }}
+                      value={partnerModal.codAmount}
+                      onChange={e => setPartnerModal(prev => ({ ...prev, codAmount: e.target.value }))}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setPartnerModal(prev => ({ ...prev, isOpen: false }))}
+                  disabled={partnerModal.submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={partnerModal.submitting || !partnerModal.partnerId}
+                >
+                  {partnerModal.submitting ? 'Processing...' : partnerModal.assignment ? 'Confirm Reassignment' : 'Assign Rider'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

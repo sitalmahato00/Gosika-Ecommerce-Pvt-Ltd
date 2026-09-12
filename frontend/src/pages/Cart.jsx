@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag, Trash2, Store, ArrowRight, Lock,
   ShoppingCart, ChevronRight, Banknote,
-  Wallet, CreditCard, Smartphone
+  Wallet, CreditCard, Smartphone, CheckSquare, Square
 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
@@ -18,6 +18,80 @@ export default function Cart() {
   const { user } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
+
+  const [selectedIds, setSelectedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('gosika_selected_cart_items')
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return []
+  })
+
+  // Sync selectedIds with cart items: if cart changes and selectedIds is empty, select all
+  useEffect(() => {
+    if (cart?.items?.length) {
+      setSelectedIds((prev) => {
+        const itemIds = cart.items.map((i) => i.id)
+        if (prev.length === 0) return itemIds
+        const valid = prev.filter((id) => itemIds.includes(id))
+        return valid.length > 0 ? valid : itemIds
+      })
+    }
+  }, [cart?.items])
+
+  const selectedItems = useMemo(() => {
+    return (cart?.items || []).filter((item) => selectedIds.includes(item.id))
+  }, [cart?.items, selectedIds])
+
+  const selectedSubtotal = useMemo(() => {
+    return selectedItems.reduce((sum, item) => sum + Number(item.total_price || 0), 0)
+  }, [selectedItems])
+
+  const selectedCount = useMemo(() => {
+    return selectedItems.reduce((sum, item) => sum + Number(item.quantity || 1), 0)
+  }, [selectedItems])
+
+  const allSelected = cart?.items?.length > 0 && selectedItems.length === cart.items.length
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds([])
+      localStorage.setItem('gosika_selected_cart_items', JSON.stringify([]))
+    } else {
+      const allIds = (cart?.items || []).map((i) => i.id)
+      setSelectedIds(allIds)
+      localStorage.setItem('gosika_selected_cart_items', JSON.stringify(allIds))
+    }
+  }
+
+  const toggleItem = (id) => {
+    setSelectedIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      localStorage.setItem('gosika_selected_cart_items', JSON.stringify(next))
+      return next
+    })
+  }
+
+  const toggleStore = (storeItems) => {
+    const storeIds = storeItems.map((i) => i.id)
+    const allStoreSelected = storeIds.every((id) => selectedIds.includes(id))
+    setSelectedIds((prev) => {
+      const next = allStoreSelected
+        ? prev.filter((id) => !storeIds.includes(id))
+        : Array.from(new Set([...prev, ...storeIds]))
+      localStorage.setItem('gosika_selected_cart_items', JSON.stringify(next))
+      return next
+    })
+  }
+
+  const handleProceedToCheckout = () => {
+    if (!selectedItems.length) {
+      toast.error('Please select at least one item to checkout.')
+      return
+    }
+    localStorage.setItem('gosika_selected_cart_items', JSON.stringify(selectedIds))
+    navigate('/checkout', { state: { selectedItemIds: selectedIds } })
+  }
 
   const groups = useMemo(() => {
     const g = []
@@ -131,8 +205,36 @@ export default function Cart() {
 
         {/* ---- Items column ---- */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Select all bar */}
+          <div
+            className="card"
+            style={{
+              padding: '12px 18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#fff',
+            }}
+          >
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', margin: 0, fontWeight: 700, fontSize: 14 }}>
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleSelectAll}
+                style={{ cursor: 'pointer', width: 18, height: 18, accentColor: 'var(--primary)' }}
+              />
+              <span>Select All Items ({selectedItems.length}/{cart.items.length})</span>
+            </label>
+            {selectedItems.length < cart.items.length && (
+              <span className="muted text-xs">
+                {selectedItems.length} selected ({money(selectedSubtotal)})
+              </span>
+            )}
+          </div>
+
           {groups.map((g) => {
             const groupTotal = g.items.reduce((s, i) => s + Number(i.total_price || 0), 0)
+            const allStoreSelected = g.items.every((i) => selectedIds.includes(i.id))
             return (
               <div key={g.key} className="card card-pad-none" style={{ overflow: 'hidden' }}>
                 {/* Store header */}
@@ -147,102 +249,128 @@ export default function Cart() {
                     gap: 12,
                   }}
                 >
-                  <span className="flex items-center gap-2 font-semibold" style={{ fontSize: 14 }}>
-                    <Store size={16} color="var(--primary)" />
-                    {g.store ? (
-                      <Link to={`/store/${g.store.id}`} style={{ color: 'var(--primary)' }}>
-                        {g.store.name}
-                      </Link>
-                    ) : (
-                      g.vendorName || 'Store'
-                    )}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={allStoreSelected}
+                      onChange={() => toggleStore(g.items)}
+                      style={{ cursor: 'pointer', width: 16, height: 16, accentColor: 'var(--primary)' }}
+                      title="Select all items in this store"
+                    />
+                    <span className="flex items-center gap-2 font-semibold" style={{ fontSize: 14 }}>
+                      <Store size={16} color="var(--primary)" />
+                      {g.store ? (
+                        <Link to={`/store/${g.store.id}`} style={{ color: 'var(--primary)' }}>
+                          {g.store.name}
+                        </Link>
+                      ) : (
+                        g.vendorName || 'Store'
+                      )}
+                    </span>
+                  </div>
                   <span className="muted text-sm">
                     {g.items.length} item{g.items.length !== 1 ? 's' : ''}
                   </span>
                 </div>
 
                 {/* Items */}
-                {g.items.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      padding: '16px 18px',
-                      borderBottom: '1px solid var(--border)',
-                      display: 'grid',
-                      gridTemplateColumns: '72px 1fr auto',
-                      gap: 14,
-                      alignItems: 'start',
-                    }}
-                  >
-                    {/* Image */}
-                    <Link to={`/product/${item.product_id}`}>
-                      <div
-                        style={{
-                          width: 72,
-                          height: 72,
-                          borderRadius: 'var(--radius-sm)',
-                          background: 'var(--bg)',
-                          border: '1px solid var(--border)',
-                          overflow: 'hidden',
-                          flexShrink: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <img
-                          src={item.image ? apiImage(item.image) : getProductImage(item)}
-                          alt={item.name}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          onError={(e) => { e.target.onerror = null; e.target.src = getProductImage(item) }}
+                {g.items.map((item) => {
+                  const isChecked = selectedIds.includes(item.id)
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        padding: '16px 18px',
+                        borderBottom: '1px solid var(--border)',
+                        display: 'grid',
+                        gridTemplateColumns: '26px 72px 1fr auto',
+                        gap: 14,
+                        alignItems: 'center',
+                        background: isChecked ? 'transparent' : 'rgba(241, 245, 249, 0.45)',
+                        opacity: isChecked ? 1 : 0.75,
+                        transition: 'opacity 0.15s ease',
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <div>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleItem(item.id)}
+                          style={{ cursor: 'pointer', width: 18, height: 18, accentColor: 'var(--primary)' }}
+                          title={isChecked ? 'Deselect item' : 'Select item to purchase'}
                         />
                       </div>
-                    </Link>
 
-                    {/* Details */}
-                    <div style={{ minWidth: 0 }}>
-                      <Link to={`/product/${item.product_id}`} className="font-semibold line-clamp-2" style={{ fontSize: 14 }}>
-                        {item.name}
-                      </Link>
-                      {item.variant_name && (
-                        <div className="muted text-xs mt-1">{item.variant_name}</div>
-                      )}
-                      {item.options && Object.keys(item.options).length > 0 && (
-                        <div className="muted text-xs mt-1">
-                          {Object.entries(item.options).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                      {/* Image */}
+                      <Link to={`/product/${item.product_id}`}>
+                        <div
+                          style={{
+                            width: 72,
+                            height: 72,
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <img
+                            src={item.image ? apiImage(item.image, item.name) : getProductImage(item, 0, true)}
+                            alt={item.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => { e.target.onerror = null; e.target.src = getProductImage(item, 0, true) }}
+                          />
                         </div>
-                      )}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
-                        <span className="font-semibold" style={{ fontSize: 14, color: 'var(--primary)' }}>
-                          {money(item.unit_price)}
+                      </Link>
+
+                      {/* Details */}
+                      <div style={{ minWidth: 0 }}>
+                        <Link to={`/product/${item.product_id}`} className="font-semibold line-clamp-2" style={{ fontSize: 14 }}>
+                          {item.name}
+                        </Link>
+                        {item.variant_name && (
+                          <div className="muted text-xs mt-1">{item.variant_name}</div>
+                        )}
+                        {item.options && Object.keys(item.options).length > 0 && (
+                          <div className="muted text-xs mt-1">
+                            {Object.entries(item.options).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+                          <span className="font-semibold" style={{ fontSize: 14, color: 'var(--primary)' }}>
+                            {money(item.unit_price)}
+                          </span>
+                          <QtyStepper
+                            compact
+                            value={item.quantity}
+                            onChange={(q) => handleUpdate(item, q)}
+                            max={99}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                        <span className="font-bold" style={{ fontSize: 15 }}>
+                          {money(item.total_price)}
                         </span>
-                        <QtyStepper
-                          compact
-                          value={item.quantity}
-                          onChange={(q) => handleUpdate(item, q)}
-                          max={99}
-                        />
+                        <button
+                          className="icon-btn"
+                          style={{ width: 32, height: 32, border: 'none', color: 'var(--muted)' }}
+                          onClick={() => handleRemove(item)}
+                          aria-label={`Remove ${item.name}`}
+                          title="Remove"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                      <span className="font-bold" style={{ fontSize: 15 }}>
-                        {money(item.total_price)}
-                      </span>
-                      <button
-                        className="icon-btn"
-                        style={{ width: 32, height: 32, border: 'none', color: 'var(--muted)' }}
-                        onClick={() => handleRemove(item)}
-                        aria-label={`Remove ${item.name}`}
-                        title="Remove"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
 
                 {/* Store subtotal */}
                 <div
@@ -287,8 +415,8 @@ export default function Cart() {
           </div>
           <div className="order-summary-body">
             <div className="order-summary-row">
-              <span className="muted">Subtotal ({cart.item_count} items)</span>
-              <span className="font-semibold">{money(cart.subtotal)}</span>
+              <span className="muted">Subtotal ({selectedCount} item{selectedCount !== 1 ? 's' : ''})</span>
+              <span className="font-semibold">{money(selectedSubtotal)}</span>
             </div>
             <div className="order-summary-row">
               <span className="muted">Shipping</span>
@@ -296,21 +424,24 @@ export default function Cart() {
             </div>
             <div className="order-summary-row">
               <span className="muted">Tax</span>
-              <span className="font-semibold">{money(0)}</span>
+              <span className="font-semibold" style={{ fontSize: 13, color: 'var(--muted)' }}>Calculated at checkout</span>
             </div>
 
             <div className="order-summary-total">
               <span>Total</span>
-              <span style={{ color: 'var(--ink)' }}>{money(cart.subtotal)}</span>
+              <span style={{ color: 'var(--ink)' }}>{money(selectedSubtotal)}</span>
             </div>
 
             <button
               className="btn btn-primary btn-lg btn-block"
               style={{ marginTop: 16 }}
-              onClick={() => navigate('/checkout')}
-              disabled={!cart.item_count}
+              onClick={handleProceedToCheckout}
+              disabled={!selectedItems.length}
             >
-              Proceed to Checkout <ArrowRight size={16} />
+              {selectedItems.length > 0
+                ? `Proceed to Checkout (${selectedCount})`
+                : 'Select Items to Checkout'
+              } <ArrowRight size={16} />
             </button>
 
             <p className="muted text-xs flex items-center gap-1 justify-center" style={{ marginTop: 10 }}>

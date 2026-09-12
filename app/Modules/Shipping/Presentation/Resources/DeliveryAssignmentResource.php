@@ -15,6 +15,7 @@ class DeliveryAssignmentResource extends JsonResource
             'vendor_order_number' => $this->vendorOrder?->vendor_order_number,
             'delivery_partner_id' => $this->deliveryPartner?->uuid,
             'delivery_partner_name' => $this->deliveryPartner?->name,
+            'delivery_partner' => new DeliveryPartnerResource($this->whenLoaded('deliveryPartner')),
             'status' => $this->status->value,
             'delivery_fee' => number_format((float) $this->delivery_fee, 2, '.', ''),
             'cod_amount' => number_format((float) $this->cod_amount, 2, '.', ''),

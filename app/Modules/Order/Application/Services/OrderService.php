@@ -62,20 +62,29 @@ class OrderService
         }
 
         return DB::transaction(function () use ($user, $session, $cart, $notes) {
-            foreach ($cart->items as $item) {
+            $selectedItemUuids = $session->meta['selected_item_ids'] ?? null;
+            $items = $cart->items;
+            if (!empty($selectedItemUuids) && is_array($selectedItemUuids)) {
+                $filtered = $items->whereIn('uuid', $selectedItemUuids);
+                if ($filtered->isNotEmpty()) {
+                    $items = $filtered;
+                }
+            }
+
+            foreach ($items as $item) {
                 $this->assertStock($item);
             }
 
             $order = $this->createOrder($user, $session, $cart, $notes);
 
-            $vendorGroups = $cart->items->groupBy('product.vendor_id');
-            $vendorDeliveryCharges = $this->vendorDeliveryCharges($cart->items);
+            $vendorGroups = $items->groupBy('product.vendor_id');
+            $vendorDeliveryCharges = $this->vendorDeliveryCharges($items);
 
             foreach ($vendorGroups as $vendorId => $group) {
                 $this->createVendorOrder($order, (int) $vendorId, $group, $vendorDeliveryCharges);
             }
 
-            $this->decrementStock($cart->items);
+            $this->decrementStock($items);
 
             OrderStatusHistory::create([
                 'trackable_type' => Order::class,
@@ -90,7 +99,14 @@ class OrderService
 
             $session->update(['status' => 'completed']);
 
-            $this->cartService->clear($user, null);
+            if (!empty($selectedItemUuids) && is_array($selectedItemUuids)) {
+                \App\Modules\Cart\Infrastructure\Models\CartItem::query()
+                    ->where('cart_id', $cart->id)
+                    ->whereIn('uuid', $selectedItemUuids)
+                    ->delete();
+            } else {
+                $this->cartService->clear($user, null);
+            }
 
             return $order->fresh(['items', 'vendorOrders.items']);
         });

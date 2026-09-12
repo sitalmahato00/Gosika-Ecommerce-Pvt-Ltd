@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
-  MapPin, Navigation, Compass, Sparkles, Loader2, CheckCircle2
+  MapPin, Navigation, Compass, Sparkles, Loader2, CheckCircle2, AlertCircle
 } from 'lucide-react'
 import api from '../../api/client'
 import {
@@ -401,9 +401,13 @@ export default function LocationMapPicker({
           className="btn btn-outline btn-xs"
           onClick={handleDetectLocation}
           disabled={isLocating || resolvingGeo}
-          style={{ background: '#fff', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+          style={{ background: '#fff', display: 'flex', alignItems: 'center', gap: 6, cursor: (isLocating || resolvingGeo) ? 'wait' : 'pointer', fontWeight: 600 }}
         >
-          {resolvingGeo ? <Loader2 size={12} className="spin" /> : <Navigation size={12} color="var(--primary)" />}
+          {(isLocating || resolvingGeo) ? (
+            <Loader2 size={13} className="spin" style={{ color: 'var(--primary)', animation: 'spin 0.75s linear infinite' }} />
+          ) : (
+            <Navigation size={12} color="var(--primary)" />
+          )}
           {isLocating ? 'Detecting GPS…' : resolvingGeo ? 'Resolving…' : 'Use My GPS Location'}
         </button>
       </div>
@@ -411,6 +415,28 @@ export default function LocationMapPicker({
       {/* Map View */}
       {showMap && (
         <div style={{ position: 'relative', height: 220, background: '#e2e8f0', overflow: 'hidden', cursor: 'crosshair' }} onClick={handleMapClick}>
+          {(isLocating || resolvingGeo) && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(255, 255, 255, 0.72)',
+                backdropFilter: 'blur(2px)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+                gap: 8,
+              }}
+            >
+              <Loader2 size={30} className="spin" style={{ color: 'var(--primary)', animation: 'spin 0.75s linear infinite' }} />
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                {isLocating ? 'Detecting GPS Location…' : 'Resolving Address Details…'}
+              </div>
+            </div>
+          )}
+
           <iframe
             title="Nepal Delivery Location Map"
             src={osmEmbedUrl}
@@ -434,8 +460,27 @@ export default function LocationMapPicker({
 
       {/* Geolocation status pill */}
       {geoStatus && (
-        <div style={{ padding: '8px 18px', background: 'var(--primary-50)', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-          <CheckCircle2 size={13} /> {geoStatus}
+        <div
+          style={{
+            padding: '9px 18px',
+            background: (isLocating || resolvingGeo) ? '#eff6ff' : geoStatus.includes('failed') ? '#fef2f2' : 'var(--primary-50)',
+            borderBottom: '1px solid var(--border)',
+            fontSize: 12.5,
+            color: (isLocating || resolvingGeo) ? '#1d4ed8' : geoStatus.includes('failed') ? '#dc2626' : 'var(--primary)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontWeight: 600,
+          }}
+        >
+          {(isLocating || resolvingGeo) ? (
+            <Loader2 size={14} className="spin" style={{ animation: 'spin 0.75s linear infinite', flexShrink: 0 }} />
+          ) : geoStatus.includes('failed') ? (
+            <AlertCircle size={14} style={{ flexShrink: 0 }} />
+          ) : (
+            <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
+          )}
+          <span>{geoStatus}</span>
         </div>
       )}
 
