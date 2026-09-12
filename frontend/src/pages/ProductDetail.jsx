@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { apiImage, money, formatDate, errorMessage, getProductImage, FALLBACK_PRODUCT_IMAGES } from '../utils/format'
 import ProductCard, { ProductCardSkeletonMini } from '../components/commerce/ProductCard'
+import ProductImageZoom from '../components/commerce/ProductImageZoom'
 import RatingStars from '../components/commerce/RatingStars'
 import QtyStepper from '../components/commerce/QtyStepper'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -238,19 +239,14 @@ export default function ProductDetail() {
 
         {/* Gallery Left */}
         <div className="product-gallery">
-          <div className="product-gallery-main">
-            <img
-              src={apiImage(activeImage) || defaultImg}
-              alt={product.name}
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              onError={(e) => { e.target.onerror = null; e.target.src = defaultImg }}
-            />
-            {compareAt > price && (
-              <span className="discount-tag" style={{ position: 'absolute', top: 12, left: 12, fontSize: 13 }}>
-                -{Math.round(((compareAt - price) / compareAt) * 100)}% OFF
-              </span>
-            )}
-          </div>
+          <ProductImageZoom
+            src={activeImage}
+            alt={product.name}
+            defaultImg={defaultImg}
+            compareAt={compareAt}
+            price={price}
+            zoomFactor={2.5}
+          />
           {images.length > 1 && (
             <div className="product-gallery-thumbs">
               {images.map((img, i) => (

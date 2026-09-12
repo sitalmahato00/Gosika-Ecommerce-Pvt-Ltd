@@ -2067,6 +2067,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
 }
 .product-gallery-main {
   aspect-ratio: 1;
@@ -2075,6 +2076,78 @@ button {
   overflow: hidden;
   border: 1px solid var(--border);
   position: relative;
+  user-select: none;
+}
+.product-zoom-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  pointer-events: none;
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
+}
+.product-zoom-lens {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  border: 1.5px solid var(--primary, #ff5500);
+  background: rgba(255, 85, 0, 0.18);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55), inset 0 0 12px rgba(255, 85, 0, 0.12);
+  border-radius: 4px;
+  z-index: 20;
+  will-change: transform;
+}
+.product-zoom-window {
+  position: absolute;
+  left: calc(100% + 24px);
+  top: 0;
+  background: #ffffff;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--border, #e2e8f0);
+  box-shadow: 0 20px 45px -8px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  z-index: 50;
+  pointer-events: none;
+  animation: zoomWindowFadeIn 0.15s ease-out;
+}
+.product-zoom-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain;
+  background: #ffffff;
+  pointer-events: none;
+  will-change: transform;
+}
+@keyframes zoomWindowFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (max-width: 899px) {
+  .product-zoom-window,
+  .product-zoom-lens {
+    display: none !important;
+  }
 }
 .product-gallery-thumbs {
   display: flex;
