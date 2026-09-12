@@ -47,7 +47,9 @@ export default function ProductDetail() {
   const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', body: '' })
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
     let alive = true
     setLoading(true)
     setError(null)
@@ -81,6 +83,14 @@ export default function ProductDetail() {
     }
   }, [id])
 
+  useEffect(() => {
+    if (!loading && product) {
+      window.scrollTo(0, 0)
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+  }, [loading, product?.id])
+
   const defaultImg = getProductImage(product)
   const images = product?.images?.length
     ? product.images.slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
@@ -113,8 +123,24 @@ export default function ProductDetail() {
     if (!inStock) return
     setBusy(true)
     try {
-      await addItem({ productId: product.id, variantId: variant?.id || null, quantity: qty })
-      navigate('/checkout')
+      const res = await addItem({ productId: product.id, variantId: variant?.id || null, quantity: qty })
+      let itemUuid = res?.data?.data?.item || res?.data?.item
+      if (!itemUuid) {
+        const cartItems = res?.data?.data?.cart?.items || []
+        const matched = cartItems.find((i) =>
+          (i.product_id === product.id || i.product?.id === product.id) &&
+          (variant?.id ? (i.variant_id === variant.id || i.variant?.id === variant.id) : true)
+        )
+        itemUuid = matched?.id
+      }
+      navigate('/checkout', {
+        state: {
+          selectedItemIds: itemUuid ? [itemUuid] : [],
+          buyNow: true,
+          productId: product.id,
+          variantId: variant?.id || null,
+        },
+      })
     } catch (e) {
       toast.error(errorMessage(e))
     } finally {

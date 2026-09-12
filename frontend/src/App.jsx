@@ -167,6 +167,7 @@ function CustomerLayout() {
           <Route path="/" element={<Home />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/product/:id" element={<ProductDetail />} />
+          <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/store/:id" element={<Store />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/wishlist" element={<AuthRoute><Wishlist /></AuthRoute>} />

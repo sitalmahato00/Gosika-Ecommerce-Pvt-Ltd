@@ -33,6 +33,7 @@ export default function Login() {
   const loginDescription = branding.login_description || `Login to continue shopping across Nepal.`
 
   const from = location.state?.from?.pathname || location.state?.from || '/account'
+  const fromState = location.state?.from?.state || undefined
 
   const submit = async (e) => {
     e.preventDefault()
@@ -43,7 +44,7 @@ export default function Login() {
       toast.success(`Welcome back, ${user.name?.split(' ')[0] || 'there'}!`)
       if (user.roles?.includes('super_admin')) navigate('/admin')
       else if (user.roles?.includes('vendor_admin')) navigate('/vendor')
-      else navigate(from)
+      else navigate(from, { state: fromState })
     } catch (err) {
       setError(errorMessage(err))
     } finally {

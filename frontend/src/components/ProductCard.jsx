@@ -11,7 +11,7 @@ export default function ProductCard({ product }) {
 
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Link to={`/products/${product.id}`}>
+      <Link to={`/product/${product.id}`}>
         <div
           style={{
             height: 200,
@@ -30,7 +30,7 @@ export default function ProductCard({ product }) {
         </div>
       </Link>
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-        <Link to={`/products/${product.id}`} style={{ fontWeight: 600, fontSize: 15 }}>
+        <Link to={`/product/${product.id}`} style={{ fontWeight: 600, fontSize: 15 }}>
           {product.name}
         </Link>
         {product.brand && <span className="muted" style={{ fontSize: 12 }}>{product.brand.name}</span>}

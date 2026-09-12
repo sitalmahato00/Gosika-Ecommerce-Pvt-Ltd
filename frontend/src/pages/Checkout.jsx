@@ -33,8 +33,19 @@ export default function Checkout() {
   const toast = useToast()
 
   const selectedItemIds = useMemo(() => {
-    if (location.state?.selectedItemIds && Array.isArray(location.state.selectedItemIds)) {
+    if (location.state?.selectedItemIds && Array.isArray(location.state.selectedItemIds) && location.state.selectedItemIds.length > 0) {
       return location.state.selectedItemIds
+    }
+    // If buyNow, resolve item from cart.items matching productId & variantId
+    if (location.state?.buyNow && location.state?.productId && cart?.items?.length) {
+      const match = cart.items.find((i) =>
+        (i.product_id === location.state.productId || i.product?.id === location.state.productId) &&
+        (location.state.variantId ? (i.variant_id === location.state.variantId || i.variant?.id === location.state.variantId) : true)
+      )
+      if (match) return [match.id]
+    }
+    if (location.state?.buyNow) {
+      return []
     }
     try {
       const saved = localStorage.getItem('gosika_selected_cart_items')
@@ -44,20 +55,26 @@ export default function Checkout() {
       }
     } catch {}
     return null
-  }, [location.state?.selectedItemIds])
+  }, [location.state?.selectedItemIds, location.state?.buyNow, location.state?.productId, location.state?.variantId, cart?.items])
 
   const checkoutItems = useMemo(() => {
     if (!cart?.items) return []
     if (selectedItemIds && selectedItemIds.length > 0) {
-      const filtered = cart.items.filter((i) => selectedItemIds.includes(i.id))
-      return filtered.length > 0 ? filtered : cart.items
+      return cart.items.filter((i) => selectedItemIds.includes(i.id))
+    }
+    if (location.state?.buyNow) {
+      return []
     }
     return cart.items
-  }, [cart?.items, selectedItemIds])
+  }, [cart?.items, selectedItemIds, location.state?.buyNow])
 
   const itemsSubtotal = useMemo(() => {
     return checkoutItems.reduce((sum, i) => sum + Number(i.total_price || 0), 0)
   }, [checkoutItems])
+
+  const itemsKey = useMemo(() => {
+    return selectedItemIds?.length ? selectedItemIds.slice().sort().join(',') : ''
+  }, [selectedItemIds])
 
   const [summary, setSummary] = useState(null)
   const [addresses, setAddresses] = useState([])
@@ -83,7 +100,7 @@ export default function Checkout() {
       return
     }
     setLoading(true)
-    const summaryParams = selectedItemIds?.length ? { items: selectedItemIds.join(',') } : {}
+    const summaryParams = itemsKey ? { items: itemsKey } : {}
     Promise.all([
       api.get('/checkout/summary', { params: summaryParams }),
       api.get('/customer/addresses'),
@@ -111,6 +128,14 @@ export default function Checkout() {
       .catch((e) => toast.error(errorMessage(e)))
       .finally(() => setLoading(false))
   }, [user])
+
+  useEffect(() => {
+    if (!user || loading) return
+    const summaryParams = itemsKey ? { items: itemsKey } : {}
+    api.get('/checkout/summary', { params: summaryParams })
+      .then((s) => setSummary(s.data.data))
+      .catch((e) => toast.error(errorMessage(e)))
+  }, [itemsKey])
 
   const isConfigTrue = (v) => v === true || v === 'true' || v === 1 || v === '1'
   const codEnabled = isConfigTrue(config?.checkout?.cod_enabled)
@@ -239,7 +264,20 @@ export default function Checkout() {
       })
       const order = orderRes.data.data
       
-      localStorage.removeItem('gosika_selected_cart_items')
+      if (!location.state?.buyNow) {
+        localStorage.removeItem('gosika_selected_cart_items')
+      } else {
+        try {
+          const saved = localStorage.getItem('gosika_selected_cart_items')
+          if (saved) {
+            const parsed = JSON.parse(saved)
+            if (Array.isArray(parsed) && selectedItemIds?.length) {
+              const remaining = parsed.filter((id) => !selectedItemIds.includes(id))
+              localStorage.setItem('gosika_selected_cart_items', JSON.stringify(remaining))
+            }
+          }
+        } catch {}
+      }
       fetchCart()
 
       if (paymentMethod === 'khalti') {
@@ -320,6 +358,18 @@ export default function Checkout() {
           title="Your cart is empty"
           message="There are no items to checkout. Add some products to your cart first."
           action={<Link to="/shop" className="btn btn-primary">Start Shopping</Link>}
+        />
+      </div>
+    )
+  }
+
+  if (!checkoutItems.length) {
+    return (
+      <div className="page-shell container">
+        <EmptyState
+          title="No items selected for checkout"
+          message="Please select at least one item from your cart to proceed with checkout."
+          action={<Link to="/cart" className="btn btn-primary">Go to Cart</Link>}
         />
       </div>
     )
