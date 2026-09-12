@@ -12,7 +12,7 @@ class PlatformConfigController extends Controller
 {
     public function publicConfig(): JsonResponse
     {
-        $config = Cache::remember('platform.public_config', 300, function () {
+        $config = Cache::remember('platform.public_config', 60, function () {
             // Load all public settings and non-sensitive branding & general settings
             $settings = Setting::query()
                 ->where(function ($q) {
@@ -52,12 +52,20 @@ class PlatformConfigController extends Controller
 
             // Payment status flags
             $esewaSecret = Setting::get('payment.esewa_secret_key') ?: config('services.esewa.secret_key', '');
-            $cfg['payment']['esewa_enabled'] = ! empty($esewaSecret) && (Setting::get('payment.esewa_enabled') === 'true' || Setting::get('payment.esewa_enabled') === true);
+            $cfg['payment']['esewa_enabled'] = ! empty($esewaSecret) && (Setting::get('payment.esewa_enabled') === 'true' || Setting::get('payment.esewa_enabled') === true || Setting::get('payment.esewa_enabled') === 1);
 
             $khaltiSecret = Setting::get('payment.khalti_secret_key') ?: config('services.khalti.secret_key', '');
-            $cfg['payment']['khalti_enabled'] = ! empty($khaltiSecret) && (Setting::get('payment.khalti_enabled') === 'true' || Setting::get('payment.khalti_enabled') === true);
+            $cfg['payment']['khalti_enabled'] = ! empty($khaltiSecret) && (Setting::get('payment.khalti_enabled') === 'true' || Setting::get('payment.khalti_enabled') === true || Setting::get('payment.khalti_enabled') === 1);
 
-            $cfg['payment']['cod_enabled'] = Setting::get('checkout.cod_enabled', 'true') === 'true' || Setting::get('checkout.cod_enabled') === true;
+            $codVal = Setting::get('checkout.cod_enabled') ?? Setting::get('payment.cod_enabled') ?? Setting::get('cod_enabled', 'true');
+            $isCod = $codVal === 'true' || $codVal === true || $codVal === 1 || $codVal === '1';
+            $cfg['payment']['cod_enabled'] = $isCod;
+            $cfg['checkout']['cod_enabled'] = $isCod;
+            $cfg['cod_enabled'] = $isCod;
+
+            $codMax = Setting::get('checkout.cod_max_amount') ?? Setting::get('payment.cod_max_amount') ?? 100000;
+            $cfg['checkout']['cod_max_amount'] = (float) $codMax;
+            $cfg['payment']['cod_max_amount'] = (float) $codMax;
 
             return $cfg;
         });

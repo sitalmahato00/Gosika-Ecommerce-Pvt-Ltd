@@ -102,21 +102,27 @@ export default function Checkout() {
         setConfig(c.data.data)
         setProvinces(p.data.data || [])
         const cfg = c.data.data
-        const codOn = cfg?.checkout?.cod_enabled
-        const khaltiOn = cfg?.payment?.khalti_enabled
-        const esewaOn = cfg?.payment?.esewa_enabled
+        const isValTrue = (v) => v === true || v === 'true' || v === 1 || v === '1'
+        const codOn = isValTrue(cfg?.checkout?.cod_enabled) || isValTrue(cfg?.payment?.cod_enabled) || isValTrue(cfg?.cod_enabled)
+        const khaltiOn = isValTrue(cfg?.payment?.khalti_enabled) || isValTrue(cfg?.khalti_enabled)
+        const esewaOn = isValTrue(cfg?.payment?.esewa_enabled) || isValTrue(cfg?.esewa_enabled)
         setPaymentMethod(codOn ? 'cod' : khaltiOn ? 'khalti' : esewaOn ? 'esewa' : 'cod')
       })
       .catch((e) => toast.error(errorMessage(e)))
       .finally(() => setLoading(false))
   }, [user])
 
-  const codEnabled = config?.checkout?.cod_enabled === true
-  const khaltiEnabled = config?.payment?.khalti_enabled === true
-  const esewaEnabled = config?.payment?.esewa_enabled === true
-  const codMax = Number(config?.checkout?.cod_max_amount || 50000)
+  const isConfigTrue = (v) => v === true || v === 'true' || v === 1 || v === '1'
+  const codEnabled = isConfigTrue(config?.checkout?.cod_enabled)
+    || isConfigTrue(config?.payment?.cod_enabled)
+    || isConfigTrue(config?.cod_enabled)
+    || isConfigTrue(config?.checkout?.['checkout.cod_enabled'])
+    || isConfigTrue(config?.payment?.['payment.cod_enabled'])
+  const khaltiEnabled = isConfigTrue(config?.payment?.khalti_enabled) || isConfigTrue(config?.khalti_enabled)
+  const esewaEnabled = isConfigTrue(config?.payment?.esewa_enabled) || isConfigTrue(config?.esewa_enabled)
+  const codMax = Number(config?.checkout?.cod_max_amount || config?.payment?.cod_max_amount || 100000)
   const total = Number(summary?.total || 0)
-  const codAllowed = codEnabled && total <= codMax
+  const codAllowed = codEnabled && (codMax <= 0 || total <= codMax)
 
   const paymentOptions = useMemo(() => {
     const opts = []

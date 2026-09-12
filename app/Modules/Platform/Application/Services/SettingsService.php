@@ -83,6 +83,7 @@ class SettingsService
         $setting = Setting::set($key, $value, $group, $type, $isPublic, $isEncrypted, $description);
         Cache::forget(self::CACHE_PREFIX . $key);
         Cache::forget(self::CACHE_PREFIX . 'group_' . $group);
+        Cache::forget('platform.public_config');
 
         return $setting;
     }
@@ -138,6 +139,7 @@ class SettingsService
             }
 
             Cache::forget(self::CACHE_PREFIX . 'group_' . $group);
+            Cache::forget('platform.public_config');
         });
 
         // Record Audit Log if changes occurred

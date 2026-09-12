@@ -74,8 +74,9 @@ class CheckoutService
         }
 
         $summary = $this->summary($user, $selectedItemUuids);
-        $codEnabled = Setting::get('checkout.cod_enabled', 'true') === 'true';
-        $maxCod = (float) Setting::get('checkout.cod_max_amount', 50000);
+        $codSetting = Setting::get('checkout.cod_enabled') ?? Setting::get('payment.cod_enabled') ?? Setting::get('cod_enabled', 'true');
+        $codEnabled = $codSetting === 'true' || $codSetting === true || $codSetting === 1 || $codSetting === '1';
+        $maxCod = (float) (Setting::get('checkout.cod_max_amount') ?? Setting::get('payment.cod_max_amount', 100000));
         $minOrder = (float) Setting::get('checkout.min_order_amount', 0);
         $paymentMethod = $data['payment_method'] ?? PaymentMethod::COD->value;
 
