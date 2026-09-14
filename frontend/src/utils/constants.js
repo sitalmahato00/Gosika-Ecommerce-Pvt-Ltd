@@ -139,19 +139,19 @@ export const VENDOR_NAV = [
 
   { section: 'ORDERS' },
   { to: '/vendor/orders', label: 'All Orders', icon: 'ShoppingBag' },
-  { to: '/vendor/orders/ready', label: 'To Ship', icon: 'PackageCheck', badge: '18' },
+  { to: '/vendor/orders/ready', label: 'To Ship', icon: 'PackageCheck' },
   { to: '/vendor/orders/shipped', label: 'Shipped', icon: 'Truck' },
-  { to: '/vendor/returns', label: 'Returns & Issues', icon: 'RotateCcw', badge: '4' },
+  { to: '/vendor/returns', label: 'Returns & Issues', icon: 'RotateCcw' },
 
   { section: 'PRODUCTS' },
   { to: '/vendor/products', label: 'My Products', icon: 'Package' },
   { to: '/vendor/products/new', label: 'Add Product', icon: 'PlusCircle' },
-  { to: '/vendor/products/approval', label: 'Approval Status', icon: 'ShieldCheck', badge: '3' },
-  { to: '/vendor/inventory/low-stock', label: 'Low Stock', icon: 'AlertTriangle', badge: '6' },
+  { to: '/vendor/products/approval', label: 'Approval Status', icon: 'ShieldCheck' },
+  { to: '/vendor/inventory/low-stock', label: 'Low Stock', icon: 'AlertTriangle' },
   { to: '/vendor/reviews', label: 'Reviews & Q&A', icon: 'Star' },
 
   { section: 'PROMOTIONS' },
-  { to: '/vendor/promotions', label: 'Campaigns', icon: 'Megaphone', badge: '1' },
+  { to: '/vendor/promotions', label: 'Campaigns', icon: 'Megaphone' },
   { to: '/vendor/coupons', label: 'Vouchers', icon: 'Ticket' },
 
   { section: 'FINANCE' },
@@ -226,6 +226,7 @@ export const CUSTOMER_NAV = [
 
   { section: 'ACCOUNT' },
   { to: '/account', label: 'Account Overview', icon: 'LayoutDashboard', end: true },
+  { to: '/account/notifications', label: 'Notifications', icon: 'Bell' },
   { to: '/account/profile', label: 'Personal Profile', icon: 'User' },
   { to: '/account/addresses', label: 'Addresses', icon: 'MapPin' },
   { to: '/account/security', label: 'Security', icon: 'Lock' },
@@ -253,8 +254,8 @@ export const ADMIN_NAV = [
   { to: '/admin/analytics/reports', label: 'Analytics & Reports', icon: 'FileBarChart' },
 
   { section: 'Orders' },
-  { to: '/admin/orders', label: 'Orders', icon: 'ShoppingBag', badge: '128' },
-  { to: '/admin/orders/returns', label: 'Returns & Exchanges', icon: 'RotateCcw', badge: '16' },
+  { to: '/admin/orders', label: 'Orders', icon: 'ShoppingBag' },
+  { to: '/admin/orders/returns', label: 'Returns & Exchanges', icon: 'RotateCcw' },
   { to: '/admin/orders/refunds', label: 'Refunds', icon: 'Receipt' },
 
   { section: 'Catalog' },
@@ -265,26 +266,26 @@ export const ADMIN_NAV = [
 
   { section: 'Marketplace' },
   { to: '/admin/marketplace/vendors', label: 'Sellers', icon: 'Store' },
-  { to: '/admin/marketplace/kyc', label: 'Seller Applications', icon: 'UserPlus', badge: '42' },
+  { to: '/admin/marketplace/kyc', label: 'Seller Applications', icon: 'UserPlus' },
   { to: '/admin/marketplace/stores', label: 'Storefronts', icon: 'Building2' },
   { to: '/admin/marketplace/tiers', label: 'Seller Tiers', icon: 'Medal' },
   { to: '/admin/marketplace/bulletins', label: 'Seller Communications', icon: 'Megaphone' },
 
   { section: 'Customers' },
   { to: '/admin/customers', label: 'Customers', icon: 'Users' },
-  { to: '/admin/customers/support', label: 'Support', icon: 'Headphones', badge: '5' },
+  { to: '/admin/customers/support', label: 'Support', icon: 'Headphones' },
 
   { section: 'Logistics' },
   { to: '/admin/fulfillment/dashboard', label: 'Delivery Dashboard', icon: 'Gauge' },
   { to: '/admin/fulfillment/partners', label: 'Delivery Partners', icon: 'Truck' },
   { to: '/admin/fulfillment/assignments', label: 'Order Dispatch', icon: 'Send' },
   { to: '/admin/fulfillment/zones', label: 'Shipping & Delivery', icon: 'MapPin' },
-  { to: '/admin/fulfillment/cod', label: 'COD Reconciliation', icon: 'Banknote', badge: '14' },
+  { to: '/admin/fulfillment/cod', label: 'COD Reconciliation', icon: 'Banknote' },
 
   { section: 'Finance' },
   { to: '/admin/finance/payments', label: 'Transactions', icon: 'CreditCard' },
   { to: '/admin/finance/commissions', label: 'Commissions', icon: 'Percent' },
-  { to: '/admin/finance/payouts', label: 'Payouts', icon: 'Banknote', badge: '5' },
+  { to: '/admin/finance/payouts', label: 'Payouts', icon: 'Banknote' },
   { to: '/admin/finance/settlements', label: 'Settlements', icon: 'FileSpreadsheet' },
 
   { section: 'Marketing & Content' },
@@ -295,6 +296,7 @@ export const ADMIN_NAV = [
   { to: '/admin/marketing/pages', label: 'Pages & Policies', icon: 'FileText' },
 
   { section: 'Administration' },
+  { to: '/admin/system/notifications', label: 'Notifications', icon: 'Bell' },
   { to: '/admin/system/settings', label: 'Settings', icon: 'Settings' },
   { to: '/admin/system/gateways', label: 'Payment Methods', icon: 'CreditCard' },
   { to: '/admin/system/users', label: 'Admin Users', icon: 'Shield' },

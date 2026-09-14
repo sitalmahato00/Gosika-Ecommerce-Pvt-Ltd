@@ -14,6 +14,7 @@ import { useBranding } from '../../context/BrandingContext'
 import { initials, apiImage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import MobileBottomNav from './MobileBottomNav'
+import api from '../../api/client'
 
 export default function DashboardLayout({
   nav, title, roleLabel, homePath, rider, onDuty, onToggleDuty, dutyToggling, mobileNav,
@@ -28,11 +29,24 @@ export default function DashboardLayout({
   const [collapsed, setCollapsed] = useState(false)
   const [userDropdown, setUserDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [unreadCount, setUnreadCount] = useState(0)
   const dropdownRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
 
   useEffect(() => { setOpen(false); setUserDropdown(false) }, [location.pathname])
+
+  useEffect(() => {
+    let alive = true
+    const fetchUnread = () => {
+      api.get(unreadEndpoint, { skipCache: true })
+        .then((res) => { if (alive) setUnreadCount(Number(res.data?.data?.unread_count) || 0) })
+        .catch(() => {})
+    }
+    fetchUnread()
+    const timer = setInterval(fetchUnread, 30000)
+    return () => { alive = false; clearInterval(timer) }
+  }, [unreadEndpoint])
 
   useEffect(() => {
     const handler = (e) => {
@@ -53,6 +67,11 @@ export default function DashboardLayout({
   const role = roleLabel || (isSuperAdmin() ? 'Super Admin' : 'Vendor')
   const isVendor = role.toLowerCase().includes('vendor')
   const isDelivery = role.toLowerCase().includes('delivery') || role.toLowerCase().includes('rider')
+  const unreadEndpoint = isDelivery
+    ? '/delivery-partner/notifications/unread-count'
+    : isVendor
+    ? '/vendor/notifications/unread-count'
+    : '/admin/notifications/feed/unread-count'
   const duty = onDuty ?? rider?.is_online ?? false
   const riderName = rider?.name || user?.name || 'Delivery Partner'
   const riderArea = Array.isArray(rider?.service_areas) && rider.service_areas.length > 0 ? rider.service_areas[0] : 'Dispatch Hub'
@@ -268,27 +287,30 @@ export default function DashboardLayout({
             title="Notifications"
           >
             <Bell size={18} />
-            <span
-              className="badge-pop"
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                background: '#ef4444',
-                color: '#fff',
-                fontSize: 9,
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '2px solid #ffffff'
-              }}
-            >
-              5
-            </span>
+            {unreadCount > 0 && (
+              <span
+                className="badge-pop"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  background: '#ef4444',
+                  color: '#fff',
+                  fontSize: 9,
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 4px',
+                  border: '2px solid #ffffff'
+                }}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </Link>
 
           <Link

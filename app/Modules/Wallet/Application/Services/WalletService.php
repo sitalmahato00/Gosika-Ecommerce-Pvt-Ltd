@@ -22,12 +22,18 @@ use App\Modules\Wallet\Infrastructure\Models\PayoutRequest;
 use App\Modules\Wallet\Infrastructure\Models\Settlement;
 use App\Modules\Wallet\Infrastructure\Models\VendorWallet;
 use App\Modules\Wallet\Infrastructure\Models\WalletTransaction;
+use App\Modules\Marketing\Application\Services\NotificationDispatcher;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class WalletService
 {
+    public function __construct(
+        protected NotificationDispatcher $dispatcher,
+    ) {
+    }
+
     public function walletForVendor(Vendor $vendor): VendorWallet
     {
         return $this->ensureWallet($vendor);
@@ -137,6 +143,8 @@ class WalletService
             ];
             $settlement->save();
 
+            $this->dispatcher->settlementNotice($settlement, 'eligible');
+
             return $settlement->fresh();
         });
     }
@@ -152,6 +160,8 @@ class WalletService
             $settlement->hold_reason = $reason;
             $settlement->updated_by = $user->id;
             $settlement->save();
+
+            $this->dispatcher->settlementNotice($settlement, 'held');
 
             return $settlement->fresh(['vendor']);
         });
@@ -176,6 +186,8 @@ class WalletService
             $settlement->hold_reason = null;
             $settlement->updated_by = $user->id;
             $settlement->save();
+
+            $this->dispatcher->settlementNotice($settlement, 'released');
 
             return $settlement->fresh(['vendor']);
         });
@@ -251,6 +263,8 @@ class WalletService
             $settlement->updated_by = $user->id;
             $settlement->save();
 
+            $this->dispatcher->settlementNotice($settlement, 'distributed');
+
             return $settlement->fresh(['vendor']);
         });
     }
@@ -317,6 +331,8 @@ class WalletService
                 'status' => 'held',
             ]);
 
+            $this->dispatcher->payoutRequested($payout);
+
             return $payout->fresh(['bankAccount', 'settlement']);
         });
     }
@@ -337,6 +353,8 @@ class WalletService
                 $payout->settlement->hold_reason = null;
                 $payout->settlement->save();
             }
+
+            $this->dispatcher->payoutUpdated($payout, 'approved');
 
             return $payout->fresh(['bankAccount', 'settlement']);
         });
@@ -365,6 +383,8 @@ class WalletService
                 'reference_id' => $payout->id,
                 'description' => 'Rejected payout returned to pending '.$payout->payout_number,
             ]);
+
+            $this->dispatcher->payoutUpdated($payout, 'rejected');
 
             return $payout->fresh(['bankAccount', 'settlement']);
         });
@@ -396,6 +416,8 @@ class WalletService
                 $payout->settlement->paid_at = now();
                 $payout->settlement->save();
             }
+
+            $this->dispatcher->payoutUpdated($payout, 'paid');
 
             return $payout->fresh(['bankAccount', 'settlement', 'records']);
         });

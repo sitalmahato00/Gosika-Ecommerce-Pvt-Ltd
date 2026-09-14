@@ -106,6 +106,8 @@ class CustomerReturnController extends Controller
             'window_expires_at' => now()->addDays(7),
         ]);
 
+        app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->returnRequested($return);
+
         return Response::created(
             new CustomerReturnResource($return->load('orderItem.product', 'order')),
             'Return request submitted.'

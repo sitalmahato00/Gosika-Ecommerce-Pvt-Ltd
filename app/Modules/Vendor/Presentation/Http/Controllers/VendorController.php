@@ -29,6 +29,8 @@ class VendorController extends Controller
             ApplyVendorDTO::fromArray($request->validated())
         );
 
+        app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->vendorApplied($vendor);
+
         return Response::success(new VendorResource($vendor), 'Vendor application submitted.', [], 201);
     }
 

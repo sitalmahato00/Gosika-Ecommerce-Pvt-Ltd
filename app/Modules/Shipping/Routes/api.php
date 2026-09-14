@@ -2,6 +2,7 @@
 
 use App\Modules\Shipping\Presentation\Http\Controllers\AdminDeliveryController;
 use App\Modules\Shipping\Presentation\Http\Controllers\AdminShippingController;
+use App\Modules\Shipping\Presentation\Http\Controllers\DeliveryNotificationController;
 use App\Modules\Shipping\Presentation\Http\Controllers\DeliveryPartnerController;
 use App\Modules\Shipping\Presentation\Http\Controllers\DeliveryTrackingController;
 use App\Modules\Shipping\Presentation\Http\Controllers\VendorDashboardController;
@@ -26,6 +27,11 @@ Route::prefix('v1/delivery-partner')->middleware(['auth:sanctum', 'ensure:delive
     Route::post('assignments/{assignment}/return', [DeliveryPartnerController::class, 'returnToVendor']);
 
     Route::get('history', [DeliveryPartnerController::class, 'history']);
+
+    Route::get('notifications', [DeliveryNotificationController::class, 'index']);
+    Route::get('notifications/unread-count', [DeliveryNotificationController::class, 'unread']);
+    Route::post('notifications/read-all', [DeliveryNotificationController::class, 'markAllRead']);
+    Route::post('notifications/{notification}/read', [DeliveryNotificationController::class, 'markRead']);
 });
 
 Route::prefix('v1/admin/delivery-partners')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {

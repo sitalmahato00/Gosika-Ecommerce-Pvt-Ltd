@@ -80,8 +80,9 @@ class OrderService
             $vendorGroups = $items->groupBy('product.vendor_id');
             $vendorDeliveryCharges = $this->vendorDeliveryCharges($items);
 
+            $vendorOrders = [];
             foreach ($vendorGroups as $vendorId => $group) {
-                $this->createVendorOrder($order, (int) $vendorId, $group, $vendorDeliveryCharges);
+                $vendorOrders[] = $this->createVendorOrder($order, (int) $vendorId, $group, $vendorDeliveryCharges);
             }
 
             $this->decrementStock($items);
@@ -106,6 +107,11 @@ class OrderService
                     ->delete();
             } else {
                 $this->cartService->clear($user, null);
+            }
+
+            app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->orderConfirmation($order);
+            foreach ($vendorOrders as $vendorOrder) {
+                app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->vendorNewOrder($vendorOrder);
             }
 
             return $order->fresh(['items', 'vendorOrders.items']);

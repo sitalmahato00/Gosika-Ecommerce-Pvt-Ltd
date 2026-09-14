@@ -41,8 +41,27 @@ class VendorNotificationController extends Controller
                 'per_page' => $notifications->perPage(),
                 'current_page' => $notifications->currentPage(),
                 'last_page' => $notifications->lastPage(),
-            ]]
+            ], 'unread_count' => $this->unreadCount($vendor, $request)]
         );
+    }
+
+    public function unread(Request $request): JsonResponse
+    {
+        $vendor = $this->vendorFor($request);
+
+        return Response::success([
+            'unread_count' => $this->unreadCount($vendor, $request),
+        ], 'Unread notification count retrieved.');
+    }
+
+    protected function unreadCount(Vendor $vendor, Request $request): int
+    {
+        return VendorNotification::query()
+            ->where(function ($q) use ($vendor, $request) {
+                $q->where('vendor_id', $vendor->id)->orWhere('user_id', $request->user()->id);
+            })
+            ->whereNull('read_at')
+            ->count();
     }
 
     public function markRead(Request $request, string $notificationId): JsonResponse

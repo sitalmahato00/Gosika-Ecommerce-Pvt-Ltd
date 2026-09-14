@@ -42,6 +42,7 @@ import AccountActiveOrders from './pages/account/AccountActiveOrders'
 import AccountVouchers from './pages/account/AccountVouchers'
 import AccountMyReviews from './pages/account/AccountMyReviews'
 import AccountSecurity from './pages/account/AccountSecurity'
+import AccountNotifications from './pages/account/Notifications'
 import { AccountTitle } from './pages/account/AccountUI'
 
 import VendorRegister from './pages/vendor/VendorRegister'
@@ -195,6 +196,7 @@ function CustomerLayout() {
             <Route path="profile" element={<AccountProfile />} />
             <Route path="addresses" element={<AccountAddresses />} />
             <Route path="security" element={<AccountSecurity />} />
+            <Route path="notifications" element={<AccountNotifications />} />
             <Route path="support" element={<AccountSupport />} />
             <Route path="*" element={<Navigate to="/account" replace />} />
           </Route>

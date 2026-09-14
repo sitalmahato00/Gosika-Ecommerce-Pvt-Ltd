@@ -33,4 +33,10 @@ Route::prefix('v1/customer')->middleware('auth:sanctum')->group(function () {
     Route::get('reviews', [CustomerAccountController::class, 'myReviews']);
     Route::get('reviews/pending', [CustomerAccountController::class, 'pendingReviews']);
     Route::get('questions', [CustomerAccountController::class, 'myQuestions']);
+
+    Route::get('notifications', [\App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController::class, 'index']);
+    Route::get('notifications/unread-count', [\App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController::class, 'unread']);
+    Route::post('notifications/read-all', [\App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController::class, 'markAllRead']);
+    Route::delete('notifications/read', [\App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController::class, 'clearRead']);
+    Route::post('notifications/{notification}/read', [\App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController::class, 'markRead']);
 });

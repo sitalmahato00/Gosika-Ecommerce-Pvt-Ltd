@@ -29,6 +29,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use App\Modules\Marketing\Application\Services\NotificationDispatcher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -37,13 +38,18 @@ class DeliveryService
     private const OTP_TTL_SECONDS = 1800;
     private const OTP_MAX_ATTEMPTS = 5;
 
+    public function __construct(
+        protected NotificationDispatcher $dispatcher,
+    ) {
+    }
+
     public function apply(User $user, ApplyDeliveryPartnerDTO $dto): DeliveryPartner
     {
         if ($user->deliveryPartner()->exists()) {
             throw new DomainException('A delivery partner application already exists for this account.');
         }
 
-        return DeliveryPartner::query()->create([
+        $partner = DeliveryPartner::query()->create([
             'user_id' => $user->id,
             'name' => $dto->name,
             'phone' => $dto->phone,
@@ -56,6 +62,10 @@ class DeliveryService
             'status' => DeliveryPartnerStatus::PENDING,
             'is_online' => false,
         ]);
+
+        $this->dispatcher->deliveryPartnerApplied($partner);
+
+        return $partner;
     }
 
     public function updateProfile(User $user, UpdateDeliveryPartnerProfileDTO $dto): DeliveryPartner
@@ -253,6 +263,8 @@ class DeliveryService
                 'status' => DeliveryStatus::ASSIGNED->value,
             ]);
 
+            $this->dispatcher->deliveryAssigned($assignment);
+
             return $assignment;
         });
     }
@@ -345,6 +357,8 @@ class DeliveryService
         $this->transitionDelivery($assignment->vendorOrder, DeliveryStatus::PICKED_UP, $partnerUser);
         $this->recordTracking($assignment, DeliveryStatus::PICKED_UP, 'Order picked up from vendor.', null);
 
+        $this->dispatcher->orderDeliveryUpdate($assignment->vendorOrder, 'picked_up');
+
         return $assignment->fresh(['tracking']);
     }
 
@@ -363,6 +377,8 @@ class DeliveryService
         $this->recordTracking($assignment, DeliveryStatus::OUT_FOR_DELIVERY, 'Order is out for delivery.', null);
 
         $otp = $this->generateOtp($assignment);
+
+        $this->dispatcher->orderDeliveryUpdate($assignment->vendorOrder, 'out_for_delivery');
 
         return [$assignment->fresh(['tracking']), $otp];
     }
@@ -395,6 +411,9 @@ class DeliveryService
 
             $this->syncOrder($order, $partnerUser);
 
+            $this->dispatcher->orderDeliveryUpdate($vendorOrder, 'delivered');
+            $this->dispatcher->orderInvoiceWhenAllDelivered($order);
+
             return $assignment->fresh(['tracking']);
         });
     }
@@ -422,6 +441,8 @@ class DeliveryService
         $this->transitionDelivery($assignment->vendorOrder, DeliveryStatus::FAILED, $partnerUser);
         $this->recordTracking($assignment, DeliveryStatus::FAILED, $reason, null);
 
+        $this->dispatcher->deliveryFailed($assignment, $reason);
+
         return $assignment->fresh(['tracking']);
     }
 
@@ -441,6 +462,8 @@ class DeliveryService
 
         $this->restoreStock($assignment->vendorOrder);
         $this->syncOrder($assignment->vendorOrder->order, $partnerUser);
+
+        $this->dispatcher->deliveryReturned($assignment);
 
         return $assignment->fresh(['tracking']);
     }

@@ -65,6 +65,7 @@ export default function CustomerHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [categories, setCategories] = useState([])
+  const [unreadNotif, setUnreadNotif] = useState(0)
   const accountRef = useRef(null)
   const prevItemCount = useRef(itemCount)
 
@@ -74,6 +75,19 @@ export default function CustomerHeader() {
       .then((res) => setCategories(res.data.data || []))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    let alive = true
+    const fetchUnread = () => {
+      api.get('/customer/notifications/unread-count', { skipCache: true })
+        .then((res) => { if (alive) setUnreadNotif(Number(res.data?.data?.unread_count) || 0) })
+        .catch(() => {})
+    }
+    fetchUnread()
+    const timer = setInterval(fetchUnread, 30000)
+    return () => { alive = false; clearInterval(timer) }
+  }, [!!user])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -374,6 +388,49 @@ export default function CustomerHeader() {
               </div>
             )}
           </div>
+
+          {/* Notifications Icon */}
+          {user && !isAdminUser && (
+            <Link
+              to="/account/notifications"
+              className="hide-sm"
+              aria-label={`Notifications (${unreadNotif} unread)`}
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#1e293b',
+                padding: '6px 8px',
+                textDecoration: 'none'
+              }}
+            >
+              <Bell size={21} strokeWidth={1.8} />
+              {unreadNotif > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 1,
+                    right: 2,
+                    background: '#ff5500',
+                    color: '#ffffff',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    borderRadius: '50%',
+                    minWidth: 16,
+                    height: 16,
+                    padding: '0 3px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: 1
+                  }}
+                >
+                  {unreadNotif > 99 ? '99+' : unreadNotif}
+                </span>
+              )}
+            </Link>
+          )}
 
           {/* Wishlist Icon */}
           <Link

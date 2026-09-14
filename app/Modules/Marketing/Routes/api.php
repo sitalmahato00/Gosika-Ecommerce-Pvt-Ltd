@@ -5,6 +5,7 @@ use App\Modules\Marketing\Presentation\Http\Controllers\AdminCampaignController;
 use App\Modules\Marketing\Presentation\Http\Controllers\AdminCmsPageController;
 use App\Modules\Marketing\Presentation\Http\Controllers\AdminCouponController;
 use App\Modules\Marketing\Presentation\Http\Controllers\AdminNotificationController;
+use App\Modules\Marketing\Presentation\Http\Controllers\AdminNotificationFeedController;
 use App\Modules\Marketing\Presentation\Http\Controllers\AdminPromotionController;
 use App\Modules\Marketing\Presentation\Http\Controllers\PublicMarketingController;
 use App\Modules\Marketing\Presentation\Http\Controllers\VendorCouponController;
@@ -52,6 +53,11 @@ Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(f
 
     Route::get('notifications', [AdminNotificationController::class, 'index']);
     Route::post('notifications/send', [AdminNotificationController::class, 'send']);
+
+    Route::get('notifications/feed', [AdminNotificationFeedController::class, 'index']);
+    Route::get('notifications/feed/unread-count', [AdminNotificationFeedController::class, 'unread']);
+    Route::post('notifications/feed/read-all', [AdminNotificationFeedController::class, 'markAllRead']);
+    Route::post('notifications/feed/{notification}/read', [AdminNotificationFeedController::class, 'markRead']);
 });
 
 Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
@@ -66,6 +72,7 @@ Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group
     Route::delete('promotions/{promotion}', [VendorPromotionController::class, 'destroy']);
 
     Route::get('notifications', [VendorNotificationController::class, 'index']);
+    Route::get('notifications/unread-count', [VendorNotificationController::class, 'unread']);
     Route::post('notifications/read-all', [VendorNotificationController::class, 'markAllRead']);
     Route::delete('notifications/read', [VendorNotificationController::class, 'clearRead']);
     Route::post('notifications/{notification}/read', [VendorNotificationController::class, 'markRead']);

@@ -92,12 +92,6 @@ class User extends Authenticatable
 
     public function sendPasswordResetNotification($token): void
     {
-        $url = route('password.reset', ['token' => $token, 'email' => $this->email]);
-
-        Log::channel('notification')->info('Password reset link', [
-            'user' => $this->uuid,
-            'email' => $this->email,
-            'url' => $url,
-        ]);
+        app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->passwordResetLink($this, $token);
     }
 }

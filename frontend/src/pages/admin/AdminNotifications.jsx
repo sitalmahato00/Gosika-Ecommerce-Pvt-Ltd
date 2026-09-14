@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
-  Bell, Send, Users, CheckCircle2, Download, Eye, Search
+  Bell, Send, Users, CheckCircle2, Download, Eye, Search, CheckCheck
 } from 'lucide-react'
 import api from '../../api/client'
 import { useList } from '../../hooks/useApi'
@@ -48,6 +49,7 @@ export default function AdminNotifications() {
   const [selected, setSelected] = useState(null)
   const [sending, setSending] = useState(false)
   const [form, setForm] = useState(emptyForm())
+  const [tab, setTab] = useState('broadcasts')
 
   const fetchBroadcasts = (page, perPage) =>
     api.get('/admin/notifications', { params: { search, page, per_page: perPage } })
@@ -147,6 +149,26 @@ export default function AdminNotifications() {
         </div>
       </div>
 
+      <div className="tabs" style={{ marginBottom: 8 }}>
+        {[
+          { value: 'broadcasts', label: 'Broadcasts' },
+          { value: 'feed', label: 'Activity Feed' },
+        ].map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            className={`tab ${tab === t.value ? 'active' : ''}`}
+            onClick={() => setTab(t.value)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'feed' ? (
+        <AdminActivityFeed />
+      ) : (
+      <>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
           <div className="flex items-center justify-between mb-2">
@@ -278,6 +300,8 @@ export default function AdminNotifications() {
       )}
 
       <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
+      </>
+      )}
 
       {selected && (
         <Modal open={!!selected} onClose={() => setSelected(null)} title="Broadcast Announcement Dossier" size="md">
@@ -382,6 +406,129 @@ export default function AdminNotifications() {
             </div>
           </form>
         </Modal>
+      )}
+    </div>
+  )
+}
+
+function AdminActivityFeed() {
+  const toast = useToast()
+  const [markingAll, setMarkingAll] = useState(false)
+
+  const fetchFeed = (page, perPage) =>
+    api.get('/admin/notifications/feed', { params: { page, per_page: perPage } })
+
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetchFeed, {
+    pageSize: 10,
+  })
+
+  const unread = Number(meta.unread_count) || 0
+
+  const markRead = (n) => {
+    api.post(`/admin/notifications/feed/${n.id}/read`).catch(() => {})
+    reload()
+  }
+
+  const markAllRead = () => {
+    setMarkingAll(true)
+    api.post('/admin/notifications/feed/read-all')
+      .then(() => {
+        toast.success('All activity marked as read.')
+        reload()
+      })
+      .catch((err) => toast.error(errorMessage(err)))
+      .finally(() => setMarkingAll(false))
+  }
+
+  return (
+    <div className="w-full flex flex-col gap-4">
+      <div className="card flex items-center justify-between wrap gap-3" style={{ padding: '14px 18px', margin: 0 }}>
+        <div className="flex items-center gap-3">
+          <span className="avatar" style={{ width: 40, height: 40, background: 'rgba(255,85,0,0.12)', color: '#ff5500' }}>
+            <Bell size={18} />
+          </span>
+          <div>
+            <div className="font-bold text-sm text-ink">
+              {unread > 0 ? `${unread} unread event${unread !== 1 ? 's' : ''} need your attention` : 'You are all caught up'}
+            </div>
+            <div className="muted text-xs">Automatic system activities for orders, deliveries, returns, settlements and sellers.</div>
+          </div>
+        </div>
+        {items.length > 0 && (
+          <button
+            type="button"
+            className="btn btn-outline btn-sm flex items-center gap-1"
+            onClick={markAllRead}
+            disabled={markingAll}
+          >
+            <CheckCheck size={14} /> Mark all read
+          </button>
+        )}
+      </div>
+
+      {error ? (
+        <ErrorState message={errorMessage(error)} onRetry={reload} />
+      ) : loading ? (
+        Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="card" style={{ padding: 14, margin: 0 }}>
+            <Skeleton height={36} />
+          </div>
+        ))
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={Bell}
+          title="No activity yet"
+          message="Automatic notifications from across the marketplace will appear here."
+        />
+      ) : (
+        <div className="flex flex-col gap-2">
+          {items.map((n) => (
+            <div
+              key={n.id}
+              className={`card flex items-start gap-3 ${n.read_at ? '' : 'bg-orange-50'}`}
+              style={{ padding: '12px 14px', margin: 0, background: n.read_at ? undefined : '#fff7f2' }}
+            >
+              <span
+                className="avatar"
+                style={{ width: 34, height: 34, flexShrink: 0, background: 'rgba(255,85,0,0.1)', color: '#ff5500' }}
+              >
+                <Bell size={15} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-bold text-sm text-ink">{n.title}</div>
+                  {!n.read_at && <span className="chip chip-sm font-bold" style={{ background: '#ff5500', color: '#fff', fontSize: 10, flexShrink: 0 }}>NEW</span>}
+                </div>
+                <div className="muted text-xs mt-0.5" style={{ lineHeight: 1.5 }}>{n.message}</div>
+                <div className="muted text-xs mt-1" style={{ fontSize: 11 }}>{formatDateTime(n.created_at)}</div>
+                {n.link && (
+                  <Link
+                    to={n.link.startsWith('/') ? n.link : `/${n.link}`}
+                    className="text-primary text-xs font-bold hover:underline mt-1"
+                    style={{ display: 'inline-block', color: '#ff5500' }}
+                    onClick={() => markRead(n)}
+                  >
+                    Open →
+                  </Link>
+                )}
+              </div>
+              {!n.read_at && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-xs flex items-center gap-1"
+                  onClick={() => markRead(n)}
+                  style={{ flexShrink: 0 }}
+                >
+                  <CheckCircle2 size={12} /> Mark read
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {meta.last_page > 1 && (
+        <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
       )}
     </div>
   )
