@@ -182,7 +182,6 @@ function CustomerLayout() {
           <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
           <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
           <Route path="/social-auth" element={<SocialAuth />} />
-          <Route path="/vendor/register" element={<VendorRegister />} />
           <Route path="/account" element={<AuthRoute><AccountLayout /></AuthRoute>}>
             <Route index element={<CustomerDashboard />} />
             <Route path="help" element={<><AccountTitle label="Help Center" /><Help /></>} />
@@ -212,9 +211,6 @@ function CustomerLayout() {
 export default function App() {
   return (
     <Routes>
-      {/* Explicit registration route: must precede the /* layout catch-all so /vendor/register renders the
-          public layout instead of being shadowed by the /vendor portal branch (which redirects to login). */}
-      <Route path="/vendor/register" element={<CustomerLayout />} />
       <Route path="/*" element={<CustomerLayout />} />
 
       {/* Vendor Portal */}
