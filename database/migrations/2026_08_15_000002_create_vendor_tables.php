@@ -76,6 +76,7 @@ return new class extends Migration
             $table->string('contact_phone', 20)->nullable();
             $table->string('status', 30)->default('draft')->index();
             $table->text('rejection_reason')->nullable();
+            $table->json('settings')->nullable();
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->timestamps();

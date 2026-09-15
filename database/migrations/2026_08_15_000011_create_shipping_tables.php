@@ -17,6 +17,10 @@ return new class extends Migration
             $table->string('email')->nullable();
             $table->string('vehicle_type', 40)->nullable();
             $table->string('vehicle_number', 30)->nullable();
+            $table->string('vehicle_model', 60)->nullable();
+            $table->string('vehicle_color', 30)->nullable();
+            $table->year('vehicle_year')->nullable();
+            $table->date('insurance_expiry')->nullable();
             $table->json('service_areas')->nullable();
             $table->string('status', 20)->default('pending')->index();
             $table->boolean('is_online')->default(false);
@@ -70,10 +74,28 @@ return new class extends Migration
             $table->timestamp('tracked_at')->index();
             $table->timestamps();
         });
+
+        Schema::create('delivery_partner_documents', function (Blueprint $table) {
+            $table->id();
+            $table->uuid()->unique();
+            $table->foreignId('delivery_partner_id')->constrained()->cascadeOnDelete();
+            $table->string('document_type', 40)->index();
+            $table->string('file_path');
+            $table->string('mime_type', 80)->nullable();
+            $table->unsignedBigInteger('file_size')->default(0);
+            $table->string('status', 25)->default('pending');
+            $table->text('rejection_reason')->nullable();
+            $table->unsignedBigInteger('reviewed_by')->nullable();
+            $table->timestamp('reviewed_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->timestamps();
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('delivery_partner_documents');
         Schema::dropIfExists('delivery_tracking');
         Schema::dropIfExists('delivery_assignments');
         Schema::dropIfExists('delivery_partners');

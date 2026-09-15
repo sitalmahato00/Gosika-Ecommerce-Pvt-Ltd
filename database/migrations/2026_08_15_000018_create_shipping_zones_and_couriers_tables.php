@@ -18,6 +18,8 @@ return new class extends Migration
             $table->decimal('express_charge', 12, 2)->default(0);
             $table->unsignedTinyInteger('estimated_days')->default(2);
             $table->boolean('is_active')->default(true);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -35,6 +37,8 @@ return new class extends Migration
             $table->string('tracking_url_pattern', 500)->nullable();
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

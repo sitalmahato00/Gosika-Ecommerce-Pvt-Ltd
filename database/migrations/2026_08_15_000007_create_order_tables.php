@@ -29,6 +29,7 @@ return new class extends Migration
             $table->text('customer_notes')->nullable();
             $table->json('meta')->nullable();
             $table->timestamp('placed_at')->nullable();
+            $table->timestamp('confirmed_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamp('cancelled_at')->nullable();
             $table->string('cancelled_reason')->nullable();
@@ -105,6 +106,7 @@ return new class extends Migration
         Schema::create('return_requests', function (Blueprint $table) {
             $table->id();
             $table->uuid()->unique();
+            $table->foreignId('vendor_id')->nullable()->constrained()->nullOnDelete();
             $table->string('return_number', 40)->unique();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('order_id')->constrained()->cascadeOnDelete();

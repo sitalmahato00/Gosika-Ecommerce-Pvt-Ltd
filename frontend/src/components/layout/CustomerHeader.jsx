@@ -138,7 +138,7 @@ export default function CustomerHeader() {
               <HelpCircle size={13} /> Help Center
             </Link>
             <Link to="/vendor/register" className="flex items-center gap-1.5" style={{ color: '#ffffff', fontWeight: 600, textDecoration: 'none' }}>
-              <Store size={13} /> Seller Hub
+              <Store size={13} /> Become a Seller
             </Link>
           </span>
         </div>

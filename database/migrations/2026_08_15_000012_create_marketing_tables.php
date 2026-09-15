@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('coupons', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('vendor_id')->nullable()->constrained()->nullOnDelete();
             $table->uuid()->unique();
             $table->string('code', 60)->unique();
             $table->string('name', 180)->nullable();
@@ -31,6 +32,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['is_active', 'valid_from', 'valid_until']);
+            $table->index('vendor_id');
         });
 
         Schema::create('coupon_redemptions', function (Blueprint $table) {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Store } from 'lucide-react'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
@@ -116,9 +116,9 @@ export default function Register() {
           <GoogleIcon /> Continue with Google
         </a>
 
-        <p className="muted text-xs mt-2" style={{ textAlign: 'center', marginTop: 16 }}>
-          Want to sell on Gosika? <Link to="/vendor/register" className="text-primary font-semibold">Become a Seller</Link>
-        </p>
+        <Link to="/vendor/register" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', marginTop: 4 }}>
+          <Store size={15} /> Sell on Gosika as a Merchant
+        </Link>
       </div>
     </div>
   )

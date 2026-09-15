@@ -45,6 +45,9 @@ return new class extends Migration
             $table->unsignedTinyInteger('rating')->comment('1-5');
             $table->string('title', 200)->nullable();
             $table->text('body')->nullable();
+            $table->text('reply')->nullable();
+            $table->unsignedBigInteger('replied_by')->nullable();
+            $table->timestamp('replied_at')->nullable();
             $table->string('status', 20)->default('pending')->index();
             $table->unsignedBigInteger('reviewed_by')->nullable();
             $table->timestamp('reviewed_at')->nullable();
@@ -61,6 +64,9 @@ return new class extends Migration
             $table->foreignId('vendor_order_id')->nullable()->constrained()->nullOnDelete();
             $table->unsignedTinyInteger('rating')->comment('1-5');
             $table->text('body')->nullable();
+            $table->text('reply')->nullable();
+            $table->unsignedBigInteger('replied_by')->nullable();
+            $table->timestamp('replied_at')->nullable();
             $table->string('status', 20)->default('pending')->index();
             $table->unsignedBigInteger('reviewed_by')->nullable();
             $table->timestamp('reviewed_at')->nullable();

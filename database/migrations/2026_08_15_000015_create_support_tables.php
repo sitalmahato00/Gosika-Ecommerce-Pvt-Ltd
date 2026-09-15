@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('support_tickets', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('vendor_id')->nullable()->constrained()->nullOnDelete();
             $table->uuid()->unique();
             $table->string('ticket_number', 40)->unique();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -26,6 +27,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['user_id', 'status']);
+            $table->index('vendor_id');
         });
 
         Schema::create('ticket_messages', function (Blueprint $table) {

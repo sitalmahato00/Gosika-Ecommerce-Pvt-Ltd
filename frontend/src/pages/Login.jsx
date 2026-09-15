@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingBag } from 'lucide-react'
+import { ShoppingBag, Store } from 'lucide-react'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
@@ -87,9 +87,9 @@ export default function Login() {
         <p className="muted text-sm mt-2" style={{ textAlign: 'center' }}>
           Don't have an account? <Link to="/register" className="text-primary font-semibold">Create one</Link>
         </p>
-        <p className="muted text-xs mt-1" style={{ textAlign: 'center' }}>
-          Want to sell on Gosika? <Link to="/vendor/register" className="text-primary font-semibold">Become a Seller</Link>
-        </p>
+        <Link to="/vendor/register" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', marginTop: 4 }}>
+          <Store size={15} /> Become a Seller on Gosika
+        </Link>
         <div className="alert alert-info" style={{ fontSize: 13 }}>
           Demo accounts (password: <code>password</code>): customer@gosika.com.np · vendor@gosika.com.np · admin@gosika.com.np
         </div>
