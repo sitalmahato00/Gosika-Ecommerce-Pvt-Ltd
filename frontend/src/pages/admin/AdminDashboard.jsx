@@ -14,46 +14,6 @@ import FluidLineChart from '../../components/admin/charts/fx/FluidLineChart'
 import AnimatedNumber from '../../components/admin/charts/fx/AnimatedNumber'
 import StatusOrderTable from '../../components/admin/StatusOrderTable'
 
-export const MOCK_ORDERS = [
-  { id: 'GS-250904', customer: 'Ram Sharma', city: 'Kathmandu', product: 'Wireless Headphones', amount: 4850, payment: 'esewa', status: 'shipped' },
-  { id: 'GS-250903', customer: 'Sita Thapa', city: 'Lalitpur', product: 'Kurti Set (2 pcs)', amount: 3200, payment: 'khalti', status: 'delivered' },
-  { id: 'GS-250902', customer: 'Hari Bahadur KC', city: 'Pokhara', product: 'Samsung 65" 4K TV', amount: 128000, payment: 'fonepay', status: 'processing' },
-  { id: 'GS-250901', customer: 'Gita Poudel', city: 'Butwal', product: 'Mamaearth Skincare Kit', amount: 2750, payment: 'esewa', status: 'pending' },
-  { id: 'GS-250831', customer: 'Bikash Rai', city: 'Itahari', product: 'Non-stick Cookware Set', amount: 6500, payment: 'cod', status: 'out for delivery' },
-  { id: 'GS-250830', customer: 'Anju Gurung', city: 'Pokhara', product: 'Trekking Backpack 40L', amount: 12400, payment: 'khalti', status: 'delivered' },
-  { id: 'GS-250829', customer: 'Roshan KC', city: 'Biratnagar', product: 'Pashmina Shawl (Lux)', amount: 2150, payment: 'cod', status: 'cancelled' },
-  { id: 'GS-250828', customer: 'Mina Shrestha', city: 'Lalitpur', product: 'Organic Herbal Tea Pack', amount: 980, payment: 'esewa', status: 'delivered' },
-]
-
-const TIMEFRAME_FALLBACKS = {
-  '7d': [
-    { label: '29 Aug', revenue: 48500 }, { label: '30 Aug', revenue: 62000 },
-    { label: '31 Aug', revenue: 54200 }, { label: '01 Sep', revenue: 78900 },
-    { label: '02 Sep', revenue: 69400 }, { label: '03 Sep', revenue: 89100 },
-    { label: '04 Sep', revenue: 98500 },
-  ],
-  '30d': [
-    { label: '10 Aug', revenue: 32400 }, { label: '14 Aug', revenue: 46800 },
-    { label: '18 Aug', revenue: 64200 }, { label: '22 Aug', revenue: 49500 },
-    { label: '26 Aug', revenue: 76800 }, { label: '30 Aug', revenue: 58200 },
-    { label: '04 Sep', revenue: 69400 }, { label: '09 Sep', revenue: 84500 },
-  ],
-  '90d': [
-    { label: 'Jun W1', revenue: 165000 }, { label: 'Jun W3', revenue: 215000 },
-    { label: 'Jul W1', revenue: 268000 }, { label: 'Jul W3', revenue: 312000 },
-    { label: 'Aug W1', revenue: 295000 }, { label: 'Aug W3', revenue: 368000 },
-    { label: 'Sep W1', revenue: 415000 },
-  ],
-  'year': [
-    { label: 'Jan', revenue: 310000 }, { label: 'Feb', revenue: 345000 },
-    { label: 'Mar', revenue: 420000 }, { label: 'Apr', revenue: 485000 },
-    { label: 'May', revenue: 560000 }, { label: 'Jun', revenue: 790000 },
-    { label: 'Jul', revenue: 893000 }, { label: 'Aug', revenue: 785000 },
-    { label: 'Sep', revenue: 820000 }, { label: 'Oct', revenue: 880000 },
-    { label: 'Nov', revenue: 940000 }, { label: 'Dec', revenue: 1120000 },
-  ],
-}
-
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -89,26 +49,25 @@ export default function AdminDashboard() {
   useEffect(() => { loadDashboardData() }, [timeframe])
 
   const s = data.summary || {}
-  const grossRevenue = Number(s.gross_revenue || s.total_sales || 738692.86)
-  const ordersCount = Number(s.orders_count || 130)
-  const newCustomers = Number(s.new_customers || 43)
-  const activeVendors = Number(s.active_vendors || 17)
-  const pendingPayouts = Number(s.pending_payouts || 645210)
+  const grossRevenue = Number(s.gross_revenue || s.total_sales || 0)
+  const ordersCount = Number(s.orders_count || 0)
+  const newCustomers = Number(s.new_customers || 0)
+  const activeVendors = Number(s.active_vendors || 0)
+  const pendingPayouts = Number(s.pending_payouts || 0)
 
   const chartData = useMemo(() => {
     const raw = data.salesTimeline
     if (raw && raw.length > 0) {
-      const nonZeroes = raw.filter(pt => Number(pt.revenue || pt.value || 0) > 0)
-      if (nonZeroes.length >= Math.ceil(raw.length * 0.75)) return raw
+      return raw
     }
-    return TIMEFRAME_FALLBACKS[timeframe] || TIMEFRAME_FALLBACKS['30d']
-  }, [data.salesTimeline, timeframe])
+    return []
+  }, [data.salesTimeline])
 
   const overviewSales = useMemo(() => {
     const sum = chartData.reduce((acc, c) => acc + Number(c.revenue || c.value || 0), 0)
     if (sum > 0) return Math.round(sum)
     if (s.gross_revenue) return Math.round(Number(s.gross_revenue))
-    return 842580
+    return 0
   }, [chartData, s.gross_revenue])
 
   const timeframeLabel = { '7d': 'previous 7 days', '30d': 'previous 30 days', '90d': 'previous 3 months', 'year': 'previous year' }[timeframe] || 'previous 30 days'
@@ -123,7 +82,7 @@ export default function AdminDashboard() {
         payment: ord.payment_method || 'cod',
         status: ord.status || 'processing',
       }))
-    : MOCK_ORDERS
+    : []
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
@@ -217,11 +176,11 @@ export default function AdminDashboard() {
           <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginBottom: 10 }}>Marketplace Health</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
-              { label: 'Active Products', value: '24,842', delta: '↑ 12%', deltaUp: true, icon: Package, bg: '#e6f0fa', fg: '#2563eb', to: '/admin/marketplace/products' },
-              { label: 'Active Sellers', value: '1,284', delta: '↑ 8%', deltaUp: true, icon: Store, bg: '#e6f7ec', fg: '#16a34a', to: '/admin/marketplace/vendors' },
-              { label: 'Pending Seller Applications', value: data.pendingKycCount || '42', delta: 'awaiting KYC', icon: Users, bg: '#fff0e6', fg: '#ff5500', to: '/admin/marketplace/kyc', badge: true },
-              { label: 'Low Stock Products', value: '286', delta: '↓ 3%', deltaUp: false, icon: AlertTriangle, bg: '#ffebeb', fg: '#dc2626', to: '/admin/marketplace/products' },
-              { label: 'Pending Orders', value: '128', delta: '↑ 9%', deltaUp: true, icon: ShoppingCart, bg: '#f3e8ff', fg: '#9333ea', to: '/admin/orders', badge: '128' },
+              { label: 'Active Products', value: s.active_products || data.pendingKycCount || 0, delta: s.products_growth || null, deltaUp: true, icon: Package, bg: '#e6f0fa', fg: '#2563eb', to: '/admin/marketplace/products' },
+              { label: 'Active Sellers', value: activeVendors, delta: s.vendors_growth || null, deltaUp: true, icon: Store, bg: '#e6f7ec', fg: '#16a34a', to: '/admin/marketplace/vendors' },
+              { label: 'Pending Seller Applications', value: data.pendingKycCount || 0, delta: 'awaiting KYC', icon: Users, bg: '#fff0e6', fg: '#ff5500', to: '/admin/marketplace/kyc', badge: true },
+              { label: 'Low Stock Products', value: s.low_stock_products || 0, delta: s.low_stock_growth || null, deltaUp: false, icon: AlertTriangle, bg: '#ffebeb', fg: '#dc2626', to: '/admin/marketplace/products' },
+              { label: 'Pending Orders', value: s.pending_orders || 0, delta: s.pending_orders_growth || null, deltaUp: true, icon: ShoppingCart, bg: '#f3e8ff', fg: '#9333ea', to: '/admin/orders', badge: s.pending_orders || null },
             ].map((row) => (
               <Link key={row.label} to={row.to} className="btn-tactile hover:-translate-y-0"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 11px', borderRadius: 10, textDecoration: 'none', background: '#fafbfc', border: '1px solid #f1f5f9', transition: 'all .18s ease' }}
@@ -233,7 +192,7 @@ export default function AdminDashboard() {
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>{row.label}</div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{row.value}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{typeof row.value === 'number' ? row.value.toLocaleString() : row.value}</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>

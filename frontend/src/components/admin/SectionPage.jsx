@@ -5,7 +5,6 @@ import { useAuth } from '../../context/AuthContext'
 import KpiCard from './KpiCard'
 import StatusOrderTable from './StatusOrderTable'
 import { money } from '../../utils/format'
-import { MOCK_ORDERS } from '../../pages/admin/AdminDashboard'
 
 /**
  * Generic, spec-aligned landing page for any dashboard section.
@@ -35,40 +34,15 @@ export default function SectionPage({ section }) {
   }, [section])
 
   const kpis = {
-    admin: [
-      { label: 'Total Orders', value: '128', icon: 'ShoppingBag', bg: '#fff0e6', fg: '#ff5500', to: '/admin/orders' },
-      { label: 'Active Sellers', value: '1,284', icon: 'Store', bg: '#e6f7ec', fg: '#16a34a', to: '/admin/marketplace/vendors' },
-      { label: 'Payouts Pending', value: 'रु 6,45,210', icon: 'Banknote', bg: '#f3e8ff', fg: '#9333ea', to: '/admin/finance/payouts' },
-    ],
-    vendor: [
-      { label: 'Ready to Ship', value: '18', icon: 'PackageCheck', bg: '#e6f0fa', fg: '#2563eb', to: '/vendor/orders/ready' },
-      { label: 'Low Stock', value: '6', icon: 'AlertTriangle', bg: '#ffebeb', fg: '#e11d48', to: '/vendor/inventory/low-stock' },
-      { label: 'Approval Queue', value: '3', icon: 'ShieldCheck', bg: '#fff0e6', fg: '#ff5500', to: '/vendor/products/approval' },
-      { label: 'Net Earnings', value: 'रु 1,84,500', icon: 'Wallet', bg: '#e6f7ec', fg: '#16a34a', to: '/vendor/wallet' },
-      { label: 'Returns & RTO', value: '4', icon: 'RotateCcw', bg: '#ffebeb', fg: '#e11d48', to: '/vendor/returns' },
-    ],
-    delivery: [
-      { label: 'Unassigned Parcels', value: '19', icon: 'Inbox', bg: '#fff0e6', fg: '#ff5500', to: '/delivery/unassigned' },
-      { label: 'Out for Delivery', value: '45', icon: 'Navigation', bg: '#e6f0fa', fg: '#2563eb', to: '/delivery/out' },
-      { label: 'Cash Turn-In Due', value: '12', icon: 'Banknote', bg: '#e6f7ec', fg: '#16a34a', to: '/delivery/cod/cash-turn-in' },
-      { label: 'Failed Logs', value: '7', icon: 'AlertTriangle', bg: '#ffebeb', fg: '#e11d48', to: '/delivery/failures' },
-      { label: 'Active Riders', value: '86', icon: 'Users', bg: '#f3e8ff', fg: '#9333ea', to: '/delivery/riders' },
-    ],
-    customer: [
-      { label: 'Active Order', value: '1', icon: 'ShoppingBag', bg: '#fff0e6', fg: '#ff5500', to: '/account' },
-      { label: 'Vouchers', value: '3', icon: 'Ticket', bg: '#f3e8ff', fg: '#9333ea', to: '/account/vouchers' },
-      { label: 'Wishlist Items', value: '14', icon: 'Heart', bg: '#ffebeb', fg: '#e11d48', to: '/account/wishlist' },
-      { label: 'My Reviews', value: '2', icon: 'Star', bg: '#e6f0fa', fg: '#2563eb', to: '/account/reviews' },
-    ],
+    admin: [],
+    vendor: [],
+    delivery: [],
+    customer: [],
   }[role] || []
 
   const rows = useMemo(() => {
-    if (role === 'customer') {
-      return MOCK_ORDERS.map((o, i) => ({
-        id: o.id, label: o.product.replace('Assorted', 'Ordered'), date: `0${i + 1} Sep 2025`, amount: o.amount, status: o.status,
-      }))
-    }
-    return MOCK_ORDERS
+    // Return empty array - data should come from API
+    return []
   }, [role])
 
   const tableColumns = role === 'customer'
