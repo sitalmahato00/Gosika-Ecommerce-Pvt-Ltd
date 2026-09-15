@@ -34,6 +34,15 @@ export default function DashboardLayout({
   const navigate = useNavigate()
   const location = useLocation()
 
+  const role = roleLabel || (isSuperAdmin() ? 'Super Admin' : 'Vendor')
+  const isVendor = role.toLowerCase().includes('vendor')
+  const isDelivery = role.toLowerCase().includes('delivery') || role.toLowerCase().includes('rider')
+  const unreadEndpoint = isDelivery
+    ? '/delivery-partner/notifications/unread-count'
+    : isVendor
+    ? '/vendor/notifications/unread-count'
+    : '/admin/notifications/feed/unread-count'
+
   useEffect(() => { setOpen(false); setUserDropdown(false) }, [location.pathname])
 
   useEffect(() => {
@@ -64,14 +73,6 @@ export default function DashboardLayout({
     navigate('/')
   }
 
-  const role = roleLabel || (isSuperAdmin() ? 'Super Admin' : 'Vendor')
-  const isVendor = role.toLowerCase().includes('vendor')
-  const isDelivery = role.toLowerCase().includes('delivery') || role.toLowerCase().includes('rider')
-  const unreadEndpoint = isDelivery
-    ? '/delivery-partner/notifications/unread-count'
-    : isVendor
-    ? '/vendor/notifications/unread-count'
-    : '/admin/notifications/feed/unread-count'
   const duty = onDuty ?? rider?.is_online ?? false
   const riderName = rider?.name || user?.name || 'Delivery Partner'
   const riderArea = Array.isArray(rider?.service_areas) && rider.service_areas.length > 0 ? rider.service_areas[0] : 'Dispatch Hub'
@@ -135,11 +136,57 @@ export default function DashboardLayout({
         background: '#f8fafc'
       }}
     >
+      <style>{`
+        @media (max-width: 900px) {
+          .dash-sidebar {
+            position: fixed !important;
+            left: 0;
+            top: 0;
+            height: 100vh !important;
+            width: 280px !important;
+            transform: translateX(-100%);
+            z-index: 70 !important;
+          }
+          .dash-sidebar.open {
+            transform: translateX(0);
+          }
+          .dash-shell {
+            grid-template-columns: 1fr !important;
+            grid-template-areas: "header" "main" !important;
+          }
+          .dash-sidebar-close {
+            display: flex !important;
+          }
+        }
+        @media (min-width: 901px) {
+          .dash-sidebar-close {
+            display: none !important;
+          }
+        }
+        .dash-sidebar-close {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 6px;
+          transition: background 0.15s ease;
+        }
+        .dash-sidebar-close:hover {
+          background: rgba(255, 255, 255, 0.1);
+        }
+      `}</style>
       {open && (
         <div
           className="overlay dash-sidebar-overlay"
           onClick={() => setOpen(false)}
-          style={{ zIndex: 65, backdropFilter: 'blur(4px)', background: 'rgba(15, 23, 42, 0.45)' }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 65,
+            backdropFilter: 'blur(4px)',
+            background: 'rgba(15, 23, 42, 0.45)',
+            animation: 'fadeIn 0.2s ease'
+          }}
           aria-hidden="true"
         />
       )}
@@ -517,18 +564,19 @@ export default function DashboardLayout({
         style={{
           gridArea: 'sidebar',
           width: collapsed ? 72 : 224,
-            background: '#161d2b',
-            borderRight: '1px solid #20293a',
-            display: 'flex',
-            flexDirection: 'column',
-            flexShrink: 0,
-            height: '100%',
-            overflow: 'hidden',
-            overflowX: 'hidden',
-            transition: 'width 0.22s ease',
-            zIndex: 50
-          }}
-        >
+          background: '#161d2b',
+          borderRight: '1px solid #20293a',
+          display: 'flex',
+          flexDirection: 'column',
+          flexShrink: 0,
+          height: '100%',
+          overflow: 'hidden',
+          overflowX: 'hidden',
+          transition: 'width 0.22s ease, transform 0.25s ease',
+          zIndex: 70,
+          position: 'relative'
+        }}
+      >
           {/* PINNED brand zone */}
           <div
             className="dash-sidebar-brand shrink-0"
