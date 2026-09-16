@@ -8,9 +8,10 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import { errorMessage } from '../../utils/format'
 import { AccountPage, AccountSection } from './AccountUI'
+import EmailVerificationCard from '../../components/common/EmailVerificationCard'
 
 export default function AccountSecurity() {
-  const { user, logout, login } = useAuth()
+  const { user, logout, login, reloadUser } = useAuth()
   const toast = useToast()
   const [form, setForm] = useState({ current_password: '', password: '', password_confirmation: '' })
   const [saving, setSaving] = useState(false)
@@ -48,6 +49,7 @@ export default function AccountSecurity() {
 
   return (
     <AccountPage title="Security" subtitle="Keep your account safe — update your password and manage your sessions.">
+      <EmailVerificationCard user={user} onVerified={reloadUser} />
       <AccountSection title="Change Password" subtitle="Use at least 8 characters with letters & numbers." icon={KeyRound} pad={22} className="account-form-card">
         {error && <div className="alert alert-error">{error}</div>}
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 480 }}>

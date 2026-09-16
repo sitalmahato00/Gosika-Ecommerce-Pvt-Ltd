@@ -13,7 +13,9 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
+import { useAuth } from '../../context/AuthContext'
 import { formatDateTime, errorMessage, initials } from '../../utils/format'
+import EmailVerificationCard from '../../components/common/EmailVerificationCard'
 
 const PREFERENCE_META = [
   { key: 'sms_orders', label: 'SMS for New Orders', desc: 'Instant SMS when a buyer places an order', icon: Smartphone, color: '#2563eb' },
@@ -37,6 +39,7 @@ function sessionIcon(name) {
 
 export default function VendorSecurity() {
   const toast = useToast()
+  const { user: authUser, reloadUser } = useAuth()
   const [pw, setPw] = useState({ current_password: '', new_password: '', new_password_confirmation: '' })
   const [savingPw, setSavingPw] = useState(false)
   const [showCurrent, setShowCurrent] = useState(false)
@@ -182,7 +185,9 @@ export default function VendorSecurity() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: 20, alignItems: 'start' }}>
+      <EmailVerificationCard user={authUser} onVerified={reloadUser} />
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: 20, alignItems: 'start', marginTop: 20 }}>
         <form className="card" onSubmit={changePassword} style={{ padding: 24 }}>
           <div className="flex items-center justify-between mb-3">
             <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">

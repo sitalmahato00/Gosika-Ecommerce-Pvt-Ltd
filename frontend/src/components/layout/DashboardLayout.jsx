@@ -423,16 +423,30 @@ export default function DashboardLayout({
                   width: 32,
                   height: 32,
                   borderRadius: '50%',
-                  background: '#161d2b',
+                  background: user?.avatar ? 'transparent' : '#161d2b',
                   color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: 13,
-                  fontWeight: 800
+                  fontWeight: 800,
+                  overflow: 'hidden',
+                  border: user?.avatar ? '2px solid #e2e8f0' : 'none'
                 }}
               >
-                {userInitial}
+                {user?.avatar ? (
+                  <img 
+                    src={apiImage(user.avatar)} 
+                    alt={displayName}
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover' 
+                    }}
+                  />
+                ) : (
+                  userInitial
+                )}
               </span>
               <div className="hide-sm" style={{ textAlign: 'left', lineHeight: 1.2 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1e293b' }}>
@@ -489,8 +503,20 @@ export default function DashboardLayout({
                       <Link to="/delivery" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
                         <LayoutDashboard size={15} color="#ff5500" /> Rider Dashboard
                       </Link>
+                      <Link to="/delivery/profile-settings" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <User size={15} color="#ff5500" /> Profile Settings
+                      </Link>
                       <Link to="/delivery/profile" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
-                        <User size={15} color="#ff5500" /> Profile
+                        <User size={15} color="#ff5500" /> Delivery Profile
+                      </Link>
+                      <Link to="/delivery/security" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <Shield size={15} color="#ff5500" /> Security
+                      </Link>
+                      <Link to="/delivery/notifications" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <Bell size={15} color="#ff5500" /> Notifications
+                      </Link>
+                      <Link to="/delivery/settings" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <Settings size={15} color="#ff5500" /> Settings
                       </Link>
                       <Link to="/delivery/support" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
                         <Headphones size={15} color="#ff5500" /> Help & Support
@@ -498,11 +524,23 @@ export default function DashboardLayout({
                     </>
                   ) : isVendor ? (
                     <>
-                      <Link to="/vendor/stores" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
-                        <Settings size={15} color="#ff5500" /> Store Operations
+                      <Link to="/vendor" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <LayoutDashboard size={15} color="#ff5500" /> Vendor Dashboard
+                      </Link>
+                      <Link to="/vendor/settings" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <User size={15} color="#ff5500" /> Profile Settings
                       </Link>
                       <Link to="/vendor/profile" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
-                        <User size={15} color="#ff5500" /> Merchant Profile
+                        <User size={15} color="#ff5500" /> Business Profile
+                      </Link>
+                      <Link to="/vendor/stores" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <Store size={15} color="#ff5500" /> Store Settings
+                      </Link>
+                      <Link to="/vendor/security" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <Shield size={15} color="#ff5500" /> Security
+                      </Link>
+                      <Link to="/vendor/notifications" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <Bell size={15} color="#ff5500" /> Notifications
                       </Link>
                       <Link to="/vendor/support" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
                         <Headphones size={15} color="#ff5500" /> Support Desk
@@ -513,31 +551,23 @@ export default function DashboardLayout({
                       <Link to="/admin" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
                         <LayoutDashboard size={15} color="#ff5500" /> Admin Dashboard
                       </Link>
+                      <Link to="/admin/profile" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <User size={15} color="#ff5500" /> Profile Settings
+                      </Link>
                       <Link to="/admin/marketplace/vendors" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
                         <Store size={15} color="#ff5500" /> Sellers & Approvals
                       </Link>
+                      <Link to="/admin/system/users" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <User size={15} color="#ff5500" /> User Management
+                      </Link>
+                      <Link to="/admin/system/notifications" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                        <Bell size={15} color="#ff5500" /> Notifications
+                      </Link>
                       <Link to="/admin/system/settings" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
-                        <Settings size={15} color="#ff5500" /> Marketplace Settings
+                        <Settings size={15} color="#ff5500" /> System Settings
                       </Link>
                     </>
                   )}
-                </div>
-                <div style={{ padding: '6px 8px' }}>
-                  <div style={{ padding: '6px 10px 8px', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', color: '#94a3b8' }}>SWITCH PORTAL</div>
-                  {[
-                    { label: 'Super Admin', sub: 'Marketplace control', icon: 'LayoutDashboard', to: '/admin' },
-                    { label: 'Merchant Hub', sub: 'Vendor & store ops', icon: 'Store', to: '/vendor' },
-                    { label: 'Logistics & Fleet', sub: 'Dispatch & delivery', icon: 'Truck', to: '/delivery' },
-                    { label: 'Buyer Portal', sub: 'Shop & account hub', icon: 'User', to: '/account' },
-                  ].map((p) => {
-                    const PortalIcon = Icons[p.icon]
-                    const activePortal = location.pathname.startsWith(p.to)
-                    return (
-                      <Link key={p.to} to={p.to} className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
-                        <PortalIcon size={15} color={activePortal ? '#ff5500' : '#94a3b8'} /> {p.label}
-                      </Link>
-                    )
-                  })}
                 </div>
                 <div style={{ padding: '6px 8px', borderTop: '1px solid var(--border)' }}>
                   <button
@@ -752,17 +782,31 @@ export default function DashboardLayout({
                 width: 34,
                 height: 34,
                 borderRadius: '50%',
-                background: '#ff5500',
+                background: user?.avatar ? 'transparent' : '#ff5500',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontWeight: 800,
                 fontSize: 13,
-                flexShrink: 0
+                flexShrink: 0,
+                overflow: 'hidden',
+                border: user?.avatar ? '2px solid rgba(255,255,255,0.2)' : 'none'
               }}
             >
-              {userInitial}
+              {user?.avatar ? (
+                <img 
+                  src={apiImage(user.avatar)} 
+                  alt={displayName}
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    objectFit: 'cover' 
+                  }}
+                />
+              ) : (
+                userInitial
+              )}
             </div>
             {!collapsed && (
               <div style={{ flex: 1, minWidth: 0 }}>

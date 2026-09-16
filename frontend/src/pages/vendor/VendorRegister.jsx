@@ -75,8 +75,16 @@ const VALIDATORS = {
   bank: validateBank,
 }
 
+const TAB_FIELDS = {
+  account: ['first_name', 'last_name', 'email', 'phone', 'password', 'password_confirmation'],
+  business: ['company_name', 'business_email', 'business_phone', 'pan_vat', 'registration_number'],
+  kyc: ['owner_full_name', 'owner_citizenship_number', 'owner_email', 'owner_phone', 'business_type', 'address', 'province', 'district', 'municipality'],
+  bank: ['bank_name', 'branch_name', 'account_name', 'account_number', 'account_type'],
+  review: [],
+}
+
 export default function VendorRegister() {
-  const { user, saveSession } = useAuth()
+  const { user, saveSession, refreshUser } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -130,8 +138,10 @@ export default function VendorRegister() {
     if (fieldErrors[key]) setFieldErrors((prev) => ({ ...prev, [key]: undefined }))
   }
 
+  const stepGroup = (id) => (id === 'account' ? account : id === 'business' ? business : id === 'bank' ? bank : kyc)
+
   const validateStep = (stepId) => {
-    const group = stepId === 'account' ? account : stepId === 'business' ? business : stepId === 'bank' ? bank : kyc
+    const group = stepGroup(stepId)
     const errors = VALIDATORS[stepId](group)
     const hasErrors = Object.keys(errors).length > 0
     setFieldErrors((prev) => {
@@ -145,17 +155,16 @@ export default function VendorRegister() {
   const stepStatus = (idx) => {
     const s = steps[idx]
     if (s.id === 'review') return null
-    const group = s.id === 'account' ? account : s.id === 'business' ? business : s.id === 'bank' ? bank : kyc
-    const hasErrors = Object.keys(VALIDATORS[s.id](group)).length > 0
-    if (validated[s.id] && !hasErrors) return 'done'
-    if (hasErrors) return 'error'
+    const hasLocal = Object.keys(VALIDATORS[s.id](stepGroup(s.id))).length > 0
+    const hasServer = TAB_FIELDS[s.id].some((k) => fieldErrors[k])
+    if (validated[s.id] && !hasLocal && !hasServer) return 'done'
+    if (hasLocal || hasServer) return 'error'
     return 'todo'
   }
 
   const goToStep = (idx) => {
     if (idx === stepIndex) return
     if (idx < stepIndex) {
-      setFieldErrors({})
       setActiveIndex(idx)
       return
     }
@@ -179,7 +188,6 @@ export default function VendorRegister() {
   }
 
   const backStep = () => {
-    setFieldErrors({})
     setActiveIndex((i) => Math.max(i - 1, 0))
   }
 
@@ -247,8 +255,10 @@ export default function VendorRegister() {
         account_type: bank.account_type,
       })
 
+      await refreshUser()
+
       setDone(true)
-      toast.success('Application submitted!')
+      toast.success('Application submitted — pending approval.')
     } catch (err) {
       const d = err.response?.data
       const errors = d?.errors
@@ -275,12 +285,17 @@ export default function VendorRegister() {
           <span className="avatar" style={{ width: 72, height: 72, background: 'var(--success-bg)', color: 'var(--success)', marginBottom: 14 }}>
             <CheckCircle2 size={36} />
           </span>
-          <h1 style={{ fontSize: 22 }}>Application submitted!</h1>
+          <h1 style={{ fontSize: 22 }}>Application submitted — pending approval</h1>
           <p className="muted" style={{ maxWidth: 460, margin: '0 auto 18px' }}>
             Thank you for choosing to sell on Gosika. Our team will review your application within 2 working days.
             You'll be able to access your vendor dashboard once approved.
           </p>
-          <Button variant="primary" onClick={() => navigate('/vendor')}>Go to vendor dashboard</Button>
+          <div className="flex items-center justify-center gap-2 wrap">
+            <Button variant="primary" onClick={() => navigate('/vendor')}>Go to vendor dashboard</Button>
+            {!user?.email_verified_at && (
+              <Button variant="outline" onClick={() => navigate('/vendor/security')}>Verify my email</Button>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -349,7 +364,14 @@ export default function VendorRegister() {
         </div>
       </div>
 
-      <form className="card" onSubmit={submit} style={{ padding: '26px 24px' }}>
+      <form
+        className="card"
+        onSubmit={submit}
+        style={{ padding: '26px 24px' }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault()
+        }}
+      >
         {activeStep.icon && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
             <activeStep.icon size={18} color="var(--primary)" />

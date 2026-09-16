@@ -13,12 +13,13 @@ import Timeline from '../../components/admin/Timeline'
 import { Skeleton } from '../../components/ui/Skeleton'
 import ErrorState from '../../components/admin/ErrorState'
 import { money, formatDateTime } from '../../utils/format'
+import { qrDataUrl, orderTrackUrl } from '../../utils/qr'
 import { useToast } from '../../context/ToastContext'
 
 const esc = (v) =>
   String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-const buildDocHtml = ({ docTitle, docLines, metaRows, billTo, addrHtml, groupsHtml, totalsHtml, footer }) => {
+const buildDocHtml = ({ docTitle, docLines, metaRows, billTo, addrHtml, groupsHtml, totalsHtml, footer, qrHtml = '' }) => {
   const meta = metaRows
     .map(([l, v]) => `<div><b>${esc(l)}</b><span>${esc(v)}</span></div>`)
     .join('')
@@ -60,9 +61,13 @@ const buildDocHtml = ({ docTitle, docLines, metaRows, billTo, addrHtml, groupsHt
   .group-head { display: flex; gap: 14px; align-items: baseline; margin-top: 16px; font-size: 13px; }
   .group-head span { font-size: 11px; color: #555; }
   .group-sep { height: 14px; }
-  .totals { width: 300px; margin-left: auto; margin-top: 18px; }
+  .totals { width: 300px; }
   .trow { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
   .trow.total { border-top: 2px solid #111; margin-top: 4px; padding-top: 8px; font-size: 16px; font-weight: 900; }
+  .totals-duo { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-top: 18px; }
+  .qrcode { text-align: center; }
+  .qrcode img { width: 130px; height: 130px; border: 1px solid #ddd; border-radius: 6px; padding: 6px; background: #fff; }
+  .qrcode .qcap { font-size: 10.5px; color: #555; margin-top: 5px; max-width: 150px; }
   .foot { margin-top: 34px; padding-top: 10px; border-top: 1px solid #ddd; text-align: center; font-size: 11.5px; color: #555; }
 </style>
 </head>
@@ -96,8 +101,11 @@ const buildDocHtml = ({ docTitle, docLines, metaRows, billTo, addrHtml, groupsHt
       ${groupsHtml}
     </div>
 
-    <div class="totals">
-      ${totalsHtml}
+    <div class="totals-duo" style="justify-content:${qrHtml ? 'space-between' : 'flex-end'}">
+      <div class="totals">
+        ${totalsHtml}
+      </div>
+      ${qrHtml}
     </div>
 
     <div class="foot">
@@ -436,7 +444,12 @@ export default function AdminOrderDetail() {
     setTimeout(() => win.print(), 300)
   }
 
-  const printSlip = () => {
+  const printSlip = async () => {
+    const trackUrl = orderTrackUrl(order)
+    const qr = trackUrl ? await qrDataUrl(trackUrl, 200) : null
+    const qrHtml = qr
+      ? `<div class="qrcode"><img src="${qr}" alt="Track order QR" /><div class="qcap">Scan to track this order</div></div>`
+      : ''
     printWindow(buildDocHtml({
       docTitle: 'Package Slip / Bill',
       docLines: `Date: ${formatDateTime(order.created_at || order.placed_at)}`,
@@ -445,7 +458,8 @@ export default function AdminOrderDetail() {
       addrHtml: addrBlock,
       groupsHtml,
       totalsHtml: totalRows,
-      footer: `Thank you for shopping with Gosika Marketplace &nbsp;·&nbsp; This is a system-generated package slip / delivery bill for order ${esc(order.order_number || order.id)}. It is not a tax invoice.`
+      footer: `Thank you for shopping with Gosika Marketplace &nbsp;·&nbsp; This is a system-generated package slip / delivery bill for order ${esc(order.order_number || order.id)}. It is not a tax invoice.`,
+      qrHtml
     }))
   }
 

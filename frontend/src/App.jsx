@@ -59,6 +59,7 @@ import VendorStoreEdit from './pages/vendor/VendorStoreEdit'
 import VendorBankAccounts from './pages/vendor/VendorBankAccounts'
 import VendorBrandRequests from './pages/vendor/VendorBrandRequests'
 import VendorProfile from './pages/vendor/VendorProfile'
+import VendorProfileSettings from './pages/vendor/VendorProfileSettings'
 
 import VendorInventory from './pages/vendor/Inventory'
 import VendorReviews from './pages/vendor/Reviews'
@@ -125,6 +126,7 @@ import AdminSettings from './pages/admin/AdminSettings'
 import AdminAuditLogs from './pages/admin/AdminAuditLogs'
 import AdminPaymentMethods from './pages/admin/AdminPaymentMethods'
 import AdminSystemLogs from './pages/admin/AdminSystemLogs'
+import AdminProfile from './pages/admin/AdminProfile'
 
 import DeliveryLayout from './components/layout/DeliveryLayout'
 import DeliveryDashboard from './pages/delivery/DeliveryDashboard'
@@ -151,6 +153,7 @@ import DeliveryFailures from './pages/delivery/DeliveryFailures'
 import DeliveryCodSettlement from './pages/delivery/DeliveryCodSettlement'
 import DeliveryAvailability from './pages/delivery/DeliveryAvailability'
 import DeliverySecurity from './pages/delivery/DeliverySecurity'
+import DeliveryProfileSettings from './pages/delivery/DeliveryProfileSettings'
 
 function StandaloneCustomerShell({ children }) {
   const navigate = useNavigate()
@@ -268,6 +271,7 @@ export default function App() {
         <Route path="bank-accounts" element={<VendorBankAccounts />} />
         <Route path="brand-requests" element={<VendorBrandRequests />} />
         <Route path="profile" element={<VendorProfile />} />
+        <Route path="settings" element={<VendorProfileSettings />} />
         <Route path="*" element={<SectionPage />} />
       </Route>
 
@@ -337,6 +341,8 @@ export default function App() {
         <Route path="system/gateways" element={<AdminPaymentMethods />} />
         <Route path="system/logs" element={<AdminSystemLogs />} />
         <Route path="system/settings" element={<AdminSettings />} />
+        <Route path="profile" element={<AdminProfile />} />
+        <Route path="profile" element={<AdminProfile />} />
 
         {/* Backward-Compatible Redirects */}
         <Route path="vendors" element={<Navigate to="/admin/marketplace/vendors" replace />} />
@@ -397,6 +403,7 @@ export default function App() {
         <Route path="profile" element={<DeliveryProfile />} />
         <Route path="vehicle" element={<DeliveryVehicle />} />
         <Route path="settings" element={<DeliverySettings />} />
+        <Route path="profile-settings" element={<DeliveryProfileSettings />} />
         <Route path="support" element={<DeliverySupport />} />
         <Route path="*" element={<SectionPage />} />
       </Route>

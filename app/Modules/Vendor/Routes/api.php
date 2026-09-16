@@ -9,11 +9,18 @@ use App\Modules\Vendor\Presentation\Http\Controllers\VendorSecurityController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
-    Route::post('apply', [VendorController::class, 'apply'])->withoutMiddleware(['auth:sanctum', 'ensure:vendor']);
+    Route::post('apply', [VendorController::class, 'apply'])->withoutMiddleware(['ensure:vendor']);
     Route::get('me', [VendorController::class, 'myVendor']);
     Route::put('me', [VendorController::class, 'update']);
     Route::post('kyc', [VendorController::class, 'submitKyc']);
     Route::post('documents', [VendorController::class, 'uploadDocument']);
+
+    Route::get('profile', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'show']);
+    Route::put('profile', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'update']);
+    Route::post('profile/avatar', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'uploadAvatar']);
+    Route::put('profile/password', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updatePassword']);
+    Route::put('profile/notifications', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updateNotifications']);
+    Route::put('profile/preferences', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updatePreferences']);
 
     Route::get('security', [VendorSecurityController::class, 'index']);
     Route::put('password', [VendorSecurityController::class, 'changePassword']);

@@ -30,15 +30,21 @@ class VendorOnboardingService
             throw new DomainException('A vendor application already exists for this account.');
         }
 
-        return Vendor::query()->create([
-            'user_id' => $user->id,
-            'company_name' => $dto->company_name,
-            'business_email' => $dto->business_email,
-            'business_phone' => $dto->business_phone,
-            'pan_vat' => $dto->pan_vat,
-            'registration_number' => $dto->registration_number,
-            'status' => VendorStatus::PENDING,
-        ]);
+        return DB::transaction(function () use ($user, $dto) {
+            if (! $user->hasRole(Roles::VENDOR_ADMIN)) {
+                $user->assignRole(Roles::VENDOR_ADMIN);
+            }
+
+            return Vendor::query()->create([
+                'user_id' => $user->id,
+                'company_name' => $dto->company_name,
+                'business_email' => $dto->business_email,
+                'business_phone' => $dto->business_phone,
+                'pan_vat' => $dto->pan_vat,
+                'registration_number' => $dto->registration_number,
+                'status' => VendorStatus::PENDING,
+            ]);
+        });
     }
 
     public function submitKyc(Vendor $vendor, KycDTO $dto): VendorKyc

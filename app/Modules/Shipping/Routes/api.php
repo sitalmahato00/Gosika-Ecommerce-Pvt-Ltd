@@ -17,6 +17,13 @@ Route::prefix('v1/delivery-partner')->middleware(['auth:sanctum', 'ensure:delive
     Route::post('documents', [DeliveryPartnerController::class, 'uploadDocument']);
     Route::delete('documents/{document}', [DeliveryPartnerController::class, 'deleteDocument']);
 
+    Route::get('profile', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'show']);
+    Route::put('profile', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'update']);
+    Route::post('profile/avatar', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'uploadAvatar']);
+    Route::put('profile/password', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updatePassword']);
+    Route::put('profile/notifications', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updateNotifications']);
+    Route::put('profile/preferences', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updatePreferences']);
+
     Route::get('assignments', [DeliveryPartnerController::class, 'assignments']);
     Route::get('assignments/{assignment}', [DeliveryPartnerController::class, 'assignment']);
     Route::post('assignments/{assignment}/accept', [DeliveryPartnerController::class, 'accept']);

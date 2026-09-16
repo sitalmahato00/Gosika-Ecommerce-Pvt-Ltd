@@ -44,6 +44,7 @@ export default function Login() {
       toast.success(`Welcome back, ${user.name?.split(' ')[0] || 'there'}!`)
       if (user.roles?.includes('super_admin')) navigate('/admin')
       else if (user.roles?.includes('vendor_admin')) navigate('/vendor')
+      else if (user.roles?.includes('delivery_partner')) navigate('/delivery')
       else navigate(from, { state: fromState })
     } catch (err) {
       setError(errorMessage(err))

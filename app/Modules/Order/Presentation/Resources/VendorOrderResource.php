@@ -56,6 +56,8 @@ class VendorOrderResource extends JsonResource
 
         return [
             'id' => $this->uuid,
+            'order_id' => $this->order?->uuid,
+            'order_number' => $this->order?->order_number,
             'vendor_order_number' => $this->vendor_order_number,
             'vendor_id' => $this->vendor?->uuid,
             'vendor_name' => $this->vendor?->company_name,

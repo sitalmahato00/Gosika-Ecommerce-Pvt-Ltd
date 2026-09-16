@@ -13,6 +13,7 @@ class UserResource extends JsonResource
             'id' => $this->uuid,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
+            'name' => $this->full_name,
             'full_name' => $this->full_name,
             'email' => $this->email,
             'phone' => $this->phone,
@@ -21,6 +22,8 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at?->toISOString(),
             'phone_verified_at' => $this->phone_verified_at?->toISOString(),
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->pluck('name')),
+            'address' => $this->meta['address'] ?? null,
+            'meta' => $this->meta,
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

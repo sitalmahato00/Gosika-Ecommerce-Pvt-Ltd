@@ -86,9 +86,13 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  const reloadUser = useCallback(async () => {
+    return refreshUser()
+  }, [refreshUser])
+
   const value = useMemo(() => ({
-    user, booted, login, saveSession, logout, updateUser, refreshUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer
-  }), [user, booted, login, saveSession, logout, updateUser, refreshUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer])
+    user, booted, login, saveSession, logout, updateUser, refreshUser, reloadUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer
+  }), [user, booted, login, saveSession, logout, updateUser, refreshUser, reloadUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer])
 
   return (
     <AuthContext.Provider value={value}>

@@ -62,8 +62,8 @@ class AuthService
             throw new DomainException('Invalid credentials.', 401);
         }
 
-        if ($user->status !== UserStatus::ACTIVE) {
-            throw new DomainException('Your account is not active. Please verify your email and phone.', 403);
+        if (in_array($user->status, [UserStatus::SUSPENDED, UserStatus::BLOCKED], true)) {
+            throw new DomainException('Your account has been suspended. Please contact support.', 403);
         }
 
         $user->forceFill([

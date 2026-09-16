@@ -65,7 +65,7 @@ export default function Register() {
             We sent a verification code to <strong>{pendingEmail}</strong>. In the dev environment, check <code>storage/logs/notifications.log</code> for your OTP.
           </div>
           <div className="flex items-center justify-center gap-2 wrap" style={{ marginTop: 16 }}>
-            <Link to="/verify" className="btn btn-primary">Verify email</Link>
+            <Link to="/account/security" className="btn btn-primary">Verify my email</Link>
             <Link to="/login" className="btn btn-outline">Go to login</Link>
           </div>
         </div>
