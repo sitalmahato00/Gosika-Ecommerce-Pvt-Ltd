@@ -34,6 +34,9 @@ return new class extends Migration
             $table->timestamp('cancelled_at')->nullable();
             $table->string('cancelled_reason')->nullable();
             $table->unsignedBigInteger('cancelled_by')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -59,6 +62,9 @@ return new class extends Migration
             $table->decimal('vendor_payable', 12, 2)->default(0);
             $table->string('delivery_partner_name', 180)->nullable();
             $table->json('meta')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -84,6 +90,8 @@ return new class extends Migration
             $table->decimal('line_total', 12, 2)->default(0);
             $table->string('delivery_status', 25)->default('pending')->index();
             $table->json('meta')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['order_id']);
@@ -93,12 +101,15 @@ return new class extends Migration
 
         Schema::create('order_status_history', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->morphs('trackable');
             $table->string('from_status', 25)->nullable();
             $table->string('to_status', 25);
             $table->string('reason', 500)->nullable();
             $table->unsignedBigInteger('actor_user_id')->nullable();
             $table->json('meta')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['trackable_type', 'trackable_id', 'created_at'], 'osh_trackable_idx');
@@ -123,6 +134,8 @@ return new class extends Migration
             $table->unsignedBigInteger('reviewed_by')->nullable();
             $table->timestamp('reviewed_at')->nullable();
             $table->timestamp('window_expires_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['user_id', 'status']);

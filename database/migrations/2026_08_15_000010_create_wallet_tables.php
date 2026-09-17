@@ -17,6 +17,8 @@ return new class extends Migration
             $table->decimal('pending_balance', 12, 2)->default(0);
             $table->string('currency', 3)->default('NPR');
             $table->unsignedBigInteger('version')->default(1)->comment('Optimistic locking');
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
@@ -33,6 +35,8 @@ return new class extends Migration
             $table->string('status', 20)->default('completed');
             $table->text('description')->nullable();
             $table->json('meta')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['reference_type', 'reference_id']);
@@ -54,6 +58,8 @@ return new class extends Migration
             $table->timestamp('adjusted_at')->nullable();
             $table->string('adjustment_reason', 500)->nullable();
             $table->timestamp('reversed_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique('vendor_order_id');
@@ -76,6 +82,8 @@ return new class extends Migration
             $table->timestamp('generated_at')->nullable();
             $table->timestamp('paid_at')->nullable();
             $table->json('meta')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['vendor_id', 'status']);
@@ -98,6 +106,8 @@ return new class extends Migration
             $table->string('rejection_reason', 500)->nullable();
             $table->timestamp('paid_at')->nullable();
             $table->json('meta')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['vendor_id', 'status']);
@@ -114,6 +124,8 @@ return new class extends Migration
             $table->string('status', 20)->default('processing');
             $table->timestamp('paid_at')->nullable();
             $table->json('meta')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
     }

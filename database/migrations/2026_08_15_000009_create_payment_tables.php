@@ -31,6 +31,9 @@ return new class extends Migration
             $table->timestamp('initiated_at')->nullable();
             $table->timestamp('verified_at')->nullable();
             $table->timestamp('expires_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -40,6 +43,7 @@ return new class extends Migration
 
         Schema::create('payment_attempts', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('payment_id')->constrained()->cascadeOnDelete();
             $table->unsignedTinyInteger('attempt_number')->default(1);
             $table->string('status', 25)->default('initiated');
@@ -49,17 +53,22 @@ return new class extends Migration
             $table->text('error_message')->nullable();
             $table->timestamp('initiated_at')->nullable();
             $table->timestamp('completed_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
         Schema::create('payment_status_history', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('payment_id')->constrained()->cascadeOnDelete();
             $table->string('from_status', 25)->nullable();
             $table->string('to_status', 25);
             $table->string('reason', 500)->nullable();
             $table->unsignedBigInteger('actor_user_id')->nullable();
             $table->json('meta')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['payment_id', 'created_at']);
@@ -82,6 +91,8 @@ return new class extends Migration
             $table->unsignedBigInteger('initiated_by')->nullable();
             $table->timestamp('initiated_at')->nullable();
             $table->timestamp('completed_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
@@ -99,6 +110,8 @@ return new class extends Migration
             $table->json('meta')->nullable();
             $table->unsignedBigInteger('resolved_by')->nullable();
             $table->timestamp('resolved_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
     }

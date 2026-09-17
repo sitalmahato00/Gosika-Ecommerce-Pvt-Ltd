@@ -4,11 +4,14 @@ namespace App\Modules\Vendor\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
+use App\Modules\Shared\Domain\Enums\KycStatus;
+use App\Modules\Shared\Domain\Enums\VendorStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Application\Services\VendorOnboardingService;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
+use App\Modules\Vendor\Infrastructure\Models\VendorKyc;
 use App\Modules\Vendor\Presentation\Http\Requests\VendorReviewRequest;
 use App\Modules\Vendor\Presentation\Resources\StoreResource;
 use App\Modules\Vendor\Presentation\Resources\VendorResource;

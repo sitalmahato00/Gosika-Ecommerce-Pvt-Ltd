@@ -20,6 +20,9 @@ return new class extends Migration
             $table->string('status', 20)->default('active')->index();
             $table->decimal('tax_rate', 5, 2)->default(0);
             $table->unsignedBigInteger('sort_order')->default(0);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
@@ -32,6 +35,9 @@ return new class extends Migration
             $table->string('logo')->nullable();
             $table->string('description', 1000)->nullable();
             $table->string('status', 20)->default('active')->index();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
@@ -47,6 +53,8 @@ return new class extends Migration
             $table->unsignedBigInteger('reviewed_by')->nullable();
             $table->timestamp('reviewed_at')->nullable();
             $table->text('review_notes')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
@@ -85,6 +93,7 @@ return new class extends Migration
             $table->json('meta')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -107,6 +116,9 @@ return new class extends Migration
             $table->string('image')->nullable();
             $table->json('options')->nullable();
             $table->boolean('is_default')->default(false);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -121,22 +133,30 @@ return new class extends Migration
             $table->string('file_path');
             $table->unsignedInteger('sort_order')->default(0);
             $table->boolean('is_primary')->default(false);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
         Schema::create('product_attributes', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->string('name', 80);
             $table->string('type', 20)->default('text');
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
         Schema::create('product_attribute_values', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('attribute_id')->constrained('product_attributes')->cascadeOnDelete();
             $table->foreignId('variant_id')->nullable()->constrained('product_variants')->cascadeOnDelete();
             $table->string('value', 255);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 

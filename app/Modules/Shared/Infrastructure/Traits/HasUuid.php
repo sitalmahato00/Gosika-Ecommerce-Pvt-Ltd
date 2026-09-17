@@ -2,6 +2,7 @@
 
 namespace App\Modules\Shared\Infrastructure\Traits;
 
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 trait HasUuid
@@ -9,8 +10,9 @@ trait HasUuid
     protected static function bootHasUuid(): void
     {
         static::creating(function ($model) {
-            if (empty($model->{$model->getUuidColumn()})) {
-                $model->{$model->getUuidColumn()} = Str::uuid()->toString();
+            $col = $model->getUuidColumn();
+            if (Schema::hasColumn($model->getTable(), $col) && empty($model->{$col})) {
+                $model->{$col} = Str::uuid()->toString();
             }
         });
     }

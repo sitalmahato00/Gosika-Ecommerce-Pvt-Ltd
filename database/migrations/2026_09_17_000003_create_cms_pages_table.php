@@ -19,6 +19,9 @@ return new class extends Migration
             $table->string('status', 20)->default('draft')->index(); // draft | published
             $table->json('meta')->nullable();
             $table->unsignedInteger('sort_order')->default(0);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

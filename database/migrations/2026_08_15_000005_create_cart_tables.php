@@ -21,6 +21,7 @@ return new class extends Migration
 
         Schema::create('cart_items', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('cart_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->foreignId('variant_id')->nullable()->constrained('product_variants')->cascadeOnDelete();
@@ -28,6 +29,8 @@ return new class extends Migration
             $table->decimal('unit_price', 12, 2)->default(0);
             $table->decimal('total_price', 12, 2)->default(0);
             $table->json('options')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique(['cart_id', 'product_id', 'variant_id'], 'cart_items_unique_line');

@@ -32,6 +32,9 @@ return new class extends Migration
             $table->json('meta')->nullable();
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
@@ -57,6 +60,8 @@ return new class extends Migration
             $table->string('failure_reason', 500)->nullable();
             $table->string('proof_photo')->nullable();
             $table->json('meta')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['delivery_partner_id', 'status']);
@@ -73,6 +78,8 @@ return new class extends Migration
             $table->decimal('longitude', 10, 7)->nullable();
             $table->text('note')->nullable();
             $table->timestamp('tracked_at')->index();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 

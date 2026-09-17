@@ -24,6 +24,8 @@ return new class extends Migration
             $table->unsignedBigInteger('assigned_to')->nullable();
             $table->timestamp('resolved_at')->nullable();
             $table->json('meta')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['user_id', 'status']);
@@ -38,6 +40,8 @@ return new class extends Migration
             $table->text('message');
             $table->boolean('is_internal')->default(false);
             $table->json('attachments')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
     }

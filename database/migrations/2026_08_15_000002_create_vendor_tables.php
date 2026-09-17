@@ -43,6 +43,11 @@ return new class extends Migration
             $table->string('owner_phone', 20)->nullable();
             $table->string('business_type', 60)->nullable();
             $table->string('address', 255)->nullable();
+            $table->string('province', 100)->nullable();
+            $table->string('district', 100)->nullable();
+            $table->string('municipality', 120)->nullable();
+            $table->string('latitude', 20)->nullable();
+            $table->string('longitude', 20)->nullable();
             $table->string('status', 30)->default('draft')->index();
             $table->text('review_notes')->nullable();
             $table->unsignedBigInteger('reviewed_by')->nullable();

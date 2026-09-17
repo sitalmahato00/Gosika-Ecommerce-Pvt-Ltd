@@ -17,6 +17,8 @@ return new class extends Migration
             $table->string('default_shipping_address_id')->nullable();
             $table->string('default_billing_address_id')->nullable();
             $table->json('preferences')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
@@ -39,6 +41,9 @@ return new class extends Migration
             $table->string('latitude', 20)->nullable();
             $table->string('longitude', 20)->nullable();
             $table->boolean('is_default')->default(false);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

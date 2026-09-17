@@ -26,6 +26,8 @@ return new class extends Migration
             $table->json('shipping_breakdown')->nullable();
             $table->json('meta')->nullable();
             $table->timestamp('expires_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
     }

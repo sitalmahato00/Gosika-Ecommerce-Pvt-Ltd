@@ -28,6 +28,9 @@ return new class extends Migration
             $table->string('applies_to', 30)->default('all')->comment('all|store|product');
             $table->json('applies_to_ids')->nullable();
             $table->boolean('is_first_order_only')->default(false);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -37,11 +40,14 @@ return new class extends Migration
 
         Schema::create('coupon_redemptions', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('coupon_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('order_id')->constrained()->cascadeOnDelete();
             $table->decimal('discount_amount', 12, 2)->default(0);
             $table->timestamp('redeemed_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['coupon_id', 'user_id']);

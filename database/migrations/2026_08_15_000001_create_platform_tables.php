@@ -30,6 +30,8 @@ return new class extends Migration
             $table->string('code', 4)->unique();
             $table->string('phone_code', 10)->nullable();
             $table->boolean('is_active')->default(true);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
@@ -40,6 +42,8 @@ return new class extends Migration
             $table->string('name', 120);
             $table->string('code', 20)->nullable();
             $table->boolean('is_active')->default(true);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
@@ -50,6 +54,8 @@ return new class extends Migration
             $table->string('name', 120);
             $table->string('code', 20)->nullable();
             $table->boolean('is_active')->default(true);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
@@ -61,6 +67,8 @@ return new class extends Migration
             $table->string('type', 30)->nullable();
             $table->integer('ward_count')->default(1);
             $table->boolean('is_active')->default(true);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
     }

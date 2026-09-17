@@ -10,8 +10,11 @@ return new class extends Migration
     {
         Schema::create('wishlists', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('name', 120)->default('My Wishlist');
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique(['user_id', 'name']);
@@ -19,8 +22,11 @@ return new class extends Migration
 
         Schema::create('wishlist_items', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('wishlist_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique(['wishlist_id', 'product_id']);
@@ -28,9 +34,12 @@ return new class extends Migration
 
         Schema::create('recently_viewed', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->timestamp('viewed_at')->index();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['user_id', 'viewed_at']);
@@ -51,6 +60,8 @@ return new class extends Migration
             $table->string('status', 20)->default('pending')->index();
             $table->unsignedBigInteger('reviewed_by')->nullable();
             $table->timestamp('reviewed_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique(['user_id', 'product_id', 'vendor_order_item_id'], 'product_reviews_unique_purchase');
@@ -70,6 +81,8 @@ return new class extends Migration
             $table->string('status', 20)->default('pending')->index();
             $table->unsignedBigInteger('reviewed_by')->nullable();
             $table->timestamp('reviewed_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique(['user_id', 'store_id', 'vendor_order_id']);

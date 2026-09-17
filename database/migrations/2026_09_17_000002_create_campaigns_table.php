@@ -24,6 +24,8 @@ return new class extends Migration
             $table->string('status', 20)->default('draft')->index(); // draft | scheduled | active | paused | ended
             $table->unsignedInteger('sort_order')->default(0);
             $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamp('start_date')->nullable();
             $table->timestamp('end_date')->nullable();
             $table->timestamps();
