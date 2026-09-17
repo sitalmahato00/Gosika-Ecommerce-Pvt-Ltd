@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('vendor_wallets', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('vendor_id')->unique()->constrained()->cascadeOnDelete();
             $table->decimal('balance', 12, 2)->default(0);
             $table->decimal('available_balance', 12, 2)->default(0);
@@ -104,6 +105,7 @@ return new class extends Migration
 
         Schema::create('payout_records', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('payout_request_id')->constrained()->cascadeOnDelete();
             $table->string('provider_reference', 120)->nullable();
             $table->decimal('amount', 12, 2)->default(0);

@@ -68,6 +68,7 @@ return new class extends Migration
 
         Schema::create('order_items', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('order_id')->constrained()->cascadeOnDelete();
             $table->foreignId('vendor_order_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('vendor_id')->nullable()->constrained()->nullOnDelete();

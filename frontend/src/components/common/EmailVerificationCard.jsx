@@ -1,62 +1,19 @@
-import React, { useRef, useState, useEffect } from 'react'
-import { Mail, MailCheck, RefreshCw, ShieldCheck, Send } from 'lucide-react'
-import api from '../../api/client'
+import React from 'react'
+import { Mail, MailCheck, RefreshCw, ShieldCheck } from 'lucide-react'
 import Button from '../ui/Button'
 import Spinner from '../ui/Spinner'
-import { useToast } from '../../context/ToastContext'
-import { errorMessage } from '../../utils/format'
+import useEmailVerification from '../../hooks/useEmailVerification'
 
 export default function EmailVerificationCard({ user, onVerified }) {
-  const toast = useToast()
-  const [code, setCode] = useState('')
-  const [sending, setSending] = useState(false)
-  const [verifying, setVerifying] = useState(false)
-  const [sent, setSent] = useState(false)
-  const [error, setError] = useState(null)
-  const sentOnce = useRef(false)
   const email = user?.email
   const verified = !!user?.email_verified_at
 
-  useEffect(() => {
-    if (!verified && email && !sentOnce.current) {
-      sentOnce.current = true
-      sendCode()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [email, verified])
-
-  const sendCode = async () => {
-    setError(null)
-    setSending(true)
-    try {
-      await api.post('/auth/email/resend', { email })
-      setSent(true)
-      toast.success(`Verification code sent to ${email}`)
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setSending(false)
-    }
-  }
-
-  const verify = async (e) => {
-    e.preventDefault()
-    setError(null)
-    if (!/^\d{6}$/.test(code)) {
-      setError('Enter the 6-digit code you received by email.')
-      return
-    }
-    setVerifying(true)
-    try {
-      await api.post('/auth/email/verify', { email, code })
-      toast.success('Email verified — your account is now active.')
-      if (onVerified) await onVerified()
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setVerifying(false)
-    }
-  }
+  const { code, setCode, sending, verifying, sent, error, resend, verify } = useEmailVerification({
+    email,
+    verified,
+    onVerified,
+    autoSend: true,
+  })
 
   if (verified || !email) return null
 
@@ -113,14 +70,11 @@ export default function EmailVerificationCard({ user, onVerified }) {
             {verifying ? <Spinner size={15} color="#fff" /> : <ShieldCheck size={15} />}
             {verifying ? 'Verifying…' : 'Verify Email'}
           </Button>
-          <Button type="button" variant="outline" onClick={sendCode} disabled={sending}>
+          <Button type="button" variant="outline" onClick={resend} disabled={sending}>
             {sending ? <Spinner size={15} /> : <RefreshCw size={15} />}
             {sending ? 'Sending…' : sent ? 'Resend Code' : 'Send Code'}
           </Button>
         </div>
-        <p className="muted" style={{ fontSize: 11.5, margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Send size={11} /> Already have a code from sign-up? Enter it directly — no need to resend.
-        </p>
       </form>
     </div>
   )

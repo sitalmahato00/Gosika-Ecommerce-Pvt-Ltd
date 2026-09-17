@@ -165,7 +165,7 @@ export const VENDOR_NAV = [
 
   { section: 'ACCOUNT' },
   { to: '/vendor/profile', label: 'Profile', icon: 'User' },
-  { to: '/vendor/verification', label: 'Business Verification', icon: 'IdCard' },
+  { to: '/vendor/verification', label: 'KYC Verification', icon: 'IdCard' },
   { to: '/vendor/bank-accounts', label: 'Bank Account', icon: 'Landmark' },
   { to: '/vendor/security', label: 'Security', icon: 'Lock' },
   { to: '/vendor/notifications', label: 'Notifications', icon: 'Bell' },

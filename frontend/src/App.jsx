@@ -44,6 +44,7 @@ import AccountMyReviews from './pages/account/AccountMyReviews'
 import AccountSecurity from './pages/account/AccountSecurity'
 import AccountNotifications from './pages/account/Notifications'
 import { AccountTitle } from './pages/account/AccountUI'
+import EmailVerificationPrompt from './components/common/EmailVerificationPrompt'
 
 import VendorRegister from './pages/vendor/VendorRegister'
 import VendorDashboard from './pages/vendor/VendorDashboard'
@@ -59,7 +60,6 @@ import VendorStoreEdit from './pages/vendor/VendorStoreEdit'
 import VendorBankAccounts from './pages/vendor/VendorBankAccounts'
 import VendorBrandRequests from './pages/vendor/VendorBrandRequests'
 import VendorProfile from './pages/vendor/VendorProfile'
-import VendorProfileSettings from './pages/vendor/VendorProfileSettings'
 
 import VendorInventory from './pages/vendor/Inventory'
 import VendorReviews from './pages/vendor/Reviews'
@@ -227,7 +227,9 @@ function CustomerLayout() {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <EmailVerificationPrompt />
+      <Routes>
       <Route path="/vendor/register" element={<StandaloneCustomerShell><VendorRegister /></StandaloneCustomerShell>} />
       <Route path="/*" element={<CustomerLayout />} />
 
@@ -271,7 +273,7 @@ export default function App() {
         <Route path="bank-accounts" element={<VendorBankAccounts />} />
         <Route path="brand-requests" element={<VendorBrandRequests />} />
         <Route path="profile" element={<VendorProfile />} />
-        <Route path="settings" element={<VendorProfileSettings />} />
+        <Route path="settings" element={<Navigate to="/vendor/profile" replace />} />
         <Route path="*" element={<SectionPage />} />
       </Route>
 
@@ -408,5 +410,6 @@ export default function App() {
         <Route path="*" element={<SectionPage />} />
       </Route>
     </Routes>
+    </>
   )
 }

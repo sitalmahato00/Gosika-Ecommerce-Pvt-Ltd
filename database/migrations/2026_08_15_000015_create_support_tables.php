@@ -32,6 +32,7 @@ return new class extends Migration
 
         Schema::create('ticket_messages', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('support_ticket_id')->constrained()->cascadeOnDelete();
             $table->unsignedBigInteger('sender_user_id');
             $table->text('message');

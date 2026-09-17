@@ -36,7 +36,7 @@ class VendorController extends Controller
 
     public function myVendor(Request $request): JsonResponse
     {
-        $vendor = $request->user()->vendor()->with(['kyc', 'stores', 'bankAccounts'])->first();
+        $vendor = $request->user()->vendor()->with(['kyc', 'stores', 'bankAccounts', 'documents'])->first();
 
         if (! $vendor) {
             throw new DomainException('No vendor application found for this account.', 404);

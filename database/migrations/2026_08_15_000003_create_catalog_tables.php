@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('image')->nullable();
             $table->string('icon')->nullable();
             $table->string('status', 20)->default('active')->index();
+            $table->decimal('tax_rate', 5, 2)->default(0);
             $table->unsignedBigInteger('sort_order')->default(0);
             $table->timestamps();
             $table->softDeletes();
@@ -114,6 +115,7 @@ return new class extends Migration
 
         Schema::create('product_images', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->foreignId('variant_id')->nullable()->constrained('product_variants')->cascadeOnDelete();
             $table->string('file_path');

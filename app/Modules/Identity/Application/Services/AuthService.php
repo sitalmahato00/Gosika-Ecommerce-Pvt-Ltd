@@ -10,9 +10,11 @@ use App\Modules\Identity\Infrastructure\Services\IdentityNotificationService;
 use App\Modules\Identity\Infrastructure\Services\OtpService;
 use App\Modules\Shared\Domain\Enums\UserStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AuthService
 {
@@ -131,25 +133,64 @@ class AuthService
 
     public function forgotPassword(string $email): string
     {
-        $status = Password::broker()->sendResetLink(['email' => $email]);
+        $user = User::query()->where('email', $email)->first();
 
-        return $status === Password::RESET_LINK_SENT
-            ? 'Password reset link sent.'
-            : throw new DomainException('Unable to send reset link. Please check your email address.', 422);
+        if (! $user) {
+            throw new DomainException('We could not find an account with that email address.', 422);
+        }
+
+        $code = (string) random_int(100000, 999999);
+        Cache::put($this->resetOtpKey($user->email), [
+            'code' => hash('sha256', $code),
+            'attempts' => 0,
+        ], now()->addMinutes(10));
+
+        Log::channel('notification')->info('Password reset OTP generated', [
+            'user' => $user->uuid,
+            'email' => $user->email,
+            'code' => $code,
+        ]);
+
+        $this->notifications->sendPasswordResetOtp($user, $code);
+
+        return 'Password reset code sent.';
     }
 
     public function resetPassword(array $credentials): void
     {
-        $status = Password::broker()->reset($credentials, function ($user, $password) {
-            $user->forceFill([
-                'password' => $password,
-                'remember_token' => null,
-            ])->save();
-        });
+        $key = $this->resetOtpKey($credentials['email']);
+        $entry = Cache::get($key);
 
-        if ($status !== Password::PASSWORD_RESET) {
-            throw new DomainException('Unable to reset password. The link may be invalid or expired.', 422);
+        if (! $entry) {
+            throw new DomainException('Invalid or expired reset code.', 422);
         }
+
+        if (($entry['attempts'] ?? 0) >= 5) {
+            Cache::forget($key);
+
+            throw new DomainException('Too many invalid attempts. Please request a new code.', 422);
+        }
+
+        if (! hash_equals($entry['code'], hash('sha256', $credentials['otp']))) {
+            $entry['attempts'] = ($entry['attempts'] ?? 0) + 1;
+            Cache::put($key, $entry, now()->addMinutes(10));
+
+            throw new DomainException('Invalid verification code.', 422);
+        }
+
+        Cache::forget($key);
+
+        $user = User::query()->where('email', $credentials['email'])->firstOrFail();
+
+        $user->forceFill([
+            'password' => $credentials['password'],
+            'remember_token' => null,
+        ])->save();
+    }
+
+    private function resetOtpKey(string $email): string
+    {
+        return 'password_reset_otp:'.Str::lower(trim($email));
     }
 
     public function activateIfVerified(User $user): void

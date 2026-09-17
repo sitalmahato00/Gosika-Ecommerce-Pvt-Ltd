@@ -1,12 +1,12 @@
-&lt;!DOCTYPE html&gt;
-&lt;html lang="en"&gt;
-&lt;head&gt;
-    &lt;meta charset="utf-8"&gt;
-    &lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;
-    &lt;meta name="x-apple-disable-message-reformatting"&gt;
-    &lt;meta http-equiv="X-UA-Compatible" content="IE=edge"&gt;
-    &lt;title&gt;{{ $brand['email_header'] ?? $brand['brand_name'] }}&lt;/title&gt;
-    &lt;style&gt;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{{ $brand['email_header'] ?? $brand['brand_name'] }}</title>
+    <style>
         body { margin: 0; padding: 0; background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; }
         table { border-collapse: collapse; }
         .wrapper { width: 100%; table-layout: fixed; background-color: #f4f6f9; padding: 24px 0; }
@@ -35,32 +35,32 @@
         .footer { background: #f8fafc; padding: 22px 32px; font-size: 12px; color: #64748b; }
         .footer a { color: #ff5500; text-decoration: none; }
         @media (max-width: 600px) { .content, .header, .footer { padding-left: 20px; padding-right: 20px; } }
-    &lt;/style&gt;
-&lt;/head&gt;
-&lt;body&gt;
-&lt;table role="presentation" class="wrapper"&gt;
-    &lt;tr&gt;&lt;td align="center"&gt;
-        &lt;table role="presentation" class="container"&gt;
-            &lt;tr&gt;&lt;td&gt;
-                &lt;div class="card"&gt;
-                    &lt;div class="header"&gt;
-                        &lt;div class="header-brand"&gt;
-                            &lt;span style="font-weight:900; color:#ff5500; font-size:20px; letter-spacing:-0.02em;"&gt;{{ $brand['brand_name'] }}&lt;/span&gt;
-                        &lt;/div&gt;
-                        &lt;div class="header-title"&gt;{{ $brand['email_header'] }}&lt;/div&gt;
-                    &lt;/div&gt;
-                    &lt;div class="content"&gt;
+    </style>
+</head>
+<body>
+<table role="presentation" class="wrapper">
+    <tr><td align="center">
+        <table role="presentation" class="container">
+            <tr><td>
+                <div class="card">
+                    <div class="header">
+                        <div class="header-brand">
+                            <span style="font-weight:900; color:#ff5500; font-size:20px; letter-spacing:-0.02em;">{{ $brand['brand_name'] }}</span>
+                        </div>
+                        <div class="header-title">{{ $brand['email_header'] }}</div>
+                    </div>
+                    <div class="content">
                         @yield('content')
-                    &lt;/div&gt;
-                    &lt;div class="footer"&gt;
-                        &lt;p style="margin:0 0 6px; font-weight:700; color:#0f172a;"&gt;{{ $brand['brand_name'] }} Marketplace&lt;/p&gt;
-                        &lt;p style="margin:0 0 4px;"&gt;Questions? We are here to help — &lt;a href="mailto:{{ $brand['support_email'] }}"&gt;{{ $brand['support_email'] }}&lt;/a&gt; or call &lt;a href="tel:{{ $brand['support_phone'] }}"&gt;{{ $brand['support_phone'] }}&lt;/a&gt;&lt;/p&gt;
-                        &lt;p style="margin:0;"&gt;You are receiving this email because of activity on your {{ $brand['brand_name'] }} account.&lt;/p&gt;
-                    &lt;/div&gt;
-                &lt;/div&gt;
-            &lt;/td&gt;&lt;/tr&gt;
-        &lt;/table&gt;
-    &lt;/td&gt;&lt;/tr&gt;
-&lt;/table&gt;
-&lt;/body&gt;
-&lt;/html&gt;
+                    </div>
+                    <div class="footer">
+                        <p style="margin:0 0 6px; font-weight:700; color:#0f172a;">{{ $brand['brand_name'] }} Marketplace</p>
+                        <p style="margin:0 0 4px;">Questions? We are here to help — <a href="mailto:{{ $brand['support_email'] }}">{{ $brand['support_email'] }}</a> or call <a href="tel:{{ $brand['support_phone'] }}">{{ $brand['support_phone'] }}</a></p>
+                        <p style="margin:0;">You are receiving this email because of activity on your {{ $brand['brand_name'] }} account.</p>
+                    </div>
+                </div>
+            </td></tr>
+        </table>
+    </td></tr>
+</table>
+</body>
+</html>

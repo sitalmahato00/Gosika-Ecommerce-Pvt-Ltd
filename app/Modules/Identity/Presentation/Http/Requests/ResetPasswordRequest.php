@@ -15,7 +15,7 @@ class ResetPasswordRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'token' => ['required', 'string'],
+            'otp' => ['required', 'string', 'digits:6'],
             'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
         ];

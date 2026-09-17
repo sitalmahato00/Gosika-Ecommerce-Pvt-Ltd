@@ -65,6 +65,7 @@ return new class extends Migration
 
         Schema::create('delivery_tracking', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('assignment_id')->constrained('delivery_assignments')->cascadeOnDelete();
             $table->foreignId('vendor_order_id')->constrained()->cascadeOnDelete();
             $table->string('status', 25);

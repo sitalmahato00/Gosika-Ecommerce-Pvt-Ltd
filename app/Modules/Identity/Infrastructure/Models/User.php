@@ -89,9 +89,4 @@ class User extends Authenticatable
     {
         return $this->hasOne(\App\Modules\Shipping\Infrastructure\Models\DeliveryPartner::class);
     }
-
-    public function sendPasswordResetNotification($token): void
-    {
-        app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->passwordResetLink($this, $token);
-    }
 }

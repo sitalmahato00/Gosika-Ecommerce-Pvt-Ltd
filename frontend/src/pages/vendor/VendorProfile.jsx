@@ -1,417 +1,707 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
-  Building2, ShieldCheck, CheckCircle2, UploadCloud, FileText,
-  MapPin, Phone, Mail, Award, Check, Percent, CalendarDays
+  User, Mail, Phone, Lock, Bell, Globe, Building2, ShieldCheck, ArrowRight,
+  Camera, Save, Eye, EyeOff, CheckCircle2, Clock, XCircle
 } from 'lucide-react'
 import api from '../../api/client'
-import StatusBadge from '../../components/commerce/StatusBadge'
-import { Skeleton } from '../../components/ui/Skeleton'
-import ErrorState from '../../components/ui/ErrorState'
+import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
 import Input from '../../components/ui/Input'
-import Select from '../../components/ui/Select'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
-import LocationMapPicker from '../../components/common/LocationMapPicker'
-import { useToast } from '../../context/ToastContext'
-import { errorMessage, formatDate } from '../../utils/format'
+import StatusBadge from '../../components/commerce/StatusBadge'
+import { apiImage, errorMessage } from '../../utils/format'
 
-const DOC_CARDS = [
-  { type: 'citizenship_front', label: 'Citizenship (Front)' },
-  { type: 'citizenship_back', label: 'Citizenship (Back)' },
-  { type: 'pan_vat', label: 'PAN / VAT Certificate' },
-  { type: 'business_registration', label: 'Company Darta Certificate' },
+const TABS = [
+  { id: 'profile', label: 'Profile Information', icon: User },
+  { id: 'security', label: 'Security & Password', icon: Lock },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'preferences', label: 'Preferences', icon: Globe },
 ]
 
 export default function VendorProfile() {
   const toast = useToast()
-  const [vendor, setVendor] = useState(null)
-  const [basic, setBasic] = useState({
-    company_name: '',
-    business_email: '',
-    business_phone: '',
-    pan_vat: '',
-    registration_number: '',
-  })
-  const [kyc, setKyc] = useState({
-    owner_full_name: '',
-    owner_citizenship_number: '',
-    owner_email: '',
-    owner_phone: '',
-    business_type: '',
-    address: '',
-    province: '',
-    district: '',
-    city: '',
-    coordinates: null,
-  })
-  const [previews, setPreviews] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [saving, setSaving] = useState('')
-  const [uploading, setUploading] = useState('')
+  const { user, updateUser } = useAuth()
+  const fileInputRef = useRef(null)
+  const [activeTab, setActiveTab] = useState('profile')
+  const [saving, setSaving] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [vendorStatus, setVendorStatus] = useState(null)
+  const [kycStatus, setKycStatus] = useState(null)
+  const [companyName, setCompanyName] = useState('')
 
-  const load = () => {
-    setLoading(true)
-    setError(null)
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    company_name: '',
+    avatar: null,
+  })
+
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
+  })
+
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    email_notifications: true,
+    order_notifications: true,
+    product_notifications: true,
+    payment_notifications: true,
+    marketing_emails: false,
+  })
+
+  const [appPrefs, setAppPrefs] = useState({
+    language: 'en',
+    timezone: 'Asia/Kathmandu',
+    date_format: 'YYYY-MM-DD',
+    currency: 'NPR',
+  })
+
+  useEffect(() => {
+    setProfileForm({
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      company_name: user?.company_name || '',
+      avatar: user?.avatar || null,
+    })
+  }, [user])
+
+  useEffect(() => {
     api.get('/vendor/me')
       .then((r) => {
         const v = r.data.data || {}
-        setVendor(v)
-        setBasic({
-          company_name: v.company_name || '',
-          business_email: v.business_email || '',
-          business_phone: v.business_phone || '',
-          pan_vat: v.pan_vat || '',
-          registration_number: v.registration_number || '',
-        })
-        const k = v.kyc || {}
-        setKyc({
-          owner_full_name: k.owner_full_name || '',
-          owner_citizenship_number: k.owner_citizenship_number || '',
-          owner_email: k.owner_email || '',
-          owner_phone: k.owner_phone || '',
-          business_type: k.business_type || '',
-          address: k.address || '',
-          province: '',
-          district: '',
-          city: '',
-          coordinates: null,
-        })
+        setCompanyName(v.company_name || '')
+        setVendorStatus(v.status || null)
+        setKycStatus(v.kyc?.status || null)
       })
-      .catch((e) => setError(e))
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [])
+      .catch(() => {})
+  }, [])
 
-  const saveBasic = async (e) => {
-    e.preventDefault()
-    setSaving('basic')
-    try {
-      await api.put('/vendor/me', basic)
-      toast.success('Business profile updated successfully')
-      load()
-    } catch (err) {
-      toast.error(errorMessage(err))
-    } finally {
-      setSaving('')
-    }
-  }
-
-  const saveKyc = async (e) => {
-    e.preventDefault()
-    setSaving('kyc')
-    try {
-      await api.post('/vendor/kyc', {
-        owner_full_name: kyc.owner_full_name,
-        owner_citizenship_number: kyc.owner_citizenship_number,
-        owner_email: kyc.owner_email,
-        owner_phone: kyc.owner_phone,
-        business_type: kyc.business_type,
-        address: kyc.address,
-      })
-      toast.success('KYC verification submitted successfully for review')
-      load()
-    } catch (err) {
-      toast.error(errorMessage(err))
-    } finally {
-      setSaving('')
-    }
-  }
-
-  const uploadDocument = async (type, file) => {
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0]
     if (!file) return
-    const preview = URL.createObjectURL(file)
-    setPreviews((prev) => ({ ...prev, [type]: preview }))
-    setUploading(type)
-    const fd = new FormData()
-    fd.append('document_type', type)
-    fd.append('file', file)
+
+    const formData = new FormData()
+    formData.append('avatar', file)
+    setAvatarUploading(true)
+
     try {
-      await api.post('/vendor/documents', fd)
-      toast.success('Document uploaded successfully')
+      const res = await api.post('/vendor/profile/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      const newAvatar = res.data?.data?.avatar
+      setProfileForm((prev) => ({ ...prev, avatar: newAvatar }))
+      updateUser({ avatar: newAvatar })
+      toast.success('Profile picture updated successfully')
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
-      setUploading('')
+      setAvatarUploading(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-4" style={{ paddingBottom: 40 }}>
-        <Skeleton height={120} />
-        <Skeleton height={260} />
-        <Skeleton height={320} />
-      </div>
-    )
+  const saveProfile = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await api.put('/vendor/profile', {
+        name: profileForm.name,
+        phone: profileForm.phone,
+        company_name: profileForm.company_name,
+      })
+      updateUser({
+        name: profileForm.name,
+        phone: profileForm.phone,
+        company_name: profileForm.company_name,
+      })
+      setCompanyName(profileForm.company_name)
+      toast.success('Profile updated successfully')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
-  if (error) {
-    return <ErrorState onRetry={load} />
+  const savePassword = async (e) => {
+    e.preventDefault()
+    if (passwordForm.password !== passwordForm.password_confirmation) {
+      toast.error('New passwords do not match')
+      return
+    }
+    if (passwordForm.password.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    setSaving(true)
+    try {
+      await api.put('/vendor/profile/password', passwordForm)
+      toast.success('Password updated successfully')
+      setPasswordForm({ current_password: '', password: '', password_confirmation: '' })
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveNotifications = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await api.put('/vendor/profile/notifications', notificationPrefs)
+      toast.success('Notification preferences saved')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const savePreferences = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await api.put('/vendor/profile/preferences', appPrefs)
+      toast.success('Preferences saved successfully')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const getInitials = (name) => {
+    if (!name) return 'V'
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
 
   return (
     <div style={{ width: '100%', paddingBottom: 50 }}>
-      {/* Top Header Card */}
+      {/* Account header card */}
       <div className="card" style={{ padding: 22, marginBottom: 20, background: '#fff' }}>
         <div className="flex items-center justify-between wrap gap-4">
           <div className="flex items-center gap-4">
-            <span
-              className="avatar"
+            <div
               style={{
                 width: 64,
                 height: 64,
-                borderRadius: 'var(--radius)',
-                background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
+                borderRadius: '50%',
+                overflow: 'hidden',
+                background: profileForm.avatar ? 'transparent' : 'linear-gradient(135deg,#ff5500 0%,#ff8800 100%)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                fontSize: 24,
+                fontWeight: 800,
                 boxShadow: 'var(--shadow-sm)',
+                flexShrink: 0,
               }}
             >
-              <Building2 size={32} />
-            </span>
+              {profileForm.avatar ? (
+                <img src={apiImage(profileForm.avatar)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : getInitials(profileForm.name || profileForm.company_name)}
+            </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0, color: 'var(--ink)' }}>
-                  {vendor?.company_name || 'Vendor profile'}
-                </h1>
-                {vendor?.status === 'approved' && (
-                  <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontWeight: 800 }}>
-                    <CheckCircle2 size={12} /> Verified Merchant
-                  </span>
-                )}
+                <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0, color: 'var(--ink)' }}>{profileForm.name || 'My Profile'}</h1>
+                {vendorStatus && <StatusBadge status={vendorStatus} />}
               </div>
               <div className="muted text-xs flex items-center gap-3 mt-1 wrap">
-                {vendor?.business_email && (
-                  <span className="flex items-center gap-1"><Mail size={12} /> {vendor.business_email}</span>
+                {(profileForm.company_name || companyName) && (
+                  <span className="flex items-center gap-1"><Building2 size={12} /> {profileForm.company_name || companyName}</span>
                 )}
-                {vendor?.business_phone && (
-                  <span className="flex items-center gap-1"><Phone size={12} /> {vendor.business_phone}</span>
-                )}
-                {vendor?.pan_vat && (
-                  <span className="flex items-center gap-1"><ShieldCheck size={12} color="var(--primary)" /> PAN: {vendor.pan_vat}</span>
-                )}
-              </div>
-              <div className="muted text-xs flex items-center gap-3 mt-1 wrap">
-                {vendor?.commission_rate != null && (
-                  <span className="flex items-center gap-1"><Percent size={12} color="var(--primary)" /> Commission: {vendor.commission_rate}%</span>
-                )}
-                {vendor?.approved_at && (
-                  <span className="flex items-center gap-1"><CalendarDays size={12} /> Approved: {formatDate(vendor.approved_at)}</span>
-                )}
-                {vendor?.kyc?.status && (
-                  <span className="flex items-center gap-1"><Award size={12} /> KYC <StatusBadge status={vendor.kyc.status} /></span>
-                )}
+                {profileForm.email && <span className="flex items-center gap-1"><Mail size={12} /> {profileForm.email}</span>}
+                {profileForm.phone && <span className="flex items-center gap-1"><Phone size={12} /> {profileForm.phone}</span>}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <StatusBadge status={vendor?.status} />
-          </div>
+          <a
+            href="/vendor/verification"
+            onClick={(e) => { e.preventDefault(); window.location.href = '/vendor/verification' }}
+            className="btn-tactile"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 10,
+              background: 'rgba(255,85,0,0.08)', color: '#ff5500', fontWeight: 700, fontSize: 12.5,
+              border: '1px solid rgba(255,85,0,0.2)', textDecoration: 'none',
+            }}
+          >
+            <ShieldCheck size={15} /> KYC {kycStatus ? <StatusBadge status={kycStatus} /> : '—'}
+            {kycStatus === 'approved' || kycStatus === 'verified'
+              ? <CheckCircle2 size={13} color="#10b981" />
+              : ['pending', 'submitted', 'under_review'].includes(kycStatus)
+                ? <Clock size={13} color="#f59e0b" />
+                : kycStatus ? <XCircle size={13} color="#ef4444" /> : null}
+            <ArrowRight size={13} />
+          </a>
         </div>
       </div>
 
-      {/* Section 1: Business Information */}
-      <form className="card" onSubmit={saveBasic} style={{ padding: 24, marginBottom: 24 }}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
-            <Building2 size={18} color="var(--primary)" /> Business & Enterprise Information
-          </h3>
-          <span className="muted text-xs">Public company information shown on store receipts</span>
+      {/* Tabs */}
+      <div className="card" style={{ padding: 0, marginBottom: 24, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', borderBottom: '2px solid var(--border)', overflowX: 'auto' }}>
+          {TABS.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  flex: '1 1 auto',
+                  minWidth: 'fit-content',
+                  padding: '16px 24px',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: isActive ? 700 : 500,
+                  color: isActive ? 'var(--primary)' : 'var(--muted)',
+                  borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                  marginBottom: '-2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Icon size={16} />
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
+      </div>
 
-        <div className="form-row">
-          <Input
-            label="Registered Company Name *"
-            required
-            value={basic.company_name}
-            onChange={(e) => setBasic({ ...basic, company_name: e.target.value })}
-            placeholder="e.g. Koshi Handicrafts Pvt. Ltd."
-          />
-          <Input
-            label="Official Business Email *"
-            type="email"
-            required
-            value={basic.business_email}
-            onChange={(e) => setBasic({ ...basic, business_email: e.target.value })}
-            placeholder="hello@koshi.com.np"
-          />
-        </div>
+      <div className="card" style={{ padding: 32 }}>
+        {activeTab === 'profile' && (
+          <form onSubmit={saveProfile}>
+            <div style={{ marginBottom: 32 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>
+                Personal Information
+              </h3>
+              <p className="muted text-sm">
+                Update your personal details and profile picture
+              </p>
+            </div>
 
-        <div className="form-row">
-          <Input
-            label="Business Phone Number"
-            value={basic.business_phone}
-            onChange={(e) => setBasic({ ...basic, business_phone: e.target.value })}
-            placeholder="+977 98XXXXXXXX"
-          />
-          <Input
-            label="PAN / VAT Registration Number"
-            value={basic.pan_vat}
-            onChange={(e) => setBasic({ ...basic, pan_vat: e.target.value })}
-            placeholder="e.g. 609842103"
-          />
-          <Input
-            label="Company Registration (Darta) Number"
-            value={basic.registration_number}
-            onChange={(e) => setBasic({ ...basic, registration_number: e.target.value })}
-            placeholder="e.g. REG-KOSHI-2024-8841"
-          />
-        </div>
-
-        <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-          <Button type="submit" size="sm" disabled={saving === 'basic'}>
-            {saving === 'basic' ? <Spinner size={14} color="#fff" /> : <><Check size={14} /> Save Business Profile</>}
-          </Button>
-        </div>
-      </form>
-
-      {/* Section 2: KYC & Owner Verification */}
-      <form className="card" onSubmit={saveKyc} style={{ padding: 24 }}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
-            <ShieldCheck size={18} color="var(--primary)" /> KYC & Legal Owner Verification
-          </h3>
-          <span className="chip chip-sm" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontWeight: 700 }}>
-            <Award size={11} /> Government of Nepal Compliant
-          </span>
-        </div>
-
-        <div className="form-row">
-          <Input
-            label="Legal Owner / Proprietor Full Name *"
-            required
-            value={kyc.owner_full_name}
-            onChange={(e) => setKyc({ ...kyc, owner_full_name: e.target.value })}
-            placeholder="e.g. Suman Pokhrel"
-          />
-          <Input
-            label="Citizenship Certificate Number (Nagarikta)"
-            value={kyc.owner_citizenship_number}
-            onChange={(e) => setKyc({ ...kyc, owner_citizenship_number: e.target.value })}
-            placeholder="e.g. 12-01-76-04891 (Morang)"
-          />
-        </div>
-
-        <div className="form-row">
-          <Input
-            label="Owner Email Address"
-            type="email"
-            value={kyc.owner_email}
-            onChange={(e) => setKyc({ ...kyc, owner_email: e.target.value })}
-            placeholder="suman.pokhrel@koshi.com.np"
-          />
-          <Input
-            label="Owner Direct Mobile / WhatsApp"
-            value={kyc.owner_phone}
-            onChange={(e) => setKyc({ ...kyc, owner_phone: e.target.value })}
-            placeholder="+977 98XXXXXXXX"
-          />
-          <Select
-            label="Legal Business Entity Type"
-            value={kyc.business_type}
-            onChange={(e) => setKyc({ ...kyc, business_type: e.target.value })}
-          >
-            <option value="">Select entity type</option>
-            <option value="Private Limited (Pvt. Ltd.)">Private Limited (Pvt. Ltd.)</option>
-            <option value="Sole Proprietorship">Sole Proprietorship (Ekala Swamittwa)</option>
-            <option value="Partnership Firm">Partnership Firm (Sajhedari)</option>
-            <option value="Public Limited">Public Limited</option>
-            <option value="Cooperative (Sahakari)">Cooperative (Sahakari)</option>
-          </Select>
-        </div>
-
-        {/* Nepal Cascading OpenStreetMap Location Picker */}
-        <div style={{ margin: '16px 0', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }} className="flex items-center gap-1.5">
-            <MapPin size={15} color="var(--primary)" /> Registered Merchant Business Location (Nepal Map)
-          </h4>
-          <LocationMapPicker
-            province={kyc.province}
-            district={kyc.district}
-            city={kyc.city}
-            address={kyc.address}
-            coordinates={kyc.coordinates}
-            onChange={(loc) => {
-              setKyc((prev) => ({
-                ...prev,
-                province: loc.province,
-                district: loc.district,
-                city: loc.city,
-                address: loc.address,
-                coordinates: loc.coordinates,
-              }))
-            }}
-          />
-        </div>
-
-        {/* Verification Documents & ID Proofs */}
-        <div style={{ margin: '20px 0', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 800, marginBottom: 12 }} className="flex items-center gap-1.5">
-            <FileText size={15} color="var(--primary)" /> Verification Documents & ID Proofs (Real File Uploads)
-          </h4>
-
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-            {DOC_CARDS.map((doc) => (
-              <div key={doc.type} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, background: 'var(--bg)' }}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-xs text-ink">{doc.label}</span>
-                </div>
+            <div style={{ marginBottom: 32, paddingBottom: 32, borderBottom: '1px solid var(--border)' }}>
+              <label className="text-sm font-bold" style={{ display: 'block', marginBottom: 12 }}>
+                Profile Picture
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                />
                 <div
                   style={{
-                    height: 110,
-                    borderRadius: 'var(--radius-sm)',
-                    overflow: 'hidden',
-                    marginBottom: 8,
-                    background: '#fff',
-                    border: '1px solid var(--border)',
+                    width: 80,
+                    height: 80,
+                    borderRadius: '50%',
+                    background: profileForm.avatar ? 'transparent' : 'linear-gradient(135deg, #ff5500 0%, #ff8800 100%)',
+                    color: '#fff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    fontSize: 24,
+                    fontWeight: 800,
+                    overflow: 'hidden',
+                    border: '3px solid var(--border)',
+                    position: 'relative',
+                  }}
+                >
+                  {profileForm.avatar ? (
+                    <img
+                      src={apiImage(profileForm.avatar)}
+                      alt="Profile"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    getInitials(profileForm.name || profileForm.company_name)
+                  )}
+                  {avatarUploading && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(0,0,0,0.7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Spinner size={20} color="#fff" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={avatarUploading}
+                  >
+                    <Camera size={14} />
+                    {avatarUploading ? 'Uploading...' : 'Change Photo'}
+                  </Button>
+                  <p className="muted text-xs" style={{ marginTop: 6 }}>
+                    JPG, PNG or GIF. Max 2MB.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <Input
+                label="Full Name"
+                required
+                value={profileForm.name}
+                onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                placeholder="Enter your full name"
+              />
+              <Input
+                label="Company Name"
+                value={profileForm.company_name}
+                onChange={(e) => setProfileForm({ ...profileForm, company_name: e.target.value })}
+                placeholder="Your business name"
+              />
+            </div>
+
+            <div className="form-row">
+              <Input
+                label="Email Address"
+                type="email"
+                value={profileForm.email}
+                disabled
+                hint="Email cannot be changed"
+              />
+              <Input
+                label="Phone Number"
+                value={profileForm.phone}
+                onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                placeholder="+977 98XXXXXXXX"
+              />
+            </div>
+
+            <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
+              <Button type="submit" disabled={saving}>
+                {saving ? <Spinner size={14} color="#fff" /> : <Save size={14} />}
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {activeTab === 'security' && (
+          <form onSubmit={savePassword}>
+            <div style={{ marginBottom: 32 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>
+                Change Password
+              </h3>
+              <p className="muted text-sm">
+                Update your password to keep your account secure
+              </p>
+            </div>
+
+            <div className="form-row">
+              <div style={{ position: 'relative' }}>
+                <Input
+                  label="Current Password"
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  required
+                  value={passwordForm.current_password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
+                  placeholder="Enter current password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: 12,
+                    top: 38,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
                     color: 'var(--muted)',
                   }}
                 >
-                  {previews[doc.type] ? (
-                    <img src={previews[doc.type]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <FileText size={28} />
-                  )}
-                </div>
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  style={{ display: 'none' }}
-                  id={`doc-${doc.type}`}
-                  onChange={(e) => uploadDocument(doc.type, e.target.files?.[0])}
+                  {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div style={{ position: 'relative' }}>
+                <Input
+                  label="New Password"
+                  type={showNewPassword ? 'text' : 'password'}
+                  required
+                  value={passwordForm.password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value })}
+                  placeholder="Enter new password"
+                  hint="Minimum 8 characters"
                 />
-                <label
-                  htmlFor={`doc-${doc.type}`}
-                  className="btn btn-outline btn-xs w-full"
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
                   style={{
-                    textAlign: 'center',
+                    position: 'absolute',
+                    right: 12,
+                    top: 38,
+                    background: 'none',
+                    border: 'none',
                     cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 4,
+                    color: 'var(--muted)',
                   }}
                 >
-                  {uploading === doc.type ? <Spinner size={11} /> : <UploadCloud size={11} />} Upload
-                </label>
+                  {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
-            ))}
-          </div>
-        </div>
+              <div style={{ position: 'relative' }}>
+                <Input
+                  label="Confirm New Password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  value={passwordForm.password_confirmation}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, password_confirmation: e.target.value })}
+                  placeholder="Confirm new password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: 12,
+                    top: 38,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--muted)',
+                  }}
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
 
-        <div className="flex justify-end pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-          <Button type="submit" size="sm" disabled={saving === 'kyc'}>
-            {saving === 'kyc' ? <Spinner size={14} color="#fff" /> : <><ShieldCheck size={14} /> Submit KYC Information</>}
-          </Button>
-        </div>
-      </form>
+            <div
+              style={{
+                background: '#f8fafc',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                padding: 16,
+                marginBottom: 24,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <ShieldCheck size={16} color="var(--primary)" />
+                <span style={{ fontSize: 13, fontWeight: 700 }}>Password Requirements</span>
+              </div>
+              <ul style={{ fontSize: 13, color: 'var(--muted)', margin: 0, paddingLeft: 20 }}>
+                <li>At least 8 characters long</li>
+                <li>Include uppercase and lowercase letters</li>
+                <li>Include at least one number</li>
+              </ul>
+            </div>
+
+            <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
+              <Button type="submit" disabled={saving}>
+                {saving ? <Spinner size={14} color="#fff" /> : <Lock size={14} />}
+                Update Password
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {activeTab === 'notifications' && (
+          <form onSubmit={saveNotifications}>
+            <div style={{ marginBottom: 32 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>
+                Notification Preferences
+              </h3>
+              <p className="muted text-sm">
+                Choose what notifications you want to receive
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {[
+                { key: 'email_notifications', label: 'Email Notifications', description: 'Receive email notifications for important updates' },
+                { key: 'order_notifications', label: 'Order Notifications', description: 'Get notified about new orders and order status changes' },
+                { key: 'product_notifications', label: 'Product Notifications', description: 'Updates about product approvals and inventory alerts' },
+                { key: 'payment_notifications', label: 'Payment Notifications', description: 'Notifications about payments, payouts, and settlements' },
+                { key: 'marketing_emails', label: 'Marketing Emails', description: 'Promotional content and platform updates' },
+              ].map((item) => (
+                <div
+                  key={item.key}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    padding: 16,
+                    background: '#f8fafc',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+                      {item.label}
+                    </div>
+                    <div className="muted text-xs">{item.description}</div>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs[item.key]}
+                      onChange={(e) =>
+                        setNotificationPrefs({
+                          ...notificationPrefs,
+                          [item.key]: e.target.checked,
+                        })
+                      }
+                      style={{ width: 18, height: 18, cursor: 'pointer' }}
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
+              <Button type="submit" disabled={saving}>
+                {saving ? <Spinner size={14} color="#fff" /> : <Bell size={14} />}
+                Save Preferences
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {activeTab === 'preferences' && (
+          <form onSubmit={savePreferences}>
+            <div style={{ marginBottom: 32 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>
+                Application Preferences
+              </h3>
+              <p className="muted text-sm">
+                Customize your application experience
+              </p>
+            </div>
+
+            <div className="form-row">
+              <div>
+                <label className="text-sm font-bold" style={{ display: 'block', marginBottom: 8 }}>
+                  Language
+                </label>
+                <select
+                  value={appPrefs.language}
+                  onChange={(e) => setAppPrefs({ ...appPrefs, language: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="en">English</option>
+                  <option value="ne">Nepali (नेपाली)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold" style={{ display: 'block', marginBottom: 8 }}>
+                  Timezone
+                </label>
+                <select
+                  value={appPrefs.timezone}
+                  onChange={(e) => setAppPrefs({ ...appPrefs, timezone: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="Asia/Kathmandu">Asia/Kathmandu (NPT +5:45)</option>
+                  <option value="UTC">UTC</option>
+                  <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div>
+                <label className="text-sm font-bold" style={{ display: 'block', marginBottom: 8 }}>
+                  Date Format
+                </label>
+                <select
+                  value={appPrefs.date_format}
+                  onChange={(e) => setAppPrefs({ ...appPrefs, date_format: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="YYYY-MM-DD">YYYY-MM-DD (2024-03-15)</option>
+                  <option value="DD/MM/YYYY">DD/MM/YYYY (15/03/2024)</option>
+                  <option value="MM/DD/YYYY">MM/DD/YYYY (03/15/2024)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold" style={{ display: 'block', marginBottom: 8 }}>
+                  Currency
+                </label>
+                <select
+                  value={appPrefs.currency}
+                  onChange={(e) => setAppPrefs({ ...appPrefs, currency: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="NPR">NPR (रु)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="INR">INR (₹)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
+              <Button type="submit" disabled={saving}>
+                {saving ? <Spinner size={14} color="#fff" /> : <Globe size={14} />}
+                Save Preferences
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   )
 }

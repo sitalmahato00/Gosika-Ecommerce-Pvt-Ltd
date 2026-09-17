@@ -11,6 +11,11 @@ final class KycDTO
         public readonly ?string $owner_phone,
         public readonly ?string $business_type,
         public readonly ?string $address,
+        public readonly ?string $province,
+        public readonly ?string $district,
+        public readonly ?string $municipality,
+        public readonly ?string $latitude,
+        public readonly ?string $longitude,
     ) {
     }
 
@@ -23,6 +28,11 @@ final class KycDTO
             owner_phone: $data['owner_phone'] ?? null,
             business_type: $data['business_type'] ?? null,
             address: $data['address'] ?? null,
+            province: $data['province'] ?? null,
+            district: $data['district'] ?? null,
+            municipality: $data['municipality'] ?? null,
+            latitude: $data['latitude'] ?? null,
+            longitude: $data['longitude'] ?? null,
         );
     }
 }

@@ -110,7 +110,7 @@ class AuthController extends Controller
 
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
-        $this->auth->resetPassword($request->only('token', 'email', 'password', 'password_confirmation'));
+        $this->auth->resetPassword($request->only('otp', 'email', 'password', 'password_confirmation'));
 
         return Response::success(null, 'Password reset successfully.');
     }

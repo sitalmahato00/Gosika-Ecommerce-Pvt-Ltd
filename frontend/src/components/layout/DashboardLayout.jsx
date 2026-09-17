@@ -527,11 +527,8 @@ export default function DashboardLayout({
                       <Link to="/vendor" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
                         <LayoutDashboard size={15} color="#ff5500" /> Vendor Dashboard
                       </Link>
-                      <Link to="/vendor/settings" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
-                        <User size={15} color="#ff5500" /> Profile Settings
-                      </Link>
                       <Link to="/vendor/profile" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
-                        <User size={15} color="#ff5500" /> Business Profile
+                        <User size={15} color="#ff5500" /> Profile
                       </Link>
                       <Link to="/vendor/stores" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
                         <Store size={15} color="#ff5500" /> Store Settings

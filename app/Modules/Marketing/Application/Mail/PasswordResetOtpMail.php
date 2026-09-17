@@ -4,11 +4,11 @@ namespace App\Modules\Marketing\Application\Mail;
 
 use App\Modules\Identity\Infrastructure\Models\User;
 
-class PasswordResetMail extends BrandedMail
+class PasswordResetOtpMail extends BrandedMail
 {
     public function __construct(
         public User $user,
-        public string $resetUrl,
+        public string $code,
     ) {
     }
 
@@ -16,9 +16,9 @@ class PasswordResetMail extends BrandedMail
     {
         return $this
             ->subject('Reset your password')
-            ->sendBranded('mail.emails.password-reset', [
+            ->sendBranded('mail.emails.password-otp', [
                 'user' => $this->user,
-                'resetUrl' => $this->resetUrl,
+                'code' => $this->code,
             ]);
     }
 }

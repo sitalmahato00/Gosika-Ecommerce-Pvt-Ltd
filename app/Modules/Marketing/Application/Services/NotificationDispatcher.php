@@ -33,11 +33,9 @@ class NotificationDispatcher
         $this->email($user->email, new \App\Modules\Marketing\Application\Mail\EmailVerificationMail($user, $code));
     }
 
-    public function passwordResetLink(User $user, string $token): void
+    public function passwordResetOtp(User $user, string $code): void
     {
-        $url = route('password.reset', ['token' => $token, 'email' => $user->email]);
-
-        $this->email($user->email, new \App\Modules\Marketing\Application\Mail\PasswordResetMail($user, $url));
+        $this->email($user->email, new \App\Modules\Marketing\Application\Mail\PasswordResetOtpMail($user, $code));
     }
 
     public function orderConfirmation(Order $order): void

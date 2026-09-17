@@ -24,6 +24,9 @@ return new class extends Migration
             $table->json('meta')->nullable();
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -44,6 +47,8 @@ return new class extends Migration
             $table->text('review_notes')->nullable();
             $table->unsignedBigInteger('reviewed_by')->nullable();
             $table->timestamp('reviewed_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
@@ -60,6 +65,8 @@ return new class extends Migration
             $table->text('rejection_reason')->nullable();
             $table->unsignedBigInteger('reviewed_by')->nullable();
             $table->timestamp('reviewed_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
@@ -79,6 +86,9 @@ return new class extends Migration
             $table->json('settings')->nullable();
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -100,16 +110,21 @@ return new class extends Migration
             $table->string('landmark', 255)->nullable();
             $table->string('latitude', 20)->nullable();
             $table->string('longitude', 20)->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
         });
 
         Schema::create('store_operating_hours', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('store_id')->constrained()->cascadeOnDelete();
             $table->unsignedTinyInteger('day_of_week')->comment('0=Sunday ... 6=Saturday');
             $table->time('opens_at')->nullable();
             $table->time('closes_at')->nullable();
             $table->boolean('is_closed')->default(false);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique(['store_id', 'day_of_week']);
@@ -126,6 +141,9 @@ return new class extends Migration
             $table->string('account_type', 20)->default('savings');
             $table->boolean('is_verified')->default(false);
             $table->boolean('is_default')->default(false);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

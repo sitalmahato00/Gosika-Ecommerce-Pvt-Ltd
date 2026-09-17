@@ -61,6 +61,11 @@ class VendorOnboardingService
                     'owner_phone' => $dto->owner_phone,
                     'business_type' => $dto->business_type,
                     'address' => $dto->address,
+                    'province' => $dto->province,
+                    'district' => $dto->district,
+                    'municipality' => $dto->municipality,
+                    'latitude' => $dto->latitude,
+                    'longitude' => $dto->longitude,
                     'status' => KycStatus::SUBMITTED,
                 ]
             );
@@ -77,8 +82,11 @@ class VendorOnboardingService
 
         $path = $file->store('vendor-documents/'.$vendor->uuid, 'public');
 
+        $kyc = $vendor->kyc;
+
         return VendorDocument::query()->create([
             'vendor_id' => $vendor->id,
+            'vendor_kyc_id' => $kyc?->id,
             'document_type' => $documentType,
             'file_path' => $path,
             'mime_type' => $file->getMimeType(),

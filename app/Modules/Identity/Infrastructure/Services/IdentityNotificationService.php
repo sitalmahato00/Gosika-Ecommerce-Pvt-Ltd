@@ -27,9 +27,9 @@ class IdentityNotificationService
         $this->dispatcher->emailVerificationCode($user, $code);
     }
 
-    public function sendPasswordResetLink(User $user, string $token): void
+    public function sendPasswordResetOtp(User $user, string $code): void
     {
-        $this->dispatcher->passwordResetLink($user, $token);
+        $this->dispatcher->passwordResetOtp($user, $code);
     }
 
     public function sendPhoneOtp(User $user, string $code): void
