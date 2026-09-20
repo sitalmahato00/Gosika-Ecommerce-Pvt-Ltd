@@ -15,6 +15,14 @@ class DeliveryPartnerSeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->isProduction()) {
+            return;
+        }
+
+        $password = app()->environment(['local', 'testing'])
+            ? 'password'
+            : (string) Str::password(24);
+
         $partnerUser = User::query()->firstOrCreate(
             ['email' => 'delivery@gosika.com.np'],
             [
@@ -22,7 +30,7 @@ class DeliveryPartnerSeeder extends Seeder
                 'first_name' => 'Bikash',
                 'last_name' => 'Rider',
                 'phone' => '9800000004',
-                'password' => Hash::make('password'),
+                'password' => Hash::make($password),
                 'email_verified_at' => now(),
                 'phone_verified_at' => now(),
                 'status' => UserStatus::ACTIVE,

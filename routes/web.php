@@ -23,7 +23,11 @@ Route::get('/payments/khalti/callback', function (Request $request) {
 });
 
 Route::get('/', function () {
-    return response()->file(public_path('index.html'));
+    return response()->file(public_path('index.html'), [
+        'Cache-Control' => 'no-cache, no-store, must-revalidate',
+        'Pragma' => 'no-cache',
+        'Expires' => '0',
+    ]);
 });
 
 Route::fallback(function (Request $request) {
@@ -32,7 +36,11 @@ Route::fallback(function (Request $request) {
     }
 
     if ($request->isMethod('GET')) {
-        return response()->file(public_path('index.html'));
+        return response()->file(public_path('index.html'), [
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
     }
 
     return response()->json(['message' => 'Not Found.'], 404);

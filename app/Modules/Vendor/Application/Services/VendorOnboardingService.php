@@ -80,7 +80,9 @@ class VendorOnboardingService
     {
         $this->assertVendorCanEdit($vendor);
 
-        $path = $file->store('vendor-documents/'.$vendor->uuid, 'public');
+        // Private disk: KYC documents contain sensitive PII and must never be
+        // served from /storage/. Access is gated through authenticated endpoints.
+        $path = $file->store('vendor-documents/'.$vendor->uuid, 'local');
 
         $kyc = $vendor->kyc;
 

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import ReactDOM from 'react-dom'
 import { X } from 'lucide-react'
 
 export default function Modal({ open, onClose, title, children, footer, size }) {
@@ -7,22 +8,25 @@ export default function Modal({ open, onClose, title, children, footer, size }) 
     const onKey = (e) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
+    document.body.classList.add('modal-open')
     // Always clean up on unmount or when open changes — regardless of open state
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
+      document.body.classList.remove('modal-open')
     }
   }, [open, onClose])
 
-  // Also ensure overflow is restored if component unmounts while open
+  // Also ensure overflow and class are restored if component unmounts while open
   useEffect(() => {
     return () => {
       document.body.style.overflow = ''
+      document.body.classList.remove('modal-open')
     }
   }, [])
 
   if (!open) return null
-  return (
+  return ReactDOM.createPortal(
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal ${size === 'lg' ? 'modal-lg' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-header">
@@ -34,6 +38,7 @@ export default function Modal({ open, onClose, title, children, footer, size }) 
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

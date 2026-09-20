@@ -7,12 +7,15 @@ use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Application\DataTransferObjects\ApplyVendorDTO;
 use App\Modules\Vendor\Application\DataTransferObjects\KycDTO;
 use App\Modules\Vendor\Application\Services\VendorOnboardingService;
+use App\Modules\Vendor\Infrastructure\Models\VendorDocument;
 use App\Modules\Vendor\Presentation\Http\Requests\ApplyVendorRequest;
 use App\Modules\Vendor\Presentation\Http\Requests\KycRequest;
 use App\Modules\Vendor\Presentation\Resources\VendorResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class VendorController extends Controller
 {
@@ -90,6 +93,30 @@ class VendorController extends Controller
         );
 
         return Response::success($document, 'Document uploaded.', [], 201);
+    }
+
+    public function downloadDocument(Request $request, VendorDocument $document): StreamedResponse|JsonResponse
+    {
+        $vendor = $this->vendorFor($request);
+
+        if ($document->vendor_id !== $vendor->id) {
+            throw new DomainException('You do not have access to this document.', 403);
+        }
+
+        return $this->streamDocument($document->file_path, $document->mime_type);
+    }
+
+    protected function streamDocument(?string $path, ?string $mimeType): StreamedResponse|JsonResponse
+    {
+        if (! $path || ! Storage::disk('local')->exists($path)) {
+            throw new DomainException('Document file not found.', 404);
+        }
+
+        $name = basename($path);
+
+        return Storage::disk('local')->download($path, $name, [
+            'Content-Type' => $mimeType ?? 'application/octet-stream',
+        ]);
     }
 
     protected function vendorFor(Request $request)

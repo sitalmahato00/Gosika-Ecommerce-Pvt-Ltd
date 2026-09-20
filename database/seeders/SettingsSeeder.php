@@ -31,7 +31,7 @@ class SettingsSeeder extends Seeder
             ['payment.esewa_enabled', 'false', 'payment', 'boolean', true],
             ['payment.esewa_environment', 'uat', 'payment', 'string', true],
             ['payment.esewa_product_code', 'EPAYTEST', 'payment', 'string', true],
-            ['payment.esewa_secret_key', '8gBm/:&EnhH.1/q', 'payment', 'string', false],
+            ['payment.esewa_secret_key', '', 'payment', 'string', false],
             ['payment.expiration_minutes', '60', 'payment', 'integer', true],
             ['settlement.waiting_days', '7', 'settlement', 'integer', true],
             ['settlement.min_payout_amount', '1000', 'settlement', 'decimal', true],

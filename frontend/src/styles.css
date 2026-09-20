@@ -805,7 +805,7 @@ button {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.55);
-  z-index: 60;
+  z-index: 9999;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -881,7 +881,7 @@ button {
   bottom: 0;
   width: min(420px, 100vw);
   background: #fff;
-  z-index: 70;
+  z-index: 1010;
   animation: slideInRight 0.22s ease;
   display: flex;
   flex-direction: column;
@@ -2883,6 +2883,20 @@ button {
 /* ---------- Customer mobile bottom nav ---------- */
 .customer-bottom-nav { display: none; }
 @media (max-width: 780px) {
+  /* Reduce main content size so the fixed bottom navbar never overlaps content or covers buttons */
+  main,
+  .customer-main,
+  .page-shell,
+  .account-shell {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* When a modal or fullscreen overlay is open, hide customer bottom nav so it never overlaps modals or action buttons */
+  body:has(.overlay) .customer-bottom-nav,
+  body.modal-open .customer-bottom-nav {
+    display: none !important;
+  }
+
   .customer-bottom-nav {
     display: flex;
     position: fixed;
@@ -3023,7 +3037,16 @@ button {
 
 /* ---------- Modals: never exceed viewport ---------- */
 @media (max-width: 640px) {
-  .modal { max-width: calc(100vw - 16px); }
+  .overlay {
+    padding: 12px 8px calc(12px + env(safe-area-inset-bottom, 0px)) 8px;
+    align-items: flex-end;
+  }
+  .modal {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 32px);
+    margin: 0 auto;
+    border-radius: var(--radius-lg);
+  }
 }
 
 /* ---------- Wide desktops: use the extra space ---------- */

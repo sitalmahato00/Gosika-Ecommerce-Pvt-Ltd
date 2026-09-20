@@ -158,9 +158,9 @@ import DeliveryProfileSettings from './pages/delivery/DeliveryProfileSettings'
 function StandaloneCustomerShell({ children }) {
   const navigate = useNavigate()
   return (
-    <div className="flex flex-col" style={{ minHeight: '100vh' }}>
+    <div className="flex flex-col customer-shell" style={{ minHeight: '100vh' }}>
       <CustomerHeader />
-      <main className="flex-1" style={{ display: 'flex', flexDirection: 'column' }}>
+      <main className="customer-main flex-1" style={{ display: 'flex', flexDirection: 'column' }}>
         {children}
       </main>
       <CustomerFooter />
@@ -172,9 +172,9 @@ function StandaloneCustomerShell({ children }) {
 function CustomerLayout() {
   const navigate = useNavigate()
   return (
-    <div className="flex flex-col" style={{ minHeight: '100vh' }}>
+    <div className="flex flex-col customer-shell" style={{ minHeight: '100vh' }}>
       <CustomerHeader />
-      <main className="flex-1" style={{ display: 'flex', flexDirection: 'column' }}>
+      <main className="customer-main flex-1" style={{ display: 'flex', flexDirection: 'column' }}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/shop" element={<Shop />} />

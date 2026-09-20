@@ -11,12 +11,24 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // This seeder creates demo accounts and demo marketplace data. It must
+        // never run in production where it would expose known credentials.
+        if (app()->isProduction()) {
+            $this->command?->warn('DatabaseSeeder contains demo data only and was skipped in production.');
+
+            return;
+        }
+
         $this->call([
             RolePermissionSeeder::class,
             NepalGeoSchemaSeeder::class,
             SettingsSeeder::class,
             CatalogSeeder::class,
         ]);
+
+        $demoPassword = app()->environment(['local', 'testing'])
+            ? 'password'
+            : (string) \Illuminate\Support\Str::password(24);
 
         $adminUser = User::updateOrCreate(
             ['email' => 'admin@gosika.com.np'],
@@ -25,7 +37,7 @@ class DatabaseSeeder extends Seeder
                 'first_name' => 'GOSIKA',
                 'last_name' => 'Super Admin',
                 'phone' => '9800000001',
-                'password' => \Illuminate\Support\Facades\Hash::make('password'),
+                'password' => \Illuminate\Support\Facades\Hash::make($demoPassword),
                 'email_verified_at' => now(),
                 'phone_verified_at' => now(),
                 'status' => UserStatus::ACTIVE,
@@ -41,7 +53,7 @@ class DatabaseSeeder extends Seeder
                 'first_name' => 'Himalayan',
                 'last_name' => 'Handicrafts',
                 'phone' => '9800000003',
-                'password' => \Illuminate\Support\Facades\Hash::make('password'),
+                'password' => \Illuminate\Support\Facades\Hash::make($demoPassword),
                 'email_verified_at' => now(),
                 'phone_verified_at' => now(),
                 'status' => UserStatus::ACTIVE,

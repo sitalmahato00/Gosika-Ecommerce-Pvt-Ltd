@@ -3,6 +3,9 @@
 namespace App\Modules\Order\Application\Services;
 
 use App\Modules\Cart\Application\Services\CartService;
+use App\Modules\Cart\Infrastructure\Models\CartItem;
+use App\Modules\Catalog\Infrastructure\Models\Product;
+use App\Modules\Catalog\Infrastructure\Models\ProductVariant;
 use App\Modules\Checkout\Infrastructure\Models\CheckoutSession;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\Order;
@@ -70,6 +73,8 @@ class OrderService
                     $items = $filtered;
                 }
             }
+
+            $this->lockStockForItems($items);
 
             foreach ($items as $item) {
                 $this->assertStock($item);
@@ -294,6 +299,37 @@ class OrderService
         } elseif ($product && $product->quantity !== null && $item->quantity > $product->quantity) {
             throw new DomainException($product->name.' is out of stock.', 409);
         }
+    }
+
+    /**
+     * Acquire pessimistic write locks on the product/variant rows being ordered.
+     * This serializes concurrent checkouts of the same SKU so assertStock() and
+     * decrementStock() operate on the latest committed quantities (prevents overselling).
+     */
+    protected function lockStockForItems($items): void
+    {
+        $productIds = $items->pluck('product_id')->filter()->unique()->values()->all();
+        $variantIds = $items->pluck('variant_id')->filter()->unique()->values()->all();
+
+        $lockedProducts = [];
+        if (! empty($productIds)) {
+            $lockedProducts = Product::query()->whereIn('id', $productIds)->lockForUpdate()->get()->keyBy('id');
+        }
+
+        $lockedVariants = [];
+        if (! empty($variantIds)) {
+            $lockedVariants = ProductVariant::query()->whereIn('id', $variantIds)->lockForUpdate()->get()->keyBy('id');
+        }
+
+        $items->each(function ($item) use ($lockedProducts, $lockedVariants) {
+            if ($item->product && isset($lockedProducts[$item->product_id])) {
+                $item->setRelation('product', $lockedProducts[$item->product_id]);
+            }
+
+            if ($item->variant && isset($lockedVariants[$item->variant_id])) {
+                $item->setRelation('variant', $lockedVariants[$item->variant_id]);
+            }
+        });
     }
 
     protected function decrementStock($items): void

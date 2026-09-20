@@ -70,7 +70,7 @@ export default function AccountLayout() {
   const navCtx = useMemo(() => ({ label, setLabel }), [label])
 
   return (
-    <div className="page-shell container account-shell" style={{ paddingTop: 24, paddingBottom: 56 }}>
+    <div className="page-shell container account-shell" style={{ paddingTop: 24 }}>
       {/* Desktop breadcrumb */}
       <BreadcrumbNav activeLabel={label} />
 

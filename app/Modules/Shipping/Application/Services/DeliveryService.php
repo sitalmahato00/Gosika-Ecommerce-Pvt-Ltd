@@ -95,7 +95,9 @@ class DeliveryService
 
     public function addDocument(DeliveryPartner $partner, string $documentType, UploadedFile $file): DeliveryPartnerDocument
     {
-        $path = $file->store('delivery-documents/'.$partner->uuid, 'public');
+        // Private disk: documents contain sensitive PII and must never be
+        // served from /storage/. Access is gated through authenticated endpoints.
+        $path = $file->store('delivery-documents/'.$partner->uuid, 'local');
 
         return DeliveryPartnerDocument::query()->create([
             'delivery_partner_id' => $partner->id,
@@ -113,7 +115,7 @@ class DeliveryService
             throw new DomainException('You do not have access to this document.', 403);
         }
 
-        Storage::disk('public')->delete($document->file_path);
+        Storage::disk('local')->delete($document->file_path);
         $document->delete();
     }
 
@@ -202,6 +204,12 @@ class DeliveryService
         bool $withinReassignment = false,
     ): DeliveryAssignment {
         return DB::transaction(function () use ($admin, $vendorOrder, $partner, $deliveryFee, $codAmount, $notes, $withinReassignment) {
+            // Serialize concurrent assignment attempts for the same vendor order.
+            // All assignment creation flows through this method (reassign delegates
+            // here too), so the pessimistic lock prevents two partners from ever
+            // receiving the same order at once.
+            $vendorOrder = VendorOrder::query()->whereKey($vendorOrder->getKey())->lockForUpdate()->firstOrFail();
+
             if ($partner->status !== DeliveryPartnerStatus::APPROVED) {
                 throw new DomainException('Only approved delivery partners can be assigned.');
             }

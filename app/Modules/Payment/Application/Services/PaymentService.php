@@ -601,6 +601,61 @@ class PaymentService
         });
     }
 
+    public function verifyEsewaOrderStatus(Payment $payment): Payment
+    {
+        $transactionUuid = $this->esewaTransactionUuid($payment);
+
+        if ($transactionUuid === '') {
+            throw new PaymentProviderException('No eSewa transaction reference available.', 422);
+        }
+
+        $provider = $this->provider($payment->method);
+
+        if (! $provider) {
+            throw new PaymentProviderException('eSewa payment is not configured.', 422);
+        }
+
+        $result = $provider->lookup($transactionUuid, ['total_amount' => (float) $payment->amount]);
+
+        $status = strtoupper((string) ($result['status'] ?? ''));
+
+        if ($status === 'COMPLETE') {
+            $paid = $this->markPaid($payment);
+
+            $providerRefId = (string) ($result['ref_id'] ?? '');
+            if ($providerRefId !== '') {
+                $paid->provider_transaction_id = $providerRefId;
+                $paid->save();
+            }
+
+            return $paid->fresh(['order']);
+        }
+
+        if (in_array($status, ['PENDING', 'AMBIGUOUS'], true)) {
+            $from = $payment->status;
+            $payment->status = PaymentStatus::PROCESSING;
+            $payment->save();
+
+            $this->recordStatus($payment, $from, PaymentStatus::PROCESSING, 'eSewa status: '.$status, $payment->user_id);
+
+            return $payment->fresh(['order']);
+        }
+
+        $statusMessages = [
+            'NOT_FOUND' => 'Payment session expired at eSewa.',
+            'CANCELED' => 'Payment was canceled on eSewa.',
+            'FULL_REFUND' => 'Payment was fully refunded by eSewa.',
+            'PARTIAL_REFUND' => 'Payment was partially refunded by eSewa.',
+        ];
+
+        $from = $payment->status;
+        $payment->status = PaymentStatus::FAILED;
+        $payment->save();
+        $this->recordStatus($payment, $from, PaymentStatus::FAILED, 'eSewa status: '.$status, $payment->user_id);
+
+        throw new PaymentProviderException($statusMessages[$status] ?? 'eSewa payment not completed (status: '.$status.').', 422);
+    }
+
     public function markCodCollected(Order $order): Payment
     {
         $payment = $this->latestForOrder($order);

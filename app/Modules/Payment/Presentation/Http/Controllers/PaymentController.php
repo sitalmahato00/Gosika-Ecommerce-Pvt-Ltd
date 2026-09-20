@@ -224,10 +224,7 @@ class PaymentController extends Controller
         }
 
         try {
-            $payment = $this->paymentService->verifyFromEsewaCallback([
-                'transaction_uuid' => $payment->provider_transaction_id ?? $payment->payment_number,
-                'status' => 'COMPLETE',
-            ]);
+            $payment = $this->paymentService->verifyEsewaOrderStatus($payment);
 
             return Response::success([
                 'payment' => new PaymentResource($payment),

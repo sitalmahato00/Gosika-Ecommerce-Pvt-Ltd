@@ -301,6 +301,11 @@ class WalletService
         }
 
         return DB::transaction(function () use ($settlement, $bankAccountId, $user, $amount) {
+            // Lock the settlement row for update first. Every payout creation flows
+            // through this method, so concurrent requests for the same settlement
+            // serialize here and the re-check below sees the already-committed payout.
+            $settlement = Settlement::query()->whereKey($settlement->getKey())->lockForUpdate()->firstOrFail();
+
             if (! $this->isRequestable($settlement)) {
                 throw new DomainException('Only eligible settlements with a completed cycle can be requested for payout.', 422);
             }

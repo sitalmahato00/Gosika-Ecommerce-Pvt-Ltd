@@ -16,17 +16,23 @@ class RefundService
 {
     public function create(Payment $payment, User $actor, float $amount, ?string $reason, ?array $gateway = null): Refund
     {
-        if (! $payment->isPaid()) {
-            throw new DomainException('Only paid payments can be refunded.', 422);
-        }
-
-        $already = $payment->refunds()->whereIn('status', [RefundStatus::REQUESTED->value, RefundStatus::APPROVED->value, RefundStatus::PROCESSING->value])->sum('amount');
-
-        if ($already + $amount > (float) $payment->amount) {
-            throw new DomainException('Refund amount exceeds the payment balance.', 422);
-        }
-
         return DB::transaction(function () use ($payment, $actor, $amount, $reason, $gateway) {
+            // Lock the payment row so concurrent refund creations cannot both pass
+            // the outstanding-sum cap check and over-refund the payment.
+            $payment = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! $payment->isPaid()) {
+                throw new DomainException('Only paid payments can be refunded.', 422);
+            }
+
+            $already = $payment->refunds()
+                ->whereIn('status', [RefundStatus::REQUESTED->value, RefundStatus::APPROVED->value, RefundStatus::PROCESSING->value, RefundStatus::REFUNDED->value])
+                ->sum('amount');
+
+            if (round($already, 2) + round($amount, 2) > round((float) $payment->amount, 2)) {
+                throw new DomainException('Refund amount exceeds the payment balance.', 422);
+            }
+
             $refund = new Refund();
             $refund->refund_number = ReferenceNumber::unique('REF');
             $refund->payment_id = $payment->id;
@@ -67,25 +73,45 @@ class RefundService
         }
 
         return DB::transaction(function () use ($actor, $refund) {
+            $refund = Refund::query()->whereKey($refund->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! in_array($refund->status->value, [RefundStatus::REQUESTED->value, RefundStatus::PROCESSING->value], true)) {
+                throw new DomainException('Refund is not in a requestable state.', 422);
+            }
+
             $refund->status = RefundStatus::APPROVED;
             $refund->initiated_by = $refund->initiated_by ?? $actor->id;
             $refund->completed_at = now();
             $refund->save();
 
-            $payment = $refund->payment;
+            $payment = Payment::query()->whereKey($refund->payment_id)->lockForUpdate()->first();
 
             if ($payment) {
+                $totalApproved = Refund::query()
+                    ->where('payment_id', $payment->id)
+                    ->whereIn('status', [RefundStatus::APPROVED->value, RefundStatus::PROCESSING->value, RefundStatus::REFUNDED->value])
+                    ->sum('amount');
+
                 $from = $payment->status;
-                $payment->status = PaymentStatus::REFUNDED;
+
+                if (round((float) $totalApproved, 2) >= round((float) $payment->amount, 2)) {
+                    $payment->status = PaymentStatus::REFUNDED;
+                } else {
+                    // Partial refunds keep the payment paid (and still refundable).
+                    $payment->status = PaymentStatus::PARTIALLY_REFUNDED;
+                }
+
                 $payment->save();
 
-                PaymentStatusHistory::create([
-                    'payment_id' => $payment->id,
-                    'from_status' => $from->value,
-                    'to_status' => PaymentStatus::REFUNDED->value,
-                    'reason' => "Refund approved: {$refund->refund_number}.",
-                    'actor_user_id' => $actor->id,
-                ]);
+                if ($from->value !== $payment->status->value) {
+                    PaymentStatusHistory::create([
+                        'payment_id' => $payment->id,
+                        'from_status' => $from->value,
+                        'to_status' => $payment->status->value,
+                        'reason' => "Refund approved: {$refund->refund_number}.",
+                        'actor_user_id' => $actor->id,
+                    ]);
+                }
             }
 
             return $refund->load('payment', 'order', 'orderItem');
