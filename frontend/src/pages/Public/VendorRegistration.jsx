@@ -159,31 +159,50 @@ function Step4() {
     }
   }
 
+  const handleFile = (file, setter) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => setter(e.target.result)
+    reader.readAsDataURL(file)
+  }
+
   return (
     <div className="p-6">
       <h3 style={{ fontSize: 18, marginBottom: 12 }}>Step 4: Store Branding</h3>
-      <p style={{ color: 'var(--muted)', marginBottom: 12 }}>Upload your store logo and cover image.</p>
+      <p style={{ color: 'var(--muted)', marginBottom: 12 }}>Upload your store logo and cover image files.</p>
       <form onSubmit={next}>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Store Logo</label>
+            {storeLogo && (
+              <div style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', marginBottom: 8, border: '1px solid var(--border)' }}>
+                <img src={storeLogo} alt="Logo preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
             <input
               type="file"
-              onChange={(e) => setStoreLogo(e.target.files[0]?.name || '')}
+              accept="image/*"
+              onChange={(e) => handleFile(e.target.files[0], setStoreLogo)}
               className="w-full rounded-sm border p-2 cursor-pointer"
               style={{ border: '2px dashed var(--border)' }}
             />
-            <span>Logo image</span>
+            <span className="text-xs text-muted mt-1 block">PNG or JPG logo file</span>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Store Cover</label>
+            <label className="block text-sm font-medium mb-2">Store Cover Banner</label>
+            {storeCover && (
+              <div style={{ height: 64, borderRadius: 8, overflow: 'hidden', marginBottom: 8, border: '1px solid var(--border)' }}>
+                <img src={storeCover} alt="Cover preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
             <input
               type="file"
-              onChange={(e) => setStoreCover(e.target.files[0]?.name || '')}
+              accept="image/*"
+              onChange={(e) => handleFile(e.target.files[0], setStoreCover)}
               className="w-full rounded-sm border p-2 cursor-pointer"
               style={{ border: '2px dashed var(--border)' }}
             />
-            <span>Cover image</span>
+            <span className="text-xs text-muted mt-1 block">Wide store banner photo</span>
           </div>
         </div>
         <button type="submit" className="w-full btn btn-primary mt-4" disabled={loading}>

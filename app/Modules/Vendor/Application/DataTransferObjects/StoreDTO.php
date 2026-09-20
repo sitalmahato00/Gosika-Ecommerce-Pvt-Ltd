@@ -10,6 +10,8 @@ final class StoreDTO
         public readonly ?string $description,
         public readonly ?string $contact_email,
         public readonly ?string $contact_phone,
+        public readonly ?string $logo = null,
+        public readonly ?string $banner = null,
     ) {
     }
 
@@ -21,6 +23,8 @@ final class StoreDTO
             description: $data['description'] ?? null,
             contact_email: $data['contact_email'] ?? null,
             contact_phone: $data['contact_phone'] ?? null,
+            logo: $data['logo'] ?? null,
+            banner: $data['banner'] ?? null,
         );
     }
 }

@@ -19,6 +19,8 @@ class StoreRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:5000'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:20'],
+            'logo' => ['nullable', 'string', 'max:500'],
+            'banner' => ['nullable', 'string', 'max:500'],
         ];
     }
 }

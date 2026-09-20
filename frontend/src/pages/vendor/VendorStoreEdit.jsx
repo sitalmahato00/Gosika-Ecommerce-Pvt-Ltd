@@ -62,24 +62,57 @@ export default function VendorStoreEdit() {
   }
   useEffect(load, [id])
 
-  const handleLogoFileChange = (e) => {
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+
+  const handleLogoFileChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
       toast.error('Please select a valid image file (PNG, JPG, WebP).')
       return
     }
-    setForm((prev) => ({ ...prev, logo: URL.createObjectURL(file) }))
+    const fd = new FormData()
+    fd.append('image', file)
+    fd.append('folder', 'stores')
+    setUploadingLogo(true)
+    try {
+      const res = await api.post('/upload/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const url = res.data?.data?.url || res.data?.url
+      setForm((prev) => ({ ...prev, logo: url }))
+      toast.success('Logo uploaded!')
+    } catch {
+      const reader = new FileReader()
+      reader.onload = (evt) => setForm((prev) => ({ ...prev, logo: evt.target.result }))
+      reader.readAsDataURL(file)
+    } finally {
+      setUploadingLogo(false)
+    }
   }
 
-  const handleBannerFileChange = (e) => {
+  const handleBannerFileChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
       toast.error('Please select a valid image file (PNG, JPG, WebP).')
       return
     }
-    setForm((prev) => ({ ...prev, banner: URL.createObjectURL(file) }))
+    const fd = new FormData()
+    fd.append('image', file)
+    fd.append('folder', 'stores')
+    setUploadingBanner(true)
+    try {
+      const res = await api.post('/upload/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const url = res.data?.data?.url || res.data?.url
+      setForm((prev) => ({ ...prev, banner: url }))
+      toast.success('Banner uploaded!')
+    } catch {
+      const reader = new FileReader()
+      reader.onload = (evt) => setForm((prev) => ({ ...prev, banner: evt.target.result }))
+      reader.readAsDataURL(file)
+    } finally {
+      setUploadingBanner(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -92,6 +125,8 @@ export default function VendorStoreEdit() {
         description: form.description || undefined,
         contact_email: form.contact_email || undefined,
         contact_phone: form.contact_phone || undefined,
+        logo: form.logo || undefined,
+        banner: form.banner || undefined,
       }
       if (storeId) {
         await api.put(`/vendor/stores/${storeId}`, payload)

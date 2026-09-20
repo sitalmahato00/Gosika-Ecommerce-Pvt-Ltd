@@ -6,6 +6,7 @@ import {
 import api from '../../api/client'
 import PageHeader from '../../components/admin/PageHeader'
 import Input, { Field } from '../../components/ui/Input'
+import ImageUpload from '../../components/ui/ImageUpload'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
@@ -258,14 +259,14 @@ export default function AdminCategoryForm() {
               />
             </Field>
 
-            <Field label="Cover Image URL">
-              <input
-                className="input"
-                value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })}
-                placeholder="https://images.unsplash.com/…"
-              />
-            </Field>
+            <ImageUpload
+              label="Department Cover Image"
+              value={form.image}
+              onChange={(val) => setForm({ ...form, image: val })}
+              folder="categories"
+              helper="Upload PNG, JPG, or WEBP cover image file"
+              previewHeight={130}
+            />
 
             <div>
               <label className="label">Quick Select Presets</label>

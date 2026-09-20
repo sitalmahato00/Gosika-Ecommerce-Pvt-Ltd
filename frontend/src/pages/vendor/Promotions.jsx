@@ -10,6 +10,7 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Modal from '../../components/ui/Modal'
 import Input from '../../components/ui/Input'
+import ImageUpload from '../../components/ui/ImageUpload'
 import Select from '../../components/ui/Select'
 import Button from '../../components/ui/Button'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
@@ -451,11 +452,13 @@ export default function VendorPromotions() {
               </Select>
             </div>
 
-            <Input
-              label="Campaign Cover Banner URL"
+            <ImageUpload
+              label="Campaign Cover Banner Image"
               value={form.banner_image}
-              onChange={(e) => setForm({ ...form, banner_image: e.target.value })}
-              placeholder="https://images.unsplash.com/..."
+              onChange={(val) => setForm({ ...form, banner_image: val })}
+              folder="promotions"
+              helper="Upload PNG, JPG, or WEBP promotional banner image"
+              previewHeight={120}
             />
 
             <div className="flex justify-end gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>

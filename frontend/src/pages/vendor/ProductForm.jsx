@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useParams } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { FolderPlus, Folder, Image, Grid, Layout, Tag, Palette, CheckCircle, XCircle, Clock, Calendar, Trash, Check, Eye, Edit, Settings, MapPin, Mail, Phone, Heart, Shield, LayoutDashboard, Loader2 } from 'lucide-react'
 import api from '../../api/client'
+import ImageUpload from '../../components/ui/ImageUpload'
 import { useToast } from '../../context/ToastContext'
 
 export default function VendorProductForm() {
@@ -158,30 +159,33 @@ export default function VendorProductForm() {
               {/* Media Section */}
               <div>
                 <h3 style={{ fontSize: 16, marginBottom: 10 }}>Product Media</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Cover Image</label>
-                    <input
-                      type="text"
+                    <ImageUpload
+                      label="Cover Image"
                       value={media.cover_image}
-                      onChange={(e) => setMedia({ ...media, cover_image: e.target.value })}
-                      placeholder="Product cover image URL"
-                      className="w-full rounded-sm border p-2"
-                      style={{ border: '2px dashed var(--border)' }}
+                      onChange={(val) => setMedia({ ...media, cover_image: val })}
+                      folder="products"
+                      helper="Upload main high-res product photo"
+                      previewHeight={140}
+                      aspectRatio="1/1"
                     />
-                    <span className="text-xs text-muted mt-1">URL or upload later</span>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">Gallery Images</label>
-                    <input
-                      type="text"
-                      value={media.gallery_images.join(', ') || ''}
-                      onChange={(e) => setMedia({ ...media, gallery_images: e.target.value.split(',').filter(Boolean) })}
-                      placeholder="image1.jpg, image2.jpg, ..."
-                      className="w-full rounded-sm border p-2"
-                      style={{ border: '2px dashed var(--border)' }}
+                    <ImageUpload
+                      label="Additional Product Image"
+                      value={media.gallery_images[0] || ''}
+                      onChange={(val) => {
+                        const next = [...media.gallery_images]
+                        if (val) next[0] = val
+                        else next.splice(0, 1)
+                        setMedia({ ...media, gallery_images: next })
+                      }}
+                      folder="products"
+                      helper="Upload secondary gallery photo"
+                      previewHeight={140}
+                      aspectRatio="1/1"
                     />
-                    <span className="text-xs text-muted mt-1">Comma-separated URLs</span>
                   </div>
                 </div>
               </div>

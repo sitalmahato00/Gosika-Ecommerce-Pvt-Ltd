@@ -11,6 +11,7 @@ import Pagination from '../../components/ui/Pagination'
 import { Skeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
+import ImageUpload from '../../components/ui/ImageUpload'
 import { formatDate, apiImage, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useBranding } from '../../context/BrandingContext'
@@ -437,22 +438,15 @@ export default function AdminPromotions() {
               />
             </div>
 
-            <div className="form-group">
-              <label className="label">Banner Image URL <span className="req">*</span></label>
-              <input
-                className="input font-mono"
-                required
-                maxLength={500}
-                value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })}
-                placeholder="https://… or /storage/banners/…"
-              />
-              {form.image && (
-                <div style={{ marginTop: 8, height: 110, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <img src={apiImage(form.image)} alt="Banner Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-              )}
-            </div>
+            <ImageUpload
+              label="Banner Image"
+              required
+              value={form.image}
+              onChange={(val) => setForm({ ...form, image: val })}
+              folder="banners"
+              helper="Upload high-resolution PNG, JPG, or WEBP banner image file"
+              previewHeight={130}
+            />
 
             <div className="form-row">
               <div className="form-group">

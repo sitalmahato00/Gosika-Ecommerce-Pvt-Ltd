@@ -17,6 +17,9 @@ Route::prefix('v1/platform')->group(function () {
     Route::get('reverse-geocode', [GeoController::class, 'reverseGeocode'])->middleware('throttle:public');
 });
 
+Route::post('v1/upload/image', [\App\Modules\Platform\Presentation\Http\Controllers\ImageUploadController::class, 'upload'])
+    ->middleware(['auth:sanctum']);
+
 Route::prefix('v1/admin/settings')->middleware(['auth:sanctum', 'ensure:admin', 'throttle:admin'])->group(function () {
     // Modular Domain Endpoints
     Route::get('general', [AdminSettingsController::class, 'getGeneral']);

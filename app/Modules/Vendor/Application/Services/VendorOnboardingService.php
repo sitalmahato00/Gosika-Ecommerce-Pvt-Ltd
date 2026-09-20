@@ -106,6 +106,8 @@ class VendorOnboardingService
             'description' => $dto->description,
             'contact_email' => $dto->contact_email,
             'contact_phone' => $dto->contact_phone,
+            'logo' => $dto->logo,
+            'banner' => $dto->banner,
             'status' => StoreStatus::DRAFT,
         ]);
     }
@@ -119,6 +121,8 @@ class VendorOnboardingService
             'description' => $dto->description,
             'contact_email' => $dto->contact_email,
             'contact_phone' => $dto->contact_phone,
+            'logo' => $dto->logo ?? $store->logo,
+            'banner' => $dto->banner ?? $store->banner,
         ]);
 
         return $store;
