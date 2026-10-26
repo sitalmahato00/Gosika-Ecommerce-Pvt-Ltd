@@ -294,8 +294,6 @@ export const ADMIN_NAV = [
   { to: '/admin/marketing/coupons', label: 'Coupons & Vouchers', icon: 'Ticket' },
   { to: '/admin/marketing/banners', label: 'Banners & Promotions', icon: 'Image' },
   { to: '/admin/marketing/pages', label: 'Pages & Policies', icon: 'FileText' },
-
-  { section: 'SEO & Discoverability' },
   { to: '/admin/seo', label: 'SEO Management', icon: 'Search' },
 
   { section: 'Administration' },
