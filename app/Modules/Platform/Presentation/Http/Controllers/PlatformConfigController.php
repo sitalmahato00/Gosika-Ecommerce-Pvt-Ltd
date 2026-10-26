@@ -50,6 +50,36 @@ class PlatformConfigController extends Controller
             $cfg['maintenance_mode'] = $cfg['maintenance_mode'] ?? false;
             $cfg['maintenance_message'] = $cfg['maintenance_message'] ?? '';
 
+            // Storefront content
+            $cfg['homepage_hero_text'] = $cfg['homepage_hero_text'] ?? 'Discover Authentic Nepali Products';
+            $cfg['homepage_hero_sub'] = $cfg['homepage_hero_sub'] ?? 'Shop from verified merchant sellers across all 7 provinces with swift local delivery';
+            $cfg['storefront_tagline'] = $cfg['storefront_tagline'] ?? '';
+            $cfg['vendor_banner_text'] = $cfg['vendor_banner_text'] ?? '';
+            $cfg['announcement_banner'] = $cfg['announcement_banner'] ?? '';
+            $cfg['footer_legal'] = $cfg['footer_legal'] ?? '';
+
+            // SEO & social
+            $cfg['seo_meta_description'] = $cfg['seo_meta_description'] ?? '';
+            $cfg['og_image_url'] = $cfg['og_image_url'] ?? '';
+            $cfg['social_facebook'] = $cfg['social_facebook'] ?? '';
+            $cfg['social_instagram'] = $cfg['social_instagram'] ?? '';
+            $cfg['social_twitter'] = $cfg['social_twitter'] ?? '';
+            $cfg['social_youtube'] = $cfg['social_youtube'] ?? '';
+
+            // Trust & policy labels
+            $cfg['verified_seller_label'] = $cfg['verified_seller_label'] ?? 'Verified Seller';
+            $cfg['authentic_product_label'] = $cfg['authentic_product_label'] ?? 'Authentic Product';
+            $cfg['return_policy_label'] = $cfg['return_policy_label'] ?? '7-Day Easy Returns';
+            $cfg['secure_checkout_label'] = $cfg['secure_checkout_label'] ?? 'Safe & Secure Checkout';
+            $cfg['fast_delivery_label'] = $cfg['fast_delivery_label'] ?? 'Swift Local Delivery';
+            $cfg['support_tagline'] = $cfg['support_tagline'] ?? '24/7 Customer Support';
+
+            // Auth / email
+            $cfg['login_heading'] = $cfg['login_heading'] ?? 'Sign in to GOSIKA';
+            $cfg['login_description'] = $cfg['login_description'] ?? '';
+            $cfg['email_header'] = $cfg['email_header'] ?? 'GOSIKA Marketplace Notifications';
+            $cfg['email_footer'] = $cfg['email_footer'] ?? '';
+
             // Payment status flags
             $esewaSecret = Setting::get('payment.esewa_secret_key') ?: config('services.esewa.secret_key', '');
             $cfg['payment']['esewa_enabled'] = ! empty($esewaSecret) && (Setting::get('payment.esewa_enabled') === 'true' || Setting::get('payment.esewa_enabled') === true || Setting::get('payment.esewa_enabled') === 1);

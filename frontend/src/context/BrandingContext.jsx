@@ -19,6 +19,32 @@ const DEFAULT_BRANDING = {
   currency: 'NPR',
   maintenance_mode: false,
   maintenance_message: '',
+  // Storefront content
+  homepage_hero_text: 'Discover Authentic Nepali Products',
+  homepage_hero_sub: 'Shop from verified merchant sellers across all 7 provinces with swift local delivery',
+  storefront_tagline: '',
+  vendor_banner_text: '',
+  announcement_banner: '',
+  footer_legal: '',
+  // SEO & social
+  seo_meta_description: '',
+  og_image_url: '',
+  social_facebook: '',
+  social_instagram: '',
+  social_twitter: '',
+  social_youtube: '',
+  // Trust & policy labels
+  verified_seller_label: 'Verified Seller',
+  authentic_product_label: 'Authentic Product',
+  return_policy_label: '7-Day Easy Returns',
+  secure_checkout_label: 'Safe & Secure Checkout',
+  fast_delivery_label: 'Swift Local Delivery',
+  support_tagline: '24/7 Customer Support',
+  // Auth / email
+  login_heading: 'Sign in to GOSIKA',
+  login_description: '',
+  email_header: 'GOSIKA Marketplace Notifications',
+  email_footer: '',
 }
 
 export function BrandingProvider({ children }) {
