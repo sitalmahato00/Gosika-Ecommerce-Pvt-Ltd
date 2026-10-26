@@ -1344,7 +1344,7 @@ function RobotsTxtTab({ toast }) {
             width: '100%', boxSizing: 'border-box',
             padding: '14px 16px', borderRadius: 8, border: '1px solid var(--border)',
             fontFamily: 'monospace', fontSize: 13, lineHeight: 1.7,
-            color: 'var(--ink)', background: '#1e293b', color: '#e2e8f0',
+            background: '#1e293b', color: '#e2e8f0',
             resize: 'vertical', minHeight: 320, outline: 'none',
           }}
         />
