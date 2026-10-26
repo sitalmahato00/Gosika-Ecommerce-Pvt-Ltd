@@ -15,6 +15,14 @@ class MailBrand
         $brandName = (string) (Setting::get('brand_name') ?: Setting::get('site_name') ?: config('app.name', 'GOSIKA'));
         $primary = (string) (Setting::get('primary_color') ?: Setting::get('brand_color') ?: '#ff5500');
         $dark = (string) (Setting::get('brand_color_dark') ?: '#e04b00');
+
+        // Retired colour schemes fall back to the canonical brand orange.
+        if (in_array(strtolower($primary), ['#6366f1', '#ff006f'], true)) {
+            $primary = '#ff5500';
+        }
+        if (strtolower($dark) === '#4338ca') {
+            $dark = '#e04b00';
+        }
         $logo = (string) (Setting::get('logo_light') ?: Setting::get('logo_dark') ?: '');
 
         return [

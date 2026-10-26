@@ -295,6 +295,9 @@ export const ADMIN_NAV = [
   { to: '/admin/marketing/banners', label: 'Banners & Promotions', icon: 'Image' },
   { to: '/admin/marketing/pages', label: 'Pages & Policies', icon: 'FileText' },
 
+  { section: 'SEO & Discoverability' },
+  { to: '/admin/seo', label: 'SEO Management', icon: 'Search' },
+
   { section: 'Administration' },
   { to: '/admin/system/notifications', label: 'Notifications', icon: 'Bell' },
   { to: '/admin/system/settings', label: 'Settings', icon: 'Settings' },

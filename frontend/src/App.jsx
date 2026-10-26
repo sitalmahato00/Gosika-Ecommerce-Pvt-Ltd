@@ -123,6 +123,7 @@ import AdminNotifications from './pages/admin/AdminNotifications'
 import AdminPerformanceReports from './pages/admin/AdminPerformanceReports'
 import AdminRoles from './pages/admin/AdminRoles'
 import AdminSettings from './pages/admin/AdminSettings'
+import AdminSeo from './pages/admin/AdminSeo'
 import AdminAuditLogs from './pages/admin/AdminAuditLogs'
 import AdminPaymentMethods from './pages/admin/AdminPaymentMethods'
 import AdminSystemLogs from './pages/admin/AdminSystemLogs'
@@ -331,6 +332,10 @@ export default function App() {
         <Route path="marketing/coupons" element={<AdminCoupons />} />
         <Route path="marketing/banners" element={<AdminPromotions />} />
         <Route path="marketing/pages" element={<AdminPages />} />
+
+        {/* SEO */}
+        <Route path="seo" element={<AdminSeo />} />
+        <Route path="seo/*" element={<AdminSeo />} />
 
         {/* Analytics */}
         <Route path="analytics/reports" element={<AdminPerformanceReports />} />

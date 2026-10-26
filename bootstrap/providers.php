@@ -7,6 +7,7 @@ use App\Modules\Customer\Providers\CustomerServiceProvider;
 use App\Modules\Identity\Providers\IdentityServiceProvider;
 use App\Modules\Administration\Providers\AdministrationServiceProvider;
 use App\Modules\Analytics\Providers\AnalyticsServiceProvider;
+use App\Modules\Seo\Providers\SeoServiceProvider;
 use App\Modules\Marketing\Providers\MarketingServiceProvider;
 use App\Modules\Marketplace\Providers\MarketplaceServiceProvider;
 use App\Modules\Order\Providers\OrderServiceProvider;
@@ -40,4 +41,5 @@ return [
     SupportServiceProvider::class,
     AdministrationServiceProvider::class,
     AnalyticsServiceProvider::class,
+    SeoServiceProvider::class,
 ];

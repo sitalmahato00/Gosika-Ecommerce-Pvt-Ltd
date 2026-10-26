@@ -1,8 +1,7 @@
 import React, { useState } from 'react'
 import {
-  Palette, Image, Layout, Lock, Upload, X,
-  Share2, Search, Mail, Globe, Tag, MessageSquare,
-  ShoppingBag, Star, Eye, Bell,
+  Image, Layout, Lock, Upload, X,
+  Search, ShoppingBag,
 } from 'lucide-react'
 
 const ACCEPT_IMAGE = 'image/png,image/jpeg,image/svg+xml,image/webp,.ico'
@@ -11,6 +10,7 @@ function LogoUpload({ label, form, formKey, fileKey, onChange, disabled, preview
   const [objectUrl, setObjectUrl] = useState('')
   const file = form[fileKey]
   const preview = file ? objectUrl : form[formKey]
+  const hasValue = Boolean(file || form[formKey])
 
   const applyFile = (e) => {
     const f = e.target.files?.[0]
@@ -27,6 +27,7 @@ function LogoUpload({ label, form, formKey, fileKey, onChange, disabled, preview
     if (objectUrl) URL.revokeObjectURL(objectUrl)
     setObjectUrl('')
     onChange(fileKey, null)
+    onChange(formKey, '')
   }
 
   return (
@@ -68,7 +69,7 @@ function LogoUpload({ label, form, formKey, fileKey, onChange, disabled, preview
                 onChange={applyFile}
               />
             </label>
-            {file && (
+            {hasValue && (
               <button
                 type="button"
                 className="btn btn-ghost btn-xs"
@@ -96,76 +97,20 @@ function LogoUpload({ label, form, formKey, fileKey, onChange, disabled, preview
   )
 }
 
-function ColorField({ label, formKey, form, onChange, disabled, hint }) {
-  const value = form[formKey] || '#ff5500'
-  return (
-    <div>
-      <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>{label}</label>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: value,
-              border: '2px solid var(--border)',
-              cursor: disabled ? 'not-allowed' : 'pointer',
-              overflow: 'hidden',
-            }}
-          >
-            <input
-              type="color"
-              value={value}
-              onChange={e => onChange(formKey, e.target.value)}
-              disabled={disabled}
-              style={{
-                opacity: 0,
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                cursor: disabled ? 'not-allowed' : 'pointer',
-              }}
-            />
-          </div>
-        </div>
-        <input
-          type="text"
-          className="input input-sm"
-          value={value}
-          onChange={e => onChange(formKey, e.target.value)}
-          placeholder="#ff5500"
-          disabled={disabled}
-          style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}
-        />
-      </div>
-      {hint && <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, display: 'block' }}>{hint}</span>}
-    </div>
-  )
-}
-
 export default function BrandingTab({ form, onChange, disabled }) {
-  const primary = form.primary_color || form.brand_color || '#ff5500'
-  const dark = form.brand_color_dark || '#e04b00'
-
   const handleChange = (key, value) => onChange(key, value)
-  const handleColorChange = (key, value) => {
-    onChange(key, value)
-    if (key === 'primary_color') onChange('brand_color', value)
-  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-      {/* ── Brand Logos & Favicon ───────────────────────────────────────────────── */}
+      {/* ── Brand Logos ─────────────────────────────────────────────────────────── */}
       <div className="card" style={{ padding: 20, background: '#fff', borderRadius: 12, border: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <Image size={18} color="var(--primary)" />
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>Brand Logos & Favicon</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>Brand Logos</h3>
             <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
-              High-resolution SVG or PNG visual assets. Uploaded images are stored locally and applied across the storefront, portals and reports.
+              High-resolution SVG, PNG, JPG or WebP logos. Uploaded images are stored locally and applied across the storefront, portals and reports.
             </p>
           </div>
         </div>
@@ -179,7 +124,7 @@ export default function BrandingTab({ form, onChange, disabled }) {
             onChange={handleChange}
             disabled={disabled}
             previewBg="#f8fafc"
-            hint="PNG, JPG, SVG or WebP"
+            hint="Shown on light headers, invoices and emails"
           />
 
           <LogoUpload
@@ -190,123 +135,8 @@ export default function BrandingTab({ form, onChange, disabled }) {
             onChange={handleChange}
             disabled={disabled}
             previewBg="#0f172a"
-            hint="PNG, JPG, SVG or WebP"
+            hint="Shown on dark sidebars and portal navigation"
           />
-
-          <LogoUpload
-            label="Favicon (.ico or .png)"
-            form={form}
-            formKey="favicon_url"
-            fileKey="favicon_file"
-            onChange={handleChange}
-            disabled={disabled}
-            previewBg="#f8fafc"
-            hint="PNG, ICO or SVG"
-          />
-        </div>
-      </div>
-
-      {/* ── Theme & Color Palette ──────────────────────────────────────────────── */}
-      <div className="card" style={{ padding: 20, background: '#fff', borderRadius: 12, border: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <Palette size={18} color="#8b5cf6" />
-          <div>
-            <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>Theme & Color Palette</h3>
-            <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>Primary and secondary brand accents used across buttons, links, and badges</p>
-          </div>
-        </div>
-
-        {/* Live color strip preview */}
-        <div
-          style={{
-            marginBottom: 16,
-            borderRadius: 10,
-            overflow: 'hidden',
-            border: '1px solid var(--border)',
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-          }}
-        >
-          <div
-            style={{
-              padding: '12px 16px',
-              background: primary,
-              color: '#fff',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-            }}
-          >
-            <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Primary</span>
-            <span style={{ fontSize: 13, fontWeight: 800 }}>{primary}</span>
-            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-              <div style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.25)', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>Button</div>
-              <div style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.15)', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>Badge</div>
-            </div>
-          </div>
-          <div
-            style={{
-              padding: '12px 16px',
-              background: dark,
-              color: '#fff',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-            }}
-          >
-            <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hover/Dark</span>
-            <span style={{ fontSize: 13, fontWeight: 800 }}>{dark}</span>
-            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-              <div style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.25)', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>Hover</div>
-              <div style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.15)', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>Active</div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-          <ColorField
-            label="Primary Brand Color"
-            formKey="primary_color"
-            form={form}
-            onChange={handleColorChange}
-            disabled={disabled}
-            hint="Main CTA buttons, links, highlights"
-          />
-          <ColorField
-            label="Dark / Hover Accent"
-            formKey="brand_color_dark"
-            form={form}
-            onChange={handleChange}
-            disabled={disabled}
-            hint="Button hover states and active elements"
-          />
-
-          <div>
-            <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Admin Portal Default Theme</label>
-            <select
-              className="select select-sm"
-              value={form.admin_theme || 'light'}
-              onChange={e => handleChange('admin_theme', e.target.value)}
-              disabled={disabled}
-            >
-              <option value="light">Light Mode</option>
-              <option value="dark">Dark Mode</option>
-              <option value="system">Follow System Preferences</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Admin Sidebar Default</label>
-            <select
-              className="select select-sm"
-              value={form.sidebar_default || 'expanded'}
-              onChange={e => handleChange('sidebar_default', e.target.value)}
-              disabled={disabled}
-            >
-              <option value="expanded">Expanded (Standard)</option>
-              <option value="collapsed">Collapsed (Icons only)</option>
-            </select>
-          </div>
         </div>
       </div>
 

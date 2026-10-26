@@ -41,6 +41,14 @@ class PlatformConfigController extends Controller
             $cfg['favicon_url'] = $cfg['favicon_url'] ?? '';
             $cfg['primary_color'] = $cfg['primary_color'] ?? $cfg['brand_color'] ?? '#ff5500';
             $cfg['brand_color_dark'] = $cfg['brand_color_dark'] ?? '#e04b00';
+
+            // Retired colour schemes fall back to the canonical brand orange.
+            if (in_array(strtolower((string) $cfg['primary_color']), ['#6366f1', '#ff006f'], true)) {
+                $cfg['primary_color'] = '#ff5500';
+            }
+            if (strtolower((string) $cfg['brand_color_dark']) === '#4338ca') {
+                $cfg['brand_color_dark'] = '#e04b00';
+            }
             $cfg['support_email'] = $cfg['support_email'] ?? 'support@gosika.com.np';
             $cfg['support_phone'] = $cfg['support_phone'] ?? '+977-1-4200000';
             $cfg['business_address'] = $cfg['business_address'] ?? $cfg['site_address'] ?? 'Kathmandu, Nepal';

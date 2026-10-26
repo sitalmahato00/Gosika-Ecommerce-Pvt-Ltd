@@ -47,14 +47,27 @@ const DEFAULT_BRANDING = {
   email_footer: '',
 }
 
+const DEFAULT_PRIMARY = '#ff5500'
+const DEFAULT_DARK = '#e04b00'
+
+// Retired colour-scheme values that must never override the brand default.
+const LEGACY_PRIMARY_COLORS = ['#6366f1', '#ff006f']
+const LEGACY_DARK_COLORS = ['#4338ca']
+
+function normalizeColor(value, fallback, legacy) {
+  const color = String(value || '').toLowerCase()
+  if (!color || legacy.includes(color)) return fallback
+  return value
+}
+
 export function BrandingProvider({ children }) {
   const [branding, setBranding] = useState(() => {
     try {
       const cached = localStorage.getItem('gosika_branding')
       if (cached) {
         const parsed = JSON.parse(cached)
-        if (parsed.primary_color === '#6366f1') parsed.primary_color = '#ff5500'
-        if (parsed.brand_color_dark === '#4338ca') parsed.brand_color_dark = '#e04b00'
+        if (LEGACY_PRIMARY_COLORS.includes(String(parsed.primary_color || '').toLowerCase())) parsed.primary_color = DEFAULT_PRIMARY
+        if (LEGACY_DARK_COLORS.includes(String(parsed.brand_color_dark || '').toLowerCase())) parsed.brand_color_dark = DEFAULT_DARK
         return { ...DEFAULT_BRANDING, ...parsed }
       }
       return DEFAULT_BRANDING
@@ -67,9 +80,10 @@ export function BrandingProvider({ children }) {
   const applyBrandingToDOM = useCallback((data) => {
     if (!data) return
 
-    // Apply primary color to document root
-    const primary = (data.primary_color && data.primary_color !== '#6366f1') ? data.primary_color : '#ff5500'
-    const dark = (data.brand_color_dark && data.brand_color_dark !== '#4338ca') ? data.brand_color_dark : '#e04b00'
+    // Apply primary color to document root. Retired custom palettes fall back
+    // to the canonical GOSIKA brand orange.
+    const primary = normalizeColor(data.primary_color, DEFAULT_PRIMARY, LEGACY_PRIMARY_COLORS)
+    const dark = normalizeColor(data.brand_color_dark, DEFAULT_DARK, LEGACY_DARK_COLORS)
     document.documentElement.style.setProperty('--primary', primary)
     document.documentElement.style.setProperty('--primary-600', primary)
     document.documentElement.style.setProperty('--primary-dark', dark)
@@ -96,6 +110,8 @@ export function BrandingProvider({ children }) {
       const res = await api.get('/platform/config')
       const data = res.data?.data || {}
       const merged = { ...DEFAULT_BRANDING, ...data }
+      merged.primary_color = normalizeColor(merged.primary_color, DEFAULT_PRIMARY, LEGACY_PRIMARY_COLORS)
+      merged.brand_color_dark = normalizeColor(merged.brand_color_dark, DEFAULT_DARK, LEGACY_DARK_COLORS)
       setBranding(merged)
       try {
         localStorage.setItem('gosika_branding', JSON.stringify(merged))
