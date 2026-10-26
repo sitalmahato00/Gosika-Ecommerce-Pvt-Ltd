@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
-import { money, apiImage, getProductImage } from '../utils/format'
+import { money, apiImage, getProductImage, handleImgError } from '../utils/format'
 import { Package } from 'lucide-react'
 
 export default function ProductCard({ product }) {
@@ -25,7 +25,7 @@ export default function ProductCard({ product }) {
             src={imageUrl}
             alt={product.name}
             style={{ height: '100%', width: '100%', objectFit: 'cover' }}
-            onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' }}
+            onError={handleImgError}
           />
         </div>
       </Link>

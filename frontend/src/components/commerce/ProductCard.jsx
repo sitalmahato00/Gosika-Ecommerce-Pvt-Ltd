@@ -5,7 +5,7 @@ import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
-import { money, apiImage, discountPercent, getProductImage } from '../../utils/format'
+import { money, apiImage, discountPercent, getProductImage, handleImgError } from '../../utils/format'
 import RatingStars from './RatingStars'
 import { Skeleton } from '../ui/Skeleton'
 
@@ -66,10 +66,7 @@ export default function ProductCard({ product, onQuickView, variant = 'outline' 
             alt={product.name}
             loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = getProductImage(product)
-            }}
+            onError={handleImgError}
           />
         </div>
         {discount && (

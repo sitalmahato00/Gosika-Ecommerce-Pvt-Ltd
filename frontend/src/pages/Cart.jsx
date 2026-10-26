@@ -8,7 +8,7 @@ import {
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { money, apiImage, getProductImage } from '../utils/format'
+import { money, apiImage, getProductImage, handleImgError } from '../utils/format'
 import EmptyState from '../components/ui/EmptyState'
 import QtyStepper from '../components/commerce/QtyStepper'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -322,7 +322,7 @@ export default function Cart() {
                             src={item.image ? apiImage(item.image, item.name) : getProductImage(item, 0, true)}
                             alt={item.name}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            onError={(e) => { e.target.onerror = null; e.target.src = getProductImage(item, 0, true) }}
+                            onError={handleImgError}
                           />
                         </div>
                       </Link>

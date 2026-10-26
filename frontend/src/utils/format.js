@@ -8,6 +8,30 @@ export function money(value, options = {}) {
   })
 }
 
+/**
+ * Safe image error handler — call as onError={handleImgError}
+ *
+ * What it does:
+ *  1. Immediately sets e.target.onerror = null → breaks infinite retry loops
+ *  2. Replaces broken src with a lightweight inline SVG placeholder
+ *     (no external requests → no CORB, no 1,500-request storm)
+ *
+ * ⚠️  NEVER do `e.target.src = 'https://...'` in onError without first
+ *     setting `e.target.onerror = null`. If the fallback URL also fails
+ *     (e.g. blocked by CORB), the browser fires onError again →
+ *     infinite loop → "Page Unresponsive" crash.
+ */
+export function handleImgError(e) {
+  e.target.onerror = null // ← must be first; breaks the infinite loop
+  e.target.src = IMG_PLACEHOLDER
+}
+
+// Inline SVG placeholder — zero network requests, works offline, CORB-safe
+export const IMG_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23f1f5f9'/%3E%3Crect x='60' y='55' width='80' height='65' rx='6' fill='%23cbd5e1'/%3E%3Ccircle cx='100' cy='135' r='20' fill='%23cbd5e1'/%3E%3Ccircle cx='82' cy='76' r='10' fill='%23e2e8f0'/%3E%3Cpath d='M60 120 l25-28 20 22 14-16 21 22' fill='%23e2e8f0'/%3E%3C/svg%3E"
+
+
+
 export const FALLBACK_PRODUCT_IMAGES = [
   'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80', // Pashmina / Shawl
   'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80', // Headphones / Tech

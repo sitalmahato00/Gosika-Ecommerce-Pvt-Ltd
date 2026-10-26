@@ -8,7 +8,7 @@ import api from '../api/client'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { money, errorMessage, apiImage, getProductImage } from '../utils/format'
+import { money, errorMessage, apiImage, getProductImage, handleImgError } from '../utils/format'
 import { PAYMENT_BRAND_LOGOS } from '../utils/constants'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
@@ -696,7 +696,7 @@ export default function Checkout() {
                       alt={item.name || ''}
                       className="thumb-img"
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={(e) => { e.target.onerror = null; e.target.src = getProductImage(item, 0, true) }}
+                      onError={handleImgError}
                     />
                   </span>
                   <div style={{ minWidth: 0 }}>

@@ -8,8 +8,8 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
-import { Skeleton } from '../../components/ui/Skeleton'
-import { money, errorMessage, getProductImage } from '../../utils/format'
+import { money, errorMessage, getProductImage, handleImgError } from '../../utils/format'
+
 import { useToast } from '../../context/ToastContext'
 
 const STATUS_FILTERS = [
@@ -214,7 +214,7 @@ export default function VendorProducts({ view = 'products' }) {
                               src={img}
                               alt=""
                               className="thumb-img"
-                              onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' }}
+                              onError={handleImgError}
                             />
                           </span>
                           <div style={{ minWidth: 0 }}>
@@ -280,7 +280,7 @@ export default function VendorProducts({ view = 'products' }) {
                         src={img}
                         alt=""
                         className="thumb-img"
-                        onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' }}
+                        onError={handleImgError}
                       />
                     </span>
                     <div style={{ minWidth: 0 }}>

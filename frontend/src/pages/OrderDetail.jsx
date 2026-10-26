@@ -7,7 +7,7 @@ import ErrorState from '../components/ui/ErrorState'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Button from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
-import { money, formatDateTime, apiImage, errorMessage } from '../utils/format'
+import { money, formatDateTime, apiImage, errorMessage, handleImgError } from '../utils/format'
 import { ORDER_STATUS_FLOW, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../utils/constants'
 import { useToast } from '../context/ToastContext'
 
@@ -191,7 +191,7 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
                       alt={it.product_name || ''}
                       className="thumb-img"
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={(e) => { e.target.onerror = null; e.target.src = getProductImage(it, 0, true) }}
+                      onError={handleImgError}
                     />
                   </Link>
                   <div className="flex-1 min-w-0">

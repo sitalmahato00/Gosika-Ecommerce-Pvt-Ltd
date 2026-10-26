@@ -9,7 +9,7 @@ import StatusBadge from '../../components/commerce/StatusBadge'
 import { Skeleton } from '../../components/ui/Skeleton'
 import ErrorState from '../../components/ui/ErrorState'
 import EmptyState from '../../components/ui/EmptyState'
-import { errorMessage, formatDate } from '../../utils/format'
+import { errorMessage, formatDate, handleImgError } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 
 export default function AdminCategoryDetail() {
@@ -80,7 +80,7 @@ export default function AdminCategoryDetail() {
             src={category.image || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=1200&q=80'}
             alt={category.name}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=1200&q=80' }}
+            onError={handleImgError}
           />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,23,42,0.7), rgba(15,23,42,0.05))' }} />
           <div style={{ position: 'absolute', bottom: 14, left: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
