@@ -2,7 +2,6 @@
 
 namespace App\Modules\Seo\Presentation\Http\Controllers;
 
-use App\Modules\Identity\Domain\Roles;
 use App\Modules\Platform\Infrastructure\Models\Setting;
 use App\Modules\Seo\Application\Services\SeoService;
 use App\Modules\Seo\Infrastructure\Models\SeoAuditResult;
@@ -14,7 +13,6 @@ use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Str;
 
 class AdminSeoController extends Controller
 {
@@ -22,7 +20,7 @@ class AdminSeoController extends Controller
         protected SeoService $seoService
     ) {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:' . Roles::SUPER_ADMIN);
+        $this->middleware('ensure:admin');
     }
 
     /**
@@ -61,21 +59,38 @@ class AdminSeoController extends Controller
      */
     public function updateGlobalSettings(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'seo.default_title_suffix'    => ['nullable', 'string', 'max:100'],
-            'seo.title_separator'         => ['nullable', 'string', 'max:20'],
-            'seo.default_robots'          => ['nullable', 'string', 'max:60'],
-            'seo.twitter_card'            => ['nullable', 'string', 'in:summary,summary_large_image'],
-            'seo.google_verification'     => ['nullable', 'string', 'max:200'],
-            'seo.bing_verification'       => ['nullable', 'string', 'max:200'],
-            'seo.yandex_verification'     => ['nullable', 'string', 'max:200'],
-            'seo.product_title_template'  => ['nullable', 'string', 'max:300'],
-            'seo.category_title_template' => ['nullable', 'string', 'max:300'],
-            'seo.store_title_template'    => ['nullable', 'string', 'max:300'],
+        // Use escaped dot keys so Laravel treats them as literals, not nested array paths
+        $request->validate([
+            'seo\\.default_title_suffix'    => ['nullable', 'string', 'max:100'],
+            'seo\\.title_separator'         => ['nullable', 'string', 'max:20'],
+            'seo\\.default_robots'          => ['nullable', 'string', 'max:60'],
+            'seo\\.twitter_card'            => ['nullable', 'string', 'in:summary,summary_large_image'],
+            'seo\\.google_verification'     => ['nullable', 'string', 'max:200'],
+            'seo\\.bing_verification'       => ['nullable', 'string', 'max:200'],
+            'seo\\.yandex_verification'     => ['nullable', 'string', 'max:200'],
+            'seo\\.product_title_template'  => ['nullable', 'string', 'max:300'],
+            'seo\\.category_title_template' => ['nullable', 'string', 'max:300'],
+            'seo\\.store_title_template'    => ['nullable', 'string', 'max:300'],
         ]);
 
-        foreach ($data as $key => $value) {
-            Setting::set($key, $value, 'seo');
+        $allowed = [
+            'seo.default_title_suffix',
+            'seo.title_separator',
+            'seo.default_robots',
+            'seo.twitter_card',
+            'seo.google_verification',
+            'seo.bing_verification',
+            'seo.yandex_verification',
+            'seo.product_title_template',
+            'seo.category_title_template',
+            'seo.store_title_template',
+        ];
+
+        // Grab the raw flat keys from the request body directly
+        $payload = $request->only($allowed);
+
+        foreach ($payload as $key => $value) {
+            Setting::set($key, $value ?? '', 'seo');
         }
 
         return Response::success($this->seoService->getSeoSettings(), 'SEO settings updated.');

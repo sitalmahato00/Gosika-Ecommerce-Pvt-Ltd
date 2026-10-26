@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 // Admin SEO routes (protected)
 Route::prefix('v1/admin/seo')
-    ->middleware(['auth:sanctum', 'role:' . \App\Modules\Identity\Domain\Roles::SUPER_ADMIN])
+    ->middleware(['auth:sanctum', 'ensure:admin'])
     ->group(function () {
         Route::get('dashboard', [AdminSeoController::class, 'dashboard']);
 
