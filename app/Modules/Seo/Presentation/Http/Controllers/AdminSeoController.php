@@ -59,20 +59,6 @@ class AdminSeoController extends Controller
      */
     public function updateGlobalSettings(Request $request): JsonResponse
     {
-        // Use escaped dot keys so Laravel treats them as literals, not nested array paths
-        $request->validate([
-            'seo\\.default_title_suffix'    => ['nullable', 'string', 'max:100'],
-            'seo\\.title_separator'         => ['nullable', 'string', 'max:20'],
-            'seo\\.default_robots'          => ['nullable', 'string', 'max:60'],
-            'seo\\.twitter_card'            => ['nullable', 'string', 'in:summary,summary_large_image'],
-            'seo\\.google_verification'     => ['nullable', 'string', 'max:200'],
-            'seo\\.bing_verification'       => ['nullable', 'string', 'max:200'],
-            'seo\\.yandex_verification'     => ['nullable', 'string', 'max:200'],
-            'seo\\.product_title_template'  => ['nullable', 'string', 'max:300'],
-            'seo\\.category_title_template' => ['nullable', 'string', 'max:300'],
-            'seo\\.store_title_template'    => ['nullable', 'string', 'max:300'],
-        ]);
-
         $allowed = [
             'seo.default_title_suffix',
             'seo.title_separator',
@@ -86,11 +72,12 @@ class AdminSeoController extends Controller
             'seo.store_title_template',
         ];
 
-        // Grab the raw flat keys from the request body directly
-        $payload = $request->only($allowed);
+        // $request->only() and $request->input() treat dots as nested array paths,
+        // so we must use $request->all() + array_intersect_key to get flat dot-keys.
+        $payload = array_intersect_key($request->all(), array_flip($allowed));
 
         foreach ($payload as $key => $value) {
-            Setting::set($key, $value ?? '', 'seo');
+            Setting::set($key, (string) ($value ?? ''), 'seo');
         }
 
         return Response::success($this->seoService->getSeoSettings(), 'SEO settings updated.');
