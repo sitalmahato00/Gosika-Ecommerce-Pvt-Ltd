@@ -881,7 +881,7 @@ button {
   bottom: 0;
   width: min(420px, 100vw);
   background: #fff;
-  z-index: 1010;
+  z-index: 10001;
   animation: slideInRight 0.22s ease;
   display: flex;
   flex-direction: column;
@@ -2891,9 +2891,10 @@ button {
     padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
-  /* When a modal or fullscreen overlay is open, hide customer bottom nav so it never overlaps modals or action buttons */
+  /* When a modal, drawer, or fullscreen overlay is open, hide customer bottom nav so it never overlaps */
   body:has(.overlay) .customer-bottom-nav,
-  body.modal-open .customer-bottom-nav {
+  body.modal-open .customer-bottom-nav,
+  body:has(.acc-backdrop) .customer-bottom-nav {
     display: none !important;
   }
 
@@ -3358,7 +3359,7 @@ button {
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 80;
+    z-index: 10000;
     background: rgba(15, 23, 42, 0.5);
     animation: accFadeIn 0.2s ease;
   }
@@ -3372,7 +3373,7 @@ button {
     bottom: 0;
     left: 0;
     width: min(324px, 88vw);
-    z-index: 90;
+    z-index: 10001;
     background: #fff;
     box-shadow: 8px 0 32px rgba(15, 23, 42, 0.18);
     transform: translateX(-102%);
