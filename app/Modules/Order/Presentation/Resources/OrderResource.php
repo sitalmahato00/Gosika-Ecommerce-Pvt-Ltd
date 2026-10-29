@@ -47,10 +47,37 @@ class OrderResource extends JsonResource
 
         $secondsRemaining = $isWithinWindow ? max(0, $now->diffInSeconds($cancellationDeadline, false)) : 0;
 
+        // Resolve or generate delivery confirmation OTP
+        $deliveryOtp = $this->meta['delivery_otp'] ?? null;
+        if (! $deliveryOtp && $this->relationLoaded('vendorOrders')) {
+            foreach ($this->vendorOrders as $vo) {
+                if (! empty($vo->meta['delivery_otp'])) {
+                    $deliveryOtp = $vo->meta['delivery_otp'];
+                    break;
+                }
+                $asgn = $vo->relationLoaded('assignments') ? $vo->assignments->first() : null;
+                if ($asgn && ! empty($asgn->meta['delivery_otp'])) {
+                    $deliveryOtp = $asgn->meta['delivery_otp'];
+                    break;
+                }
+            }
+        }
+
+        // Auto-generate and persist if missing for any active non-cancelled order
+        if (! $deliveryOtp && ! in_array($this->status, [OrderStatus::CANCELLED, OrderStatus::REJECTED, OrderStatus::FAILED], true)) {
+            $deliveryOtp = sprintf('%06d', random_int(100000, 999999));
+            $orderMeta = (array) ($this->meta ?? []);
+            $orderMeta['delivery_otp'] = $deliveryOtp;
+            $this->meta = $orderMeta;
+            $this->saveQuietly();
+        }
+
         return [
             'id' => $this->uuid,
             'order_number' => $this->order_number,
             'status' => $this->status->value,
+            'delivery_otp' => $deliveryOtp,
+            'has_delivery_otp' => ! empty($deliveryOtp),
             'payment_method' => $this->payment_method,
             'payment_status' => $this->payment_status->value,
             'subtotal' => number_format((float) $this->subtotal, 2, '.', ''),

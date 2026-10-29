@@ -36,6 +36,7 @@ class DeliveryAssignmentResource extends JsonResource
             'assigned_by' => $this->meta['assigned_by_name'] ?? null,
             'assigned_by_role' => $this->meta['assigned_by_role'] ?? null,
             'reassignment_reason' => $this->meta['reassignment_reason'] ?? null,
+            'delivery_otp' => $this->meta['delivery_otp'] ?? $this->vendorOrder?->meta['delivery_otp'] ?? $this->vendorOrder?->order?->meta['delivery_otp'] ?? null,
             'meta' => $this->meta,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

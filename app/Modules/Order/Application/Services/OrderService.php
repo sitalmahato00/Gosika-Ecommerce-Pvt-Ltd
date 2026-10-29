@@ -47,7 +47,7 @@ class OrderService
         return Order::query()
             ->where('user_id', $user->id)
             ->where('uuid', $uuid)
-            ->with(['items', 'vendorOrders.items', 'shippingAddress'])
+            ->with(['items', 'vendorOrders.items', 'vendorOrders.assignments.tracking', 'shippingAddress'])
             ->first();
     }
 
@@ -263,6 +263,12 @@ class OrderService
         $order->coupon_code = $session->coupon_code;
         $order->customer_notes = $notes;
         $order->placed_at = now();
+
+        $deliveryOtp = sprintf('%06d', random_int(100000, 999999));
+        $orderMeta = (array) ($order->meta ?? []);
+        $orderMeta['delivery_otp'] = $deliveryOtp;
+        $order->meta = $orderMeta;
+
         $order->save();
 
         return $order;
@@ -302,6 +308,11 @@ class OrderService
         $vendorOrder->commission_rate = $commissionRate;
         $vendorOrder->commission_amount = $commissionAmount;
         $vendorOrder->vendor_payable = round($grandTotal - $commissionAmount, 2);
+
+        $voMeta = (array) ($vendorOrder->meta ?? []);
+        $voMeta['delivery_otp'] = $order->meta['delivery_otp'] ?? $deliveryOtp;
+        $vendorOrder->meta = $voMeta;
+
         $vendorOrder->save();
 
         foreach ($group as $item) {

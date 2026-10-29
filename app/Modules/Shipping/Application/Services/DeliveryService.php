@@ -273,6 +273,26 @@ class DeliveryService
                 $meta['assignment_note'] = $notes;
             }
 
+            // Ensure 6-digit delivery OTP is present and synced
+            $deliveryOtp = $order->meta['delivery_otp']
+                ?? $vendorOrder->meta['delivery_otp']
+                ?? sprintf('%06d', random_int(100000, 999999));
+
+            if (empty($order->meta['delivery_otp'])) {
+                $orderMeta = (array) ($order->meta ?? []);
+                $orderMeta['delivery_otp'] = $deliveryOtp;
+                $order->meta = $orderMeta;
+                $order->saveQuietly();
+            }
+            if (empty($vendorOrder->meta['delivery_otp'])) {
+                $voMeta = (array) ($vendorOrder->meta ?? []);
+                $voMeta['delivery_otp'] = $deliveryOtp;
+                $vendorOrder->meta = $voMeta;
+                $vendorOrder->saveQuietly();
+            }
+
+            $meta['delivery_otp'] = $deliveryOtp;
+
             $assignment = DeliveryAssignment::query()->create([
                 'vendor_order_id' => $vendorOrder->id,
                 'delivery_partner_id' => $partner->id,
@@ -287,6 +307,11 @@ class DeliveryService
                 'created_by' => $actor->id,
                 'meta' => $meta,
             ]);
+
+            Cache::put($this->otpKey($assignment), [
+                'code' => hash('sha256', (string) $deliveryOtp),
+                'attempts' => 0,
+            ], 86400 * 7);
 
             $this->transitionDelivery($vendorOrder, DeliveryStatus::ASSIGNED, $actor);
 
@@ -473,6 +498,10 @@ class DeliveryService
         $this->recordTracking($assignment, DeliveryStatus::PICKED_UP, 'Order picked up from vendor.', null);
 
         $this->syncOrder($assignment->vendorOrder->order, $partnerUser);
+
+        // Ensure delivery OTP is generated upon pickup
+        $this->getOrGenerateDeliveryOtp($assignment);
+
         $this->dispatcher->orderDeliveryUpdate($assignment->vendorOrder, 'picked_up');
 
         return $assignment->fresh(['tracking']);
@@ -494,7 +523,7 @@ class DeliveryService
 
         $this->syncOrder($assignment->vendorOrder->order, $partnerUser);
 
-        $otp = $this->generateOtp($assignment);
+        $otp = $this->getOrGenerateDeliveryOtp($assignment);
 
         $this->dispatcher->orderDeliveryUpdate($assignment->vendorOrder, 'out_for_delivery');
 
@@ -1677,20 +1706,77 @@ class DeliveryService
         ]);
     }
 
-    protected function generateOtp(DeliveryAssignment $assignment): string
+    public function getOrGenerateDeliveryOtp(DeliveryAssignment $assignment): string
     {
-        $code = (string) random_int(100000, 999999);
+        $meta = (array) ($assignment->meta ?? []);
+        $existing = $meta['delivery_otp'] ?? null;
+
+        $order = $assignment->vendorOrder?->order;
+        if (! $existing && $order && ! empty($order->meta['delivery_otp'])) {
+            $existing = $order->meta['delivery_otp'];
+        }
+
+        if (! $existing || strlen((string) $existing) !== 6) {
+            $existing = sprintf('%06d', random_int(100000, 999999));
+        }
+
+        // Persist on assignment meta
+        if (($meta['delivery_otp'] ?? null) !== $existing) {
+            $meta['delivery_otp'] = $existing;
+            $assignment->meta = $meta;
+            $assignment->saveQuietly();
+        }
+
+        // Persist on parent order meta
+        if ($order && ($order->meta['delivery_otp'] ?? null) !== $existing) {
+            $orderMeta = (array) ($order->meta ?? []);
+            $orderMeta['delivery_otp'] = $existing;
+            $order->meta = $orderMeta;
+            $order->saveQuietly();
+        }
+
+        // Persist on vendor order meta
+        $vendorOrder = $assignment->vendorOrder;
+        if ($vendorOrder && ($vendorOrder->meta['delivery_otp'] ?? null) !== $existing) {
+            $voMeta = (array) ($vendorOrder->meta ?? []);
+            $voMeta['delivery_otp'] = $existing;
+            $vendorOrder->meta = $voMeta;
+            $vendorOrder->saveQuietly();
+        }
 
         Cache::put($this->otpKey($assignment), [
-            'code' => hash('sha256', $code),
+            'code' => hash('sha256', (string) $existing),
             'attempts' => 0,
-        ], self::OTP_TTL_SECONDS);
+        ], 86400 * 7);
 
-        return $code;
+        return (string) $existing;
+    }
+
+    protected function generateOtp(DeliveryAssignment $assignment): string
+    {
+        return $this->getOrGenerateDeliveryOtp($assignment);
     }
 
     protected function verifyOtp(DeliveryAssignment $assignment, string $code): bool
     {
+        $code = trim($code);
+        if ($code === '') {
+            return false;
+        }
+
+        // Check stored plain OTP on assignment, vendor order, or order
+        $storedOtp = (string) (
+            $assignment->meta['delivery_otp']
+            ?? $assignment->vendorOrder?->meta['delivery_otp']
+            ?? $assignment->vendorOrder?->order?->meta['delivery_otp']
+            ?? ''
+        );
+
+        if ($storedOtp !== '' && hash_equals($storedOtp, $code)) {
+            Cache::forget($this->otpKey($assignment));
+            return true;
+        }
+
         $key = $this->otpKey($assignment);
         $entry = Cache::get($key);
 
@@ -1709,7 +1795,7 @@ class DeliveryService
         }
 
         $entry['attempts'] = ($entry['attempts'] ?? 0) + 1;
-        Cache::put($key, $entry, self::OTP_TTL_SECONDS);
+        Cache::put($key, $entry, 86400 * 7);
 
         return false;
     }

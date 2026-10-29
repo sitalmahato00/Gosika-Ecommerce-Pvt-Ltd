@@ -678,5 +678,47 @@ class DeliveryAssignmentTest extends TestCase
         $response->assertStatus(201);
         $this->assertEquals($this->rider1->id, $readyOrder->fresh()->assignments()->active()->first()->delivery_partner_id);
     }
+
+    public function test_delivery_otp_generated_and_available_in_customer_order_detail(): void
+    {
+        [$order, $readyOrder] = $this->createTestOrder(OrderStatus::READY_FOR_PICKUP);
+        $customer = $order->user;
+
+        // Claimed and picked up
+        $this->actingAs($this->riderUser1)
+            ->postJson("/api/v1/delivery-partner/available-jobs/{$readyOrder->uuid}/claim");
+
+        $assignment = DeliveryAssignment::where('vendor_order_id', $readyOrder->id)->first();
+
+        $this->actingAs($this->riderUser1)
+            ->postJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}/pickup");
+
+        // Customer views order detail
+        $customerResponse = $this->actingAs($customer)
+            ->getJson("/api/v1/orders/{$order->uuid}");
+
+        $customerResponse->assertStatus(200);
+        $otp = $customerResponse->json('data.delivery_otp');
+
+        $this->assertNotNull($otp);
+        $this->assertEquals(6, strlen($otp));
+        $this->assertTrue(ctype_digit($otp));
+
+        // Delivery rider out-for-delivery gets matching OTP
+        $outResponse = $this->actingAs($this->riderUser1)
+            ->postJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}/out-for-delivery");
+        $outResponse->assertStatus(200);
+        $riderOtp = $outResponse->json('meta.otp');
+
+        $this->assertEquals($otp, $riderOtp);
+
+        // Handover confirmation succeeds using customer's OTP
+        $deliverResponse = $this->actingAs($this->riderUser1)
+            ->postJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}/deliver", [
+                'otp' => $otp,
+            ]);
+        $deliverResponse->assertStatus(200);
+        $this->assertEquals(DeliveryStatus::DELIVERED, $assignment->fresh()->status);
+    }
 }
 

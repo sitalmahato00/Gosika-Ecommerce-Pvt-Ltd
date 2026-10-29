@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react'
+import React, { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Navigation, Package, CheckCircle2, Copy, Check,
@@ -25,6 +25,12 @@ export default function DeliveryDeliver() {
   const [copied, setCopied] = useState(false)
 
   const a = assignment.data
+
+  React.useEffect(() => {
+    if (a?.delivery_otp || a?.meta?.delivery_otp) {
+      setOtp(a.delivery_otp || a.meta.delivery_otp)
+    }
+  }, [a])
 
   const handleStartDelivery = async () => {
     setBusy(true)

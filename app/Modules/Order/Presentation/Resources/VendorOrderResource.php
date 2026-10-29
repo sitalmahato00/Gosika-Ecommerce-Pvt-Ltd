@@ -119,6 +119,7 @@ class VendorOrderResource extends JsonResource
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
             'assignment' => $activeAssignment ? new \App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource($activeAssignment) : null,
             'assignments' => \App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource::collection($this->whenLoaded('assignments')),
+            'delivery_otp' => $meta['delivery_otp'] ?? $this->order?->meta['delivery_otp'] ?? null,
             'created_at' => $this->created_at?->toISOString(),
             // Vendor Confirmation Lifecycle Properties
             'can_confirm' => $canConfirm,

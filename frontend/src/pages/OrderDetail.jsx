@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ChevronRight, MapPin, Truck, ShieldCheck, Phone, Clock, AlertCircle, HelpCircle } from 'lucide-react'
+import { ChevronRight, MapPin, Truck, ShieldCheck, Phone, Clock, AlertCircle, HelpCircle, KeyRound, Copy, CheckCircle2 } from 'lucide-react'
 import api from '../api/client'
 import StatusBadge from '../components/commerce/StatusBadge'
 import ErrorState from '../components/ui/ErrorState'
@@ -34,6 +34,15 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
   const [selectedReason, setSelectedReason] = useState(CANCEL_REASONS[0])
   const [explanation, setExplanation] = useState('')
   const [countdown, setCountdown] = useState(0)
+  const [otpCopied, setOtpCopied] = useState(false)
+
+  const copyOtp = () => {
+    if (!order?.delivery_otp) return
+    navigator.clipboard.writeText(order.delivery_otp)
+    setOtpCopied(true)
+    toast.success('Delivery OTP copied to clipboard!')
+    setTimeout(() => setOtpCopied(false), 2000)
+  }
 
   const load = () => {
     setLoading(true)
@@ -216,6 +225,98 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
       `}</style>
       <div id="order-detail-layout" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, alignItems: 'start' }}>
         <div className="flex flex-col gap-4">
+          {/* Delivery Confirmation OTP Card */}
+          {order.delivery_otp && order.status !== 'cancelled' && (
+            <div
+              className="card"
+              style={{
+                background: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 100%)',
+                border: '1.5px solid #fed7aa',
+                boxShadow: '0 4px 14px rgba(249, 115, 22, 0.08)',
+                padding: '18px 22px',
+              }}
+            >
+              <div className="flex items-center justify-between wrap gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <div
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 10,
+                      background: 'rgba(255, 85, 0, 0.12)',
+                      color: 'var(--primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <KeyRound size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
+                      Delivery Confirmation OTP
+                    </h3>
+                    <p className="muted text-xs" style={{ margin: 0 }}>
+                      Provide this 6-digit verification code to your delivery rider upon package handover.
+                    </p>
+                  </div>
+                </div>
+
+                {order.status === 'delivered' ? (
+                  <span className="chip chip-success chip-sm flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Delivery Verified
+                  </span>
+                ) : (
+                  <span className="chip chip-sm" style={{ background: '#ffedd5', color: '#c2410c', fontWeight: 700 }}>
+                    Required on Handover
+                  </span>
+                )}
+              </div>
+
+              <div
+                className="flex items-center justify-between wrap gap-3 p-3 rounded"
+                style={{
+                  background: '#ffffff',
+                  border: '1px dashed #fdba74',
+                  marginTop: 10,
+                }}
+              >
+                <div>
+                  <div className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.05em' }}>
+                    Your 6-Digit Delivery PIN
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 900,
+                      letterSpacing: '0.22em',
+                      color: 'var(--primary)',
+                      fontFamily: 'monospace',
+                      marginTop: 2,
+                    }}
+                  >
+                    {order.delivery_otp}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm flex items-center gap-1.5"
+                    onClick={copyOtp}
+                  >
+                    <Copy size={14} /> {otpCopied ? 'Copied!' : 'Copy OTP'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="muted text-xs mt-2 flex items-center gap-1.5">
+                <ShieldCheck size={13} color="#ea580c" />
+                <span>Only share this code with the courier rider when you physically receive your package.</span>
+              </div>
+            </div>
+          )}
+
           {/* Status timeline */}
           <div className="card">
             <h2 style={{ fontSize: 16 }} className="flex items-center gap-2 mb-3"><Truck size={17} color="var(--primary)" /> Order Status</h2>
@@ -310,6 +411,21 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
               <div className="muted flex items-center gap-1 mt-1"><Phone size={12} /> {addr.phone}</div>
             </div>
           </div>
+
+          {order.delivery_otp && order.status !== 'cancelled' && (
+            <div className="card" style={{ padding: 16, background: '#fff7ed', border: '1px solid #fed7aa' }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold uppercase" style={{ color: '#c2410c', letterSpacing: '0.04em' }}>Delivery OTP</span>
+                <KeyRound size={15} color="#ea580c" />
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '0.18em', color: '#c2410c', fontFamily: 'monospace' }}>
+                {order.delivery_otp}
+              </div>
+              <p className="muted text-xs mt-1" style={{ margin: '4px 0 0' }}>
+                Share with delivery rider upon handover.
+              </p>
+            </div>
+          )}
 
           <div className="alert alert-info" style={{ marginBottom: 0 }}>
             <ShieldCheck size={18} />
