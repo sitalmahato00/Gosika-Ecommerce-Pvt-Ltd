@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Store, Save, Pencil, ChevronRight, Percent, PackageCheck, Clock, Truck } from 'lucide-react'
+import { Store, Save, Pencil, ChevronRight, Percent, PackageCheck } from 'lucide-react'
 import api from '../../api/client'
 import Input from '../../components/ui/Input'
 import Textarea from '../../components/ui/Textarea'
@@ -19,7 +19,6 @@ export default function VendorStoreSettings() {
   const [vendor, setVendor] = useState(null)
   const [storeId, setStoreId] = useState(null)
   const [saving, setSaving] = useState('')
-  const [companyForm, setCompanyForm] = useState({ company_name: '', business_email: '', business_phone: '' })
   const [storeForm, setStoreForm] = useState({ name: '', description: '', contact_email: '', contact_phone: '', status: '' })
   const [orderSettings, setOrderSettings] = useState({
     order_confirmation_mode: 'manual',
@@ -36,19 +35,14 @@ export default function VendorStoreSettings() {
       .then(([m, s]) => {
         const v = m.data.data || {}
         setVendor(v)
-        setCompanyForm({
-          company_name: v.company_name || '',
-          business_email: v.business_email || '',
-          business_phone: v.business_phone || '',
-        })
         const first = (s.data.data || [])[0]
         if (first) {
           setStoreId(first.id)
           setStoreForm({
-            name: first.name || '',
+            name: first.name || v.company_name || '',
             description: first.description || '',
-            contact_email: first.contact_email || '',
-            contact_phone: first.contact_phone || '',
+            contact_email: first.contact_email || v.business_email || '',
+            contact_phone: first.contact_phone || v.business_phone || '',
             status: first.status || '',
           })
           const st = first.settings || {}
@@ -68,32 +62,25 @@ export default function VendorStoreSettings() {
   }
   useEffect(load, [])
 
-  const saveCompany = async (e) => {
-    e.preventDefault()
-    setSaving('company')
-    try {
-      await api.put('/vendor/me', companyForm)
-      toast.success('Company information saved')
-      load()
-    } catch (err) {
-      toast.error(errorMessage(err))
-    } finally {
-      setSaving('')
-    }
-  }
-
   const saveStore = async (e) => {
     e.preventDefault()
     if (!storeId) return
     setSaving('store')
     try {
-      await api.put(`/vendor/stores/${storeId}`, {
-        name: storeForm.name,
-        description: storeForm.description || undefined,
-        contact_email: storeForm.contact_email || undefined,
-        contact_phone: storeForm.contact_phone || undefined,
-      })
-      toast.success('Store information saved')
+      await Promise.all([
+        api.put(`/vendor/stores/${storeId}`, {
+          name: storeForm.name,
+          description: storeForm.description || undefined,
+          contact_email: storeForm.contact_email || undefined,
+          contact_phone: storeForm.contact_phone || undefined,
+        }),
+        api.put('/vendor/me', {
+          company_name: storeForm.name,
+          business_email: storeForm.contact_email,
+          business_phone: storeForm.contact_phone,
+        }).catch(() => {}),
+      ])
+      toast.success('Store details saved')
       load()
     } catch (err) {
       toast.error(errorMessage(err))
@@ -144,24 +131,30 @@ export default function VendorStoreSettings() {
         <div className="page-header-left">
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Store Settings & Operations</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Configure your company and store profile information.
+            Configure your store profile information, order confirmation workflow, and delivery pickup rules.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/vendor/stores/edit" className="btn btn-primary btn-sm flex items-center gap-1">
+          <Link to="/vendor/store/edit" className="btn btn-primary btn-sm flex items-center gap-1">
             <Pencil size={13} /> Edit Store Pictures & Branding <ChevronRight size={13} />
           </Link>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
-        {/* 1. Company Information */}
+      <div className="flex flex-col gap-4">
+        {/* 1. Store Details & Contact Information */}
         <div className="card" style={{ padding: 20 }}>
           <div className="flex items-center justify-between mb-3 wrap gap-2">
-            <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
-              <Building2 size={18} color="var(--primary)" /> Company Information
-            </h3>
-            <div className="flex items-center gap-2">
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
+                <Store size={18} color="var(--primary)" /> Store Details & Contact Information
+              </h3>
+              <p className="muted text-xs" style={{ marginTop: 4 }}>
+                Primary display name and customer support contact channels.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 wrap">
+              {storeId && <StatusBadge status={storeForm.status || 'active'} />}
               <StatusBadge status={vendor?.status} />
               {vendor?.commission_rate != null && (
                 <span className="chip chip-sm" style={{ background: 'var(--primary-50)', color: 'var(--primary)' }}>
@@ -169,45 +162,6 @@ export default function VendorStoreSettings() {
                 </span>
               )}
             </div>
-          </div>
-
-          <form onSubmit={saveCompany} className="flex flex-col gap-3">
-            <Input
-              label="Company Name"
-              required
-              value={companyForm.company_name}
-              onChange={(e) => setCompanyForm({ ...companyForm, company_name: e.target.value })}
-            />
-            <div className="form-row">
-              <Input
-                label="Business Email"
-                type="email"
-                required
-                value={companyForm.business_email}
-                onChange={(e) => setCompanyForm({ ...companyForm, business_email: e.target.value })}
-              />
-              <Input
-                label="Business Phone"
-                value={companyForm.business_phone}
-                onChange={(e) => setCompanyForm({ ...companyForm, business_phone: e.target.value })}
-                placeholder="+977 98XXXXXXXX"
-              />
-            </div>
-            <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-              <Button type="submit" size="sm" disabled={saving === 'company'}>
-                {saving === 'company' ? <Spinner size={14} color="#fff" /> : <><Save size={13} /> Save Company Info</>}
-              </Button>
-            </div>
-          </form>
-        </div>
-
-        {/* 2. Store Profile Information */}
-        <div className="card" style={{ padding: 20 }}>
-          <div className="flex items-center justify-between mb-3 wrap gap-2">
-            <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
-              <Store size={18} color="var(--primary)" /> Store Profile
-            </h3>
-            {storeId && <StatusBadge status={storeForm.status} />}
           </div>
 
           {storeId ? (
@@ -220,13 +174,14 @@ export default function VendorStoreSettings() {
               />
               <div className="form-row">
                 <Input
-                  label="Store Contact Email"
+                  label="Contact Email"
                   type="email"
+                  required
                   value={storeForm.contact_email}
                   onChange={(e) => setStoreForm({ ...storeForm, contact_email: e.target.value })}
                 />
                 <Input
-                  label="Customer Service Phone"
+                  label="Customer Support Phone"
                   value={storeForm.contact_phone}
                   onChange={(e) => setStoreForm({ ...storeForm, contact_phone: e.target.value })}
                   placeholder="+977 98XXXXXXXX"
@@ -237,10 +192,11 @@ export default function VendorStoreSettings() {
                 rows={3}
                 value={storeForm.description}
                 onChange={(e) => setStoreForm({ ...storeForm, description: e.target.value })}
+                placeholder="A brief description of your store, specialty products, or brand story..."
               />
               <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
                 <Button type="submit" size="sm" disabled={saving === 'store'}>
-                  {saving === 'store' ? <Spinner size={14} color="#fff" /> : <><Save size={13} /> Save Store Info</>}
+                  {saving === 'store' ? <Spinner size={14} color="#fff" /> : <><Save size={13} /> Save Store Details</>}
                 </Button>
               </div>
             </form>
@@ -250,16 +206,16 @@ export default function VendorStoreSettings() {
               <p className="muted text-sm" style={{ margin: '0 auto 14px', maxWidth: 340 }}>
                 You don't have a store yet. Create one to manage your storefront.
               </p>
-              <Link to="/vendor/stores/new" className="btn btn-primary btn-sm">
+              <Link to="/vendor/store/edit" className="btn btn-primary btn-sm">
                 Create Store
               </Link>
             </div>
           )}
         </div>
 
-        {/* 3. Order Confirmation & Fulfillment Operations */}
+        {/* 2. Order Confirmation & Fulfillment Operations */}
         {storeId && (
-          <div className="card" style={{ padding: 20, gridColumn: '1 / -1' }}>
+          <div className="card" style={{ padding: 20 }}>
             <div className="flex items-center justify-between mb-3 wrap gap-2">
               <div>
                 <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
@@ -366,7 +322,7 @@ export default function VendorStoreSettings() {
                     <div className="form-row">
                       <Input
                         label="Estimated Preparation Time"
-                        placeholder="e.g. 1-2 Hours, Same Day"
+                        placeholder="e.g. 15 mins, 1-2 Hours, Same Day"
                         value={orderSettings.estimated_prep_time}
                         onChange={(e) => setOrderSettings({ ...orderSettings, estimated_prep_time: e.target.value })}
                       />
@@ -379,7 +335,7 @@ export default function VendorStoreSettings() {
                 <Textarea
                   label="Pickup Instructions for Delivery Riders"
                   rows={2}
-                  placeholder="e.g. Store located at 2nd Floor, Main Bazaar. Ask for Ramesh at the counter."
+                  placeholder="e.g. Ring warehouse doorbell at rear entrance. Ask for store manager at the pickup counter."
                   value={orderSettings.pickup_instructions}
                   onChange={(e) => setOrderSettings({ ...orderSettings, pickup_instructions: e.target.value })}
                 />
