@@ -77,6 +77,8 @@ class NotificationDispatcher
         }
 
         [$headline, $message, $type] = match ($status) {
+            'confirmed', 'accepted' => ['Your order has been confirmed', 'Your order '.$order->order_number.' was confirmed by the seller and is being prepared.', 'order'],
+            'ready_for_pickup' => ['Your order is ready for pickup', 'Your order '.$order->order_number.' is packed by the seller and is awaiting courier pickup.', 'order'],
             'picked_up' => ['Your order is picked up', 'Your order '.$order->order_number.' has been picked up from the seller and is on its way.', 'delivery'],
             'out_for_delivery' => ['Your order is out for delivery', 'Your order '.$order->order_number.' is out for delivery and should arrive shortly.', 'delivery'],
             'delivered' => ['Your order has been delivered', 'Your order '.$order->order_number.' has been delivered. Thank you for shopping with us!', 'delivery'],

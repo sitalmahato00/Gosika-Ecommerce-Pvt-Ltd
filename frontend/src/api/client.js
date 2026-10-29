@@ -23,6 +23,22 @@ rawApi.interceptors.response.use(
         window.location.assign('/login')
       }
     }
+
+    // Normalize error payload so error.response.data.message contains the exact validation error
+    if (error.response?.data) {
+      const d = error.response.data
+      if (d.errors && typeof d.errors === 'object') {
+        const list = Object.values(d.errors).flat().filter(Boolean)
+        if (list.length > 0) {
+          const exactMsg = list.join(' ')
+          const generic = ['Validation failed.', 'The given data was invalid.', 'An error occurred', 'Server Error']
+          if (!d.message || generic.includes(d.message)) {
+            d.message = exactMsg
+          }
+        }
+      }
+    }
+
     return Promise.reject(error)
   },
 )

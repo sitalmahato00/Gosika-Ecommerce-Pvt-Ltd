@@ -16,6 +16,7 @@ import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDate, errorMessage, apiImage, humanizeEnum } from '../../utils/format'
+import { AccountPage } from './AccountUI'
 
 const RETURN_REASON_OPTIONS = ['damaged', 'wrong_item', 'not_as_described', 'quality_issue', 'other']
 

@@ -175,6 +175,7 @@ export const VENDOR_NAV = [
 export const DELIVERY_NAV = [
   { section: 'DELIVERY' },
   { to: '/delivery', label: 'Dashboard', icon: 'LayoutDashboard', end: true },
+  { to: '/delivery/available-jobs', label: 'Available Jobs', icon: 'Inbox' },
   { to: '/delivery/deliveries', label: 'My Deliveries', icon: 'Truck' },
   { to: '/delivery/pickups', label: 'Pickup Tasks', icon: 'PackageCheck' },
   { to: '/delivery/tasks', label: 'Delivery Tasks', icon: 'Navigation' },
@@ -201,6 +202,7 @@ export const DELIVERY_NAV = [
 
 export const DELIVERY_MOBILE_NAV = [
   { to: '/delivery', label: 'Home', icon: 'LayoutDashboard', end: true },
+  { to: '/delivery/available-jobs', label: 'Available', icon: 'Inbox' },
   { to: '/delivery/deliveries', label: 'Deliveries', icon: 'Truck' },
   { to: '/delivery/route', label: 'Route', icon: 'Map' },
   { to: '/delivery/earnings', label: 'Earnings', icon: 'TrendingUp' },

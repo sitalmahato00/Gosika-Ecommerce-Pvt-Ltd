@@ -16,8 +16,15 @@ class Response
         ], $status);
     }
 
-    public static function error(string $message = 'An error occurred', array $errors = [], int $status = 400, array $data = null): JsonResponse
+    public static function error(string $message = 'An error occurred', array $errors = [], int $status = 400, ?array $data = null): JsonResponse
     {
+        if (($message === 'An error occurred' || $message === 'Validation failed.' || $message === 'The given data was invalid.') && ! empty($errors)) {
+            $flattened = collect($errors)->flatten()->filter()->values();
+            if ($flattened->isNotEmpty()) {
+                $message = $flattened->implode(' ');
+            }
+        }
+
         $payload = [
             'success' => false,
             'message' => $message,

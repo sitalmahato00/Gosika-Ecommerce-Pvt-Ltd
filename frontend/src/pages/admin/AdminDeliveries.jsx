@@ -302,7 +302,12 @@ export default function AdminDeliveries() {
   }
 
   const loadReassignPartners = async (row) => {
-    setReassignState(prev => ({ ...prev, open: true, row, selected: row.assignment?.id ? '' : '', partners: [], loading: true, error: null, submitting: false }))
+    const currentStatus = row?.assignment?.status || drawer.data?.current_assignment?.status
+    if (currentStatus === 'picked_up' || currentStatus === 'out_for_delivery') {
+      toast.error('Shipment has already been picked up. Ordinary reassignment is blocked after pickup.')
+      return
+    }
+    setReassignState(prev => ({ ...prev, open: true, row, selected: '', partners: [], loading: true, error: null, submitting: false }))
     try {
       const res = await api.get(`/admin/deliveries/dispatch/${row.id}/partners`, { skipCache: true })
       setReassignState(prev => ({ ...prev, loading: false, partners: res.data?.data?.eligible_partners || [] }))
@@ -332,6 +337,9 @@ export default function AdminDeliveries() {
       loadDispatch({ force: true })
     } catch (err) {
       toast.error(err.response?.data?.message || `Failed to assign ${completed.length ? `after ${completed.length} succeeded` : 'order'}.`)
+      if (err.response?.status === 409) {
+        loadDispatch({ force: true })
+      }
     } finally {
       setAssignState(prev => ({ ...prev, submitting: false }))
     }
@@ -339,7 +347,7 @@ export default function AdminDeliveries() {
 
   const submitReassign = async () => {
     const { row, selected, reason, notes } = reassignState
-    const assignmentId = row?.assignment?.id
+    const assignmentId = row?.assignment?.id || drawer.data?.current_assignment?.id
     if (!assignmentId || !selected || !reason.trim()) return
 
     setReassignState(prev => ({ ...prev, submitting: true }))
@@ -356,6 +364,9 @@ export default function AdminDeliveries() {
       loadDispatch({ force: true })
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to reassign delivery partner.')
+      if (err.response?.status === 409 || err.response?.status === 422) {
+        loadDispatch({ force: true })
+      }
     } finally {
       setReassignState(prev => ({ ...prev, submitting: false }))
     }
@@ -782,7 +793,7 @@ export default function AdminDeliveries() {
         ) : drawer.data ? (
           detailContent(drawer.data, {
             onAssign: () => { setDrawer(prev => ({ ...prev, open: false })); loadAssignPartners([drawer.row]) },
-            onReassign: () => { setDrawer(prev => ({ ...prev, open: false })); loadReassignPartners(drawer.row) },
+            onReassign: () => { setDrawer(prev => ({ ...prev, open: false })); loadReassignPartners({ ...drawer.row, assignment: drawer.data?.current_assignment || drawer.row?.assignment }) },
           })
         ) : null}
       </Drawer>
@@ -1126,22 +1137,58 @@ function detailContent(d, handlers) {
       </DetailSection>
 
       {/* Assignment history */}
-      {(d.history || []).length > 1 && (
-        <DetailSection title="Assignment History">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {(d.history || []).map(h => (
-              <div key={h.id} className="card" style={{ padding: '12px 14px', borderRadius: 10 }}>
+      {(d.history || []).length > 0 && (
+        <DetailSection title={`Assignment History (${(d.history || []).length})`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {(d.history || []).map((h, idx) => (
+              <div key={h.id || idx} className="card" style={{ padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
-                    {h.partner?.name || 'Unknown partner'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 7, background: '#f1f5f9', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Truck size={14} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                        {h.partner?.name || 'Unknown partner'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        {h.partner?.phone ? `${h.partner.phone} · ` : ''}{h.partner?.vehicle_type || 'Rider'}
+                      </div>
+                    </div>
                   </div>
                   <DeliveryStatusBadge status={h.status} size="xs" />
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
-                  Assigned {h.assigned_at ? formatDateTime(h.assigned_at) : '—'}
-                  {h.reassignedAt ? ` · Reassigned ${formatDateTime(h.reassignedAt)}` : ''}
+
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed #e2e8f0', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ color: '#64748b' }}>Assignment Method:</span>
+                    <span style={{ fontWeight: 700, color: h.assignment_method === 'self_claim' ? '#0284c7' : '#4f46e5' }}>
+                      {h.assignment_method_label || (h.assignment_method === 'self_claim' ? 'Delivery-User Claim' : 'Super Admin Manual Assignment')}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ color: '#64748b' }}>Assigned By:</span>
+                    <span style={{ fontWeight: 600, color: 'var(--ink)' }}>
+                      {h.acting_user || '—'} {h.acting_user_role ? `(${h.acting_user_role.replace('_', ' ')})` : ''}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ color: '#64748b' }}>Timestamp:</span>
+                    <span style={{ color: '#334155' }}>
+                      {h.assigned_at ? formatDateTime(h.assigned_at) : '—'}
+                    </span>
+                  </div>
+                  {h.reassignment_reason && (
+                    <div style={{ marginTop: 4, padding: '6px 8px', borderRadius: 6, background: '#fef2f2', border: '1px solid #fee2e2', color: '#991b1b', fontSize: 11.5 }}>
+                      <strong>Reassignment Reason:</strong> {h.reassignment_reason}
+                    </div>
+                  )}
+                  {h.failure_reason && !h.reassignment_reason && (
+                    <div style={{ marginTop: 4, padding: '6px 8px', borderRadius: 6, background: '#fef2f2', border: '1px solid #fee2e2', color: '#991b1b', fontSize: 11.5 }}>
+                      <strong>Failure Reason:</strong> {h.failure_reason}
+                    </div>
+                  )}
                 </div>
-                {h.failure_reason && <div style={{ marginTop: 5, fontSize: 11.5, color: '#b91c1c' }}>{h.failure_reason}</div>}
               </div>
             ))}
           </div>

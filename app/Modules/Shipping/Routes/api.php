@@ -24,6 +24,11 @@ Route::prefix('v1/delivery-partner')->middleware(['auth:sanctum', 'ensure:delive
     Route::put('profile/notifications', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updateNotifications']);
     Route::put('profile/preferences', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updatePreferences']);
 
+    Route::get('dashboard-stats', [DeliveryPartnerController::class, 'dashboardStats']);
+    Route::get('available-jobs', [DeliveryPartnerController::class, 'availableJobs']);
+    Route::get('available-jobs/{vendorOrder}', [DeliveryPartnerController::class, 'availableJobDetail']);
+    Route::post('available-jobs/{vendorOrder}/claim', [DeliveryPartnerController::class, 'claim']);
+
     Route::get('assignments', [DeliveryPartnerController::class, 'assignments']);
     Route::get('assignments/{assignment}', [DeliveryPartnerController::class, 'assignment']);
     Route::post('assignments/{assignment}/accept', [DeliveryPartnerController::class, 'accept']);
@@ -56,6 +61,7 @@ Route::prefix('v1/admin/deliveries')->middleware(['auth:sanctum', 'ensure:admin'
     Route::get('dispatch', [AdminDeliveryController::class, 'dispatch']);
     Route::get('dispatch/{vendorOrder}', [AdminDeliveryController::class, 'dispatchDetail']);
     Route::get('dispatch/{vendorOrder}/partners', [AdminDeliveryController::class, 'dispatchPartners']);
+    Route::get('dispatch/{vendorOrder}/history', [AdminDeliveryController::class, 'assignmentHistory']);
     Route::get('/', [AdminDeliveryController::class, 'assignments']);
     Route::post('/', [AdminDeliveryController::class, 'assign']);
     Route::get('{assignment}', [AdminDeliveryController::class, 'assignment']);

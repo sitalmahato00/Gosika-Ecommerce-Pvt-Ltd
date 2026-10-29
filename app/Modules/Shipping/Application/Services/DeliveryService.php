@@ -194,39 +194,60 @@ class DeliveryService
         return $partner;
     }
 
-    public function assign(
-        User $admin,
+    public function assignOrder(
+        User $actor,
         VendorOrder $vendorOrder,
         DeliveryPartner $partner,
+        string $method = 'manual_admin',
         ?float $deliveryFee = null,
         ?float $codAmount = null,
         ?string $notes = null,
         bool $withinReassignment = false,
     ): DeliveryAssignment {
-        return DB::transaction(function () use ($admin, $vendorOrder, $partner, $deliveryFee, $codAmount, $notes, $withinReassignment) {
+        return DB::transaction(function () use ($actor, $vendorOrder, $partner, $method, $deliveryFee, $codAmount, $notes, $withinReassignment) {
             // Serialize concurrent assignment attempts for the same vendor order.
-            // All assignment creation flows through this method (reassign delegates
-            // here too), so the pessimistic lock prevents two partners from ever
-            // receiving the same order at once.
+            // All assignment creation flows through this method, so pessimistic locking
+            // prevents race conditions between two delivery users or admin assignment.
             $vendorOrder = VendorOrder::query()->whereKey($vendorOrder->getKey())->lockForUpdate()->firstOrFail();
 
             if ($partner->status !== DeliveryPartnerStatus::APPROVED) {
-                throw new DomainException('Only approved delivery partners can be assigned.');
+                throw new DomainException('Only approved delivery partners can be assigned.', 422);
             }
 
-            if (! $withinReassignment && ! in_array($vendorOrder->status, $this->assignableOrderStatuses(), true)) {
-                throw new DomainException('Vendor order must be accepted and ready for pickup before assignment.', 422);
+            if ($method === 'self_claim' && ! $partner->is_online) {
+                throw new DomainException('You must be online to claim delivery jobs.', 422);
             }
 
-            // Concurrency protection: refuse to overwrite an existing active assignment.
-            // Reassignments bypass this check because reassign() retires the old actives first.
             if (! $withinReassignment) {
-                $activeAssignments = $vendorOrder->assignments()->active()->get();
-                if ($activeAssignments->isNotEmpty()) {
+                // Must be ready for pickup. Unprepared or unconfirmed orders cannot enter queue or be assigned.
+                if (! in_array($vendorOrder->status, $this->assignableOrderStatuses(), true)) {
+                    throw new DomainException('Vendor order must be marked ready for pickup before assignment.', 422);
+                }
+
+                if (in_array($vendorOrder->status, $this->terminalOrderStatuses(), true)) {
+                    throw new DomainException('Vendor order is cancelled, delivered, or no longer eligible for delivery.', 422);
+                }
+
+                // Check for existing active assignment with pessimistic lock
+                $activeAssignment = $vendorOrder->assignments()->active()->lockForUpdate()->first();
+                if ($activeAssignment) {
+                    if ($method === 'self_claim' && $activeAssignment->delivery_partner_id === $partner->id) {
+                        return $activeAssignment; // Safe idempotent return for repeated claim requests
+                    }
+
                     throw new DomainException(
-                        'This order has already been assigned. Use reassignment instead.',
+                        $method === 'self_claim'
+                            ? 'This shipment has already been claimed by another delivery partner.'
+                            : 'This shipment has already been assigned. Use reassignment instead.',
                         409
                     );
+                }
+            }
+
+            if ($method === 'self_claim') {
+                $candidateAreas = $this->candidateAreasFor($vendorOrder);
+                if (! $this->partnerMatchesAreas($partner, $candidateAreas)) {
+                    throw new DomainException('This shipment is outside your approved delivery service areas.', 403);
                 }
             }
 
@@ -241,6 +262,16 @@ class DeliveryService
             $defaultDeliveryFee = (float) $vendorOrder->delivery_charge ?: (float) ($order->delivery_charge ?? 0);
             $defaultCodAmount = $isCod ? ((float) $vendorOrder->grand_total ?: (float) ($order->grand_total ?? 0)) : 0.00;
 
+            $meta = [
+                'assignment_method' => $method,
+                'assigned_by_user_id' => $actor->id,
+                'assigned_by_name' => $actor->full_name ?? $actor->name ?? 'User',
+                'assigned_by_role' => $method === 'self_claim' ? 'delivery_partner' : 'super_admin',
+            ];
+            if ($notes) {
+                $meta['assignment_note'] = $notes;
+            }
+
             $assignment = DeliveryAssignment::query()->create([
                 'vendor_order_id' => $vendorOrder->id,
                 'delivery_partner_id' => $partner->id,
@@ -252,23 +283,27 @@ class DeliveryService
                 'recipient_name' => $this->recipientNameFor($order),
                 'recipient_phone' => $this->recipientPhoneFor($order),
                 'assigned_at' => now(),
-                'meta' => $notes ? ['assignment_note' => $notes] : null,
+                'created_by' => $actor->id,
+                'meta' => $meta,
             ]);
 
-            if (in_array($vendorOrder->status, [OrderStatus::ACCEPTED, OrderStatus::PREPARING], true)) {
-                $this->transitionVendorOrder($vendorOrder, OrderStatus::READY_FOR_PICKUP, $admin);
-            }
+            $this->transitionDelivery($vendorOrder, DeliveryStatus::ASSIGNED, $actor);
 
-            $this->transitionDelivery($vendorOrder, DeliveryStatus::ASSIGNED, $admin);
+            $trackingNote = $method === 'self_claim'
+                ? 'Shipment claimed by delivery partner: ' . $partner->name
+                : 'Order manually assigned to delivery partner: ' . $partner->name;
 
-            $this->recordTracking($assignment, DeliveryStatus::ASSIGNED, 'Order assigned to delivery partner: ' . $partner->name, null);
+            $this->recordTracking($assignment, DeliveryStatus::ASSIGNED, $trackingNote, null);
 
-            $this->recordAudit($admin, 'delivery.assigned', 'delivery_assignment', $assignment, null, [
+            $auditAction = $method === 'self_claim' ? 'delivery.claimed' : 'delivery.assigned';
+
+            $this->recordAudit($actor, $auditAction, 'delivery_assignment', $assignment, null, [
                 'vendor_order' => $vendorOrder->uuid,
                 'vendor_order_number' => $vendorOrder->vendor_order_number,
                 'partner' => $partner->uuid,
                 'partner_name' => $partner->name,
                 'status' => DeliveryStatus::ASSIGNED->value,
+                'method' => $method,
             ]);
 
             $this->dispatcher->deliveryAssigned($assignment);
@@ -277,18 +312,69 @@ class DeliveryService
         });
     }
 
-    public function reassign(User $admin, DeliveryAssignment $assignment, DeliveryPartner $newPartner, ?float $deliveryFee = null, ?float $codAmount = null, ?string $reason = null, ?string $notes = null): DeliveryAssignment
-    {
+    public function assign(
+        User $admin,
+        VendorOrder $vendorOrder,
+        DeliveryPartner $partner,
+        ?float $deliveryFee = null,
+        ?float $codAmount = null,
+        ?string $notes = null,
+        bool $withinReassignment = false,
+    ): DeliveryAssignment {
+        return $this->assignOrder(
+            actor: $admin,
+            vendorOrder: $vendorOrder,
+            partner: $partner,
+            method: 'manual_admin',
+            deliveryFee: $deliveryFee,
+            codAmount: $codAmount,
+            notes: $notes,
+            withinReassignment: $withinReassignment,
+        );
+    }
+
+    public function claim(
+        User $partnerUser,
+        VendorOrder $vendorOrder,
+    ): DeliveryAssignment {
+        $partner = $this->partnerFor($partnerUser);
+
+        return $this->assignOrder(
+            actor: $partnerUser,
+            vendorOrder: $vendorOrder,
+            partner: $partner,
+            method: 'self_claim',
+        );
+    }
+
+    public function reassign(
+        User $admin,
+        DeliveryAssignment $assignment,
+        DeliveryPartner $newPartner,
+        ?float $deliveryFee = null,
+        ?float $codAmount = null,
+        ?string $reason = null,
+        ?string $notes = null,
+    ): DeliveryAssignment {
         return DB::transaction(function () use ($admin, $assignment, $newPartner, $deliveryFee, $codAmount, $reason, $notes) {
-            if (! in_array($assignment->status, [DeliveryStatus::ASSIGNED, DeliveryStatus::ACCEPTED, DeliveryStatus::PICKED_UP, DeliveryStatus::OUT_FOR_DELIVERY, DeliveryStatus::FAILED], true)) {
-                throw new DomainException('This delivery cannot be reassigned in its current state.');
+            if (empty(trim((string) $reason))) {
+                throw new DomainException('A reassignment reason is required.', 422);
+            }
+
+            // Ordinary reassignment is blocked after pickup
+            if (in_array($assignment->status, [DeliveryStatus::PICKED_UP, DeliveryStatus::OUT_FOR_DELIVERY], true)) {
+                throw new DomainException('Shipment has already been picked up. Ordinary reassignment is blocked after pickup.', 422);
+            }
+
+            if (! in_array($assignment->status, [DeliveryStatus::ASSIGNED, DeliveryStatus::ACCEPTED, DeliveryStatus::FAILED], true)) {
+                throw new DomainException('This delivery cannot be reassigned in its current state.', 422);
             }
 
             if ($newPartner->status !== DeliveryPartnerStatus::APPROVED) {
-                throw new DomainException('Only approved delivery partners can be assigned.');
+                throw new DomainException('Only approved delivery partners can be assigned.', 422);
             }
 
-            $vendorOrder = $assignment->vendorOrder;
+            $vendorOrder = VendorOrder::query()->whereKey($assignment->vendor_order_id)->lockForUpdate()->firstOrFail();
 
             if (in_array($vendorOrder->status, $this->terminalOrderStatuses(), true)) {
                 throw new DomainException('Vendor order is no longer assignable.', 422);
@@ -297,8 +383,8 @@ class DeliveryService
             $resolvedDeliveryFee = $deliveryFee !== null ? $deliveryFee : (float) $assignment->delivery_fee;
             $resolvedCodAmount = $codAmount !== null ? $codAmount : (float) $assignment->cod_amount;
 
-            // Mark this and any other active assignments for this vendor order as reassigned
-            $activeAssignments = $vendorOrder->assignments()->active()->get();
+            // Mark this and any other active assignments for this vendor order as reassigned / retired
+            $activeAssignments = $vendorOrder->assignments()->active()->lockForUpdate()->get();
             foreach ($activeAssignments as $act) {
                 $act->update([
                     'status' => DeliveryStatus::FAILED,
@@ -306,17 +392,32 @@ class DeliveryService
                     'failure_reason' => 'Reassigned to ' . $newPartner->name . ($reason ? ': ' . $reason : ''),
                     'meta' => array_merge($act->meta ?? [], [
                         'reassigned_to' => $newPartner->uuid,
+                        'reassigned_to_name' => $newPartner->name,
                         'reassignment_reason' => $reason,
+                        'reassigned_by_user_id' => $admin->id,
+                        'reassigned_by_name' => $admin->full_name ?? $admin->name,
+                        'reassigned_at' => now()->toISOString(),
                     ]),
                 ]);
-                $this->recordTracking($act, DeliveryStatus::FAILED, 'Reassigned to ' . $newPartner->name, null);
+                $this->recordTracking($act, DeliveryStatus::FAILED, 'Reassigned to ' . $newPartner->name . '. Reason: ' . $reason, null);
             }
 
-            $newAssignment = $this->assign($admin, $vendorOrder, $newPartner, $resolvedDeliveryFee, $resolvedCodAmount, $notes, true);
+            $newAssignment = $this->assignOrder(
+                actor: $admin,
+                vendorOrder: $vendorOrder,
+                partner: $newPartner,
+                method: 'manual_admin',
+                deliveryFee: $resolvedDeliveryFee,
+                codAmount: $resolvedCodAmount,
+                notes: $notes,
+                withinReassignment: true,
+            );
 
             $newAssignment->forceFill([
                 'meta' => array_merge($newAssignment->meta ?? [], [
                     'reassigned_from' => $assignment->uuid,
+                    'previous_delivery_partner_id' => $assignment->deliveryPartner?->uuid,
+                    'previous_delivery_partner_name' => $assignment->deliveryPartner?->name,
                     'reassignment_reason' => $reason,
                     'reassignment_note' => $notes,
                 ]),
@@ -365,6 +466,7 @@ class DeliveryService
         $this->transitionDelivery($assignment->vendorOrder, DeliveryStatus::PICKED_UP, $partnerUser);
         $this->recordTracking($assignment, DeliveryStatus::PICKED_UP, 'Order picked up from vendor.', null);
 
+        $this->syncOrder($assignment->vendorOrder->order, $partnerUser);
         $this->dispatcher->orderDeliveryUpdate($assignment->vendorOrder, 'picked_up');
 
         return $assignment->fresh(['tracking']);
@@ -383,6 +485,8 @@ class DeliveryService
         $this->transitionVendorOrder($assignment->vendorOrder, OrderStatus::OUT_FOR_DELIVERY, $partnerUser);
         $this->transitionDelivery($assignment->vendorOrder, DeliveryStatus::OUT_FOR_DELIVERY, $partnerUser);
         $this->recordTracking($assignment, DeliveryStatus::OUT_FOR_DELIVERY, 'Order is out for delivery.', null);
+
+        $this->syncOrder($assignment->vendorOrder->order, $partnerUser);
 
         $otp = $this->generateOtp($assignment);
 
@@ -486,10 +590,11 @@ class DeliveryService
         if ($status !== '' && $status !== 'all') {
             if ($status === 'pending_assignment') {
                 $query
-                    ->whereIn('status', $this->assignableOrderStatusValues())
-                    ->whereDoesntHave('latestAssignment');
+                    ->where('status', OrderStatus::READY_FOR_PICKUP->value)
+                    ->whereDoesntHave('assignments', fn ($q) => $q->active());
             } elseif ($status === 'needs_reassignment') {
-                $query->whereHas('latestAssignment', fn (Builder $q) => $q->where('status', DeliveryStatus::FAILED));
+                $query->whereHas('latestAssignment', fn (Builder $q) => $q->where('status', DeliveryStatus::FAILED))
+                    ->whereDoesntHave('assignments', fn ($q) => $q->active());
             } else {
                 $statusValue = DeliveryStatus::tryFrom($status);
                 if ($statusValue !== null) {
@@ -760,18 +865,13 @@ class DeliveryService
             'history' => $history,
             'timeline' => $timeline,
             'actions' => [
-                'can_assign' => $assignment === null && in_array($vendorOrder->status, [
-                    OrderStatus::ACCEPTED,
-                    OrderStatus::PREPARING,
-                    OrderStatus::READY_FOR_PICKUP,
-                ], true),
+                'can_assign' => ($assignment === null || ! $vendorOrder->assignments()->active()->exists())
+                    && $vendorOrder->status === OrderStatus::READY_FOR_PICKUP,
                 'can_reassign' => $assignment !== null && in_array($assignment->status, [
                     DeliveryStatus::ASSIGNED,
                     DeliveryStatus::ACCEPTED,
-                    DeliveryStatus::PICKED_UP,
-                    DeliveryStatus::OUT_FOR_DELIVERY,
                     DeliveryStatus::FAILED,
-                ], true),
+                ], true) && ! in_array($vendorOrder->status, $this->terminalOrderStatuses(), true),
             ],
         ];
     }
@@ -916,6 +1016,8 @@ class DeliveryService
         }
 
         $this->transitionVendorOrder($vendorOrder, OrderStatus::ACCEPTED, $actor);
+        $this->syncOrder($vendorOrder->order, $actor);
+        $this->dispatcher->orderDeliveryUpdate($vendorOrder, 'confirmed');
 
         return $vendorOrder;
     }
@@ -946,6 +1048,8 @@ class DeliveryService
         }
 
         $this->transitionVendorOrder($vendorOrder, OrderStatus::READY_FOR_PICKUP, $actor);
+        $this->syncOrder($vendorOrder->order, $actor);
+        $this->dispatcher->orderDeliveryUpdate($vendorOrder, 'ready_for_pickup');
 
         return $vendorOrder;
     }
@@ -985,8 +1089,6 @@ class DeliveryService
     protected function assignableOrderStatuses(): array
     {
         return [
-            OrderStatus::ACCEPTED,
-            OrderStatus::PREPARING,
             OrderStatus::READY_FOR_PICKUP,
         ];
     }
@@ -1029,10 +1131,10 @@ class DeliveryService
     {
         return VendorOrder::query()
             ->where(function (Builder $query) {
-                $query->whereIn('status', $this->assignableOrderStatusValues())
+                $query->where('status', OrderStatus::READY_FOR_PICKUP->value)
                     ->orWhere(function (Builder $or) {
                         $or->whereNotIn('status', $this->terminalOrderStatusValues())
-                            ->whereHas('latestAssignment', fn (Builder $assignment) => $assignment->whereIn('status', $this->liveAssignmentStatuses()));
+                            ->whereHas('assignments', fn (Builder $assignment) => $assignment->whereIn('status', $this->liveAssignmentStatuses()));
                     });
             });
     }
@@ -1040,40 +1142,72 @@ class DeliveryService
     protected function candidateAreasFor(VendorOrder $vendorOrder): array
     {
         $order = $vendorOrder->order()->first();
-        if (! $order) {
-            return [];
+        $store = $vendorOrder->store()->with(['addresses', 'vendor'])->first();
+        $areas = [];
+
+        // 1. Destination areas (customer delivery address)
+        if ($order) {
+            $snapshot = json_decode((string) $order->shipping_address_snapshot, true);
+            if (is_array($snapshot)) {
+                $province = trim((string) ($snapshot['province'] ?? $snapshot['state'] ?? ''));
+                $district = trim((string) ($snapshot['district'] ?? $snapshot['city'] ?? ''));
+                $municipality = trim((string) ($snapshot['municipality'] ?? ''));
+                if ($province !== '') $areas[] = $province;
+                if ($district !== '') $areas[] = $district;
+                if ($municipality !== '') $areas[] = $municipality;
+
+                $zoneMatches = ShippingZone::query()
+                    ->where('is_active', true)
+                    ->get()
+                    ->filter(fn (ShippingZone $zone) => $zone->matchesLocation($province, $district, $municipality));
+                foreach ($zoneMatches as $zone) {
+                    if (! empty($zone->provinces)) $areas = array_merge($areas, $zone->provinces);
+                    if (! empty($zone->name)) $areas[] = $zone->name;
+                }
+            }
         }
 
-        $snapshot = json_decode((string) $order->shipping_address_snapshot, true);
-        $province = trim((string) ($snapshot['province'] ?? $snapshot['state'] ?? ''));
-        $district = trim((string) ($snapshot['district'] ?? $snapshot['city'] ?? ''));
-        $municipality = trim((string) ($snapshot['municipality'] ?? ''));
+        // 2. Pickup areas (store & vendor location)
+        if ($store) {
+            foreach ($store->addresses as $addr) {
+                if (! empty(trim((string) $addr->city))) $areas[] = trim((string) $addr->city);
+                if (! empty(trim((string) $addr->district))) $areas[] = trim((string) $addr->district);
+                if (! empty(trim((string) $addr->province))) $areas[] = trim((string) $addr->province);
+                if (! empty(trim((string) $addr->municipality))) $areas[] = trim((string) $addr->municipality);
+            }
+            if ($store->vendor) {
+                if (! empty(trim((string) $store->vendor->district))) $areas[] = trim((string) $store->vendor->district);
+                if (! empty(trim((string) $store->vendor->province))) $areas[] = trim((string) $store->vendor->province);
+                if (! empty(trim((string) $store->vendor->municipality))) $areas[] = trim((string) $store->vendor->municipality);
+            }
+        }
 
-        $zoneMatches = ShippingZone::query()
-            ->where('is_active', true)
-            ->get()
-            ->filter(fn (ShippingZone $zone) => $zone->matchesLocation($province, $district, $municipality));
-
-        return array_values(array_filter(array_unique([
-            $province,
-            $district,
-            $municipality,
-            ...$zoneMatches->flatMap(fn (ShippingZone $zone) => $zone->provinces ?? [])->all(),
-        ])));
+        return array_values(array_filter(array_unique($areas)));
     }
 
     protected function partnerMatchesAreas(DeliveryPartner $partner, array $candidateAreas): bool
     {
         $areas = array_filter(array_map('trim', (array) ($partner->service_areas ?? [])));
 
-        if ($areas === []) {
-            return false;
+        // If partner has no specific area restrictions, or specified all/wildcard/nepal, they are eligible for all areas
+        if ($areas === []
+            || in_array('*', $areas, true)
+            || in_array('all', array_map('strtolower', $areas), true)
+            || in_array('nepal', array_map('strtolower', $areas), true)
+            || in_array('all areas', array_map('strtolower', $areas), true)) {
+            return true;
+        }
+
+        if ($candidateAreas === []) {
+            return true;
         }
 
         foreach ($candidateAreas as $area) {
             $needle = mb_strtolower((string) $area);
+            if ($needle === '') continue;
             foreach ($areas as $serviceArea) {
                 $value = mb_strtolower((string) $serviceArea);
+                if ($value === '') continue;
                 if ($needle === $value || str_contains($value, $needle) || str_contains($needle, $value)) {
                     return true;
                 }
@@ -1098,13 +1232,157 @@ class DeliveryService
         ], fn ($value) => $value !== null && $value !== '');
     }
 
-    protected function assignmentHistoryRow(DeliveryAssignment $assignment): array
+    public function availableJobsForPartner(User $user, array $filters = []): LengthAwarePaginator
+    {
+        $partner = $this->partnerFor($user);
+
+        if ($partner->status !== DeliveryPartnerStatus::APPROVED) {
+            throw new DomainException('Your delivery partner account is not active or approved.', 403);
+        }
+
+        $query = VendorOrder::query()
+            ->where('status', OrderStatus::READY_FOR_PICKUP)
+            ->whereDoesntHave('assignments', fn (Builder $q) => $q->active())
+            ->with(['store.addresses', 'store.vendor', 'order', 'items'])
+            ->latest('updated_at');
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function (Builder $q) use ($like) {
+                $q->where('vendor_order_number', 'like', $like)
+                    ->orWhereHas('store', fn ($sq) => $sq->where('name', 'like', $like))
+                    ->orWhereHas('items', fn ($iq) => $iq->where('product_name', 'like', $like));
+            });
+        }
+
+        $allOrders = $query->get();
+
+        $hasSpecificAreas = ! empty(array_filter(array_map('trim', (array) ($partner->service_areas ?? []))));
+        $scope = strtolower(trim((string) ($filters['scope'] ?? 'my_area')));
+
+        if ($hasSpecificAreas && $scope !== 'all') {
+            $filtered = $allOrders->filter(function (VendorOrder $vendorOrder) use ($partner) {
+                $candidateAreas = $this->candidateAreasFor($vendorOrder);
+                return $this->partnerMatchesAreas($partner, $candidateAreas);
+            })->values();
+        } else {
+            $filtered = $allOrders;
+        }
+
+        $perPage = max(1, min(50, (int) ($filters['per_page'] ?? 15)));
+        $page = max(1, (int) ($filters['page'] ?? 1));
+        $total = $filtered->count();
+        $slice = $filtered->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return new LengthAwarePaginator($slice, $total, $perPage, $page, [
+            'path' => request()->url(),
+            'query' => request()->query(),
+        ]);
+    }
+
+    public function partnerDashboardStats(User $user): array
+    {
+        $partner = $this->partnerFor($user);
+
+        $activeStatuses = [
+            DeliveryStatus::ASSIGNED,
+            DeliveryStatus::ACCEPTED,
+            DeliveryStatus::PICKED_UP,
+            DeliveryStatus::OUT_FOR_DELIVERY,
+        ];
+
+        $assignedCount = $partner->assignments()
+            ->whereIn('status', [DeliveryStatus::ASSIGNED, DeliveryStatus::ACCEPTED])
+            ->count();
+
+        $activeCount = $partner->assignments()
+            ->whereIn('status', [DeliveryStatus::PICKED_UP, DeliveryStatus::OUT_FOR_DELIVERY])
+            ->count();
+
+        $todayCompletedCount = $partner->assignments()
+            ->where('status', DeliveryStatus::DELIVERED)
+            ->whereDate('delivered_at', Carbon::today())
+            ->count();
+
+        $todayFailedCount = $partner->assignments()
+            ->where('status', DeliveryStatus::FAILED)
+            ->whereDate('failed_at', Carbon::today())
+            ->count();
+
+        $codToCollect = (float) $partner->assignments()
+            ->whereIn('status', $activeStatuses)
+            ->where('cod_amount', '>', 0)
+            ->sum('cod_amount');
+
+        $codCollectedToday = (float) $partner->assignments()
+            ->where('status', DeliveryStatus::DELIVERED)
+            ->whereDate('delivered_at', Carbon::today())
+            ->where('cod_amount', '>', 0)
+            ->sum('cod_amount');
+
+        // Available jobs count
+        $availableJobsCount = 0;
+        $allAvailableJobsCount = 0;
+        if ($partner->status === DeliveryPartnerStatus::APPROVED) {
+            $availQuery = VendorOrder::query()
+                ->where('status', OrderStatus::READY_FOR_PICKUP)
+                ->whereDoesntHave('assignments', fn (Builder $q) => $q->active())
+                ->with(['store.addresses', 'store.vendor', 'order']);
+
+            $allAvailableJobs = $availQuery->get();
+            $allAvailableJobsCount = $allAvailableJobs->count();
+
+            $hasSpecificAreas = ! empty(array_filter(array_map('trim', (array) ($partner->service_areas ?? []))));
+            if ($hasSpecificAreas) {
+                $availableJobsCount = $allAvailableJobs->filter(function (VendorOrder $vo) use ($partner) {
+                    return $this->partnerMatchesAreas($partner, $this->candidateAreasFor($vo));
+                })->count();
+            } else {
+                $availableJobsCount = $allAvailableJobsCount;
+            }
+        }
+
+        return [
+            'is_online' => (bool) $partner->is_online,
+            'status' => $partner->status->value,
+            'available_jobs' => $availableJobsCount,
+            'all_available_jobs' => $allAvailableJobsCount,
+            'assigned' => $assignedCount,
+            'active_in_transit' => $activeCount,
+            'today_completed' => $todayCompletedCount,
+            'today_failed' => $todayFailedCount,
+            'cod_to_collect' => round($codToCollect, 2),
+            'cod_collected_today' => round($codCollectedToday, 2),
+            'rating_avg' => round((float) $partner->rating_avg, 1),
+            'vehicle_type' => $partner->vehicle_type,
+            'service_areas' => (array) ($partner->service_areas ?? []),
+        ];
+    }
+
+    public function assignmentHistoryRow(DeliveryAssignment $assignment): array
     {
         $partner = $assignment->deliveryPartner;
+        $meta = $assignment->meta ?? [];
+        $method = $meta['assignment_method'] ?? 'manual_admin';
+        $methodLabel = match ($method) {
+            'self_claim' => 'Delivery-User Claim',
+            'manual_admin' => 'Super Admin Manual Assignment',
+            default => ucfirst(str_replace('_', ' ', (string) $method)),
+        };
+
+        $actingUserName = $meta['assigned_by_name']
+            ?? $assignment->assignedBy?->full_name
+            ?? $assignment->assignedBy?->name
+            ?? ($method === 'self_claim' ? $partner?->name : 'Super Admin');
 
         return [
             'id' => $assignment->uuid,
             'status' => $assignment->status->value,
+            'assignment_method' => $method,
+            'assignment_method_label' => $methodLabel,
+            'acting_user' => $actingUserName,
+            'acting_user_role' => $meta['assigned_by_role'] ?? ($method === 'self_claim' ? 'delivery_partner' : 'super_admin'),
             'delivery_fee' => (float) $assignment->delivery_fee,
             'cod_amount' => (float) $assignment->cod_amount,
             'assigned_at' => $assignment->assigned_at?->toISOString(),
@@ -1114,7 +1392,10 @@ class DeliveryService
             'delivered_at' => $assignment->delivered_at?->toISOString(),
             'failed_at' => $assignment->failed_at?->toISOString(),
             'failure_reason' => $assignment->failure_reason,
-            'meta' => $assignment->meta,
+            'reassignment_reason' => $meta['reassignment_reason'] ?? null,
+            'reassignment_note' => $meta['reassignment_note'] ?? null,
+            'previous_delivery_partner_name' => $meta['previous_delivery_partner_name'] ?? null,
+            'meta' => $meta,
             'partner' => $partner ? $this->partnerRow($partner) : null,
             'tracking' => $assignment->tracking
                 ->sortByDesc(fn ($event) => $event->tracked_at)
@@ -1397,36 +1678,45 @@ class DeliveryService
 
     protected function syncOrder(Order $order, ?User $actor = null): void
     {
-        $statuses = $order->vendorOrders()->pluck('status')->map(function ($status) {
-            return $status instanceof OrderStatus ? $status->value : (string) $status;
-        });
-
-        if ($statuses->isEmpty()) {
+        $vendorOrders = $order->vendorOrders()->get();
+        if ($vendorOrders->isEmpty()) {
             return;
         }
+
+        $statuses = $vendorOrders->map(fn ($vo) => $vo->status instanceof OrderStatus ? $vo->status->value : (string) $vo->status);
+        $deliveryStatuses = $vendorOrders->map(fn ($vo) => $vo->delivery_status instanceof DeliveryStatus ? $vo->delivery_status->value : (string) $vo->delivery_status);
 
         $delivered = [OrderStatus::DELIVERED->value, OrderStatus::COMPLETED->value];
         $terminal = [OrderStatus::REJECTED->value, OrderStatus::CANCELLED->value, OrderStatus::RETURNED->value, OrderStatus::REFUNDED->value, OrderStatus::FAILED->value];
 
+        $newStatus = null;
+
         if ($statuses->every(fn ($status) => in_array($status, $delivered, true))) {
-            if ($order->status !== OrderStatus::DELIVERED) {
-                $from = $order->status->value;
-                $order->update([
-                    'status' => OrderStatus::DELIVERED,
-                    'completed_at' => $order->completed_at ?? now(),
-                ]);
-                $this->logStatus($order, $from, OrderStatus::DELIVERED->value, $actor, 'All vendor orders delivered.');
-            }
+            $newStatus = OrderStatus::DELIVERED;
         } elseif ($statuses->every(fn ($status) => in_array($status, $terminal, true))) {
-            if ($order->status !== OrderStatus::CANCELLED) {
-                $from = $order->status->value;
-                $order->update([
-                    'status' => OrderStatus::CANCELLED,
-                    'cancelled_at' => $order->cancelled_at ?? now(),
-                    'cancelled_reason' => $order->cancelled_reason ?? 'All vendor orders were cancelled or rejected.',
-                ]);
-                $this->logStatus($order, $from, OrderStatus::CANCELLED->value, $actor, 'All vendor orders terminal.');
+            $newStatus = OrderStatus::CANCELLED;
+        } elseif ($deliveryStatuses->contains('out_for_delivery') || $statuses->contains(OrderStatus::OUT_FOR_DELIVERY->value)) {
+            $newStatus = OrderStatus::OUT_FOR_DELIVERY;
+        } elseif ($statuses->contains(OrderStatus::READY_FOR_PICKUP->value)) {
+            $newStatus = OrderStatus::READY_FOR_PICKUP;
+        } elseif ($statuses->contains(OrderStatus::PREPARING->value) || $statuses->contains(OrderStatus::PROCESSING->value)) {
+            $newStatus = OrderStatus::PROCESSING;
+        } elseif ($statuses->contains(OrderStatus::ACCEPTED->value) || $statuses->contains(OrderStatus::CONFIRMED->value)) {
+            $newStatus = OrderStatus::CONFIRMED;
+        }
+
+        if ($newStatus !== null && $order->status !== $newStatus) {
+            $from = $order->status->value;
+            $updates = ['status' => $newStatus];
+            if ($newStatus === OrderStatus::DELIVERED) {
+                $updates['completed_at'] = $order->completed_at ?? now();
+            } elseif ($newStatus === OrderStatus::CANCELLED) {
+                $updates['cancelled_at'] = $order->cancelled_at ?? now();
+                $updates['cancelled_reason'] = $order->cancelled_reason ?? 'All vendor orders were cancelled or rejected.';
             }
+
+            $order->update($updates);
+            $this->logStatus($order, $from, $newStatus->value, $actor, 'Order status synced from vendor order updates.');
         }
     }
 

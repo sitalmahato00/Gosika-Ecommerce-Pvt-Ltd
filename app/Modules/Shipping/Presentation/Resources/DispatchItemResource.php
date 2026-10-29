@@ -88,17 +88,11 @@ class DispatchItemResource extends JsonResource
             ] : null,
             'assigned_at' => $assignment?->assigned_at?->toISOString(),
             'last_updated' => $assignment?->updated_at?->toISOString() ?? $vendorOrder->updated_at?->toISOString(),
-            'can_assign' => $dispatchStatus === 'pending_assignment'
-                && in_array($vendorOrder->status->value, [
-                    'accepted',
-                    'preparing',
-                    'ready_for_pickup',
-                ], true),
+            'can_assign' => ($dispatchStatus === 'pending_assignment' || $assignment === null || $assignment->status === DeliveryStatus::FAILED)
+                && $vendorOrder->status->value === 'ready_for_pickup',
             'can_reassign' => $assignment !== null && in_array($assignment->status, [
                 DeliveryStatus::ASSIGNED,
                 DeliveryStatus::ACCEPTED,
-                DeliveryStatus::PICKED_UP,
-                DeliveryStatus::OUT_FOR_DELIVERY,
                 DeliveryStatus::FAILED,
             ], true),
         ];

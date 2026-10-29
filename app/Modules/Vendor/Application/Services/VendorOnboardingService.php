@@ -110,6 +110,10 @@ class VendorOnboardingService
             'contact_phone' => $dto->contact_phone,
             'logo' => $dto->logo,
             'banner' => $dto->banner,
+            'settings' => $dto->settings ?? [
+                'order_confirmation_mode' => 'manual',
+                'auto_ready_for_pickup' => false,
+            ],
             'status' => StoreStatus::DRAFT,
         ]);
     }
@@ -118,6 +122,8 @@ class VendorOnboardingService
     {
         $this->assertVendorOwnsStore($vendor, $store);
 
+        $settings = $dto->settings !== null ? array_merge($store->settings ?? [], $dto->settings) : $store->settings;
+
         $store->update([
             'name' => $dto->name,
             'description' => $dto->description,
@@ -125,6 +131,7 @@ class VendorOnboardingService
             'contact_phone' => $dto->contact_phone,
             'logo' => $dto->logo ?? $store->logo,
             'banner' => $dto->banner ?? $store->banner,
+            'settings' => $settings,
         ]);
 
         return $store;

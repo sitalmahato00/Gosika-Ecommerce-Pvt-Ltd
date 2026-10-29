@@ -17,6 +17,7 @@ use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Infrastructure\Services\ReferenceNumber;
+use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use App\Modules\Wallet\Application\Services\CategoryCommissionResolver;
 use App\Modules\Wallet\Application\Services\WalletService;
@@ -112,6 +113,11 @@ class OrderService
                     ->delete();
             } else {
                 $this->cartService->clear($user, null);
+            }
+
+            $hasConfirmed = collect($vendorOrders)->contains(fn ($vo) => in_array($vo->status, [OrderStatus::ACCEPTED, OrderStatus::READY_FOR_PICKUP], true));
+            if ($hasConfirmed) {
+                $order->update(['status' => OrderStatus::CONFIRMED]);
             }
 
             app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->orderConfirmation($order);
@@ -244,14 +250,34 @@ class OrderService
 
         $this->walletService->recordCommission($vendorOrder, $order->user_id);
 
-        OrderStatusHistory::create([
-            'trackable_type' => VendorOrder::class,
-            'trackable_id' => $vendorOrder->id,
-            'from_status' => null,
-            'to_status' => OrderStatus::PENDING->value,
-            'reason' => 'Order assigned to vendor.',
-            'actor_user_id' => $order->user_id,
-        ]);
+        $store = Store::query()->find($vendorOrder->store_id);
+        $settings = $store?->settings ?? [];
+        $autoConfirm = ($settings['order_confirmation_mode'] ?? 'manual') === 'automatic';
+        $autoReady = (bool) ($settings['auto_ready_for_pickup'] ?? false);
+
+        if ($autoConfirm) {
+            $targetStatus = $autoReady ? OrderStatus::READY_FOR_PICKUP : OrderStatus::ACCEPTED;
+            $vendorOrder->status = $targetStatus;
+            $vendorOrder->save();
+
+            OrderStatusHistory::create([
+                'trackable_type' => VendorOrder::class,
+                'trackable_id' => $vendorOrder->id,
+                'from_status' => OrderStatus::PENDING->value,
+                'to_status' => $targetStatus->value,
+                'reason' => 'Automatically confirmed based on store settings.',
+                'actor_user_id' => $vendor->user_id,
+            ]);
+        } else {
+            OrderStatusHistory::create([
+                'trackable_type' => VendorOrder::class,
+                'trackable_id' => $vendorOrder->id,
+                'from_status' => null,
+                'to_status' => OrderStatus::PENDING->value,
+                'reason' => 'Order assigned to vendor.',
+                'actor_user_id' => $order->user_id,
+            ]);
+        }
 
         return $vendorOrder;
     }

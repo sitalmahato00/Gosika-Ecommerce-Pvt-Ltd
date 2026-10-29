@@ -14,8 +14,8 @@ class AssignDeliveryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'vendor_order_id' => ['required', 'string'],
-            'delivery_partner_id' => ['nullable', 'string'],
+            'vendor_order_id' => ['required'],
+            'delivery_partner_id' => ['required'],
             'delivery_fee' => ['nullable', 'numeric', 'min:0'],
             'cod_amount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],

@@ -21,6 +21,11 @@ class StoreRequest extends FormRequest
             'contact_phone' => ['nullable', 'string', 'max:20'],
             'logo' => ['nullable', 'string', 'max:500'],
             'banner' => ['nullable', 'string', 'max:500'],
+            'settings' => ['nullable', 'array'],
+            'settings.order_confirmation_mode' => ['nullable', 'string', 'in:manual,automatic'],
+            'settings.auto_ready_for_pickup' => ['nullable', 'boolean'],
+            'settings.estimated_prep_time' => ['nullable', 'string', 'max:120'],
+            'settings.pickup_instructions' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

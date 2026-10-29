@@ -26,4 +26,17 @@ trait HasUuid
     {
         return 'uuid';
     }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $field = $field ?? $this->getRouteKeyName();
+
+        if ($field === 'uuid') {
+            return $this->where('uuid', $value)
+                ->when(ctype_digit((string) $value), fn ($q) => $q->orWhere('id', (int) $value))
+                ->first();
+        }
+
+        return parent::resolveRouteBinding($value, $field);
+    }
 }

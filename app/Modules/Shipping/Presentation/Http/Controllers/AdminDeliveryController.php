@@ -108,7 +108,7 @@ class AdminDeliveryController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:180'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['required', 'string', 'regex:/^[0-9+\- ]{7,20}$/', 'unique:delivery_partners,phone'],
+            'phone' => ['required', 'string', 'regex:/^[0-9+\- ]{7,20}$/', 'unique:delivery_partners,phone', 'unique:users,phone'],
             'vehicle_type' => ['nullable', 'string', 'max:40'],
             'vehicle_number' => ['nullable', 'string', 'max:30'],
             'service_areas' => ['nullable', 'array'],
@@ -148,17 +148,14 @@ class AdminDeliveryController extends Controller
 
     public function partner(string $partnerId): JsonResponse
     {
-        $partner = DeliveryPartner::query()
-            ->with('user')
-            ->where('uuid', $partnerId)
-            ->firstOrFail();
+        $partner = $this->findPartner($partnerId);
 
-        return Response::success(new DeliveryPartnerResource($partner), 'Delivery partner retrieved.');
+        return Response::success(new DeliveryPartnerResource($partner->load('user')), 'Delivery partner retrieved.');
     }
 
     public function approve(string $partnerId): JsonResponse
     {
-        $partner = DeliveryPartner::where('uuid', $partnerId)->firstOrFail();
+        $partner = $this->findPartner($partnerId);
         $partner = $this->service->approve(request()->user(), $partner);
 
         return Response::success(new DeliveryPartnerResource($partner), 'Delivery partner approved.');
@@ -166,7 +163,7 @@ class AdminDeliveryController extends Controller
 
     public function reject(Request $request, string $partnerId): JsonResponse
     {
-        $partner = DeliveryPartner::where('uuid', $partnerId)->firstOrFail();
+        $partner = $this->findPartner($partnerId);
 
         if (! $request->input('reason')) {
             throw new DomainException('A rejection reason is required.');
@@ -179,7 +176,7 @@ class AdminDeliveryController extends Controller
 
     public function suspend(Request $request, string $partnerId): JsonResponse
     {
-        $partner = DeliveryPartner::where('uuid', $partnerId)->firstOrFail();
+        $partner = $this->findPartner($partnerId);
         $partner = $this->service->suspend(request()->user(), $partner, $request->input('reason'));
 
         return Response::success(new DeliveryPartnerResource($partner), 'Delivery partner suspended.');
@@ -187,7 +184,7 @@ class AdminDeliveryController extends Controller
 
     public function activate(string $partnerId): JsonResponse
     {
-        $partner = DeliveryPartner::where('uuid', $partnerId)->firstOrFail();
+        $partner = $this->findPartner($partnerId);
         $partner = $this->service->activate(request()->user(), $partner);
 
         return Response::success(new DeliveryPartnerResource($partner), 'Delivery partner activated.');
@@ -229,14 +226,20 @@ class AdminDeliveryController extends Controller
         $vendorOrderId = (string) $request->input('vendor_order_id');
         $vendorOrder = VendorOrder::where('uuid', $vendorOrderId)
             ->when(ctype_digit($vendorOrderId), fn ($q) => $q->orWhere('id', (int) $vendorOrderId))
-            ->firstOrFail();
+            ->first();
+
+        if (! $vendorOrder) {
+            return Response::error('Shipment / vendor order not found.', [], 404);
+        }
 
         $partnerId = (string) $request->input('delivery_partner_id');
-        $partner = $request->filled('delivery_partner_id')
-            ? DeliveryPartner::where('uuid', $partnerId)
-                ->when(ctype_digit($partnerId), fn ($q) => $q->orWhere('id', (int) $partnerId))
-                ->firstOrFail()
-            : $this->service->resolvePartnerForOrder($vendorOrder);
+        $partner = DeliveryPartner::where('uuid', $partnerId)
+            ->when(ctype_digit($partnerId), fn ($q) => $q->orWhere('id', (int) $partnerId))
+            ->first();
+
+        if (! $partner) {
+            return Response::error('Selected delivery partner not found.', [], 404);
+        }
 
         try {
             $assignment = $this->service->assign(
@@ -257,12 +260,28 @@ class AdminDeliveryController extends Controller
         }
     }
 
+    public function assignmentHistory(VendorOrder $vendorOrder): JsonResponse
+    {
+        $history = $vendorOrder->assignments()
+            ->with(['deliveryPartner', 'tracking', 'assignedBy'])
+            ->get()
+            ->map(fn (DeliveryAssignment $assignment) => $this->service->assignmentHistoryRow($assignment))
+            ->values()
+            ->all();
+
+        return Response::success(['history' => $history], 'Assignment history retrieved.');
+    }
+
     public function reassign(ReassignDeliveryRequest $request, DeliveryAssignment $assignment): JsonResponse
     {
         $partnerId = (string) $request->input('delivery_partner_id');
         $partner = DeliveryPartner::where('uuid', $partnerId)
             ->when(ctype_digit($partnerId), fn ($q) => $q->orWhere('id', (int) $partnerId))
-            ->firstOrFail();
+            ->first();
+
+        if (! $partner) {
+            return Response::error('Selected delivery partner not found.', [], 404);
+        }
 
         try {
             $assignment = $this->service->reassign(
@@ -282,6 +301,13 @@ class AdminDeliveryController extends Controller
         } catch (DomainException $e) {
             return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
         }
+    }
+
+    protected function findPartner(string $partnerId): DeliveryPartner
+    {
+        return DeliveryPartner::where('uuid', $partnerId)
+            ->when(ctype_digit($partnerId), fn ($q) => $q->orWhere('id', (int) $partnerId))
+            ->firstOrFail();
     }
 
     protected function resolveRange(Request $request): array

@@ -1,6 +1,6 @@
-﻿import React, { useState } from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Truck, Package, CheckCircle2, RotateCcw, ChevronRight, RefreshCw } from 'lucide-react'
+import { Truck, Package, CheckCircle2, RotateCcw, ChevronRight, RefreshCw, Inbox } from 'lucide-react'
 import api from '../../api/client'
 import { useList } from '../../hooks/useApi'
 import { useToast } from '../../context/ToastContext'
@@ -134,9 +134,14 @@ export default function DeliveryDeliveries() {
             {meta.total} assignment{meta.total === 1 ? '' : 's'} · Filter by status to focus your queue.
           </p>
         </div>
-        <button type="button" className="btn btn-outline btn-sm flex items-center gap-1.5" onClick={() => reload()}>
-          <RefreshCw size={14} /> Refresh
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link to="/delivery/available-jobs" className="btn btn-primary btn-sm flex items-center gap-1.5" style={{ textDecoration: 'none' }}>
+            <Inbox size={14} /> Claim Available Jobs
+          </Link>
+          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1.5" onClick={() => reload()}>
+            <RefreshCw size={14} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Status filter tabs */}

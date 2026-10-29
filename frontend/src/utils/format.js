@@ -199,13 +199,35 @@ export function timeAgo(dateString) {
 
 export function errorMessage(err, fallback = 'Something went wrong. Please try again.') {
   const data = err?.response?.data
-  if (data?.message) return data.message
-  if (data?.errors) {
-    const first = Object.values(data.errors)[0]
-    if (Array.isArray(first)) return first[0]
-    if (typeof first === 'string') return first
+
+  // 1. Structured validation errors object: extract exact messages into clean readable text
+  if (data?.errors && typeof data.errors === 'object') {
+    const list = Object.values(data.errors).flat().filter(Boolean)
+    if (list.length > 0) {
+      return list.join(' ')
+    }
   }
-  if (err?.message === 'Network Error') return 'Network error. Check your connection and try again.'
+
+  // 2. Exact message from API if present and not a generic placeholder
+  if (data?.message && typeof data.message === 'string') {
+    const msg = data.message.trim()
+    const generic = ['Validation failed.', 'The given data was invalid.', 'An error occurred', 'Server Error']
+    if (msg && !generic.includes(msg)) {
+      return msg
+    }
+  }
+
+  // 3. Fallback to data.message if available
+  if (data?.message && typeof data.message === 'string' && data.message.trim()) {
+    return data.message
+  }
+
+  // 4. Axios error message if network error
+  if (err?.message === 'Network Error') {
+    return 'Network error. Check your connection and try again.'
+  }
+
+  // 5. Fallback
   return fallback
 }
 

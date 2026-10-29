@@ -20,6 +20,7 @@ class Store extends BaseModel
         'contact_phone',
         'status',
         'rejection_reason',
+        'settings',
         'approved_by',
         'approved_at',
     ];
@@ -29,6 +30,7 @@ class Store extends BaseModel
         return [
             'status' => StoreStatus::class,
             'approved_at' => 'datetime',
+            'settings' => 'array',
         ];
     }
 

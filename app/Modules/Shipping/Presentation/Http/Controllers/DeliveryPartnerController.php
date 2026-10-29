@@ -3,6 +3,7 @@
 namespace App\Modules\Shipping\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Infrastructure\Models\User;
+use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Shipping\Application\DataTransferObjects\ApplyDeliveryPartnerDTO;
@@ -15,6 +16,7 @@ use App\Modules\Shipping\Presentation\Http\Requests\ApplyDeliveryPartnerRequest;
 use App\Modules\Shipping\Presentation\Http\Requests\DeliveryConfirmationRequest;
 use App\Modules\Shipping\Presentation\Http\Requests\DeliveryFailureRequest;
 use App\Modules\Shipping\Presentation\Http\Requests\UpdateDeliveryPartnerProfileRequest;
+use App\Modules\Shipping\Presentation\Resources\AvailableJobResource;
 use App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource;
 use App\Modules\Shipping\Presentation\Resources\DeliveryPartnerDocumentResource;
 use App\Modules\Shipping\Presentation\Resources\DeliveryPartnerResource;
@@ -176,6 +178,56 @@ class DeliveryPartnerController extends Controller
         $assignment = $this->service->returnToVendor($request->user(), $assignment, $request->input('reason'));
 
         return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder'])), 'Order returned to vendor.');
+    }
+
+    public function availableJobs(Request $request): JsonResponse
+    {
+        $list = $this->service->availableJobsForPartner($request->user(), [
+            'search' => (string) $request->input('search', ''),
+            'per_page' => $request->integer('per_page', 15),
+        ]);
+
+        return Response::success(
+            AvailableJobResource::collection($list),
+            'Available delivery jobs retrieved.',
+            ['pagination' => [
+                'total' => $list->total(),
+                'per_page' => $list->perPage(),
+                'current_page' => $list->currentPage(),
+                'last_page' => $list->lastPage(),
+            ]]
+        );
+    }
+
+    public function availableJobDetail(VendorOrder $vendorOrder): JsonResponse
+    {
+        $vendorOrder->load(['store.addresses', 'order', 'items']);
+
+        return Response::success(
+            new AvailableJobResource($vendorOrder),
+            'Available job detail retrieved.'
+        );
+    }
+
+    public function claim(Request $request, VendorOrder $vendorOrder): JsonResponse
+    {
+        try {
+            $assignment = $this->service->claim($request->user(), $vendorOrder);
+
+            return Response::success(
+                new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder', 'deliveryPartner'])),
+                'Shipment claimed successfully.'
+            );
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    public function dashboardStats(Request $request): JsonResponse
+    {
+        $stats = $this->service->partnerDashboardStats($request->user());
+
+        return Response::success($stats, 'Delivery partner dashboard stats retrieved.');
     }
 
     public function history(Request $request): JsonResponse

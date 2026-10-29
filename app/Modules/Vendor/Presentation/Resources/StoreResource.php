@@ -19,6 +19,12 @@ class StoreResource extends JsonResource
             'contact_email' => $this->contact_email,
             'contact_phone' => $this->contact_phone,
             'status' => $this->status,
+            'settings' => $this->settings ?? [
+                'order_confirmation_mode' => 'manual',
+                'auto_ready_for_pickup' => false,
+                'estimated_prep_time' => 'Same Day',
+                'pickup_instructions' => '',
+            ],
             'approved_at' => $this->approved_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
         ];

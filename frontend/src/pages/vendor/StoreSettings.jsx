@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Store, Save, Pencil, ChevronRight, Percent } from 'lucide-react'
+import { Building2, Store, Save, Pencil, ChevronRight, Percent, PackageCheck, Clock, Truck } from 'lucide-react'
 import api from '../../api/client'
 import Input from '../../components/ui/Input'
 import Textarea from '../../components/ui/Textarea'
@@ -21,6 +21,12 @@ export default function VendorStoreSettings() {
   const [saving, setSaving] = useState('')
   const [companyForm, setCompanyForm] = useState({ company_name: '', business_email: '', business_phone: '' })
   const [storeForm, setStoreForm] = useState({ name: '', description: '', contact_email: '', contact_phone: '', status: '' })
+  const [orderSettings, setOrderSettings] = useState({
+    order_confirmation_mode: 'manual',
+    auto_ready_for_pickup: false,
+    estimated_prep_time: 'Same Day',
+    pickup_instructions: '',
+  })
 
   const load = () => {
     setLoading(true)
@@ -43,6 +49,13 @@ export default function VendorStoreSettings() {
             contact_email: first.contact_email || '',
             contact_phone: first.contact_phone || '',
             status: first.status || '',
+          })
+          const st = first.settings || {}
+          setOrderSettings({
+            order_confirmation_mode: st.order_confirmation_mode || 'manual',
+            auto_ready_for_pickup: Boolean(st.auto_ready_for_pickup),
+            estimated_prep_time: st.estimated_prep_time || 'Same Day',
+            pickup_instructions: st.pickup_instructions || '',
           })
         } else {
           setStoreId(null)
@@ -79,6 +92,24 @@ export default function VendorStoreSettings() {
         contact_phone: storeForm.contact_phone || undefined,
       })
       toast.success('Store information saved')
+      load()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSaving('')
+    }
+  }
+
+  const saveOrderSettings = async (e) => {
+    e.preventDefault()
+    if (!storeId) return
+    setSaving('order_settings')
+    try {
+      await api.put(`/vendor/stores/${storeId}`, {
+        name: storeForm.name,
+        settings: orderSettings,
+      })
+      toast.success('Order confirmation and fulfillment settings saved')
       load()
     } catch (err) {
       toast.error(errorMessage(err))
@@ -220,6 +251,111 @@ export default function VendorStoreSettings() {
             </div>
           )}
         </div>
+
+        {/* 3. Order Confirmation & Fulfillment Operations */}
+        {storeId && (
+          <div className="card" style={{ padding: 20, gridColumn: '1 / -1' }}>
+            <div className="flex items-center justify-between mb-3 wrap gap-2">
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
+                  <PackageCheck size={18} color="var(--primary)" /> Order Confirmation & Fulfillment Operations
+                </h3>
+                <p className="muted text-xs" style={{ marginTop: 4 }}>
+                  Configure whether your store confirms orders automatically or manually, and setup fulfillment ready gates.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={saveOrderSettings} className="flex flex-col gap-4">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+                {/* Confirmation Mode */}
+                <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 16, background: 'var(--surface-subtle)' }}>
+                  <label className="label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, display: 'block' }}>
+                    Order Confirmation Setting
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-start gap-2 cursor-pointer p-2 rounded hover:bg-white transition-colors" style={{ border: '1px solid ' + (orderSettings.order_confirmation_mode === 'manual' ? 'var(--primary)' : 'var(--border)'), background: orderSettings.order_confirmation_mode === 'manual' ? 'rgba(255,85,0,0.04)' : '#fff' }}>
+                      <input
+                        type="radio"
+                        name="order_confirmation_mode"
+                        value="manual"
+                        checked={orderSettings.order_confirmation_mode === 'manual'}
+                        onChange={() => setOrderSettings({ ...orderSettings, order_confirmation_mode: 'manual' })}
+                        style={{ marginTop: 3 }}
+                      />
+                      <div>
+                        <div className="font-semibold text-sm">Manual Order Confirmation (Default)</div>
+                        <div className="muted text-xs">Orders arrive as <strong>Pending</strong>. You must manually review and click <strong>Accept</strong> before preparation.</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-2 cursor-pointer p-2 rounded hover:bg-white transition-colors" style={{ border: '1px solid ' + (orderSettings.order_confirmation_mode === 'automatic' ? 'var(--primary)' : 'var(--border)'), background: orderSettings.order_confirmation_mode === 'automatic' ? 'rgba(255,85,0,0.04)' : '#fff' }}>
+                      <input
+                        type="radio"
+                        name="order_confirmation_mode"
+                        value="automatic"
+                        checked={orderSettings.order_confirmation_mode === 'automatic'}
+                        onChange={() => setOrderSettings({ ...orderSettings, order_confirmation_mode: 'automatic' })}
+                        style={{ marginTop: 3 }}
+                      />
+                      <div>
+                        <div className="font-semibold text-sm">Automatic Order Confirmation</div>
+                        <div className="muted text-xs">Orders are instantly <strong>Confirmed</strong> upon checkout without manual approval.</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Ready for Pickup Gate & Prep Time */}
+                <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 16, background: 'var(--surface-subtle)' }}>
+                  <label className="label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, display: 'block' }}>
+                    Delivery Dispatch & Preparation
+                  </label>
+                  
+                  <div className="flex flex-col gap-3">
+                    <label className="flex items-start gap-2 cursor-pointer p-2 rounded bg-white" style={{ border: '1px solid var(--border)' }}>
+                      <input
+                        type="checkbox"
+                        checked={orderSettings.auto_ready_for_pickup}
+                        onChange={(e) => setOrderSettings({ ...orderSettings, auto_ready_for_pickup: e.target.checked })}
+                        style={{ marginTop: 3 }}
+                      />
+                      <div>
+                        <div className="font-semibold text-sm">Auto Ready for Pickup</div>
+                        <div className="muted text-xs">Automatically mark confirmed orders as <strong>Ready for Pickup</strong> so delivery riders can claim them immediately.</div>
+                      </div>
+                    </label>
+
+                    <div className="form-row">
+                      <Input
+                        label="Estimated Preparation Time"
+                        placeholder="e.g. 1-2 Hours, Same Day"
+                        value={orderSettings.estimated_prep_time}
+                        onChange={(e) => setOrderSettings({ ...orderSettings, estimated_prep_time: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Textarea
+                  label="Pickup Instructions for Delivery Riders"
+                  rows={2}
+                  placeholder="e.g. Store located at 2nd Floor, Main Bazaar. Ask for Ramesh at the counter."
+                  value={orderSettings.pickup_instructions}
+                  onChange={(e) => setOrderSettings({ ...orderSettings, pickup_instructions: e.target.value })}
+                />
+              </div>
+
+              <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                <Button type="submit" size="sm" disabled={saving === 'order_settings'}>
+                  {saving === 'order_settings' ? <Spinner size={14} color="#fff" /> : <><Save size={13} /> Save Order Settings</>}
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   )

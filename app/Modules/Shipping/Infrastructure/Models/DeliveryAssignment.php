@@ -31,6 +31,8 @@ class DeliveryAssignment extends BaseModel
         'failure_reason',
         'proof_photo',
         'meta',
+        'created_by',
+        'updated_by',
     ];
 
     protected function casts(): array
@@ -57,6 +59,11 @@ class DeliveryAssignment extends BaseModel
     public function deliveryPartner(): BelongsTo
     {
         return $this->belongsTo(DeliveryPartner::class);
+    }
+
+    public function assignedBy(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Identity\Infrastructure\Models\User::class, 'created_by');
     }
 
     public function tracking(): HasMany

@@ -131,6 +131,7 @@ import AdminProfile from './pages/admin/AdminProfile'
 
 import DeliveryLayout from './components/layout/DeliveryLayout'
 import DeliveryDashboard from './pages/delivery/DeliveryDashboard'
+import DeliveryAvailableJobs from './pages/delivery/DeliveryAvailableJobs'
 import DeliveryDeliveries from './pages/delivery/DeliveryDeliveries'
 import DeliveryDetail from './pages/delivery/DeliveryDetail'
 import DeliveryPickup from './pages/delivery/DeliveryPickup'
@@ -388,6 +389,7 @@ export default function App() {
       {/* Delivery Partner Portal */}
       <Route path="/delivery" element={<DeliveryRoute><DeliveryLayout /></DeliveryRoute>}>
         <Route index element={<DeliveryDashboard />} />
+        <Route path="available-jobs" element={<DeliveryAvailableJobs />} />
         <Route path="deliveries" element={<DeliveryDeliveries />} />
         <Route path="deliveries/:id" element={<DeliveryDetail />} />
         <Route path="deliveries/:id/pickup" element={<DeliveryPickup />} />

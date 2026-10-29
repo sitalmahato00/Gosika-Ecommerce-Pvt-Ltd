@@ -30,6 +30,23 @@ export default function DashboardLayout({
   const [userDropdown, setUserDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [unreadCount, setUnreadCount] = useState(0)
+  // Track which nav section is open — accordion: only one open at a time.
+  // null means all sections are collapsed.
+  const [openSection, setOpenSection] = useState(() => {
+    // Auto-open the section that contains the current route on mount
+    if (!nav) return null
+    const currentPath = window.location.pathname
+    let activeSection = null
+    let section = null
+    for (const item of nav) {
+      if (item.section) { section = item.section; continue }
+      if (item.to && currentPath.startsWith(item.to.split('?')[0])) {
+        activeSection = section
+        break
+      }
+    }
+    return activeSection
+  })
   const dropdownRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -696,67 +713,131 @@ export default function DashboardLayout({
 
           {/* SCROLLING nav zone */}
           <nav className="dash-nav saas-scroll" aria-label="Dashboard menu" style={{ flex: 1, padding: '10px 10px', overflowY: 'auto', overflowX: 'hidden' }}>
-            {nav.map((item, i) => {
-              if (item.section) {
-                return (
-                  <div
-                    key={`section-${i}`}
-                    className="dash-nav-section"
-                    style={{
-                      fontSize: 11,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.08em',
-                      color: '#64748b',
-                      padding: collapsed ? '14px 4px 4px' : '16px 12px 6px',
-                      fontWeight: 700,
-                      textAlign: collapsed ? 'center' : 'left'
-                    }}
-                  >
-                    {collapsed ? '—' : item.section}
-                  </div>
-                )
+            {(() => {
+              // Group nav items into sections: [{section, items}]
+              const groups = []
+              let current = null
+              nav.forEach((item, i) => {
+                if (item.section) {
+                  current = { section: item.section, items: [] }
+                  groups.push(current)
+                } else if (current) {
+                  current.items.push({ ...item, _i: i })
+                } else {
+                  if (!groups.length || groups[0].section !== null) {
+                    const unsectioned = { section: null, items: [] }
+                    groups.unshift(unsectioned)
+                    current = unsectioned
+                  }
+                  current.items.push({ ...item, _i: i })
+                }
+              })
+
+              // Accordion: one section open at a time.
+              // When sidebar is icon-only (collapsed) every group stays visible.
+              const handleToggle = (sectionName) => {
+                if (collapsed) return
+                setOpenSection(prev => prev === sectionName ? null : sectionName)
               }
 
-              const badgeCount = item.badge
-              const Ic = Icons[item.icon] || Icons.Circle
+              return groups.map((group, gi) => {
+                const isOpen = collapsed || !group.section || openSection === group.section
 
-              return (
-                <NavLink
-                  key={`${item.to}-${i}`}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) => `dash-nav-link ${isActive ? 'active' : ''}`}
-                  onClick={() => setOpen(false)}
-                  aria-label={item.label}
-                  title={collapsed ? item.label : undefined}
-                  style={({ isActive }) => ({
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: collapsed ? '10px 0' : '10px 14px',
-                    justifyContent: collapsed ? 'center' : 'flex-start',
-                    borderRadius: 8,
-                    fontSize: 13.5,
-                    color: isActive ? '#ffffff' : '#94a3b8',
-                    background: isActive ? '#ff5500' : 'transparent',
-                    boxShadow: isActive ? '0 4px 14px rgba(255, 85, 0, 0.35)' : 'none',
-                    fontWeight: isActive ? 600 : 500,
-                    marginBottom: 3,
-                    textDecoration: 'none',
-                    transition: 'all 0.15s ease',
-                    transform: isActive ? 'translateX(2px)' : 'none'
-                  })}
-                >
-                  <Ic size={17} aria-hidden="true" style={{ flexShrink: 0 }} />
-                  {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
-                  {badgeCount && !collapsed && (
-                    <span className="badge-pop dash-nav-badge" style={{ minWidth: 20, textAlign: 'center' }}>
-                      {badgeCount}
-                    </span>
-                  )}
-                </NavLink>
-              )
-            })}
+                return (
+                  <div key={`group-${gi}`}>
+                    {/* Section header — clickable toggle */}
+                    {group.section && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggle(group.section)}
+                        aria-expanded={isOpen}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: collapsed ? 'center' : 'space-between',
+                          gap: 6,
+                          padding: collapsed ? '14px 4px 4px' : '14px 12px 6px',
+                          background: 'none',
+                          border: 'none',
+                          cursor: collapsed ? 'default' : 'pointer',
+                          color: '#64748b',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.08em',
+                        }}
+                      >
+                        {collapsed ? '—' : (
+                          <>
+                            <span style={{ flex: 1, textAlign: 'left' }}>{group.section}</span>
+                            <ChevronDown
+                              size={13}
+                              style={{
+                                color: '#475569',
+                                flexShrink: 0,
+                                transition: 'transform 0.18s ease',
+                                transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                              }}
+                            />
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Smooth grid-row expand — no JS height measurement needed */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateRows: isOpen ? '1fr' : '0fr',
+                      transition: 'grid-template-rows 0.18s cubic-bezier(0.4,0,0.2,1)',
+                    }}>
+                      <div style={{ overflow: 'hidden' }}>
+                        {group.items.map((item) => {
+                          const badgeCount = item.badge
+                          const Ic = Icons[item.icon] || Icons.Circle
+                          return (
+                            <NavLink
+                              key={`${item.to}-${item._i}`}
+                              to={item.to}
+                              end={item.end}
+                              className={({ isActive }) => `dash-nav-link ${isActive ? 'active' : ''}`}
+                              onClick={() => setOpen(false)}
+                              aria-label={item.label}
+                              title={collapsed ? item.label : undefined}
+                              style={({ isActive }) => ({
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12,
+                                padding: collapsed ? '10px 0' : '10px 14px',
+                                justifyContent: collapsed ? 'center' : 'flex-start',
+                                borderRadius: 8,
+                                fontSize: 13.5,
+                                color: isActive ? '#ffffff' : '#94a3b8',
+                                background: isActive ? '#ff5500' : 'transparent',
+                                boxShadow: isActive ? '0 4px 14px rgba(255,85,0,0.35)' : 'none',
+                                fontWeight: isActive ? 600 : 500,
+                                marginBottom: 3,
+                                textDecoration: 'none',
+                                transition: 'all 0.15s ease',
+                                transform: isActive ? 'translateX(2px)' : 'none',
+                              })}
+                            >
+                              <Ic size={17} aria-hidden="true" style={{ flexShrink: 0 }} />
+                              {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
+                              {badgeCount && !collapsed && (
+                                <span className="badge-pop dash-nav-badge" style={{ minWidth: 20, textAlign: 'center' }}>
+                                  {badgeCount}
+                                </span>
+                              )}
+                            </NavLink>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            })()}
           </nav>
 
           {/* PINNED profile footer */}

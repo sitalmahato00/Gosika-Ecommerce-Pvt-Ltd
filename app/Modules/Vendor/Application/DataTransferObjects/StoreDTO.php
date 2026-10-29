@@ -12,6 +12,7 @@ final class StoreDTO
         public readonly ?string $contact_phone,
         public readonly ?string $logo = null,
         public readonly ?string $banner = null,
+        public readonly ?array $settings = null,
     ) {
     }
 
@@ -25,6 +26,7 @@ final class StoreDTO
             contact_phone: $data['contact_phone'] ?? null,
             logo: $data['logo'] ?? null,
             banner: $data['banner'] ?? null,
+            settings: $data['settings'] ?? null,
         );
     }
 }

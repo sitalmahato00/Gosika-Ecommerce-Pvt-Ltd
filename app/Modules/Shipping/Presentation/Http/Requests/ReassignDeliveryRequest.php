@@ -14,7 +14,7 @@ class ReassignDeliveryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'delivery_partner_id' => ['required', 'string'],
+            'delivery_partner_id' => ['required'],
             'reason' => ['required', 'string', 'max:500'],
             'delivery_fee' => ['nullable', 'numeric', 'min:0'],
             'cod_amount' => ['nullable', 'numeric', 'min:0'],

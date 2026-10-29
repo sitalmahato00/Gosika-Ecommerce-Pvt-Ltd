@@ -43,7 +43,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                return Response::error('Validation failed.', $e->errors(), 422);
+                $flattened = collect($e->errors())->flatten()->filter()->values();
+                $exact = $flattened->isNotEmpty() ? $flattened->implode(' ') : 'Validation failed.';
+                return Response::error($exact, $e->errors(), 422);
             }
         });
 
