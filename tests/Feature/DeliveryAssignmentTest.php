@@ -578,15 +578,21 @@ class DeliveryAssignmentTest extends TestCase
         $this->actingAs($this->riderUser1)
             ->postJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}/pickup");
 
-        // Out for delivery -> returns OTP
+        // Out for delivery -> OTP is not exposed to rider
         $outResponse = $this->actingAs($this->riderUser1)
             ->postJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}/out-for-delivery");
         $outResponse->assertStatus(200);
-        $otp = $outResponse->json('meta.otp');
+        $this->assertNull($outResponse->json('meta.otp'));
 
+        // Retrieve OTP from customer order detail
+        $customer = $order->user;
+        $customerResponse = $this->actingAs($customer)
+            ->getJson("/api/v1/orders/{$order->uuid}");
+        $customerResponse->assertStatus(200);
+        $otp = $customerResponse->json('data.delivery_otp');
         $this->assertNotNull($otp);
 
-        // Deliver with OTP
+        // Deliver with customer OTP
         $deliverResponse = $this->actingAs($this->riderUser1)
             ->postJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}/deliver", [
                 'otp' => $otp,
@@ -704,13 +710,17 @@ class DeliveryAssignmentTest extends TestCase
         $this->assertEquals(6, strlen($otp));
         $this->assertTrue(ctype_digit($otp));
 
-        // Delivery rider out-for-delivery gets matching OTP
+        // Delivery rider out-for-delivery does NOT expose OTP in response or assignment resource
         $outResponse = $this->actingAs($this->riderUser1)
             ->postJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}/out-for-delivery");
         $outResponse->assertStatus(200);
-        $riderOtp = $outResponse->json('meta.otp');
+        $this->assertNull($outResponse->json('meta.otp'));
+        $this->assertArrayNotHasKey('delivery_otp', (array) $outResponse->json('data.meta'));
 
-        $this->assertEquals($otp, $riderOtp);
+        $assignmentResponse = $this->actingAs($this->riderUser1)
+            ->getJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}");
+        $assignmentResponse->assertStatus(200);
+        $this->assertArrayNotHasKey('delivery_otp', (array) $assignmentResponse->json('data.meta'));
 
         // Handover confirmation succeeds using customer's OTP
         $deliverResponse = $this->actingAs($this->riderUser1)

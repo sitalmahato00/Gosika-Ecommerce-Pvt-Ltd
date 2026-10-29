@@ -150,12 +150,11 @@ class DeliveryPartnerController extends Controller
 
     public function outForDelivery(Request $request, DeliveryAssignment $assignment): JsonResponse
     {
-        [$assignment, $otp] = $this->service->outForDelivery($request->user(), $assignment);
+        [$assignment] = $this->service->outForDelivery($request->user(), $assignment);
 
         return Response::success(
             new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder'])),
-            'Order is out for delivery.',
-            ['otp' => $otp, 'otp_note' => 'MVP: OTP returned for demo; will be sent via SMS in production.']
+            'Order is out for delivery. Request the 6-digit confirmation OTP from the customer upon arrival.'
         );
     }
 

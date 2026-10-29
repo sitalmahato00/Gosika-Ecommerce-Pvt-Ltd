@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, Navigation, Package, CheckCircle2, Copy, Check,
-  Banknote, AlertTriangle, Phone, MapPin, User, Store, Eye, EyeOff, KeyRound,
+  ArrowLeft, Navigation, Package, CheckCircle2,
+  Banknote, AlertTriangle, Phone, MapPin, User, Store,
 } from 'lucide-react'
 import api from '../../api/client'
 import { useApi } from '../../hooks/useApi'
@@ -16,30 +16,19 @@ export default function DeliveryDeliver() {
   const { id } = useParams()
   const toast = useToast()
   const assignment = useApi(() => api.get(`/delivery-partner/assignments/${id}`))
-  const [otp, setOtp] = useState('')
-  const [showOtp, setShowOtp] = useState(true)
   const [otpInput, setOtpInput] = useState('')
   const [collectCash, setCollectCash] = useState(true)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
-  const [copied, setCopied] = useState(false)
 
   const a = assignment.data
-
-  React.useEffect(() => {
-    if (a?.delivery_otp || a?.meta?.delivery_otp) {
-      setOtp(a.delivery_otp || a.meta.delivery_otp)
-    }
-  }, [a])
 
   const handleStartDelivery = async () => {
     setBusy(true)
     try {
-      const res = await api.post(`/delivery-partner/assignments/${a.id}/out-for-delivery`)
-      setOtp(res.data?.meta?.otp || '')
-      setShowOtp(true)
+      await api.post(`/delivery-partner/assignments/${a.id}/out-for-delivery`)
       assignment.reload({ silent: true })
-      toast.success('Delivery started. Share the 6-digit OTP with the customer.')
+      toast.success('Shipment marked out for delivery. Request customer OTP upon arrival.')
     } catch (e) {
       toast.error(errorMessage(e))
     } finally {
@@ -62,15 +51,6 @@ export default function DeliveryDeliver() {
     }
   }
 
-  const copyOtp = async () => {
-    try {
-      await navigator.clipboard.writeText(otp)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      toast.info('Select and copy the OTP manually.')
-    }
-  }
 
   if (assignment.loading) {
     return (
@@ -175,7 +155,7 @@ export default function DeliveryDeliver() {
         <div className="card" style={{ padding: 20, margin: 0 }}>
           <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 4px', color: 'var(--ink)' }}>Step 1 — Start delivery to the customer</h3>
           <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
-            Starting the delivery generates a unique 6-digit confirmation OTP. Share it with the customer — they must enter it to confirm the handover.
+            Starting delivery marks this shipment as out for delivery. The customer will see their secure 6-digit handover OTP on their Gosika Order Detail page.
           </p>
           <button
             type="button"
@@ -183,58 +163,17 @@ export default function DeliveryDeliver() {
             onClick={handleStartDelivery}
             disabled={busy}
           >
-            <Navigation size={15} /> {busy ? 'Starting…' : 'Start Delivery & Generate OTP'}
+            <Navigation size={15} /> {busy ? 'Starting…' : 'Start Delivery to Customer'}
           </button>
         </div>
       )}
 
       {a.status === 'out_for_delivery' && (
         <div className="card" style={{ padding: 20, margin: 0 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 4px', color: 'var(--ink)' }}>Step 2 — Confirm delivery with customer OTP</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 4px', color: 'var(--ink)' }}>Step 2 — Verify customer OTP & complete delivery</h3>
           <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
-            Ask the customer for the 6-digit OTP they received, verify it, collect any COD amount, then confirm the delivery.
+            Ask the customer for the 6-digit Delivery OTP displayed on their Gosika Order Detail page upon handover. Enter it below to complete delivery.
           </p>
-
-          {/* Generated OTP banner */}
-          {otp && (
-            <div
-              style={{
-                background: '#ecfdf5',
-                border: '1px solid rgba(16,185,129,0.3)',
-                borderRadius: 10,
-                padding: '14px 16px',
-                marginBottom: 16,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                flexWrap: 'wrap',
-              }}
-            >
-              <div>
-                <div className="muted text-xs font-bold uppercase mb-1" style={{ letterSpacing: '0.04em', color: '#059669' }}>
-                  <KeyRound size={11} /> Customer OTP — share this code
-                </div>
-                <div className="font-mono font-bold" style={{ fontSize: 26, letterSpacing: '0.18em', color: '#047857' }}>
-                  {showOtp ? otp : '••••••'}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button type="button" className="btn btn-outline btn-xs flex items-center gap-1" onClick={() => setShowOtp(!showOtp)}>
-                  {showOtp ? <EyeOff size={13} /> : <Eye size={13} />} {showOtp ? 'Hide' : 'Show'}
-                </button>
-                <button type="button" className="btn btn-primary btn-xs flex items-center gap-1" onClick={copyOtp}>
-                  {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {!otp && (
-            <div className="alert alert-warning" style={{ marginBottom: 16 }}>
-              The OTP was generated when you started this delivery. If you have not noted it down, contact your dispatch hub — the code cannot be shown again after this page reloads.
-            </div>
-          )}
 
           <form onSubmit={handleConfirm} className="flex flex-col gap-3">
             {isCod && (
@@ -264,7 +203,7 @@ export default function DeliveryDeliver() {
                 onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
                 placeholder="4 9 1 2 8 3"
               />
-              <span className="muted text-xs mt-1 block">The customer received this code on their phone when the delivery started.</span>
+              <span className="muted text-xs mt-1 block">Customer can find their secure 6-digit handover OTP on their Gosika Order Detail page.</span>
             </div>
 
             <div className="flex items-center gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
