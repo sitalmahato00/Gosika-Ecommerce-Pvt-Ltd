@@ -13,6 +13,7 @@ use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 
 class AdminSeoController extends Controller
 {
@@ -79,6 +80,9 @@ class AdminSeoController extends Controller
         foreach ($payload as $key => $value) {
             Setting::set($key, (string) ($value ?? ''), 'seo');
         }
+
+        // Flush the SPA head cache so the next page load picks up new tokens
+        Cache::forget('seo.spa_head_data');
 
         return Response::success($this->seoService->getSeoSettings(), 'SEO settings updated.');
     }

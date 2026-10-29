@@ -68,6 +68,7 @@ class AdminSettingsController extends Controller
 
         $updated = $this->settingsService->updateGroup('branding', $validated, $request->user());
         Cache::forget('platform.public_config');
+        Cache::forget('seo.spa_head_data');
         return Response::success($updated, 'Branding settings updated successfully.');
     }
 
