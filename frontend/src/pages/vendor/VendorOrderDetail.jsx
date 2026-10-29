@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ChevronRight, Check, X, PackageCheck, MapPin, Phone, Truck, Printer, FileText } from 'lucide-react'
+import { ChevronRight, Check, X, PackageCheck, MapPin, Phone, Truck, Printer, FileText, Lock, Clock, Sparkles, AlertCircle } from 'lucide-react'
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
@@ -130,6 +130,9 @@ export default function VendorOrderDetail() {
   const [busy, setBusy] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [reason, setReason] = useState('')
+  const [cancellationCountdown, setCancellationCountdown] = useState(0)
+  const [deadlineCountdown, setDeadlineCountdown] = useState(0)
+  const [autoCountdown, setAutoCountdown] = useState(0)
 
   const load = () => {
     setLoading(true)
@@ -138,6 +141,32 @@ export default function VendorOrderDetail() {
   }
 
   useEffect(load, [id])
+
+  useEffect(() => {
+    if (order?.status === 'pending') {
+      setCancellationCountdown(order.cancellation_window_seconds_remaining || 0)
+      setDeadlineCountdown(order.confirmation_deadline_seconds_remaining || 0)
+      setAutoCountdown(order.auto_confirmation_seconds_remaining || 0)
+
+      const timer = setInterval(() => {
+        setCancellationCountdown(prev => Math.max(0, prev - 1))
+        setDeadlineCountdown(prev => Math.max(0, prev - 1))
+        setAutoCountdown(prev => Math.max(0, prev - 1))
+      }, 1000)
+
+      return () => clearInterval(timer)
+    }
+  }, [order?.status, order?.cancellation_window_seconds_remaining, order?.confirmation_deadline_seconds_remaining, order?.auto_confirmation_seconds_remaining])
+
+  const formatRemaining = (secs) => {
+    if (secs <= 0) return '0s'
+    const h = Math.floor(secs / 3600)
+    const m = Math.floor((secs % 3600) / 60)
+    const s = secs % 60
+    if (h > 0) return `${h}h ${m}m`
+    if (m > 0) return `${m}m ${s < 10 ? '0' : ''}${s}s`
+    return `${s}s`
+  }
 
   const act = async (path, successMsg, body) => {
     setBusy(true)
@@ -308,8 +337,25 @@ export default function VendorOrderDetail() {
             <Button variant="outline" size="sm" icon={FileText} onClick={printSlip}>Packing Slip</Button>
             {order.status === 'pending' && (
               <>
-                <Button variant="success" size="sm" icon={Check} disabled={busy} onClick={() => act('accept', 'Order accepted')}>Accept</Button>
-                <Button variant="danger-outline" size="sm" icon={X} disabled={busy} onClick={() => setRejectOpen(true)}>Reject</Button>
+                {cancellationCountdown > 0 || !order.can_confirm ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={Lock}
+                    disabled={true}
+                    title={order.confirmation_blocked_reason || 'Customer cancellation window is active.'}
+                    style={{ background: '#f8fafc', color: '#94a3b8', borderColor: '#e2e8f0' }}
+                  >
+                    Locked ({formatRemaining(cancellationCountdown)})
+                  </Button>
+                ) : (
+                  <Button variant="success" size="sm" icon={Check} disabled={busy} onClick={() => act('accept', 'Order accepted')}>
+                    Accept
+                  </Button>
+                )}
+                <Button variant="danger-outline" size="sm" icon={X} disabled={busy} onClick={() => setRejectOpen(true)}>
+                  Reject
+                </Button>
               </>
             )}
             {order.status === 'accepted' && (
@@ -320,6 +366,48 @@ export default function VendorOrderDetail() {
           </div>
         </div>
       </div>
+
+      {order.status === 'pending' && cancellationCountdown > 0 && (
+        <div className="card" style={{ background: '#fef3c7', border: '1px solid #fde68a', padding: '14px 18px' }}>
+          <div className="flex items-center justify-between wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Lock size={16} color="#d97706" />
+              <span className="font-bold text-sm" style={{ color: '#92400e' }}>
+                Customer Cancellation Window Active
+              </span>
+            </div>
+            <div className="flex items-center gap-1 font-mono text-sm font-bold" style={{ color: '#b45309' }}>
+              <Clock size={14} />
+              <span>Accept unlocks in {formatRemaining(cancellationCountdown)}</span>
+            </div>
+          </div>
+          <p style={{ margin: '6px 0 0', fontSize: 12, color: '#78350f' }}>
+            The customer has a mandatory cancellation window. You may accept and confirm this order once the timer expires.
+            {order.auto_confirmation_enabled && autoCountdown > 0 && (
+              <span style={{ display: 'block', marginTop: 4, fontWeight: 600 }}>
+                ✨ Platform automatic confirmation will confirm this order in {formatRemaining(autoCountdown)} if not manually processed.
+              </span>
+            )}
+          </p>
+        </div>
+      )}
+
+      {order.status === 'pending' && cancellationCountdown === 0 && deadlineCountdown > 0 && (
+        <div className="card" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '12px 18px' }}>
+          <div className="flex items-center justify-between wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Check size={16} color="#16a34a" />
+              <span className="font-bold text-sm" style={{ color: '#166534' }}>
+                Order Ready for Confirmation
+              </span>
+            </div>
+            <div className="flex items-center gap-1 text-xs font-semibold" style={{ color: '#15803d' }}>
+              <Clock size={13} />
+              <span>Confirmation deadline: {formatRemaining(deadlineCountdown)} remaining</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, alignItems: 'start' }}>
         <div className="card">

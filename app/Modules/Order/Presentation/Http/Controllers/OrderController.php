@@ -82,7 +82,7 @@ class OrderController extends Controller
         }
 
         try {
-            $order = $this->orderService->cancel(request()->user(), $found, $request->input('reason'));
+            $order = $this->orderService->cancel(request()->user(), $found, $request->formattedReason());
 
             return Response::success(new OrderResource($order), 'Order cancelled.');
         } catch (DomainException $e) {

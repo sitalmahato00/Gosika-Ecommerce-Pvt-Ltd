@@ -2,7 +2,7 @@ import React, { useCallback, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ShoppingBag, ChevronRight, Search, Download, CheckCircle2,
-  Clock, Truck, Check, PackageCheck, XCircle,
+  Clock, Truck, Check, PackageCheck, XCircle, Lock,
 } from 'lucide-react'
 import api from '../../api/client'
 import { useList } from '../../hooks/useApi'
@@ -302,14 +302,26 @@ export default function VendorOrders({ view = 'all' }) {
                       <div className="flex items-center justify-end gap-1">
                         {o.status === 'pending' && (
                           <>
-                            <button
-                              type="button"
-                              className="btn btn-success btn-xs flex items-center gap-1"
-                              disabled={busy === `${o.id}:accept`}
-                              onClick={() => doAction(o, 'accept', 'Order accepted')}
-                            >
-                              <Check size={11} /> Accept
-                            </button>
+                            {o.in_cancellation_window || !o.can_confirm ? (
+                              <button
+                                type="button"
+                                className="btn btn-xs flex items-center gap-1"
+                                style={{ background: '#f8fafc', color: '#94a3b8', cursor: 'not-allowed', border: '1px solid #e2e8f0' }}
+                                disabled
+                                title={o.confirmation_blocked_reason || 'Customer cancellation window is active.'}
+                              >
+                                <Lock size={11} /> Locked
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn btn-success btn-xs flex items-center gap-1"
+                                disabled={busy === `${o.id}:accept`}
+                                onClick={() => doAction(o, 'accept', 'Order accepted')}
+                              >
+                                <Check size={11} /> Accept
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="btn btn-danger-outline btn-xs flex items-center gap-1"

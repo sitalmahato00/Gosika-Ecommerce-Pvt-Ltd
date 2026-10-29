@@ -26,4 +26,19 @@ class StoreAddress extends BaseModel
     {
         return $this->belongsTo(Store::class);
     }
+
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Platform\Infrastructure\Models\Province::class);
+    }
+
+    public function district(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Platform\Infrastructure\Models\District::class);
+    }
+
+    public function municipality(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Platform\Infrastructure\Models\Municipality::class);
+    }
 }

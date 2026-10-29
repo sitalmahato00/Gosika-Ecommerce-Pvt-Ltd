@@ -23,8 +23,9 @@ export default function VendorStoreSettings() {
   const [storeForm, setStoreForm] = useState({ name: '', description: '', contact_email: '', contact_phone: '', status: '' })
   const [orderSettings, setOrderSettings] = useState({
     order_confirmation_mode: 'manual',
+    auto_confirmation_minutes: 30,
     auto_ready_for_pickup: false,
-    estimated_prep_time: 'Same Day',
+    estimated_prep_time: '15 mins',
     pickup_instructions: '',
   })
 
@@ -53,8 +54,9 @@ export default function VendorStoreSettings() {
           const st = first.settings || {}
           setOrderSettings({
             order_confirmation_mode: st.order_confirmation_mode || 'manual',
+            auto_confirmation_minutes: Number(st.auto_confirmation_minutes) || 30,
             auto_ready_for_pickup: Boolean(st.auto_ready_for_pickup),
-            estimated_prep_time: st.estimated_prep_time || 'Same Day',
+            estimated_prep_time: st.estimated_prep_time || '15 mins',
             pickup_instructions: st.pickup_instructions || '',
           })
         } else {
@@ -107,6 +109,9 @@ export default function VendorStoreSettings() {
     try {
       await api.put(`/vendor/stores/${storeId}`, {
         name: storeForm.name,
+        description: storeForm.description || undefined,
+        contact_email: storeForm.contact_email || undefined,
+        contact_phone: storeForm.contact_phone || undefined,
         settings: orderSettings,
       })
       toast.success('Order confirmation and fulfillment settings saved')
@@ -298,9 +303,41 @@ export default function VendorStoreSettings() {
                         onChange={() => setOrderSettings({ ...orderSettings, order_confirmation_mode: 'automatic' })}
                         style={{ marginTop: 3 }}
                       />
-                      <div>
+                      <div className="flex-1">
                         <div className="font-semibold text-sm">Automatic Order Confirmation</div>
-                        <div className="muted text-xs">Orders are instantly <strong>Confirmed</strong> upon checkout without manual approval.</div>
+                        <div className="muted text-xs">Orders are automatically confirmed after the customer cancellation window (15 mins) without manual approval.</div>
+
+                        {orderSettings.order_confirmation_mode === 'automatic' && (
+                          <div className="mt-3 pt-2.5" style={{ borderTop: '1px dashed var(--border)' }}>
+                            <div className="text-xs font-bold uppercase mb-1.5" style={{ color: 'var(--muted)', letterSpacing: '0.04em' }}>
+                              Auto-Confirmation Schedule
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {[
+                                { value: 15, label: '15 mins (End of cancellation window)' },
+                                { value: 30, label: '30 mins' },
+                                { value: 60, label: '1 hour' },
+                                { value: 120, label: '2 hours' },
+                              ].map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  className={`btn btn-xs ${Number(orderSettings.auto_confirmation_minutes) === opt.value ? 'btn-primary' : 'btn-outline'}`}
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    setOrderSettings({ ...orderSettings, auto_confirmation_minutes: opt.value })
+                                  }}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="muted text-xs mt-1.5">
+                              Pending orders auto-confirm after this duration if not cancelled by buyer.
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </label>
                   </div>

@@ -184,6 +184,8 @@ class DeliveryPartnerController extends Controller
     {
         $list = $this->service->availableJobsForPartner($request->user(), [
             'search' => (string) $request->input('search', ''),
+            'scope' => (string) $request->input('scope', 'my_area'),
+            'page' => $request->integer('page', 1),
             'per_page' => $request->integer('per_page', 15),
         ]);
 

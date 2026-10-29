@@ -41,6 +41,9 @@ Route::prefix('v1/admin/settings')->middleware(['auth:sanctum', 'ensure:admin', 
     Route::get('vendors', [AdminSettingsController::class, 'getVendors']);
     Route::put('vendors', [AdminSettingsController::class, 'updateVendors']);
 
+    Route::get('orders', [AdminSettingsController::class, 'getOrders']);
+    Route::put('orders', [AdminSettingsController::class, 'updateOrders']);
+
     // Legacy Fallback Endpoints (Fully Preserved)
     Route::get('/', [SettingsController::class, 'index']);
     Route::put('/', [SettingsController::class, 'batchUpdate']);

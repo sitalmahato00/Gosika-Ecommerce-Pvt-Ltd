@@ -131,15 +131,49 @@ class OrderService
 
     public function cancel(User $user, Order $order, ?string $reason): Order
     {
-        if (! in_array($order->status->value, [OrderStatus::PENDING->value, OrderStatus::PAYMENT_PENDING->value, OrderStatus::CONFIRMED->value], true)) {
-            throw new DomainException('Order cannot be cancelled in its current state.', 422);
-        }
+        return DB::transaction(function () use ($order, $user, $reason) {
+            $order = Order::query()->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
 
-        if ($order->payment_status->value === OrderPaymentStatus::PAID->value) {
-            throw new DomainException('Paid orders cannot be cancelled; request a return instead.', 422);
-        }
+            $confirmedStatuses = [
+                OrderStatus::CONFIRMED->value,
+                OrderStatus::ACCEPTED->value,
+                OrderStatus::PROCESSING->value,
+                OrderStatus::PREPARING->value,
+                OrderStatus::READY_FOR_PICKUP->value,
+                OrderStatus::PICKED_UP->value,
+                OrderStatus::OUT_FOR_DELIVERY->value,
+                OrderStatus::DELIVERED->value,
+                OrderStatus::COMPLETED->value,
+            ];
 
-        DB::transaction(function () use ($order, $user, $reason) {
+            // Requirement 5: Cancellation after confirmation is strictly blocked
+            if (in_array($order->status->value, $confirmedStatuses, true)) {
+                throw new DomainException('This order has been confirmed and can no longer be cancelled. Please contact support for assistance.', 422);
+            }
+
+            if ($order->status === OrderStatus::CANCELLED) {
+                throw new DomainException('This order is already cancelled.', 422);
+            }
+
+            if (! in_array($order->status->value, [OrderStatus::PENDING->value, OrderStatus::PAYMENT_PENDING->value], true)) {
+                throw new DomainException('Order cannot be cancelled in its current state.', 422);
+            }
+
+            // Customer Cancellation Window Check (exempt super admin for administrative exceptions)
+            $isSuperAdmin = method_exists($user, 'hasRole') && $user->hasRole(\App\Modules\Identity\Domain\Roles::SUPER_ADMIN);
+            if (! $isSuperAdmin) {
+                $placedAt = \Illuminate\Support\Carbon::parse($order->placed_at ?? $order->created_at);
+                $cancellationWindowMins = (int) Setting::get('order.cancellation_window_minutes', 15);
+                $cancellationDeadline = $placedAt->copy()->addMinutes($cancellationWindowMins);
+
+                if (now()->greaterThanOrEqualTo($cancellationDeadline)) {
+                    throw new DomainException(
+                        "The cancellation window for this order has expired. Orders can only be cancelled within {$cancellationWindowMins} minutes of placement.",
+                        422
+                    );
+                }
+            }
+
             $from = $order->status->value;
             $order->status = OrderStatus::CANCELLED;
             $order->cancelled_at = now();
@@ -147,11 +181,27 @@ class OrderService
             $order->cancelled_by = $user->id;
             $order->save();
 
-            foreach ($order->vendorOrders as $vendorOrder) {
-                $vendorOrder->update(['status' => OrderStatus::CANCELLED->value]);
+            foreach ($order->vendorOrders()->lockForUpdate()->get() as $vendorOrder) {
+                $voFrom = $vendorOrder->status->value;
+                $vendorOrder->update([
+                    'status' => OrderStatus::CANCELLED->value,
+                    'delivery_status' => \App\Modules\Shared\Domain\Enums\DeliveryStatus::FAILED->value,
+                ]);
+
+                OrderStatusHistory::create([
+                    'trackable_type' => VendorOrder::class,
+                    'trackable_id' => $vendorOrder->id,
+                    'from_status' => $voFrom,
+                    'to_status' => OrderStatus::CANCELLED->value,
+                    'reason' => $reason,
+                    'actor_user_id' => $user->id,
+                ]);
             }
 
             $this->restoreStock($order);
+
+            // Handle payment reversal/refund
+            $this->handlePaymentCancellation($order, $user, $reason);
 
             OrderStatusHistory::create([
                 'trackable_type' => Order::class,
@@ -161,9 +211,34 @@ class OrderService
                 'reason' => $reason,
                 'actor_user_id' => $user->id,
             ]);
-        });
 
-        return $order->fresh(['items', 'vendorOrders.items']);
+            return $order->fresh(['items', 'vendorOrders.items']);
+        });
+    }
+
+    protected function handlePaymentCancellation(Order $order, User $actor, ?string $reason): void
+    {
+        $payment = \App\Modules\Payment\Infrastructure\Models\Payment::query()
+            ->where('order_id', $order->id)
+            ->latest()
+            ->first();
+
+        if (! $payment) {
+            return;
+        }
+
+        if ($payment->isPaid()) {
+            if (class_exists(\App\Modules\Payment\Application\Services\RefundService::class)) {
+                try {
+                    $refundService = app(\App\Modules\Payment\Application\Services\RefundService::class);
+                    $refundService->create($payment, $actor, (float) $payment->amount, $reason ?: 'Order cancelled by customer');
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Refund creation failed on customer cancellation: ' . $e->getMessage());
+                }
+            }
+        } elseif (in_array($payment->status->value ?? (string) $payment->status, ['pending', 'initiated'], true)) {
+            $payment->update(['status' => \App\Modules\Shared\Domain\Enums\PaymentStatus::FAILED]);
+        }
     }
 
     protected function createOrder(User $user, CheckoutSession $session, $cart, ?string $notes): Order
@@ -250,34 +325,16 @@ class OrderService
 
         $this->walletService->recordCommission($vendorOrder, $order->user_id);
 
-        $store = Store::query()->find($vendorOrder->store_id);
-        $settings = $store?->settings ?? [];
-        $autoConfirm = ($settings['order_confirmation_mode'] ?? 'manual') === 'automatic';
-        $autoReady = (bool) ($settings['auto_ready_for_pickup'] ?? false);
-
-        if ($autoConfirm) {
-            $targetStatus = $autoReady ? OrderStatus::READY_FOR_PICKUP : OrderStatus::ACCEPTED;
-            $vendorOrder->status = $targetStatus;
-            $vendorOrder->save();
-
-            OrderStatusHistory::create([
-                'trackable_type' => VendorOrder::class,
-                'trackable_id' => $vendorOrder->id,
-                'from_status' => OrderStatus::PENDING->value,
-                'to_status' => $targetStatus->value,
-                'reason' => 'Automatically confirmed based on store settings.',
-                'actor_user_id' => $vendor->user_id,
-            ]);
-        } else {
-            OrderStatusHistory::create([
-                'trackable_type' => VendorOrder::class,
-                'trackable_id' => $vendorOrder->id,
-                'from_status' => null,
-                'to_status' => OrderStatus::PENDING->value,
-                'reason' => 'Order assigned to vendor.',
-                'actor_user_id' => $order->user_id,
-            ]);
-        }
+        // Requirement 2: Every newly placed order starts as Pending / Awaiting Vendor Confirmation,
+        // guaranteeing the customer's minimum cancellation window.
+        OrderStatusHistory::create([
+            'trackable_type' => VendorOrder::class,
+            'trackable_id' => $vendorOrder->id,
+            'from_status' => null,
+            'to_status' => OrderStatus::PENDING->value,
+            'reason' => 'Order assigned to vendor. Awaiting confirmation.',
+            'actor_user_id' => $order->user_id,
+        ]);
 
         return $vendorOrder;
     }

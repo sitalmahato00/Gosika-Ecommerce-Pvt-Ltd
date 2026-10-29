@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  Globe, Palette, Percent, Truck, CreditCard, Store,
+  Globe, Palette, Percent, Truck, CreditCard, Store, ShoppingBag,
   Save, RotateCcw, AlertTriangle, CheckCircle2, RefreshCw
 } from 'lucide-react'
 import api from '../../api/client'

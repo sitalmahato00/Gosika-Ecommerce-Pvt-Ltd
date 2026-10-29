@@ -47,16 +47,21 @@ class CustomerNotificationController extends Controller
         ], 'Unread notification count retrieved.');
     }
 
-    public function markRead(Request $request, string $notificationId): JsonResponse
+    public function markRead(Request $request, string $notification): JsonResponse
     {
-        $notification = CustomerNotification::query()
-            ->where('uuid', $notificationId)
+        $notificationModel = CustomerNotification::query()
             ->where('user_id', $request->user()->id)
+            ->where(function ($q) use ($notification) {
+                $q->where('uuid', $notification);
+                if (ctype_digit((string) $notification)) {
+                    $q->orWhere('id', (int) $notification);
+                }
+            })
             ->firstOrFail();
 
-        $notification->update(['read_at' => now()]);
+        $notificationModel->update(['read_at' => now()]);
 
-        return Response::success(new CustomerNotificationResource($notification->fresh()), 'Notification marked as read.');
+        return Response::success(new CustomerNotificationResource($notificationModel->fresh()), 'Notification marked as read.');
     }
 
     public function markAllRead(Request $request): JsonResponse

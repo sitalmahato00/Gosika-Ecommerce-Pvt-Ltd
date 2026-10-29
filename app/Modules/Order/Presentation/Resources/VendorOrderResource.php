@@ -54,6 +54,49 @@ class VendorOrderResource extends JsonResource
             ? ($this->assignments->first(fn ($a) => in_array($a->status?->value ?? $a->status, ['assigned', 'accepted', 'picked_up', 'out_for_delivery'], true)) ?: $this->assignments->first())
             : null;
 
+        $placedAt = \Carbon\Carbon::parse($this->order?->placed_at ?? $this->order?->created_at ?? $this->created_at);
+        $cancellationWindowMins = (int) \App\Modules\Platform\Infrastructure\Models\Setting::get('order.cancellation_window_minutes', 15);
+        $cancellationEndsAt = $placedAt->copy()->addMinutes($cancellationWindowMins);
+
+        $deadlineHours = (int) \App\Modules\Platform\Infrastructure\Models\Setting::get('order.vendor_confirmation_deadline_hours', 24);
+        $deadline = $placedAt->copy()->addHours($deadlineHours);
+
+        $now = now();
+        $isPending = $this->status === \App\Modules\Shared\Domain\Enums\OrderStatus::PENDING;
+        $inCancellationWindow = $isPending && $now->lessThan($cancellationEndsAt);
+        $isPastDeadline = $isPending && $now->greaterThanOrEqualTo($deadline);
+        $canConfirm = $isPending && ! $inCancellationWindow && ! $isPastDeadline;
+
+        $confirmationBlockedReason = null;
+        if ($inCancellationWindow) {
+            $remainingMins = (int) ceil($now->diffInSeconds($cancellationEndsAt) / 60);
+            $confirmationBlockedReason = "Customer cancellation window is active ({$remainingMins}m remaining).";
+        } elseif ($isPastDeadline) {
+            $confirmationBlockedReason = "Vendor confirmation deadline ({$deadlineHours}h) has expired.";
+        } elseif (! $isPending) {
+            $confirmationBlockedReason = "Order is no longer in pending status.";
+        }
+
+        $cancellationRemaining = $inCancellationWindow ? max(0, $now->diffInSeconds($cancellationEndsAt, false)) : 0;
+        $deadlineRemaining = ($isPending && ! $isPastDeadline) ? max(0, $now->diffInSeconds($deadline, false)) : 0;
+
+        $store = $this->store ?? $this->vendor?->stores()->first();
+        $storeSettings = (array) ($store?->settings ?? []);
+        $storeAuto = ($storeSettings['order_confirmation_mode'] ?? 'manual') === 'automatic';
+        $platformAutoEnabled = (bool) \App\Modules\Platform\Infrastructure\Models\Setting::get('order.auto_confirmation_enabled', false);
+        $autoConfirmationEnabled = $storeAuto || $platformAutoEnabled;
+
+        $storeAutoMins = isset($storeSettings['auto_confirmation_minutes'])
+            ? (int) $storeSettings['auto_confirmation_minutes']
+            : (int) \App\Modules\Platform\Infrastructure\Models\Setting::get('order.auto_confirmation_minutes', 30);
+        $effectiveAutoMins = max($storeAutoMins, $cancellationWindowMins);
+        $autoConfirmationAt = $autoConfirmationEnabled ? $placedAt->copy()->addMinutes($effectiveAutoMins) : null;
+        $autoRemaining = ($autoConfirmationEnabled && $isPending && $autoConfirmationAt && $now->lessThan($autoConfirmationAt))
+            ? max(0, $now->diffInSeconds($autoConfirmationAt, false))
+            : null;
+
+        $meta = is_array($this->meta) ? $this->meta : [];
+
         return [
             'id' => $this->uuid,
             'order_id' => $this->order?->uuid,
@@ -77,6 +120,19 @@ class VendorOrderResource extends JsonResource
             'assignment' => $activeAssignment ? new \App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource($activeAssignment) : null,
             'assignments' => \App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource::collection($this->whenLoaded('assignments')),
             'created_at' => $this->created_at?->toISOString(),
+            // Vendor Confirmation Lifecycle Properties
+            'can_confirm' => $canConfirm,
+            'in_cancellation_window' => $inCancellationWindow,
+            'confirmation_blocked_reason' => $confirmationBlockedReason,
+            'cancellation_window_ends_at' => $cancellationEndsAt->toISOString(),
+            'cancellation_window_seconds_remaining' => (int) $cancellationRemaining,
+            'confirmation_deadline' => $deadline->toISOString(),
+            'confirmation_deadline_seconds_remaining' => (int) $deadlineRemaining,
+            'auto_confirmation_enabled' => $platformAutoEnabled,
+            'auto_confirmation_at' => $autoConfirmationAt?->toISOString(),
+            'auto_confirmation_seconds_remaining' => $autoRemaining !== null ? (int) $autoRemaining : null,
+            'confirmation_method' => $meta['confirmation_method'] ?? null,
+            'confirmed_at' => $meta['confirmed_at'] ?? null,
         ];
     }
 }

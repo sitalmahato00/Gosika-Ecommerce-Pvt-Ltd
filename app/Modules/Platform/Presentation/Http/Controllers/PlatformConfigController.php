@@ -105,6 +105,14 @@ class PlatformConfigController extends Controller
             $cfg['checkout']['cod_max_amount'] = (float) $codMax;
             $cfg['payment']['cod_max_amount'] = (float) $codMax;
 
+            // Order rules & confirmation configuration
+            $cfg['orders'] = [
+                'cancellation_window_minutes' => (int) (Setting::get('order.cancellation_window_minutes') ?? 15),
+                'vendor_confirmation_deadline_hours' => (int) (Setting::get('order.vendor_confirmation_deadline_hours') ?? 24),
+                'auto_confirmation_enabled' => (bool) (Setting::get('order.auto_confirmation_enabled') ?? false),
+                'auto_confirmation_minutes' => (int) (Setting::get('order.auto_confirmation_minutes') ?? 30),
+            ];
+
             return $cfg;
         });
 

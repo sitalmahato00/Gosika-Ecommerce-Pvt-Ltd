@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ChevronRight, MapPin, Truck, ShieldCheck, Phone } from 'lucide-react'
+import { ChevronRight, MapPin, Truck, ShieldCheck, Phone, Clock, AlertCircle, HelpCircle } from 'lucide-react'
 import api from '../api/client'
 import StatusBadge from '../components/commerce/StatusBadge'
 import ErrorState from '../components/ui/ErrorState'
@@ -11,6 +11,17 @@ import { money, formatDateTime, apiImage, errorMessage, handleImgError } from '.
 import { ORDER_STATUS_FLOW, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../utils/constants'
 import { useToast } from '../context/ToastContext'
 
+const CANCEL_REASONS = [
+  'Ordered by mistake',
+  'Selected the wrong product or quantity',
+  'Incorrect delivery address',
+  'Found a better price elsewhere',
+  'Payment issue',
+  'Delivery taking too long',
+  'Changed my mind',
+  'Other',
+]
+
 export default function OrderDetail({ embedded = false, basePath = '/orders' }) {
   const { id } = useParams()
   const toast = useToast()
@@ -20,7 +31,9 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
   const [tracking, setTracking] = useState([])
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
-  const [cancelReason, setCancelReason] = useState('')
+  const [selectedReason, setSelectedReason] = useState(CANCEL_REASONS[0])
+  const [explanation, setExplanation] = useState('')
+  const [countdown, setCountdown] = useState(0)
 
   const load = () => {
     setLoading(true)
@@ -43,13 +56,46 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
 
   useEffect(load, [id])
 
+  useEffect(() => {
+    if (order?.cancellation_seconds_remaining > 0) {
+      setCountdown(order.cancellation_seconds_remaining)
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    } else {
+      setCountdown(0)
+    }
+  }, [order?.cancellation_seconds_remaining, order?.id])
+
+  const formatCountdown = (secs) => {
+    const m = Math.floor(secs / 60)
+    const s = secs % 60
+    return `${m}m ${s < 10 ? '0' : ''}${s}s`
+  }
+
   const cancelOrder = async () => {
+    if (selectedReason === 'Other' && !explanation.trim()) {
+      toast.error('Please provide an explanation when selecting "Other".')
+      return
+    }
+
     setCancelling(true)
     try {
-      await api.post(`/orders/${id}/cancel`, { reason: cancelReason || undefined })
-      toast.success('Order cancelled')
+      await api.post(`/orders/${id}/cancel`, {
+        reason: selectedReason,
+        explanation: explanation.trim() || undefined,
+      })
+      toast.success('Order cancelled successfully')
       setCancelOpen(false)
-      setCancelReason('')
+      setSelectedReason(CANCEL_REASONS[0])
+      setExplanation('')
       load()
     } catch (e) {
       toast.error(errorMessage(e))
@@ -138,12 +184,30 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
                  {paying ? 'Processing...' : 'Pay Now'}
                </Button>
             )}
-            {order.can_cancel && (
+            {order.can_cancel && countdown > 0 && (
+              <div className="flex items-center gap-1 text-xs" style={{ background: '#fef3c7', color: '#b45309', padding: '5px 10px', borderRadius: 6, fontWeight: 700 }}>
+                <Clock size={13} />
+                <span>Cancel within {formatCountdown(countdown)}</span>
+              </div>
+            )}
+            {order.can_cancel && countdown > 0 && (
               <Button variant="danger-outline" size="sm" onClick={() => setCancelOpen(true)}>Cancel order</Button>
             )}
           </div>
         </div>
       </div>
+
+      {order.cancellation_blocked_reason && order.status !== 'cancelled' && (
+        <div className="alert alert-info mb-2 flex items-center justify-between wrap gap-2" style={{ background: '#f8fafc', border: '1px solid #cbd5e1' }}>
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} color="#0284c7" />
+            <span className="text-sm font-medium" style={{ color: '#0f172a' }}>{order.cancellation_blocked_reason}</span>
+          </div>
+          <Link to="/account/support" className="btn btn-outline btn-xs flex items-center gap-1" style={{ whiteSpace: 'nowrap' }}>
+            <HelpCircle size={13} /> Contact Support
+          </Link>
+        </div>
+      )}
 
       <style>{`
         @media (min-width: 900px) {
@@ -261,18 +325,54 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
         danger
         loading={cancelling}
         title="Cancel this order?"
-        message="Once cancelled, this order cannot be restored. Any pending payments will be refunded."
+        message="Please select the reason for cancellation. Once cancelled, reserved stock will be released."
         confirmText="Yes, cancel order"
       >
-        <textarea
-          className="textarea"
-          rows={3}
-          value={cancelReason}
-          onChange={(e) => setCancelReason(e.target.value)}
-          disabled={cancelling}
-          placeholder="Optional: tell us why you are cancelling this order (e.g. changed my mind, wrong address, duplicate order)"
-          style={{ marginTop: 10 }}
-        />
+        <div className="flex flex-col gap-3" style={{ marginTop: 12, textAlign: 'left' }}>
+          <div>
+            <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Reason for cancellation *</label>
+            <select
+              className="select select-sm w-full"
+              value={selectedReason}
+              onChange={(e) => setSelectedReason(e.target.value)}
+              disabled={cancelling}
+              style={{ width: '100%', borderRadius: 8 }}
+            >
+              {CANCEL_REASONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+
+          {selectedReason === 'Other' ? (
+            <div>
+              <label className="label" style={{ fontSize: 12, fontWeight: 700 }}>Explanation (Required) *</label>
+              <textarea
+                className="textarea w-full"
+                rows={3}
+                value={explanation}
+                onChange={(e) => setExplanation(e.target.value)}
+                disabled={cancelling}
+                placeholder="Please describe why you wish to cancel this order..."
+                style={{ width: '100%', marginTop: 4, borderRadius: 8 }}
+                required
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="label" style={{ fontSize: 12, fontWeight: 600 }}>Additional Note (Optional)</label>
+              <textarea
+                className="textarea w-full"
+                rows={2}
+                value={explanation}
+                onChange={(e) => setExplanation(e.target.value)}
+                disabled={cancelling}
+                placeholder="Optional details or feedback..."
+                style={{ width: '100%', marginTop: 4, borderRadius: 8 }}
+              />
+            </div>
+          )}
+        </div>
       </ConfirmDialog>
     </div>
   )

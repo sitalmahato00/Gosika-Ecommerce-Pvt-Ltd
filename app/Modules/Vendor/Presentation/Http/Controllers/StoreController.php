@@ -70,7 +70,11 @@ class StoreController extends Controller
 
     protected function findOwnedStore($vendor, string $storeId)
     {
-        $store = $vendor->stores()->where('uuid', $storeId)->first();
+        $store = $vendor->stores()
+            ->where(function ($q) use ($storeId) {
+                $q->where('uuid', $storeId)->orWhere('id', $storeId);
+            })
+            ->first();
 
         if (! $store) {
             throw new DomainException('Store not found.', 404);

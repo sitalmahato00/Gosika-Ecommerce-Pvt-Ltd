@@ -12,6 +12,7 @@ use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Enums\PaymentMethod;
+use App\Modules\Platform\Infrastructure\Models\Setting;
 use App\Modules\Shared\Domain\Enums\StockStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shipping\Application\DataTransferObjects\ApplyDeliveryPartnerDTO;
@@ -21,7 +22,7 @@ use App\Modules\Shipping\Infrastructure\Models\DeliveryPartner;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryPartnerDocument;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryTracking;
 use App\Modules\Shipping\Infrastructure\Models\ShippingZone;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Catalog\Infrastructure\Models\Product;
@@ -455,12 +456,17 @@ class DeliveryService
     public function pickup(User $partnerUser, DeliveryAssignment $assignment): DeliveryAssignment
     {
         $this->assertPartnerOwns($partnerUser, $assignment);
-        $this->assertStatus($assignment, [DeliveryStatus::ACCEPTED], 'Delivery must be accepted before pickup.');
+        $this->assertStatus($assignment, [DeliveryStatus::ACCEPTED, DeliveryStatus::ASSIGNED], 'Delivery must be accepted or assigned before pickup.');
 
-        $assignment->update([
+        $updates = [
             'status' => DeliveryStatus::PICKED_UP,
             'picked_up_at' => now(),
-        ]);
+        ];
+        if (! $assignment->accepted_at) {
+            $updates['accepted_at'] = now();
+        }
+
+        $assignment->update($updates);
 
         $this->transitionVendorOrder($assignment->vendorOrder, OrderStatus::PICKED_UP, $partnerUser);
         $this->transitionDelivery($assignment->vendorOrder, DeliveryStatus::PICKED_UP, $partnerUser);
@@ -1011,15 +1017,75 @@ class DeliveryService
 
     public function vendorAccept(VendorOrder $vendorOrder, User $actor): VendorOrder
     {
-        if ($vendorOrder->status !== OrderStatus::PENDING) {
-            throw new DomainException('Only pending vendor orders can be accepted.', 422);
-        }
+        return DB::transaction(function () use ($vendorOrder, $actor) {
+            $vendorOrder = VendorOrder::query()->whereKey($vendorOrder->getKey())->lockForUpdate()->firstOrFail();
 
-        $this->transitionVendorOrder($vendorOrder, OrderStatus::ACCEPTED, $actor);
-        $this->syncOrder($vendorOrder->order, $actor);
-        $this->dispatcher->orderDeliveryUpdate($vendorOrder, 'confirmed');
+            if ($vendorOrder->status !== OrderStatus::PENDING) {
+                if (in_array($vendorOrder->status, [OrderStatus::CANCELLED, OrderStatus::REJECTED], true)) {
+                    throw new DomainException('This order has been cancelled and cannot be confirmed.', 422);
+                }
+                if (in_array($vendorOrder->status, [OrderStatus::ACCEPTED, OrderStatus::PROCESSING, OrderStatus::CONFIRMED, OrderStatus::READY_FOR_PICKUP], true)) {
+                    throw new DomainException('This order has already been confirmed.', 422);
+                }
+                throw new DomainException('Only pending vendor orders can be accepted.', 422);
+            }
 
-        return $vendorOrder;
+            $order = $vendorOrder->order()->lockForUpdate()->first();
+            $placedAt = \Illuminate\Support\Carbon::parse($order?->placed_at ?? $order?->created_at ?? $vendorOrder->created_at);
+
+            // 1. Cancellation Window Check: Vendor cannot confirm while customer cancellation window is active
+            $cancellationWindowMins = (int) Setting::get('order.cancellation_window_minutes', 15);
+            $cancellationWindowEndsAt = $placedAt->copy()->addMinutes($cancellationWindowMins);
+
+            if (now()->lessThan($cancellationWindowEndsAt)) {
+                $remainingSeconds = now()->diffInSeconds($cancellationWindowEndsAt);
+                $remainingMinutes = (int) ceil($remainingSeconds / 60);
+                throw new DomainException(
+                    "Order cannot be confirmed during the customer cancellation window ({$remainingMinutes} minute(s) remaining).",
+                    422
+                );
+            }
+
+            // 2. Maximum Vendor Confirmation Deadline Check (24 hours default)
+            $deadlineHours = (int) Setting::get('order.vendor_confirmation_deadline_hours', 24);
+            $deadline = $placedAt->copy()->addHours($deadlineHours);
+
+            if (now()->greaterThanOrEqualTo($deadline)) {
+                throw new DomainException(
+                    "The vendor confirmation deadline of {$deadlineHours} hours has expired. This order is no longer eligible for confirmation.",
+                    422
+                );
+            }
+
+            // 3. Mark Confirmed (manual)
+            $meta = (array) ($vendorOrder->meta ?? []);
+            $meta['confirmation_method'] = 'manual';
+            $meta['confirmed_at'] = now()->toISOString();
+            $meta['confirmed_by'] = $actor->id;
+            $vendorOrder->meta = $meta;
+            $vendorOrder->save();
+
+            $this->transitionVendorOrder($vendorOrder, OrderStatus::ACCEPTED, $actor);
+            $this->syncOrder($vendorOrder->order, $actor);
+
+            if ($order && ! $order->confirmed_at) {
+                $order->confirmed_at = now();
+                $order->save();
+            }
+
+            // If the store has Auto Ready for Pickup enabled, immediately advance to READY_FOR_PICKUP
+            $store = $vendorOrder->store ?? $vendorOrder->vendor?->stores()->first();
+            $storeSettings = (array) ($store?->settings ?? []);
+            if (! empty($storeSettings['auto_ready_for_pickup'])) {
+                $this->transitionVendorOrder($vendorOrder, OrderStatus::READY_FOR_PICKUP, $actor);
+                $this->syncOrder($vendorOrder->order, $actor);
+                $this->dispatcher->orderDeliveryUpdate($vendorOrder, 'ready_for_pickup');
+            } else {
+                $this->dispatcher->orderDeliveryUpdate($vendorOrder, 'confirmed');
+            }
+
+            return $vendorOrder;
+        });
     }
 
     public function vendorReject(VendorOrder $vendorOrder, User $actor, string $reason): VendorOrder
@@ -1142,43 +1208,32 @@ class DeliveryService
     protected function candidateAreasFor(VendorOrder $vendorOrder): array
     {
         $order = $vendorOrder->order()->first();
-        $store = $vendorOrder->store()->with(['addresses', 'vendor'])->first();
-        $areas = [];
-
-        // 1. Destination areas (customer delivery address)
-        if ($order) {
-            $snapshot = json_decode((string) $order->shipping_address_snapshot, true);
-            if (is_array($snapshot)) {
-                $province = trim((string) ($snapshot['province'] ?? $snapshot['state'] ?? ''));
-                $district = trim((string) ($snapshot['district'] ?? $snapshot['city'] ?? ''));
-                $municipality = trim((string) ($snapshot['municipality'] ?? ''));
-                if ($province !== '') $areas[] = $province;
-                if ($district !== '') $areas[] = $district;
-                if ($municipality !== '') $areas[] = $municipality;
-
-                $zoneMatches = ShippingZone::query()
-                    ->where('is_active', true)
-                    ->get()
-                    ->filter(fn (ShippingZone $zone) => $zone->matchesLocation($province, $district, $municipality));
-                foreach ($zoneMatches as $zone) {
-                    if (! empty($zone->provinces)) $areas = array_merge($areas, $zone->provinces);
-                    if (! empty($zone->name)) $areas[] = $zone->name;
-                }
-            }
+        if (! $order) {
+            return [];
         }
 
-        // 2. Pickup areas (store & vendor location)
-        if ($store) {
-            foreach ($store->addresses as $addr) {
-                if (! empty(trim((string) $addr->city))) $areas[] = trim((string) $addr->city);
-                if (! empty(trim((string) $addr->district))) $areas[] = trim((string) $addr->district);
-                if (! empty(trim((string) $addr->province))) $areas[] = trim((string) $addr->province);
-                if (! empty(trim((string) $addr->municipality))) $areas[] = trim((string) $addr->municipality);
+        $snapshot = json_decode((string) $order->shipping_address_snapshot, true);
+        if (! is_array($snapshot)) {
+            return [];
+        }
+
+        $province = trim((string) ($snapshot['province'] ?? $snapshot['state'] ?? ''));
+        $district = trim((string) ($snapshot['district'] ?? $snapshot['city'] ?? ''));
+        $municipality = trim((string) ($snapshot['municipality'] ?? ''));
+
+        $areas = array_filter([$province, $district, $municipality]);
+
+        $zoneMatches = ShippingZone::query()
+            ->where('is_active', true)
+            ->get()
+            ->filter(fn (ShippingZone $zone) => $zone->matchesLocation($province, $district, $municipality));
+
+        foreach ($zoneMatches as $zone) {
+            if (! empty($zone->provinces)) {
+                $areas = array_merge($areas, $zone->provinces);
             }
-            if ($store->vendor) {
-                if (! empty(trim((string) $store->vendor->district))) $areas[] = trim((string) $store->vendor->district);
-                if (! empty(trim((string) $store->vendor->province))) $areas[] = trim((string) $store->vendor->province);
-                if (! empty(trim((string) $store->vendor->municipality))) $areas[] = trim((string) $store->vendor->municipality);
+            if (! empty($zone->name)) {
+                $areas[] = $zone->name;
             }
         }
 
@@ -1243,7 +1298,7 @@ class DeliveryService
         $query = VendorOrder::query()
             ->where('status', OrderStatus::READY_FOR_PICKUP)
             ->whereDoesntHave('assignments', fn (Builder $q) => $q->active())
-            ->with(['store.addresses', 'store.vendor', 'order', 'items'])
+            ->with(['store.addresses.province', 'store.addresses.district', 'store.addresses.municipality', 'store.vendor', 'order', 'items'])
             ->latest('updated_at');
 
         $search = trim((string) ($filters['search'] ?? ''));
@@ -1328,7 +1383,7 @@ class DeliveryService
             $availQuery = VendorOrder::query()
                 ->where('status', OrderStatus::READY_FOR_PICKUP)
                 ->whereDoesntHave('assignments', fn (Builder $q) => $q->active())
-                ->with(['store.addresses', 'store.vendor', 'order']);
+                ->with(['store.addresses.province', 'store.addresses.district', 'store.addresses.municipality', 'store.vendor', 'order']);
 
             $allAvailableJobs = $availQuery->get();
             $allAvailableJobsCount = $allAvailableJobs->count();
@@ -1697,6 +1752,8 @@ class DeliveryService
             $newStatus = OrderStatus::CANCELLED;
         } elseif ($deliveryStatuses->contains('out_for_delivery') || $statuses->contains(OrderStatus::OUT_FOR_DELIVERY->value)) {
             $newStatus = OrderStatus::OUT_FOR_DELIVERY;
+        } elseif ($deliveryStatuses->contains('picked_up') || $statuses->contains(OrderStatus::PICKED_UP->value)) {
+            $newStatus = OrderStatus::PICKED_UP;
         } elseif ($statuses->contains(OrderStatus::READY_FOR_PICKUP->value)) {
             $newStatus = OrderStatus::READY_FOR_PICKUP;
         } elseif ($statuses->contains(OrderStatus::PREPARING->value) || $statuses->contains(OrderStatus::PROCESSING->value)) {

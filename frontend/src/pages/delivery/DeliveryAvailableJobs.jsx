@@ -21,13 +21,14 @@ export default function DeliveryAvailableJobs() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
+  const [areaScope, setAreaScope] = useState('all') // 'all' | 'my_area'
   const [claimingId, setClaimingId] = useState(null)
 
   const loadJobs = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const params = {}
+      const params = { scope: areaScope }
       if (search.trim()) params.search = search.trim()
       const res = await api.get('/delivery-partner/available-jobs', { params, skipCache: true })
       setJobs(api.unwrapList(res.data))
@@ -36,7 +37,7 @@ export default function DeliveryAvailableJobs() {
     } finally {
       setLoading(false)
     }
-  }, [search])
+  }, [search, areaScope])
 
   useEffect(() => {
     loadJobs()
@@ -123,17 +124,57 @@ export default function DeliveryAvailableJobs() {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div style={{ position: 'relative', maxWidth: 420 }}>
-        <Search size={15} style={{ position: 'absolute', left: 12, top: 11, color: '#94a3b8' }} />
-        <input
-          type="text"
-          placeholder="Search store name, destination, order #…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="input"
-          style={{ paddingLeft: 34, height: 38, width: '100%', fontSize: 13, borderRadius: 10 }}
-        />
+      {/* Search Bar & Scope Selector */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', width: 340, maxWidth: '100%' }}>
+          <Search size={15} style={{ position: 'absolute', left: 12, top: 11, color: '#94a3b8' }} />
+          <input
+            type="text"
+            placeholder="Search store name, destination, order #…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="input"
+            style={{ paddingLeft: 34, height: 38, width: '100%', fontSize: 13, borderRadius: 10 }}
+          />
+        </div>
+
+        {/* Scope Selector */}
+        <div style={{ display: 'flex', background: '#f1f5f9', padding: 3, borderRadius: 10 }}>
+          <button
+            type="button"
+            onClick={() => setAreaScope('all')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: 'none',
+              background: areaScope === 'all' ? '#fff' : 'transparent',
+              color: areaScope === 'all' ? 'var(--ink)' : '#64748b',
+              boxShadow: areaScope === 'all' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            }}
+          >
+            All Available Jobs
+          </button>
+          <button
+            type="button"
+            onClick={() => setAreaScope('my_area')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: 'none',
+              background: areaScope === 'my_area' ? '#fff' : 'transparent',
+              color: areaScope === 'my_area' ? 'var(--ink)' : '#64748b',
+              boxShadow: areaScope === 'my_area' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            }}
+          >
+            My Service Area
+          </button>
+        </div>
       </div>
 
       {/* Jobs Grid */}

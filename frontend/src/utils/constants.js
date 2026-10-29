@@ -36,9 +36,13 @@ export const NEPAL_POPULAR_LOCATIONS = [
 
 export const ORDER_STATUS_LABELS = {
   pending: 'Pending',
+  payment_pending: 'Payment Pending',
   confirmed: 'Confirmed',
+  accepted: 'Accepted',
+  preparing: 'Preparing',
   processing: 'Processing',
   ready_for_pickup: 'Ready for Pickup',
+  picked_up: 'Picked Up',
   out_for_delivery: 'Out for Delivery',
   delivered: 'Delivered',
   completed: 'Completed',
@@ -51,6 +55,7 @@ export const ORDER_STATUS_FLOW = [
   'confirmed',
   'processing',
   'ready_for_pickup',
+  'picked_up',
   'out_for_delivery',
   'delivered',
   'completed',

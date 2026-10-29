@@ -8,6 +8,7 @@ use App\Modules\Platform\Application\Services\SettingsService;
 use App\Modules\Platform\Presentation\Http\Requests\UpdateBrandingSettingsRequest;
 use App\Modules\Platform\Presentation\Http\Requests\UpdateCommissionSettingsRequest;
 use App\Modules\Platform\Presentation\Http\Requests\UpdateGeneralSettingsRequest;
+use App\Modules\Platform\Presentation\Http\Requests\UpdateOrderSettingsRequest;
 use App\Modules\Platform\Presentation\Http\Requests\UpdatePaymentSettingsRequest;
 use App\Modules\Platform\Presentation\Http\Requests\UpdateShippingSettingsRequest;
 use App\Modules\Platform\Presentation\Http\Requests\UpdateVendorSettingsRequest;
@@ -138,5 +139,36 @@ class AdminSettingsController extends Controller
         $validated = $request->validated();
         $updated = $this->settingsService->updateGroup('store', $validated, $request->user());
         return Response::success($updated, 'Store & vendor settings updated successfully.');
+    }
+
+    public function getOrders(): JsonResponse
+    {
+        $group = $this->settingsService->getGroup('orders', false);
+
+        $data = [
+            'cancellation_window_minutes' => (int) ($group['order.cancellation_window_minutes'] ?? $group['cancellation_window_minutes'] ?? 15),
+            'vendor_confirmation_deadline_hours' => (int) ($group['order.vendor_confirmation_deadline_hours'] ?? $group['vendor_confirmation_deadline_hours'] ?? 24),
+            'auto_confirmation_enabled' => (bool) ($group['order.auto_confirmation_enabled'] ?? $group['auto_confirmation_enabled'] ?? false),
+            'auto_confirmation_minutes' => (int) ($group['order.auto_confirmation_minutes'] ?? $group['auto_confirmation_minutes'] ?? 30),
+        ];
+
+        return Response::success($data, 'Order confirmation and cancellation settings retrieved.');
+    }
+
+    public function updateOrders(UpdateOrderSettingsRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $saveData = [
+            'order.cancellation_window_minutes' => (int) $validated['cancellation_window_minutes'],
+            'order.vendor_confirmation_deadline_hours' => (int) $validated['vendor_confirmation_deadline_hours'],
+            'order.auto_confirmation_enabled' => (bool) $validated['auto_confirmation_enabled'],
+            'order.auto_confirmation_minutes' => (int) $validated['auto_confirmation_minutes'],
+        ];
+
+        $this->settingsService->updateGroup('orders', $saveData, $request->user());
+        Cache::forget('platform.public_config');
+
+        return Response::success($validated, 'Order confirmation and cancellation settings updated successfully.');
     }
 }
