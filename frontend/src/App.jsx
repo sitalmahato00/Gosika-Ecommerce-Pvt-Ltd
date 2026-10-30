@@ -203,6 +203,58 @@ function PermissionGuard({ children, path }) {
   return children
 }
 
+/**
+ * AdminIndexRedirect - Smart redirect for /admin root path
+ * Redirects to the first permitted page based on user permissions
+ */
+function AdminIndexRedirect() {
+  const { hasPermission, hasAnyPermission, isSuperAdmin, booted } = useAuth()
+  
+  // Wait for auth to boot
+  if (!booted) return null
+  
+  // Super admins go to dashboard
+  if (isSuperAdmin()) {
+    return <AdminDashboard />
+  }
+  
+  // Check dashboard permission first
+  const dashboardPerms = ADMIN_PERMISSION_MAP['/admin']
+  if (dashboardPerms && typeof dashboardPerms === 'string' && hasPermission(dashboardPerms)) {
+    return <AdminDashboard />
+  }
+  if (dashboardPerms && Array.isArray(dashboardPerms) && hasAnyPermission(dashboardPerms)) {
+    return <AdminDashboard />
+  }
+  
+  // Find first permitted route in priority order
+  const priorityRoutes = [
+    '/admin/orders',
+    '/admin/marketplace/vendors',
+    '/admin/marketplace/products',
+    '/admin/customers',
+    '/admin/finance/payments',
+    '/admin/marketing/campaigns',
+    '/admin/system/users',
+    '/admin/system/settings'
+  ]
+  
+  for (const route of priorityRoutes) {
+    const perms = ADMIN_PERMISSION_MAP[route]
+    if (!perms) continue // Skip if no permission required
+    
+    if (typeof perms === 'string' && hasPermission(perms)) {
+      return <Navigate to={route} replace />
+    }
+    if (Array.isArray(perms) && hasAnyPermission(perms)) {
+      return <Navigate to={route} replace />
+    }
+  }
+  
+  // If no permitted routes found, show unauthorized
+  return <Navigate to="/admin/unauthorized" replace />
+}
+
 function StandaloneCustomerShell({ children }) {
   const navigate = useNavigate()
   return (
@@ -329,7 +381,7 @@ export default function App() {
 
       {/* Admin Panel */}
       <Route path="/admin" element={<AdminRoute><DashboardLayout nav={ADMIN_NAV} title="Admin Panel" roleLabel="Admin" mobileNav={ADMIN_MOBILE_NAV} /></AdminRoute>}>
-        <Route index element={<AdminDashboard />} />
+        <Route index element={<AdminIndexRedirect />} />
         <Route path="unauthorized" element={<Unauthorized />} />
 
         {/* Marketplace */}
