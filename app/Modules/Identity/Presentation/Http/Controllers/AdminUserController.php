@@ -21,7 +21,7 @@ class AdminUserController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
         $this->middleware('permission:'.Permissions::USERS_VIEW);
         $this->middleware('permission:'.Permissions::USERS_CREATE)->only(['store']);
         $this->middleware('permission:'.Permissions::USERS_UPDATE)->only(['resetPassword']);
@@ -74,7 +74,7 @@ class AdminUserController extends Controller
             'phone'      => ['nullable', 'string', 'max:20'],
             'password'   => ['required', 'string', 'min:8', 'confirmed'],
             'roles'      => ['nullable', 'array'],
-            'roles.*'    => ['string', 'in:'.implode(',', Roles::ALL)],
+            'roles.*'    => ['string', 'exists:roles,name'],
         ]);
 
         $user = DB::transaction(function () use ($validated) {
@@ -153,7 +153,7 @@ class AdminUserController extends Controller
     {
         $request->validate([
             'roles' => ['required', 'array'],
-            'roles.*' => ['string', 'in:'.implode(',', Roles::ALL)],
+            'roles.*' => ['string', 'exists:roles,name'],
         ]);
 
         $user = User::where('uuid', $userId)->firstOrFail();

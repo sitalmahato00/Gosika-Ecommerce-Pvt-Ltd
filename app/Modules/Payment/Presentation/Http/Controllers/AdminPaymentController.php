@@ -18,7 +18,7 @@ class AdminPaymentController extends Controller
     public function __construct(protected RefundService $refundService)
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
         $this->middleware('permission:'.Permissions::PAYMENTS_VIEW);
         $this->middleware('permission:'.Permissions::REFUNDS_MANAGE)->only(['refund']);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Identity\Presentation\Resources;
 
+use App\Modules\Identity\Domain\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,6 +23,14 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at?->toISOString(),
             'phone_verified_at' => $this->phone_verified_at?->toISOString(),
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->pluck('name')),
+            'permissions' => $this->whenLoaded('roles', function () {
+                // Super admins get all permissions
+                if ($this->hasRole('super_admin')) {
+                    return Permissions::ALL;
+                }
+                // Other users get their assigned permissions
+                return $this->getAllPermissions()->pluck('name')->toArray();
+            }),
             'address' => $this->meta['address'] ?? null,
             'meta' => $this->meta,
             'created_at' => $this->created_at?->toISOString(),

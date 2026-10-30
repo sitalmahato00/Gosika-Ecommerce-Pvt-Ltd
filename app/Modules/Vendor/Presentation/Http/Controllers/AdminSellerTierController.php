@@ -22,7 +22,7 @@ class AdminSellerTierController extends Controller
     public function __construct(protected SellerTierService $service)
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
         $this->middleware('permission:'.Permissions::VENDORS_APPROVE.'|'.Permissions::VENDORS_VIEW);
     }
 

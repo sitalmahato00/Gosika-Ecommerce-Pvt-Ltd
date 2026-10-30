@@ -37,10 +37,22 @@ export function VendorRoute({ children }) {
 }
 
 export function AdminRoute({ children }) {
-  const { user, booted, isSuperAdmin } = useAuth()
+  const { user, booted, isSuperAdmin, isDeliveryPartner } = useAuth()
   if (!booted) return <FullPageLoading />
   if (!user) return <Navigate to="/login" state={{ from: '/admin' }} replace />
-  if (!isSuperAdmin()) return <Navigate to="/account" replace />
+  
+  // Allow super_admin, delivery_partner, or custom admin roles
+  const roles = user?.roles || []
+  const isAdmin = isSuperAdmin()
+  const isDelivery = isDeliveryPartner()
+  const hasCustomAdminRole = roles.some(role => 
+    !['customer', 'vendor_admin'].includes(role)
+  )
+  
+  if (!isAdmin && !isDelivery && !hasCustomAdminRole) {
+    return <Navigate to="/account" replace />
+  }
+  
   return children
 }
 

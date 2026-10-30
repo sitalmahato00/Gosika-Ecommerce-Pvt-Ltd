@@ -35,7 +35,7 @@ class AdminWalletController extends Controller
     public function __construct(protected WalletService $service)
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
         $this->middleware('permission:'.Permissions::WALLETS_VIEW);
         $this->middleware('permission:'.Permissions::PAYOUTS_APPROVE)->only([
             'approvePayout',

@@ -22,7 +22,7 @@ class AdminRefundController extends Controller
     public function __construct(protected RefundService $refundService, protected PaymentService $paymentService)
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
         $this->middleware('permission:'.Permissions::REFUNDS_MANAGE);
     }
 

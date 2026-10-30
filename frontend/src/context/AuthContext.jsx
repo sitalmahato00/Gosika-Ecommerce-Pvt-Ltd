@@ -66,6 +66,31 @@ export function AuthProvider({ children }) {
   const isDeliveryPartner = useCallback(() => hasRole('delivery_partner'), [hasRole])
   const isCustomer = useCallback(() => !!user && (hasRole('customer') || isVendor()), [user, hasRole, isVendor])
 
+  // Permission Set for O(1) lookup performance
+  const permissions = useMemo(() => {
+    if (!user?.permissions) return new Set()
+    return new Set(user.permissions)
+  }, [user])
+
+  // Permission check functions
+  const hasPermission = useCallback((permission) => {
+    if (!user) return false
+    if (isSuperAdmin()) return true
+    return permissions.has(permission)
+  }, [user, permissions, isSuperAdmin])
+
+  const hasAnyPermission = useCallback((permissionList) => {
+    if (!user) return false
+    if (isSuperAdmin()) return true
+    return permissionList.some(p => permissions.has(p))
+  }, [user, permissions, isSuperAdmin])
+
+  const hasAllPermissions = useCallback((permissionList) => {
+    if (!user) return false
+    if (isSuperAdmin()) return true
+    return permissionList.every(p => permissions.has(p))
+  }, [user, permissions, isSuperAdmin])
+
   const updateUser = useCallback((patch) => {
     setUser((prev) => {
       const updated = typeof patch === 'function' ? patch(prev) : { ...prev, ...patch }
@@ -91,8 +116,8 @@ export function AuthProvider({ children }) {
   }, [refreshUser])
 
   const value = useMemo(() => ({
-    user, booted, login, saveSession, logout, updateUser, refreshUser, reloadUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer
-  }), [user, booted, login, saveSession, logout, updateUser, refreshUser, reloadUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer])
+    user, booted, permissions, login, saveSession, logout, updateUser, refreshUser, reloadUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer, hasPermission, hasAnyPermission, hasAllPermissions
+  }), [user, booted, permissions, login, saveSession, logout, updateUser, refreshUser, reloadUser, isVendor, isSuperAdmin, isDeliveryPartner, isCustomer, hasPermission, hasAnyPermission, hasAllPermissions])
 
   return (
     <AuthContext.Provider value={value}>

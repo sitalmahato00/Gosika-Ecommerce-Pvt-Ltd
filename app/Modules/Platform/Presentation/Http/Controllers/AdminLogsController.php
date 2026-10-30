@@ -15,7 +15,7 @@ class AdminLogsController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
     }
 
     public function index(): JsonResponse

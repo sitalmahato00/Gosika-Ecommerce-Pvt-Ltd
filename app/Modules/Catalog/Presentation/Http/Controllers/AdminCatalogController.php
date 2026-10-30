@@ -30,7 +30,7 @@ class AdminCatalogController extends Controller
     public function __construct(protected CatalogService $service)
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
         $this->middleware('permission:products.approve|products.view|categories.manage|brands.manage');
     }
 

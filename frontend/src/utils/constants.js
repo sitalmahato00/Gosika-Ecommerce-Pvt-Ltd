@@ -325,3 +325,70 @@ export const PRICE_RANGES = [
   { label: 'Rs. 15,000 – 50,000', min: 15000, max: 50000 },
   { label: 'Above Rs. 50,000', min: 50000, max: 10000000 },
 ]
+
+/**
+ * Permission requirements for admin navigation items and routes
+ * Maps route paths to required permissions (from backend Permissions.php)
+ * 
+ * - null = accessible to all authenticated admins
+ * - string = single required permission
+ * - array = any one permission required (OR logic)
+ */
+export const ADMIN_PERMISSION_MAP = {
+  // Overview
+  '/admin': ['analytics.view'], // Dashboard requires analytics permission
+  '/admin/analytics/reports': ['analytics.view'],
+  
+  // Orders
+  '/admin/orders': ['orders.view'],
+  '/admin/orders/returns': ['orders.view', 'orders.manage'],
+  '/admin/orders/refunds': ['orders.refund'],
+  
+  // Catalog
+  '/admin/marketplace/products': ['products.view'],
+  '/admin/marketplace/categories': ['categories.manage'],
+  '/admin/marketplace/brands': ['brands.manage'],
+  '/admin/marketplace/reviews': ['products.view'],
+  
+  // Marketplace
+  '/admin/marketplace/vendors': ['vendors.view'],
+  '/admin/marketplace/kyc': ['vendor_kyc.review'],
+  '/admin/marketplace/stores': ['stores.view'],
+  '/admin/marketplace/tiers': ['vendors.view'],
+  '/admin/marketplace/bulletins': ['vendors.view'],
+  
+  // Customers
+  '/admin/customers': ['users.view'],
+  '/admin/customers/support': ['tickets.view'],
+  
+  // Logistics
+  '/admin/fulfillment/dashboard': ['deliveries.manage'],
+  '/admin/fulfillment/partners': ['delivery_partners.manage'],
+  '/admin/fulfillment/assignments': ['deliveries.manage'],
+  '/admin/fulfillment/zones': ['deliveries.manage'],
+  '/admin/fulfillment/cod': ['payments.view', 'reconciliation.manage'],
+  
+  // Finance
+  '/admin/finance/payments': ['payments.view'],
+  '/admin/finance/commissions': ['payments.view'],
+  '/admin/finance/payouts': ['payouts.approve'],
+  '/admin/finance/settlements': ['settlements.manage'],
+  
+  // Marketing
+  '/admin/marketing/campaigns': ['campaigns.manage'],
+  '/admin/marketing/nominations': ['promotions.manage'],
+  '/admin/marketing/coupons': ['coupons.manage'],
+  '/admin/marketing/banners': ['banners.manage'],
+  '/admin/marketing/pages': ['pages.manage'],
+  '/admin/seo': ['pages.manage'],
+  
+  // Administration
+  '/admin/system/notifications': null, // All admins
+  '/admin/system/settings': ['settings.manage'],
+  '/admin/system/gateways': ['settings.manage'],
+  '/admin/system/users': ['users.view'],
+  '/admin/system/roles': ['users.manage_roles'],
+  '/admin/system/audit-logs': ['users.view'],
+  '/admin/system/logs': ['settings.manage'],
+  '/admin/profile': null, // All admins
+}

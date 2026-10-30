@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { NavLink, Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   ShoppingBag, Menu, X, LogOut, Bell,
@@ -15,16 +15,39 @@ import { initials, apiImage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import MobileBottomNav from './MobileBottomNav'
 import api from '../../api/client'
+import { filterNavigation } from '../../utils/navigationFilter'
+import { ADMIN_PERMISSION_MAP } from '../../utils/constants'
 
 export default function DashboardLayout({
   nav, title, roleLabel, homePath, rider, onDuty, onToggleDuty, dutyToggling, mobileNav,
 }) {
   const toast = useToast()
-  const { user, logout, isSuperAdmin } = useAuth()
+  const { user, logout, isSuperAdmin, booted, hasPermission, hasAnyPermission } = useAuth()
   const branding = useBranding()
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
   const brandLogo = branding.logo_dark || branding.logo_light || ''
   const logoUrl = brandLogo ? apiImage(brandLogo) : ''
+  
+  // Filter navigation based on permissions (admin only)
+  // Check if this is admin navigation by looking at actual nav items (skip sections)
+  const isAdminNav = useMemo(() => {
+    if (!nav) return false
+    const firstNavItem = nav.find(item => item.to)
+    return firstNavItem?.to?.startsWith('/admin')
+  }, [nav])
+  
+  const filteredNav = useMemo(() => {
+    if (!booted || !nav) return []
+    if (!isAdminNav) return nav // Vendor/Delivery nav unchanged
+    return filterNavigation(nav, ADMIN_PERMISSION_MAP, { hasPermission, hasAnyPermission, isSuperAdmin: isSuperAdmin() })
+  }, [nav, booted, isAdminNav, hasPermission, hasAnyPermission, isSuperAdmin, user])
+  
+  const filteredMobileNav = useMemo(() => {
+    if (!booted || !mobileNav) return []
+    if (!isAdminNav) return mobileNav // Vendor/Delivery mobile nav unchanged
+    return filterNavigation(mobileNav, ADMIN_PERMISSION_MAP, { hasPermission, hasAnyPermission, isSuperAdmin: isSuperAdmin() })
+  }, [mobileNav, booted, isAdminNav, hasPermission, hasAnyPermission, isSuperAdmin, user])
+  
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [userDropdown, setUserDropdown] = useState(false)
@@ -568,18 +591,24 @@ export default function DashboardLayout({
                       <Link to="/admin/profile" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
                         <User size={15} color="#ff5500" /> Profile Settings
                       </Link>
-                      <Link to="/admin/marketplace/vendors" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
-                        <Store size={15} color="#ff5500" /> Sellers & Approvals
-                      </Link>
-                      <Link to="/admin/system/users" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
-                        <User size={15} color="#ff5500" /> User Management
-                      </Link>
+                      {(isSuperAdmin() || hasPermission('vendors.view')) && (
+                        <Link to="/admin/marketplace/vendors" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                          <Store size={15} color="#ff5500" /> Sellers & Approvals
+                        </Link>
+                      )}
+                      {(isSuperAdmin() || hasPermission('users.view')) && (
+                        <Link to="/admin/system/users" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                          <User size={15} color="#ff5500" /> User Management
+                        </Link>
+                      )}
                       <Link to="/admin/system/notifications" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
                         <Bell size={15} color="#ff5500" /> Notifications
                       </Link>
-                      <Link to="/admin/system/settings" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
-                        <Settings size={15} color="#ff5500" /> System Settings
-                      </Link>
+                      {(isSuperAdmin() || hasPermission('settings.manage')) && (
+                        <Link to="/admin/system/settings" className="dash-nav-link" style={{ color: 'var(--ink)', fontSize: 13, padding: '8px 10px' }} onClick={() => setUserDropdown(false)}>
+                          <Settings size={15} color="#ff5500" /> System Settings
+                        </Link>
+                      )}
                     </>
                   )}
                 </div>
@@ -714,10 +743,13 @@ export default function DashboardLayout({
           {/* SCROLLING nav zone */}
           <nav className="dash-nav saas-scroll" aria-label="Dashboard menu" style={{ flex: 1, padding: '10px 10px', overflowY: 'auto', overflowX: 'hidden' }}>
             {(() => {
+              // Use filtered navigation if available, handle loading state
+              const navToRender = !booted ? [] : filteredNav
+              
               // Group nav items into sections: [{section, items}]
               const groups = []
               let current = null
-              nav.forEach((item, i) => {
+              navToRender.forEach((item, i) => {
                 if (item.section) {
                   current = { section: item.section, items: [] }
                   groups.push(current)
@@ -917,7 +949,7 @@ export default function DashboardLayout({
         >
           <Outlet />
         </main>
-        {mobileNav && <MobileBottomNav items={mobileNav} />}
+        {filteredMobileNav && <MobileBottomNav items={filteredMobileNav} />}
     </div>
   )
 }

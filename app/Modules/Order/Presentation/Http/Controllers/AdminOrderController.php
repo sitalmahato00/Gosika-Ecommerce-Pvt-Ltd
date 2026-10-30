@@ -30,7 +30,7 @@ class AdminOrderController extends Controller
         protected PaymentService $paymentService
     ) {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
         $this->middleware('permission:'.Permissions::ORDERS_VIEW.'|'.Permissions::ORDERS_MANAGE);
     }
 

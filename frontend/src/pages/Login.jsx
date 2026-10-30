@@ -1,13 +1,13 @@
-import React, { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { ShoppingBag, Store } from 'lucide-react'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
-import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBranding } from '../context/BrandingContext'
-import { errorMessage, apiImage } from '../utils/format'
+import { apiImage } from '../utils/format'
+import api from '../api/client'
 
 const SOCIAL_BASE = '/api/v1/auth'
 
@@ -18,10 +18,8 @@ function GoogleIcon() {
 }
 
 export default function Login() {
-  const { login } = useAuth()
   const toast = useToast()
   const branding = useBranding()
-  const navigate = useNavigate()
   const location = useLocation()
   const [form, setForm] = useState({ identifier: '', password: '' })
   const [error, setError] = useState(null)
@@ -39,16 +37,69 @@ export default function Login() {
     e.preventDefault()
     setError(null)
     setLoading(true)
+    
     try {
-      const user = await login(form.identifier, form.password)
+      // Use the api client which handles CSRF properly
+      const res = await api.post('/auth/login', {
+        identifier: form.identifier,
+        password: form.password,
+        device_name: 'web'
+      })
+      
+      const { user, token } = res.data.data
+      
+      // NOW check roles BEFORE completing login
+      const roles = user.roles || []
+      const isCustomer = roles.includes('customer')
+      const isVendor = roles.includes('vendor_admin')
+      const hasStaffRole = roles.some(role => 
+        !['customer', 'vendor_admin'].includes(role)
+      )
+      
+      // STRICT PORTAL VALIDATION: Only customers allowed
+      if (!isCustomer) {
+        let correctPortal = ''
+        let roleType = ''
+        
+        if (isVendor) {
+          correctPortal = '/vendor-login'
+          roleType = 'vendor'
+        } else if (hasStaffRole) {
+          correctPortal = '/admin-login'
+          roleType = 'staff/admin'
+        } else {
+          correctPortal = ''
+          roleType = 'unknown'
+        }
+        
+        // Logout the token we just created
+        try {
+          await api.post('/auth/logout', null, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        } catch {}
+        
+        // Show error - DON'T save anything to localStorage
+        if (correctPortal) {
+          setError(`❌ Access Denied: This is the Customer Portal. You are a ${roleType} user. Please use the correct portal at ${correctPortal}`)
+        } else {
+          setError('❌ Access Denied: You do not have permission to access any portal. Please contact support.')
+        }
+        setLoading(false)
+        return
+      }
+      
+      // User is a customer - NOW complete the login
+      localStorage.setItem('gosika_token', token)
+      localStorage.setItem('gosika_user', JSON.stringify(user))
+      
       toast.success(`Welcome back, ${user.name?.split(' ')[0] || 'there'}!`)
-      if (user.roles?.includes('super_admin')) navigate('/admin')
-      else if (user.roles?.includes('vendor_admin')) navigate('/vendor')
-      else if (user.roles?.includes('delivery_partner')) navigate('/delivery')
-      else navigate(from, { state: fromState })
+      
+      // Force page reload to ensure AuthContext picks up the new user
+      window.location.href = from
+      
     } catch (err) {
-      setError(errorMessage(err))
-    } finally {
+      setError(err.response?.data?.message || err.message || 'Login failed')
       setLoading(false)
     }
   }
@@ -91,6 +142,15 @@ export default function Login() {
         <Link to="/vendor/register" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', marginTop: 4 }}>
           <Store size={15} /> Become a Seller on Gosika
         </Link>
+        
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+          <p className="muted text-xs">Staff or Vendor?</p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <Link to="/admin-login" className="btn btn-ghost btn-sm" style={{ flex: 1 }}>Admin Login</Link>
+            <Link to="/vendor-login" className="btn btn-ghost btn-sm" style={{ flex: 1 }}>Vendor Login</Link>
+          </div>
+        </div>
+        
         <div className="alert alert-info" style={{ fontSize: 13 }}>
           Demo accounts (password: <code>password</code>): customer@gosika.com.np · vendor@gosika.com.np · admin@gosika.com.np
         </div>

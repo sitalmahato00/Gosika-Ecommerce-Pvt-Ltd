@@ -416,11 +416,11 @@ export default function AdminUsers() {
           </div>
           <div>
             <label className="label">Email *</label>
-            <input className="input" type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="admin@gosika.com.np" />
+            <input className="input" type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="admin@gosika.com.np" autoComplete="email" />
           </div>
           <div>
             <label className="label">Phone</label>
-            <input className="input" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder="98XXXXXXXX" />
+            <input className="input" type="tel" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder="98XXXXXXXX" autoComplete="tel" />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>

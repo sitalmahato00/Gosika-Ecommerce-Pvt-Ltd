@@ -25,7 +25,7 @@ class AdminSettingsController extends Controller
         protected SettingsService $settingsService
     ) {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
     }
 
     public function getGeneral(): JsonResponse

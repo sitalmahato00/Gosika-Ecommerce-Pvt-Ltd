@@ -18,7 +18,7 @@ class AdminShippingController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
         $this->middleware('permission:'.Permissions::DELIVERIES_MANAGE);
     }
 

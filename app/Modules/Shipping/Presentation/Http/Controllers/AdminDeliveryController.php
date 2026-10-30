@@ -27,7 +27,7 @@ class AdminDeliveryController extends Controller
     public function __construct(protected DeliveryService $service)
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
         $this->middleware('permission:'.Permissions::DELIVERY_PARTNERS_MANAGE.'|'.Permissions::DELIVERIES_MANAGE);
         $this->middleware('permission:'.Permissions::DELIVERY_PARTNERS_MANAGE)->only(['partners', 'partner', 'approve', 'reject', 'suspend', 'activate']);
     }

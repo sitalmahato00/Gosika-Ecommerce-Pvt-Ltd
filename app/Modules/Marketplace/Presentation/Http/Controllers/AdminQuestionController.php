@@ -19,7 +19,7 @@ class AdminQuestionController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::SUPER_ADMIN);
+        $this->middleware('admin');
         $this->middleware('permission:'.Permissions::PRODUCTS_APPROVE.'|'.Permissions::STORES_MANAGE);
     }
 

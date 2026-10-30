@@ -32,7 +32,7 @@ export default function EmailVerificationPrompt() {
     email,
     verified,
     onVerified: reloadUser,
-    autoSend: open,
+    autoSend: false, // Don't auto-send, user must click button
   })
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function EmailVerificationPrompt() {
         <div className="min-w-0">
           <div className="font-bold text-sm text-ink">Welcome! One more step to activate your account.</div>
           <p className="muted text-xs m-0">
-            A 6-digit verification code was sent to <b style={{ color: 'var(--ink)' }}>{email}</b>. Enter it below to verify your email.
+            To verify your email <b style={{ color: 'var(--ink)' }}>{email}</b>, click "Send Code" below to receive a 6-digit verification code.
           </p>
         </div>
       </div>
@@ -78,17 +78,28 @@ export default function EmailVerificationPrompt() {
             style={{ width: '100%' }}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            disabled={!sent}
           />
         </div>
         <div className="flex items-center gap-2 wrap">
-          <Button type="submit" disabled={verifying}>
-            {verifying ? <Spinner size={15} color="#fff" /> : <ShieldCheck size={15} />}
-            {verifying ? 'Verifying…' : 'Verify Email'}
-          </Button>
-          <Button type="button" variant="outline" onClick={resend} disabled={sending}>
-            {sending ? <Spinner size={15} /> : <RefreshCw size={15} />}
-            {sending ? 'Sending…' : sent ? 'Resend Code' : 'Send Code'}
-          </Button>
+          {!sent && (
+            <Button type="button" onClick={resend} disabled={sending}>
+              {sending ? <Spinner size={15} /> : <Mail size={15} />}
+              {sending ? 'Sending…' : 'Send Code'}
+            </Button>
+          )}
+          {sent && (
+            <>
+              <Button type="submit" disabled={verifying}>
+                {verifying ? <Spinner size={15} color="#fff" /> : <ShieldCheck size={15} />}
+                {verifying ? 'Verifying…' : 'Verify Email'}
+              </Button>
+              <Button type="button" variant="outline" onClick={resend} disabled={sending}>
+                {sending ? <Spinner size={15} /> : <RefreshCw size={15} />}
+                {sending ? 'Sending…' : 'Resend Code'}
+              </Button>
+            </>
+          )}
         </div>
         <button
           type="button"

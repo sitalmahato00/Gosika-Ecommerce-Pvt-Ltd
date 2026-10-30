@@ -4,8 +4,9 @@ import CustomerFooter from './components/layout/CustomerFooter'
 import CustomerBottomNav from './components/layout/CustomerBottomNav'
 import DashboardLayout from './components/layout/DashboardLayout'
 import { AuthRoute, GuestRoute, VendorRoute, AdminRoute, DeliveryRoute } from './components/layout/RouteGuards'
-import { VENDOR_NAV, ADMIN_NAV, VENDOR_MOBILE_NAV, ADMIN_MOBILE_NAV } from './utils/constants'
+import { VENDOR_NAV, ADMIN_NAV, VENDOR_MOBILE_NAV, ADMIN_MOBILE_NAV, ADMIN_PERMISSION_MAP } from './utils/constants'
 import SectionPage from './components/admin/SectionPage'
+import { useAuth } from './context/AuthContext'
 
 import Home from './pages/Home'
 import Shop from './pages/Shop'
@@ -19,6 +20,8 @@ import OrderList from './pages/OrderList'
 import OrderDetail from './pages/OrderDetail'
 import Wishlist from './pages/Wishlist'
 import Login from './pages/Login'
+import AdminLogin from './pages/AdminLogin'
+import VendorLogin from './pages/VendorLogin'
 import Register from './pages/Register'
 import Verify from './pages/Verify'
 import ForgotPassword from './pages/ForgotPassword'
@@ -128,6 +131,7 @@ import AdminAuditLogs from './pages/admin/AdminAuditLogs'
 import AdminPaymentMethods from './pages/admin/AdminPaymentMethods'
 import AdminSystemLogs from './pages/admin/AdminSystemLogs'
 import AdminProfile from './pages/admin/AdminProfile'
+import Unauthorized from './pages/admin/Unauthorized'
 
 import DeliveryLayout from './components/layout/DeliveryLayout'
 import DeliveryDashboard from './pages/delivery/DeliveryDashboard'
@@ -156,6 +160,48 @@ import DeliveryCodSettlement from './pages/delivery/DeliveryCodSettlement'
 import DeliveryAvailability from './pages/delivery/DeliveryAvailability'
 import DeliverySecurity from './pages/delivery/DeliverySecurity'
 import DeliveryProfileSettings from './pages/delivery/DeliveryProfileSettings'
+
+/**
+ * PermissionGuard - Protects routes that require specific permissions
+ * Checks if user has permission for the route, redirects to /admin/unauthorized if not
+ */
+function PermissionGuard({ children, path }) {
+  const { hasPermission, hasAnyPermission, isSuperAdmin, booted } = useAuth()
+  const navigate = useNavigate()
+  
+  // Wait for auth to boot
+  if (!booted) return null
+  
+  // Super admins bypass all checks
+  if (isSuperAdmin()) return children
+  
+  // Get required permissions for this route
+  const requiredPerms = ADMIN_PERMISSION_MAP[path]
+  
+  // No requirements = accessible to all admins
+  if (requiredPerms === null || requiredPerms === undefined) {
+    return children
+  }
+  
+  // Single permission string
+  if (typeof requiredPerms === 'string') {
+    if (hasPermission(requiredPerms)) {
+      return children
+    }
+    return <Navigate to="/admin/unauthorized" replace />
+  }
+  
+  // Array of permissions (OR logic - user needs any one)
+  if (Array.isArray(requiredPerms) && requiredPerms.length > 0) {
+    if (hasAnyPermission(requiredPerms)) {
+      return children
+    }
+    return <Navigate to="/admin/unauthorized" replace />
+  }
+  
+  // Default: allow access
+  return children
+}
 
 function StandaloneCustomerShell({ children }) {
   const navigate = useNavigate()
@@ -196,6 +242,8 @@ function CustomerLayout() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/help" element={<Help />} />
           <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+          <Route path="/admin-login" element={<GuestRoute><AdminLogin /></GuestRoute>} />
+          <Route path="/vendor-login" element={<GuestRoute><VendorLogin /></GuestRoute>} />
           <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
           <Route path="/verify" element={<GuestRoute><Verify /></GuestRoute>} />
           <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
@@ -282,73 +330,74 @@ export default function App() {
       {/* Admin Panel */}
       <Route path="/admin" element={<AdminRoute><DashboardLayout nav={ADMIN_NAV} title="Admin Panel" roleLabel="Admin" mobileNav={ADMIN_MOBILE_NAV} /></AdminRoute>}>
         <Route index element={<AdminDashboard />} />
+        <Route path="unauthorized" element={<Unauthorized />} />
 
         {/* Marketplace */}
-        <Route path="marketplace/vendors" element={<AdminVendors />} />
-        <Route path="marketplace/vendors/:id" element={<AdminVendorDetail />} />
-        <Route path="marketplace/kyc" element={<AdminKyc />} />
-        <Route path="marketplace/stores" element={<AdminStores />} />
-        <Route path="marketplace/products" element={<AdminProducts />} />
-        <Route path="marketplace/products/:id" element={<AdminProductDetail />} />
-        <Route path="marketplace/categories" element={<AdminCategories />} />
-        <Route path="marketplace/categories/new" element={<AdminCategoryForm />} />
-        <Route path="marketplace/categories/:id/edit" element={<AdminCategoryForm />} />
-        <Route path="marketplace/categories/:id" element={<AdminCategoryDetail />} />
-        <Route path="marketplace/brands" element={<AdminBrands />} />
-        <Route path="marketplace/brands/new" element={<AdminBrandForm />} />
-        <Route path="marketplace/brands/:id/edit" element={<AdminBrandForm />} />
-        <Route path="marketplace/brands/:id" element={<AdminBrandDetail />} />
-        <Route path="marketplace/brands/requests" element={<AdminBrandRequests />} />
-        <Route path="marketplace/reviews" element={<AdminReviews />} />
-        <Route path="marketplace/tiers" element={<AdminSellerTiers />} />
-        <Route path="marketplace/bulletins" element={<AdminSellerBulletins />} />
+        <Route path="marketplace/vendors" element={<PermissionGuard path="/admin/marketplace/vendors"><AdminVendors /></PermissionGuard>} />
+        <Route path="marketplace/vendors/:id" element={<PermissionGuard path="/admin/marketplace/vendors"><AdminVendorDetail /></PermissionGuard>} />
+        <Route path="marketplace/kyc" element={<PermissionGuard path="/admin/marketplace/kyc"><AdminKyc /></PermissionGuard>} />
+        <Route path="marketplace/stores" element={<PermissionGuard path="/admin/marketplace/stores"><AdminStores /></PermissionGuard>} />
+        <Route path="marketplace/products" element={<PermissionGuard path="/admin/marketplace/products"><AdminProducts /></PermissionGuard>} />
+        <Route path="marketplace/products/:id" element={<PermissionGuard path="/admin/marketplace/products"><AdminProductDetail /></PermissionGuard>} />
+        <Route path="marketplace/categories" element={<PermissionGuard path="/admin/marketplace/categories"><AdminCategories /></PermissionGuard>} />
+        <Route path="marketplace/categories/new" element={<PermissionGuard path="/admin/marketplace/categories"><AdminCategoryForm /></PermissionGuard>} />
+        <Route path="marketplace/categories/:id/edit" element={<PermissionGuard path="/admin/marketplace/categories"><AdminCategoryForm /></PermissionGuard>} />
+        <Route path="marketplace/categories/:id" element={<PermissionGuard path="/admin/marketplace/categories"><AdminCategoryDetail /></PermissionGuard>} />
+        <Route path="marketplace/brands" element={<PermissionGuard path="/admin/marketplace/brands"><AdminBrands /></PermissionGuard>} />
+        <Route path="marketplace/brands/new" element={<PermissionGuard path="/admin/marketplace/brands"><AdminBrandForm /></PermissionGuard>} />
+        <Route path="marketplace/brands/:id/edit" element={<PermissionGuard path="/admin/marketplace/brands"><AdminBrandForm /></PermissionGuard>} />
+        <Route path="marketplace/brands/:id" element={<PermissionGuard path="/admin/marketplace/brands"><AdminBrandDetail /></PermissionGuard>} />
+        <Route path="marketplace/brands/requests" element={<PermissionGuard path="/admin/marketplace/brands"><AdminBrandRequests /></PermissionGuard>} />
+        <Route path="marketplace/reviews" element={<PermissionGuard path="/admin/marketplace/reviews"><AdminReviews /></PermissionGuard>} />
+        <Route path="marketplace/tiers" element={<PermissionGuard path="/admin/marketplace/tiers"><AdminSellerTiers /></PermissionGuard>} />
+        <Route path="marketplace/bulletins" element={<PermissionGuard path="/admin/marketplace/bulletins"><AdminSellerBulletins /></PermissionGuard>} />
 
         {/* Orders & Service */}
-        <Route path="orders" element={<AdminOrders />} />
-        <Route path="orders/:id" element={<AdminOrderDetail />} />
-        <Route path="orders/returns" element={<AdminReturns />} />
-        <Route path="orders/refunds" element={<AdminRefunds />} />
+        <Route path="orders" element={<PermissionGuard path="/admin/orders"><AdminOrders /></PermissionGuard>} />
+        <Route path="orders/:id" element={<PermissionGuard path="/admin/orders"><AdminOrderDetail /></PermissionGuard>} />
+        <Route path="orders/returns" element={<PermissionGuard path="/admin/orders/returns"><AdminReturns /></PermissionGuard>} />
+        <Route path="orders/refunds" element={<PermissionGuard path="/admin/orders/refunds"><AdminRefunds /></PermissionGuard>} />
 
         {/* Fulfillment */}
-        <Route path="fulfillment/dashboard" element={<AdminDeliveryDashboard />} />
-        <Route path="fulfillment/partners" element={<AdminDeliveryPartners />} />
-        <Route path="fulfillment/assignments" element={<AdminDeliveries />} />
-        <Route path="fulfillment/zones" element={<AdminShipping />} />
+        <Route path="fulfillment/dashboard" element={<PermissionGuard path="/admin/fulfillment/dashboard"><AdminDeliveryDashboard /></PermissionGuard>} />
+        <Route path="fulfillment/partners" element={<PermissionGuard path="/admin/fulfillment/partners"><AdminDeliveryPartners /></PermissionGuard>} />
+        <Route path="fulfillment/assignments" element={<PermissionGuard path="/admin/fulfillment/assignments"><AdminDeliveries /></PermissionGuard>} />
+        <Route path="fulfillment/zones" element={<PermissionGuard path="/admin/fulfillment/zones"><AdminShipping /></PermissionGuard>} />
 
         {/* Finance & Ledger */}
-        <Route path="finance/payments" element={<AdminPayments />} />
-        <Route path="finance/commissions" element={<AdminCommissions />} />
-        <Route path="finance/settlements" element={<AdminSettlements />} />
-        <Route path="finance/settlements/vendors/:id" element={<AdminVendorFinance />} />
-        <Route path="finance/payouts" element={<AdminPayouts />} />
+        <Route path="finance/payments" element={<PermissionGuard path="/admin/finance/payments"><AdminPayments /></PermissionGuard>} />
+        <Route path="finance/commissions" element={<PermissionGuard path="/admin/finance/commissions"><AdminCommissions /></PermissionGuard>} />
+        <Route path="finance/settlements" element={<PermissionGuard path="/admin/finance/settlements"><AdminSettlements /></PermissionGuard>} />
+        <Route path="finance/settlements/vendors/:id" element={<PermissionGuard path="/admin/finance/settlements"><AdminVendorFinance /></PermissionGuard>} />
+        <Route path="finance/payouts" element={<PermissionGuard path="/admin/finance/payouts"><AdminPayouts /></PermissionGuard>} />
 
         {/* Customers */}
-        <Route path="customers" element={<AdminCustomers />} />
-        <Route path="customers/support" element={<AdminCustomerSupport />} />
+        <Route path="customers" element={<PermissionGuard path="/admin/customers"><AdminCustomers /></PermissionGuard>} />
+        <Route path="customers/support" element={<PermissionGuard path="/admin/customers/support"><AdminCustomerSupport /></PermissionGuard>} />
 
         {/* Marketing */}
-        <Route path="marketing/campaigns" element={<AdminCampaigns />} />
-        <Route path="marketing/nominations" element={<AdminNominations />} />
-        <Route path="marketing/promotions" element={<AdminPromotions />} />
-        <Route path="marketing/coupons" element={<AdminCoupons />} />
-        <Route path="marketing/banners" element={<AdminPromotions />} />
-        <Route path="marketing/pages" element={<AdminPages />} />
+        <Route path="marketing/campaigns" element={<PermissionGuard path="/admin/marketing/campaigns"><AdminCampaigns /></PermissionGuard>} />
+        <Route path="marketing/nominations" element={<PermissionGuard path="/admin/marketing/nominations"><AdminNominations /></PermissionGuard>} />
+        <Route path="marketing/promotions" element={<PermissionGuard path="/admin/marketing/promotions"><AdminPromotions /></PermissionGuard>} />
+        <Route path="marketing/coupons" element={<PermissionGuard path="/admin/marketing/coupons"><AdminCoupons /></PermissionGuard>} />
+        <Route path="marketing/banners" element={<PermissionGuard path="/admin/marketing/banners"><AdminPromotions /></PermissionGuard>} />
+        <Route path="marketing/pages" element={<PermissionGuard path="/admin/marketing/pages"><AdminPages /></PermissionGuard>} />
 
         {/* SEO */}
-        <Route path="seo" element={<AdminSeo />} />
-        <Route path="seo/*" element={<AdminSeo />} />
+        <Route path="seo" element={<PermissionGuard path="/admin/seo"><AdminSeo /></PermissionGuard>} />
+        <Route path="seo/*" element={<PermissionGuard path="/admin/seo"><AdminSeo /></PermissionGuard>} />
 
         {/* Analytics */}
-        <Route path="analytics/reports" element={<AdminPerformanceReports />} />
+        <Route path="analytics/reports" element={<PermissionGuard path="/admin/analytics/reports"><AdminPerformanceReports /></PermissionGuard>} />
 
         {/* System & Security */}
         <Route path="system/notifications" element={<AdminNotifications />} />
-        <Route path="system/users" element={<AdminUsers />} />
-        <Route path="system/roles" element={<AdminRoles />} />
-        <Route path="system/audit-logs" element={<AdminAuditLogs />} />
-        <Route path="system/gateways" element={<AdminPaymentMethods />} />
-        <Route path="system/logs" element={<AdminSystemLogs />} />
-        <Route path="system/settings" element={<AdminSettings />} />
+        <Route path="system/users" element={<PermissionGuard path="/admin/system/users"><AdminUsers /></PermissionGuard>} />
+        <Route path="system/roles" element={<PermissionGuard path="/admin/system/roles"><AdminRoles /></PermissionGuard>} />
+        <Route path="system/audit-logs" element={<PermissionGuard path="/admin/system/audit-logs"><AdminAuditLogs /></PermissionGuard>} />
+        <Route path="system/gateways" element={<PermissionGuard path="/admin/system/gateways"><AdminPaymentMethods /></PermissionGuard>} />
+        <Route path="system/logs" element={<PermissionGuard path="/admin/system/logs"><AdminSystemLogs /></PermissionGuard>} />
+        <Route path="system/settings" element={<PermissionGuard path="/admin/system/settings"><AdminSettings /></PermissionGuard>} />
         <Route path="profile" element={<AdminProfile />} />
         <Route path="profile" element={<AdminProfile />} />
 
