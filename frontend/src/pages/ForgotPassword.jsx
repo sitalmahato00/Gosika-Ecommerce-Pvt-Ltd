@@ -32,7 +32,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="page-shell container container-narrow">
+    <div className="page-shell container container-narrow auth-card-page">
       <div className="card" style={{ maxWidth: 440, margin: '0 auto', padding: '28px 24px' }}>
         <div className="text-center mb-2">
           <AuthBrand />

@@ -55,8 +55,9 @@ export default function Register() {
 
   if (pendingEmail) {
     return (
-      <div className="page-shell container container-narrow">
-        <div className="card" style={{ maxWidth: 480, margin: '0 auto', textAlign: 'center', padding: '32px 24px' }}>
+      <div className="page-shell container container-narrow auth-card-page">
+        <div className="card" style={{ maxWidth: 480, width: '100%', margin: '0 auto', textAlign: 'center', padding: '32px 24px' }}>
+          <AuthBrand />
           <span className="avatar" style={{ width: 64, height: 64, margin: '0 auto 14px', background: 'var(--success-bg)', color: 'var(--success)' }}>
             <CheckCircle2 size={32} />
           </span>
@@ -74,7 +75,7 @@ export default function Register() {
   }
 
   return (
-    <div className="page-shell container container-narrow">
+    <div className="page-shell container container-narrow auth-card-page">
       <div className="card" style={{ maxWidth: 480, margin: '0 auto', padding: '28px 24px' }}>
         <div className="text-center mb-2">
           <AuthBrand />

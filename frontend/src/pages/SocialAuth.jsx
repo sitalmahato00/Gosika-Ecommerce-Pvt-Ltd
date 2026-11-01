@@ -44,7 +44,7 @@ export default function SocialAuth() {
   }, [])
 
   return (
-    <div className="page-shell container container-narrow">
+    <div className="page-shell container container-narrow auth-card-page">
       <div className="card" style={{ maxWidth: 440, margin: '0 auto', textAlign: 'center', padding: '48px 24px' }}>
         <AuthBrand />
         <Loader2 size={36} className="spin" color="var(--primary)" style={{ marginTop: 24 }} />

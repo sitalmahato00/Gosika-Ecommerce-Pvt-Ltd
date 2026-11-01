@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   Check,
   CheckCircle2,
   Mail,
   MapPin,
-  Building2,
   CreditCard,
-  PackagePlus,
   ShieldCheck,
   Clock,
-  ArrowRight,
   ExternalLink,
   FileText,
-  AlertCircle,
-  Sparkles,
 } from 'lucide-react'
 import api from '../../api/client'
 import { useToast } from '../../context/ToastContext'
@@ -23,7 +18,6 @@ import LocationMapPicker from '../common/LocationMapPicker'
 
 export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
   const toast = useToast()
-  const navigate = useNavigate()
 
   // Steps state
   const isEmailVerified = onboarding?.email_verified || !!user?.email_verified_at
@@ -31,22 +25,18 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
   const kycStatus = onboarding?.kyc_status || 'draft'
   const isKycApproved = onboarding?.is_kyc_approved || kycStatus === 'approved' || kycStatus === 'verified'
   const isKycSubmitted = kycStatus === 'submitted' || kycStatus === 'under_review'
-  const hasProduct = onboarding?.has_product
-
   // Determine initial active step based on progress:
   // If email not verified -> 1
   // If address not filled -> 2
   // If KYC not approved -> 3
-  // If product not added -> 4
-  const defaultStep = !isEmailVerified ? 1 : !hasAddress ? 2 : !isKycApproved ? 3 : 4
+  const defaultStep = !isEmailVerified ? 1 : !hasAddress ? 2 : 3
   const [activeStep, setActiveStep] = useState(defaultStep)
 
   // Update active step if onboarding props change
   useEffect(() => {
     if (!isEmailVerified) setActiveStep(1)
     else if (!hasAddress) setActiveStep(2)
-    else if (!isKycApproved) setActiveStep(3)
-    else setActiveStep(4)
+    else setActiveStep(3)
   }, [isEmailVerified, hasAddress, isKycApproved])
 
   // Email verification state
@@ -166,7 +156,6 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
     { id: 1, name: 'Email', completed: isEmailVerified },
     { id: 2, name: 'Address', completed: hasAddress },
     { id: 3, name: 'Registration & KYC', completed: isKycApproved },
-    { id: 4, name: 'Product', completed: hasProduct },
   ]
 
   return (
@@ -716,77 +705,6 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
           </div>
         )}
 
-        {/* ── STEP 4: Product Listing ─────────────────────────────────────── */}
-        {activeStep === 4 && (
-          <div style={{ maxWidth: 640 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-              <span
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  background: hasProduct ? '#E6F9F0' : '#FFF4ED',
-                  color: hasProduct ? '#10B981' : '#FF5500',
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <PackagePlus size={20} />
-              </span>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 750, color: '#172033' }}>
-                  {hasProduct ? 'Products Listed in Store' : 'List Your First Product'}
-                </h3>
-                <p style={{ margin: '2px 0 0', fontSize: 13, color: '#64748B' }}>
-                  {hasProduct
-                    ? `${onboarding?.products_count || 1} product(s) active in your seller catalog`
-                    : 'Add products with photos, description, pricing and stock'}
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
-              <Link
-                to="/vendor/products/new"
-                style={{
-                  height: 42,
-                  padding: '0 24px',
-                  background: '#FF5500',
-                  color: '#FFFFFF',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 650,
-                  textDecoration: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  boxShadow: '0 4px 14px rgba(255,85,0,0.25)',
-                }}
-              >
-                <PackagePlus size={16} />
-                <span>Add New Product</span>
-              </Link>
-              <Link
-                to="/vendor/products"
-                style={{
-                  height: 42,
-                  padding: '0 18px',
-                  background: '#F8FAFC',
-                  color: '#334155',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                }}
-              >
-                View Catalog
-              </Link>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

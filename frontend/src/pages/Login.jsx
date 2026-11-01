@@ -27,7 +27,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
 
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
-  const logoUrl = branding.logo_light || ''
   const loginHeading = branding.login_heading || 'Welcome back'
   const loginDescription = branding.login_description || `Login to continue shopping across Nepal.`
 
@@ -106,16 +105,18 @@ export default function Login() {
   }
 
   return (
-    <div className="page-shell container container-narrow">
+    <div className="page-shell container container-narrow auth-card-page">
       <div className="card" style={{ maxWidth: 440, margin: '0 auto', padding: '28px 24px' }}>
         <div className="text-center mb-2">
           <span className="brand" style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8 }}>
-            {logoUrl ? (
-              <img src={apiImage(logoUrl)} alt={brandName} style={{ height: 40, width: 'auto', objectFit: 'contain' }} />
+            {branding.logo_light || branding.logo_dark ? (
+              <img src={apiImage(branding.logo_light || branding.logo_dark)} alt={brandName} className="auth-brand-image" />
             ) : (
-              <GosikaLogo size={36} showText={false} />
+              <>
+                <GosikaLogo size={36} showText={false} />
+                <span>{brandName}</span>
+              </>
             )}
-            <span>{brandName}</span>
           </span>
           <h1 style={{ fontSize: 20, marginTop: 14 }}>{loginHeading}</h1>
           <p className="muted m-0 text-sm">{loginDescription}</p>

@@ -1,4 +1,5 @@
 import React from 'react'
+import referenceLogo from '../../assets/auth/ref_logo.jpg'
 
 export default function GosikaLogo({
   size = 36,
@@ -6,6 +7,42 @@ export default function GosikaLogo({
   showText = true,
   className = '',
 }) {
+  const imageWidth = Math.round(size * 133 / 34)
+  const visibleWidth = Math.round(size * (showText && textColor !== '#FFFFFF' ? 100 : 34) / 34)
+
+  if (textColor !== '#FFFFFF') {
+    return (
+      <span
+        className={`gosika-brand-logo ${className}`}
+        role="img"
+        aria-label="GOSIKA"
+        style={{
+          display: 'inline-block',
+          position: 'relative',
+          width: visibleWidth,
+          height: size,
+          flex: `0 0 ${visibleWidth}px`,
+          overflow: 'hidden',
+          verticalAlign: 'middle',
+        }}
+      >
+        <img
+          src={referenceLogo}
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: imageWidth,
+            height: size,
+            maxWidth: 'none',
+          }}
+        />
+      </span>
+    )
+  }
+
   return (
     <div className={`gosika-brand-logo ${className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
       <svg

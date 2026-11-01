@@ -12,45 +12,26 @@ import { initials, apiImage } from '../../utils/format'
 import Drawer from '../ui/Drawer'
 import api from '../../api/client'
 import { getCategoryIcon } from '../../utils/icons'
+import GosikaLogo from '../common/GosikaLogo'
 
 import { useBranding } from '../../context/BrandingContext'
 
 function Logo({ size = 'md' }) {
   const branding = useBranding()
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
-  const logoUrl = branding.logo_light || ''
-
+  const logoUrl = branding.logo_light || branding.logo_dark
   return (
     <Link to="/" className="brand" aria-label={brandName} style={{ fontSize: 22, display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
       {logoUrl ? (
-        <img
-          src={apiImage(logoUrl)}
-          alt={`${brandName} logo`}
-          style={{ height: 42, width: 'auto', maxWidth: 220, objectFit: 'contain', flexShrink: 0 }}
-        />
+        <img src={apiImage(logoUrl)} alt={brandName} className="customer-brand-image" />
       ) : (
-        <span
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: '50%',
-            background: '#ff5500',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            fontWeight: 900,
-            fontSize: 17,
-            boxShadow: '0 2px 6px rgba(255,85,0,0.3)',
-            flexShrink: 0
-          }}
-        >
-          G
-        </span>
+        <>
+          <GosikaLogo size={32} showText={false} />
+          <span style={{ fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+            {brandName}
+          </span>
+        </>
       )}
-      <span style={{ fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
-        {brandName}
-      </span>
     </Link>
   )
 }

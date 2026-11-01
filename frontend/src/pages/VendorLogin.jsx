@@ -13,10 +13,6 @@ import {
   Globe,
   ChevronDown,
   ShieldCheck,
-  PackageCheck,
-  TrendingUp,
-  Headset,
-  Package,
   AlertCircle,
 } from 'lucide-react'
 import GosikaLogo from '../components/common/GosikaLogo'
@@ -25,23 +21,32 @@ import VendorRegister from './vendor/VendorRegister'
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
+import { useBranding } from '../context/BrandingContext'
+import { apiImage } from '../utils/format'
 import api from '../api/client'
 import sellerWorkspaceHero from '../assets/auth/seller-workspace-hero.jpg'
 
-/* ─── Feature list ─────────────────────────────────────────────────────────── */
 const FEATURES = [
-  { icon: PackageCheck, text: 'Easy Product Management' },
-  { icon: TrendingUp,   text: 'Real-time Order Tracking' },
-  { icon: ShieldCheck,  text: 'Secure Payments' },
-  { icon: Headset,      text: 'Dedicated Seller Support' },
+  { text: 'Easy Product Management' },
+  { text: 'Real-time Order Tracking' },
+  { text: 'Secure Payments' },
+  { text: 'Dedicated Seller Support' },
 ]
 
 export default function VendorLogin() {
   const toast = useToast()
   const navigate = useNavigate()
   const { user, booted } = useAuth()
+  const branding = useBranding()
+  const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
+  const logoUrl = branding.logo_light || branding.logo_dark
   const [searchParams] = useSearchParams()
   const isRegistering = searchParams.get('mode') === 'register'
+  const trustItems = [
+    { icon: ShieldCheck, title: 'Secure Seller Access', subtitle: 'Your store data is protected' },
+    { icon: HelpCircle, title: 'Seller Support', subtitle: 'Help when you need it' },
+    { icon: Store, title: 'Built for Growth', subtitle: 'Tools to grow your business' },
+  ]
 
   const [form, setForm] = useState({ identifier: '', password: '', rememberMe: false })
   const [showPassword, setShowPassword] = useState(false)
@@ -117,19 +122,17 @@ export default function VendorLogin() {
     )
   }
 
-  const trustItems = [
-    { icon: ShieldCheck, title: 'Secure Seller Access', subtitle: 'Your store data is protected' },
-    { icon: Headset, title: 'Seller Support', subtitle: 'Help when you need it' },
-    { icon: Package, title: 'Built for Growth', subtitle: 'Tools to grow your business' },
-  ]
-
   return (
     <div className="gosika-portal-page seller-portal">
       <header className="portal-header">
         <div className="portal-header__inner">
           <div className="portal-header__brand-group">
             <Link to="/" aria-label="GOSIKA Home">
-              <GosikaLogo size={34} textColor="#FF5500" />
+              {logoUrl ? (
+                <img className="portal-header__logo" src={apiImage(logoUrl)} alt={brandName} />
+              ) : (
+                <GosikaLogo size={34} textColor="#FF5500" />
+              )}
             </Link>
             <div className="portal-header__divider" aria-hidden="true" />
             <span className="portal-header__portal-badge">Seller Portal</span>
@@ -150,15 +153,15 @@ export default function VendorLogin() {
           <section className="portal-hero__info">
             <h1 className="portal-hero__heading">
               {isRegistering ? 'Start Selling on' : 'Welcome Back'}
-              <span>{isRegistering ? ' GOSIKA' : ' Seller'}</span>
+              <span>{isRegistering ? ` ${brandName}` : ' Seller'}</span>
             </h1>
             <p className="portal-hero__description">
               {isRegistering
                 ? 'Create your seller account and bring your products to more customers.'
-                : 'Manage your products, orders and store on the GOSIKA marketplace.'}
+                : 'Manage your products, orders and store on the marketplace.'}
             </p>
             <ul className="portal-hero__features">
-              {FEATURES.map(({ icon: Icon, text }) => (
+              {FEATURES.map(({ text }) => (
                 <li key={text} className="portal-hero__feature-item">
                   <span className="portal-hero__feature-icon"><CheckCircle2 size={13} strokeWidth={3} /></span>
                   <span>{text}</span>
@@ -168,7 +171,7 @@ export default function VendorLogin() {
             <div className="portal-hero__photo-card">
               <img src={sellerWorkspaceHero} alt="Seller workspace with products and order management" />
               <div className="portal-hero__photo-badge">
-                <Store size={14} /> <span>GOSIKA Seller Workspace</span>
+                <Store size={14} /> <span>{brandName} Seller Workspace</span>
               </div>
             </div>
           </section>
@@ -176,7 +179,13 @@ export default function VendorLogin() {
           <section className={`portal-card${isRegistering ? ' portal-card--seller-register' : ''}`}>
             {isRegistering ? (
               <>
-                <div className="portal-card__icon-wrap portal-card__icon-wrap--seller"><Store size={24} /></div>
+                <div className="portal-card__icon-wrap portal-card__icon-wrap--seller portal-card__icon-wrap--brand">
+                  {logoUrl ? (
+                    <img className="portal-card__brand-logo" src={apiImage(logoUrl)} alt={brandName} />
+                  ) : (
+                    <GosikaLogo size={34} showText={false} />
+                  )}
+                </div>
                 <h2 className="portal-card__heading">Create Seller Account</h2>
                 <p className="portal-card__subheading">Enter your basic details to get started</p>
                 <Link to="/seller/login" className="portal-card__back-link">
@@ -186,7 +195,13 @@ export default function VendorLogin() {
               </>
             ) : (
               <>
-                <div className="portal-card__icon-wrap portal-card__icon-wrap--seller"><Store size={24} /></div>
+                <div className="portal-card__icon-wrap portal-card__icon-wrap--seller portal-card__icon-wrap--brand">
+                  {logoUrl ? (
+                    <img className="portal-card__brand-logo" src={apiImage(logoUrl)} alt={brandName} />
+                  ) : (
+                    <GosikaLogo size={34} showText={false} />
+                  )}
+                </div>
                 <h2 className="portal-card__heading">Login to Seller Panel</h2>
                 <p className="portal-card__subheading">Access your GOSIKA seller account</p>
                 {error && (
@@ -280,8 +295,14 @@ export default function VendorLogin() {
 
       <footer className="portal-footer-dark">
         <div className="portal-footer-dark__inner">
-          <Link to="/" aria-label="GOSIKA Home"><GosikaLogo size={28} textColor="#FFFFFF" /></Link>
-          <span className="portal-footer-dark__copyright">© {new Date().getFullYear()} Gosika. All rights reserved.</span>
+          <Link to="/" aria-label={`${brandName} Home`}>
+            {logoUrl ? (
+              <img className="portal-footer__logo" src={apiImage(logoUrl)} alt={brandName} />
+            ) : (
+              <GosikaLogo size={28} textColor="#FFFFFF" />
+            )}
+          </Link>
+          <span className="portal-footer-dark__copyright">© {new Date().getFullYear()} {brandName}. All rights reserved.</span>
           <nav className="portal-footer-dark__links" aria-label="Legal and contact">
             <Link to="/help">Privacy Policy</Link>
             <Link to="/help">Terms of Service</Link>

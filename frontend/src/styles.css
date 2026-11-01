@@ -5106,3 +5106,210 @@ button {
   .sl-footer__inner { padding: 0 18px; gap: 10px; }
   .sl-footer__tagline { display: none; }
 }
+
+.portal-auth-main {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(24px, 6vh, 64px) 20px;
+}
+
+.portal-auth-main > .portal-card {
+  width: 100%;
+  max-width: 440px;
+  min-width: 0;
+  margin: 0;
+}
+
+.portal-header__logo {
+  display: block;
+  width: auto;
+  height: 36px;
+  max-width: 180px;
+  object-fit: contain;
+}
+
+.portal-card__icon-wrap--brand {
+  width: auto;
+  height: auto;
+  margin: 0 auto 14px;
+  background: transparent;
+}
+
+.portal-card__brand-logo {
+  display: block;
+  width: auto;
+  height: 38px;
+  max-width: 180px;
+  object-fit: contain;
+}
+
+.portal-footer__logo {
+  display: block;
+  width: auto;
+  height: 30px;
+  max-width: 180px;
+  object-fit: contain;
+}
+
+.auth-brand-image {
+  display: block;
+  width: auto;
+  height: 40px;
+  max-width: min(100%, 220px);
+  object-fit: contain;
+}
+
+.customer-brand-image {
+  display: block;
+  width: auto;
+  height: 36px;
+  max-width: 180px;
+  object-fit: contain;
+}
+
+.customer-footer-brand-image {
+  display: block;
+  width: auto;
+  height: 44px;
+  max-width: 230px;
+  object-fit: contain;
+}
+
+.seller-portal .portal-auth-main > .portal-card--seller-register {
+  max-width: 620px;
+}
+
+.seller-portal .portal-card--seller-register .portal-form,
+.seller-portal .portal-card--seller-register form {
+  width: 100%;
+  min-width: 0;
+}
+
+.auth-card-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: min(100svh, 760px);
+  padding: 28px 16px;
+}
+
+.auth-card-page > .card {
+  width: 100%;
+}
+
+body:has(.auth-card-page) .customer-shell > header,
+body:has(.auth-card-page) .customer-shell > footer,
+body:has(.auth-card-page) .customer-shell .customer-bottom-nav {
+  display: none;
+}
+
+body:has(.auth-card-page) .customer-main {
+  padding: 0;
+}
+
+@media (max-width: 768px) {
+  .portal-hero {
+    flex: 1;
+    padding: 28px 0;
+  }
+
+  .portal-hero__info,
+  .portal-trust,
+  .portal-footer-dark {
+    display: none;
+  }
+
+  .portal-hero__inner {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    padding: 0 16px;
+  }
+
+  .portal-card {
+    justify-self: center;
+  }
+
+  .portal-header__inner {
+    padding: 0 20px;
+  }
+
+  .portal-auth-main {
+    padding: 28px 16px;
+  }
+
+  .seller-portal .portal-auth-main > .portal-card--seller-register {
+    max-width: 560px;
+  }
+
+  .auth-card-page {
+    min-height: 100svh;
+    padding: 20px 14px;
+  }
+
+  .dash-content,
+  .customer-main,
+  .page-shell,
+  .container {
+    min-width: 0;
+  }
+
+  .dash-content .card,
+  .customer-main .card {
+    min-width: 0;
+  }
+
+  .dash-content [style*="grid-template-columns"],
+  .customer-main [style*="grid-template-columns"],
+  .page-shell [style*="grid-template-columns"] {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)) !important;
+  }
+
+  .table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+}
+
+@media (max-width: 480px) {
+  .portal-header__inner {
+    padding: 0 14px;
+  }
+
+  .portal-header__actions {
+    gap: 8px;
+  }
+
+  .portal-header__help-link span,
+  .portal-header__lang-btn span,
+  .portal-header__lang-btn svg:last-child {
+    display: none;
+  }
+
+  .portal-card {
+    padding: 26px 20px;
+  }
+
+  .seller-portal .portal-card--seller-register {
+    padding: 24px 16px;
+  }
+
+  .seller-portal .portal-card--seller-register .vendor-register__row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .auth-card-page {
+    padding: 14px 10px;
+  }
+
+  .auth-card-page > .card {
+    padding: 24px 18px !important;
+  }
+}

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { PAYMENT_BRAND_LOGOS } from '../../utils/constants'
 import { apiImage } from '../../utils/format'
+import GosikaLogo from '../common/GosikaLogo'
 
 const Facebook = ({ size = 15, ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
@@ -80,9 +81,8 @@ import { useBranding } from '../../context/BrandingContext'
 export default function CustomerFooter() {
   const branding = useBranding()
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
+  const logoUrl = branding.logo_light || branding.logo_dark
   const footerText = `© ${new Date().getFullYear()} ${brandName} Pvt. Ltd. All rights reserved.`
-  const logoUrl = branding.logo_light || ''
-
   return (
     <footer className="footer" role="contentinfo" style={{ background: '#161d2b', color: '#94a3b8', fontSize: 13 }}>
       {/* --- Main footer grid --- */}
@@ -92,30 +92,9 @@ export default function CustomerFooter() {
           <div style={{ gridColumn: 'span 1' }}>
             <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', marginBottom: 16 }}>
               {logoUrl ? (
-                <img
-                  src={apiImage(logoUrl)}
-                  alt={`${brandName} logo`}
-                  style={{ height: 44, width: 'auto', maxWidth: 230, objectFit: 'contain', flexShrink: 0 }}
-                />
+                <img src={apiImage(logoUrl)} alt={brandName} className="customer-footer-brand-image" />
               ) : (
-                <span
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    background: '#ff5500',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#ffffff',
-                    fontWeight: 900,
-                    fontSize: 17,
-                    boxShadow: '0 2px 6px rgba(255,85,0,0.3)',
-                    flexShrink: 0
-                  }}
-                >
-                  G
-                </span>
+                <GosikaLogo size={36} showText={false} />
               )}
               <span style={{ fontWeight: 900, color: '#ffffff', fontSize: 21, letterSpacing: '-0.02em' }}>
                 {brandName}

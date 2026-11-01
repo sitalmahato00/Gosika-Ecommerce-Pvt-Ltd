@@ -6,11 +6,12 @@ import { useAuth } from '../../context/AuthContext'
 import { apiImage } from '../../utils/format'
 import Drawer from '../ui/Drawer'
 import api from '../../api/client'
+import GosikaLogo from '../common/GosikaLogo'
 
 function Logo() {
   return (
     <Link to="/" className="brand" aria-label="Gosika Commerce home">
-      <span className="brand-mark"><ShoppingBag size={18} /></span>
+      <GosikaLogo size={32} showText={false} />
       GOSIKA
     </Link>
   )

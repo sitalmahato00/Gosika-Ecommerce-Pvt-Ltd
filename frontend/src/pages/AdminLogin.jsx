@@ -20,6 +20,8 @@ import { FacebookIcon, InstagramIcon, TwitterIcon } from '../components/common/S
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
+import { useBranding } from '../context/BrandingContext'
+import { apiImage } from '../utils/format'
 import api from '../api/client'
 import adminDashboardHero from '../assets/auth/admin-dashboard-hero.jpg'
 
@@ -27,6 +29,21 @@ export default function AdminLogin() {
   const toast = useToast()
   const navigate = useNavigate()
   const { user, booted } = useAuth()
+  const branding = useBranding()
+  const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
+  const logoUrl = branding.logo_light || branding.logo_dark
+
+  const features = [
+    'Manage vendors & products',
+    'Handle orders & payments',
+    'Track platform performance',
+    'Configure system settings',
+  ]
+  const trustItems = [
+    { icon: ShieldCheck, title: 'Secure Access', subtitle: 'Your data is protected' },
+    { icon: Headset, title: '24/7 Support', subtitle: 'Our team is always here' },
+    { icon: Package, title: 'Reliable Platform', subtitle: 'Built for growth' },
+  ]
 
   const [form, setForm] = useState({
     email: '',
@@ -148,31 +165,6 @@ export default function AdminLogin() {
     )
   }
 
-  const features = [
-    'Manage vendors & products',
-    'Handle orders & payments',
-    'Track platform performance',
-    'Configure system settings',
-  ]
-
-  const trustItems = [
-    {
-      icon: ShieldCheck,
-      title: 'Secure Access',
-      subtitle: 'Your data is protected',
-    },
-    {
-      icon: Headset,
-      title: '24/7 Support',
-      subtitle: 'Our team is always here',
-    },
-    {
-      icon: Package,
-      title: 'Reliable Platform',
-      subtitle: 'Built for growth',
-    },
-  ]
-
   return (
     <div className="gosika-portal-page admin-portal">
       {/* ── Top Header Navigation ────────────────────────────────────────── */}
@@ -180,7 +172,11 @@ export default function AdminLogin() {
         <div className="portal-header__inner">
           <div className="portal-header__brand-group">
             <Link to="/" aria-label="GOSIKA Home">
-              <GosikaLogo size={34} textColor="#FF5500" />
+              {logoUrl ? (
+                <img className="portal-header__logo" src={apiImage(logoUrl)} alt={brandName} />
+              ) : (
+                <GosikaLogo size={34} textColor="#FF5500" />
+              )}
             </Link>
             <div className="portal-header__divider" aria-hidden="true" />
             <span className="portal-header__portal-badge">Admin Portal</span>
@@ -200,47 +196,42 @@ export default function AdminLogin() {
         </div>
       </header>
 
-      {/* ── Hero & Login Card Section ────────────────────────────────────── */}
       <main className="portal-hero">
         <div className="portal-hero__inner">
-          {/* Left Column: Heading, Description, Checklist & Photo */}
-          <div className="portal-hero__info">
+          <section className="portal-hero__info">
             <h1 className="portal-hero__heading">
-              Welcome Back
-              <span>Admin</span>
+              Welcome Back <span>Admin</span>
             </h1>
-
             <p className="portal-hero__description">
               Manage your marketplace, users, products and keep everything running smoothly.
             </p>
-
             <ul className="portal-hero__features">
-              {features.map((feat) => (
-                <li key={feat} className="portal-hero__feature-item">
-                  <span className="portal-hero__feature-icon">
-                    <CheckCircle2 size={13} strokeWidth={3} />
-                  </span>
-                  <span>{feat}</span>
+              {features.map((feature) => (
+                <li key={feature} className="portal-hero__feature-item">
+                  <span className="portal-hero__feature-icon"><CheckCircle2 size={13} strokeWidth={3} /></span>
+                  <span>{feature}</span>
                 </li>
               ))}
             </ul>
-
             <div className="portal-hero__photo-card">
               <img
                 src={adminDashboardHero}
-                alt="Modern corporate office desk with laptop displaying GOSIKA marketplace dashboard"
+                alt="Modern workspace for managing the Gosika marketplace"
               />
               <div className="portal-hero__photo-badge">
                 <ShieldCheck size={14} />
                 <span>Gosika Administration</span>
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* Right Column: White Authentication Card */}
-          <div className="portal-card">
-            <div className="portal-card__icon-wrap">
-              <ShieldCheck size={24} />
+          <section className="portal-card">
+            <div className="portal-card__icon-wrap portal-card__icon-wrap--brand">
+              {logoUrl ? (
+                <img className="portal-card__brand-logo" src={apiImage(logoUrl)} alt={brandName} />
+              ) : (
+                <GosikaLogo size={34} showText={false} />
+              )}
             </div>
 
             <h2 className="portal-card__heading">Login to Admin Panel</h2>
@@ -337,18 +328,15 @@ export default function AdminLogin() {
                 <span>•</span> Restricted to authorized administrators and staff
               </p>
             </form>
-          </div>
+          </section>
         </div>
       </main>
 
-      {/* ── Feature Trust Strip ──────────────────────────────────────────── */}
       <section className="portal-trust" aria-label="Platform assurance">
         <div className="portal-trust__inner portal-trust__inner--3cols">
           {trustItems.map(({ icon: Icon, title, subtitle }) => (
             <div className="portal-trust__item" key={title}>
-              <div className="portal-trust__icon-wrap">
-                <Icon size={22} />
-              </div>
+              <div className="portal-trust__icon-wrap"><Icon size={22} /></div>
               <div className="portal-trust__text">
                 <span className="portal-trust__title">{title}</span>
                 <span className="portal-trust__subtitle">{subtitle}</span>
@@ -358,33 +346,27 @@ export default function AdminLogin() {
         </div>
       </section>
 
-      {/* ── Dark Navy Enterprise Footer ──────────────────────────────────── */}
       <footer className="portal-footer-dark">
         <div className="portal-footer-dark__inner">
-          <Link to="/" aria-label="GOSIKA Home">
-            <GosikaLogo size={28} textColor="#FFFFFF" />
+          <Link to="/" aria-label={`${brandName} Home`}>
+            {logoUrl ? (
+              <img className="portal-footer__logo" src={apiImage(logoUrl)} alt={brandName} />
+            ) : (
+              <GosikaLogo size={28} textColor="#FFFFFF" />
+            )}
           </Link>
-
           <span className="portal-footer-dark__copyright">
-            © {new Date().getFullYear()} Gosika. All rights reserved.
+            © {new Date().getFullYear()} {brandName}. All rights reserved.
           </span>
-
           <nav className="portal-footer-dark__links" aria-label="Legal and contact">
             <Link to="/help">Privacy Policy</Link>
             <Link to="/help">Terms of Service</Link>
             <Link to="/help">Contact</Link>
           </nav>
-
           <div className="portal-footer-dark__socials" aria-label="Social media">
-            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="portal-footer-dark__social-link" aria-label="Facebook">
-              <FacebookIcon size={16} />
-            </a>
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="portal-footer-dark__social-link" aria-label="Instagram">
-              <InstagramIcon size={16} />
-            </a>
-            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="portal-footer-dark__social-link" aria-label="X">
-              <TwitterIcon size={16} />
-            </a>
+            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="portal-footer-dark__social-link" aria-label="Facebook"><FacebookIcon size={16} /></a>
+            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="portal-footer-dark__social-link" aria-label="Instagram"><InstagramIcon size={16} /></a>
+            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="portal-footer-dark__social-link" aria-label="X"><TwitterIcon size={16} /></a>
           </div>
         </div>
       </footer>

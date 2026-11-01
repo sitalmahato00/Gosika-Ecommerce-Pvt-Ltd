@@ -26,8 +26,9 @@ export default function ResetPassword() {
 
   if (!email) {
     return (
-      <div className="page-shell container container-narrow">
+      <div className="page-shell container container-narrow auth-card-page">
         <div className="card" style={{ maxWidth: 440, margin: '0 auto', textAlign: 'center', padding: '36px 24px' }}>
+          <AuthBrand />
           <h1 style={{ fontSize: 20 }}>Missing email</h1>
           <p className="muted text-sm">We need your account email to reset your password. Please request a code first.</p>
           <Link to="/forgot-password" className="btn btn-primary" style={{ marginTop: 12 }}>Request a verification code</Link>
@@ -85,8 +86,9 @@ export default function ResetPassword() {
 
   if (done) {
     return (
-      <div className="page-shell container container-narrow">
+      <div className="page-shell container container-narrow auth-card-page">
         <div className="card" style={{ maxWidth: 440, margin: '0 auto', textAlign: 'center', padding: '36px 24px' }}>
+          <AuthBrand />
           <span className="avatar" style={{ width: 56, height: 56, margin: '0 auto 14px', background: 'var(--success-bg)', color: 'var(--success)' }}>
             <CheckCircle2 size={26} />
           </span>
@@ -99,7 +101,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="page-shell container container-narrow">
+    <div className="page-shell container container-narrow auth-card-page">
       <div className="card" style={{ maxWidth: 440, margin: '0 auto', padding: '28px 24px' }}>
         <div className="text-center mb-2">
           <AuthBrand />
