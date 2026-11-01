@@ -23,9 +23,9 @@ rawApi.interceptors.response.use(
       const loginRoute = path.startsWith('/admin') || path.startsWith('/delivery')
         ? '/admin/login'
         : path.startsWith('/vendor')
-          ? '/vendor/login'
+          ? '/seller/login'
           : '/login'
-      const isLoginPage = ['/login', '/admin/login', '/vendor/login'].includes(path)
+      const isLoginPage = ['/login', '/admin/login', '/seller/login'].includes(path)
       if (!isLoginPage) {
         window.location.assign(loginRoute)
       }

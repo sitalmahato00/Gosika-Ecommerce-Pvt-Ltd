@@ -30,7 +30,7 @@ export function GuestRoute({ children }) {
 export function VendorRoute({ children }) {
   const { user, booted, isVendor, isSuperAdmin } = useAuth()
   if (!booted) return <FullPageLoading />
-  if (!user) return <Navigate to="/vendor/login" state={{ from: '/vendor' }} replace />
+  if (!user) return <Navigate to="/seller/login" state={{ from: '/vendor' }} replace />
   // Allow vendors or super admins (super admins can access all portals)
   if (!isVendor() && !isSuperAdmin()) return <Navigate to="/account" replace />
   return children

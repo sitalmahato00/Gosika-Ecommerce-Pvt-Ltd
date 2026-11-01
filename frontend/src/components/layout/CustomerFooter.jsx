@@ -50,7 +50,7 @@ const ACCOUNT_LINKS = [
 
 const SELLER_LINKS = [
   { label: 'Vendor Dashboard', to: '/vendor' },
-  { label: 'Become a Seller', to: '/vendor/login' },
+  { label: 'Become a Seller', to: '/seller/login' },
   { label: 'Seller Guidelines', to: '/help' },
   { label: 'Commission Info', to: '/help' },
 ]
@@ -233,8 +233,8 @@ export default function CustomerFooter() {
           <div>
             <h4 style={{ color: '#ffffff', fontSize: 14, fontWeight: 700, marginBottom: 16 }}>For Sellers</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Link to="/vendor/login" style={{ color: '#ff5500', fontWeight: 600, textDecoration: 'none' }}>Become a Seller</Link>
-              <Link to="/vendor/login" style={{ color: '#94a3b8', textDecoration: 'none' }}>Seller Hub</Link>
+              <Link to="/seller/login" style={{ color: '#ff5500', fontWeight: 600, textDecoration: 'none' }}>Become a Seller</Link>
+              <Link to="/seller/login" style={{ color: '#94a3b8', textDecoration: 'none' }}>Seller Hub</Link>
               <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Seller Guidelines</Link>
               <Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none' }}>Commission Rates</Link>
             </div>

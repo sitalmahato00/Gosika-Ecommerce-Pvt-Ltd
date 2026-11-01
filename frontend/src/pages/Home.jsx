@@ -2,14 +2,15 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Truck, ShieldCheck, RotateCcw, Headphones, ArrowRight,
-  Sparkles, Flame, Star, Laptop, Shirt, ShoppingBag,
-  Home as HomeIcon, Trophy, Utensils, BookOpen, Smartphone,
+  Sparkles, Flame, Star,
   ChevronRight, Check, Send, BadgeCheck
 } from 'lucide-react'
 import api from '../api/client'
 import ProductCard, { ProductCardSkeletonMini } from '../components/commerce/ProductCard'
 import ProductQuickView from '../components/commerce/ProductQuickView'
 import { useToast } from '../context/ToastContext'
+import { getCategoryIcon } from '../utils/icons'
+import { apiImage } from '../utils/format'
 
 // Countdown timer hook for Flash Deals banner
 function useCountdown(initialSeconds = 2 * 86400 + 14 * 3600 + 38 * 60 + 45) {
@@ -34,18 +35,6 @@ function useCountdown(initialSeconds = 2 * 86400 + 14 * 3600 + 38 * 60 + 45) {
   }
 }
 
-// 8 Categories for the Floating Category Bar
-const FLOATING_CATEGORIES = [
-  { label: 'Electronics', icon: Laptop, slug: 'electronics' },
-  { label: "Men's Fashion", icon: Shirt, slug: 'mens-fashion' },
-  { label: "Women's Fashion", icon: ShoppingBag, slug: 'womens-fashion' },
-  { label: 'Home & Living', icon: HomeIcon, slug: 'home-living' },
-  { label: 'Beauty & Care', icon: Sparkles, slug: 'beauty-care' },
-  { label: 'Sports & Fitness', icon: Trophy, slug: 'sports-fitness' },
-  { label: 'Groceries', icon: Utensils, slug: 'groceries' },
-  { label: 'Books & Stationery', icon: BookOpen, slug: 'books-stationery' },
-]
-
 // 4 Pastel Promo Banners (Trending Now)
 const PASTEL_PROMOS = [
   {
@@ -57,7 +46,7 @@ const PASTEL_PROMOS = [
     bg: '#eff6ff',
     border: '#dbeafe',
     ctaColor: '#2563eb',
-    link: '/shop?category=smartphones',
+    categoryTerms: ['smartphone', 'mobile', 'electronic'],
     image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&q=80',
   },
   {
@@ -69,7 +58,7 @@ const PASTEL_PROMOS = [
     bg: '#f0fdf4',
     border: '#dcfce7',
     ctaColor: '#16a34a',
-    link: '/shop?category=home-living',
+    categoryTerms: ['home', 'kitchen', 'living'],
     image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=500&q=80',
   },
   {
@@ -81,7 +70,7 @@ const PASTEL_PROMOS = [
     bg: '#f5f3ff',
     border: '#ede9fe',
     ctaColor: '#7c3aed',
-    link: '/shop?category=mens-fashion',
+    categoryTerms: ['fashion', 'apparel', 'clothing'],
     image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&q=80',
   },
   {
@@ -93,21 +82,20 @@ const PASTEL_PROMOS = [
     bg: '#fdf2f8',
     border: '#fce7f3',
     ctaColor: '#db2777',
-    link: '/shop?category=beauty-care',
+    categoryTerms: ['beauty', 'care', 'cosmetic'],
     image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=500&q=80',
   },
 ]
 
-// 8 Circular Top Categories
-const TOP_CATEGORIES = [
-  { name: 'Mobile Phones', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=300&q=80', slug: 'mobile-phones' },
-  { name: 'Laptops & PCs', image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=300&q=80', slug: 'laptops-pcs' },
-  { name: "Men's Fashion", image: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?w=300&q=80', slug: 'mens-fashion' },
-  { name: "Women's Fashion", image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=300&q=80', slug: 'womens-fashion' },
-  { name: 'Home Appliances', image: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=300&q=80', slug: 'home-appliances' },
-  { name: 'TV & Audio', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&q=80', slug: 'tv-audio' },
-  { name: 'Watches', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&q=80', slug: 'watches' },
-  { name: 'Bags & Luggage', image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&q=80', slug: 'bags-luggage' },
+const CATEGORY_IMAGES = [
+  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=300&q=80',
+  'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=300&q=80',
+  'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?w=300&q=80',
+  'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=300&q=80',
+  'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=300&q=80',
+  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&q=80',
+  'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&q=80',
+  'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&q=80',
 ]
 
 // 4 Clean Trust Cards
@@ -291,6 +279,7 @@ const HERO_SLIDES = [
 ]
 
 export default function Home() {
+  const [categories, setCategories] = useState([])
   const [deals, setDeals] = useState([])
   const [newArrivals, setNewArrivals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -305,10 +294,12 @@ export default function Home() {
     Promise.all([
       api.get('/products', { params: { discount: true, per_page: 6 } }).catch(() => ({ data: { data: [] } })),
       api.get('/products', { params: { sort: 'newest', per_page: 6 } }).catch(() => ({ data: { data: [] } })),
-    ]).then(([dealsRes, newRes]) => {
+      api.get('/categories').catch(() => ({ data: { data: [] } })),
+    ]).then(([dealsRes, newRes, categoriesRes]) => {
       if (!alive) return
       const apiDeals = api.unwrapList(dealsRes.data)
       const apiNew = api.unwrapList(newRes.data)
+      setCategories(api.unwrapList(categoriesRes.data))
 
       // Fill with high-fidelity fallback items if database has fewer than 6
       const mergedDeals = apiDeals.length >= 6
@@ -344,6 +335,13 @@ export default function Home() {
   }, [])
 
   const active = HERO_SLIDES[slide]
+  const categoryLink = (terms) => {
+    const category = categories.find((item) => {
+      const nameAndSlug = `${item.name} ${item.slug}`.toLowerCase()
+      return terms.some((term) => nameAndSlug.includes(term))
+    })
+    return category ? `/shop?category=${encodeURIComponent(category.slug)}` : '/shop'
+  }
 
   return (
     <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
@@ -405,19 +403,19 @@ export default function Home() {
       <div className="container" style={{ padding: '0 20px' }}>
         <div className="floating-cat-card">
           <div className="floating-cat-grid">
-            {FLOATING_CATEGORIES.map((cat) => {
-              const IconComp = cat.icon
+            {categories.slice(0, 8).map((cat, index) => {
+              const IconComp = getCategoryIcon(cat, index)
               return (
                 <Link
-                  key={cat.label}
-                  to={`/shop?category=${cat.slug}`}
+                  key={cat.id}
+                  to={`/shop?category=${encodeURIComponent(cat.slug)}`}
                   className="floating-cat-item"
-                  aria-label={cat.label}
+                  aria-label={cat.name}
                 >
                   <div className="floating-cat-icon">
                     <IconComp size={24} />
                   </div>
-                  <span className="floating-cat-label">{cat.label}</span>
+                  <span className="floating-cat-label">{cat.name}</span>
                 </Link>
               )
             })}
@@ -480,7 +478,7 @@ export default function Home() {
           {PASTEL_PROMOS.map((promo) => (
             <Link
               key={promo.badge}
-              to={promo.link}
+              to={categoryLink(promo.categoryTerms)}
               className="pastel-promo-card"
               style={{
                 background: promo.bg,
@@ -569,15 +567,19 @@ export default function Home() {
         </div>
 
         <div className="circular-cat-grid">
-          {TOP_CATEGORIES.map((cat) => (
+          {categories.slice(0, 8).map((cat, index) => (
             <Link
-              key={cat.name}
-              to={`/shop?category=${cat.slug}`}
+              key={cat.id}
+              to={`/shop?category=${encodeURIComponent(cat.slug)}`}
               className="circular-cat-card"
               aria-label={cat.name}
             >
               <div className="circular-cat-avatar">
-                <img src={cat.image} alt={cat.name} loading="lazy" />
+                <img
+                  src={cat.image ? apiImage(cat.image) : CATEGORY_IMAGES[index % CATEGORY_IMAGES.length]}
+                  alt={cat.name}
+                  loading="lazy"
+                />
               </div>
               <span className="circular-cat-name">{cat.name}</span>
             </Link>

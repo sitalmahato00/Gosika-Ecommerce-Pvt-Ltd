@@ -8,7 +8,7 @@ import {
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { money, apiImage, getProductImage, handleImgError } from '../utils/format'
+import { money, apiImage, getProductImage, handleImgError, errorMessage } from '../utils/format'
 import EmptyState from '../components/ui/EmptyState'
 import QtyStepper from '../components/commerce/QtyStepper'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -26,6 +26,7 @@ export default function Cart() {
     } catch {}
     return []
   })
+  const [updatingItemIds, setUpdatingItemIds] = useState(() => new Set())
 
   // Sync selectedIds with cart items: if cart changes and selectedIds is empty, select all
   useEffect(() => {
@@ -109,10 +110,18 @@ export default function Cart() {
   }, [cart])
 
   const handleUpdate = async (item, qty) => {
+    if (updatingItemIds.has(item.id)) return
+    setUpdatingItemIds((current) => new Set(current).add(item.id))
     try {
       await updateItem(item.id, qty)
-    } catch {
-      toast.error('Could not update quantity')
+    } catch (error) {
+      toast.error(errorMessage(error, 'Unable to update quantity. Please try again.'))
+    } finally {
+      setUpdatingItemIds((current) => {
+        const next = new Set(current)
+        next.delete(item.id)
+        return next
+      })
     }
   }
 
@@ -349,7 +358,12 @@ export default function Cart() {
                             value={item.quantity}
                             onChange={(q) => handleUpdate(item, q)}
                             max={99}
+                            disabled={updatingItemIds.has(item.id)}
+                            deferInputChange
                           />
+                          {updatingItemIds.has(item.id) && (
+                            <span className="muted text-xs" role="status">Saving…</span>
+                          )}
                         </div>
                       </div>
 

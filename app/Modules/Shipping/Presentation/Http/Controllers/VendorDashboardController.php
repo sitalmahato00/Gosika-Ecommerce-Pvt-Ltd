@@ -122,7 +122,26 @@ class VendorDashboardController extends Controller
             ])
             ->values();
 
+        $vendor->loadMissing(['kyc', 'stores.addresses', 'bankAccounts', 'documents']);
+        $hasProducts = Product::query()->where('vendor_id', $vendor->id)->exists();
+        $kycStatus = $vendor->kyc?->status?->value ?? (string) ($vendor->kyc?->status ?? 'draft');
+        $hasAddress = ! empty($vendor->kyc?->address) || $vendor->stores->contains(fn ($s) => $s->addresses()->exists());
+
         return Response::success([
+            'onboarding' => [
+                'email_verified' => (bool) $request->user()->email_verified_at,
+                'email' => $request->user()->email,
+                'has_address' => $hasAddress,
+                'address' => $vendor->kyc?->address ?? $vendor->stores->first()?->addresses->first()?->address_line_1,
+                'has_kyc' => ! empty($vendor->kyc?->owner_citizenship_number) || ! empty($vendor->pan_vat),
+                'kyc_status' => $kycStatus,
+                'is_kyc_approved' => in_array($kycStatus, ['approved', 'verified'], true),
+                'has_bank' => $vendor->bankAccounts->isNotEmpty(),
+                'has_product' => $hasProducts,
+                'products_count' => Product::query()->where('vendor_id', $vendor->id)->count(),
+                'company_name' => $vendor->company_name,
+                'vendor_status' => $vendor->status?->value ?? (string) $vendor->status,
+            ],
             'range' => $range,
             'total_revenue' => number_format($revenue, 2, '.', ''),
             'net_earnings' => number_format($netEarnings, 2, '.', ''),

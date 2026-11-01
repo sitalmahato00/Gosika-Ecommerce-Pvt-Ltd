@@ -115,6 +115,11 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
 
   const [paying, setPaying] = useState(false)
   const initiatePayment = async () => {
+    if (order.status === 'cancelled') {
+      toast.error('This order has been cancelled and cannot be paid.')
+      return
+    }
+
     setPaying(true)
     try {
       if (order.payment_method === 'khalti') {
@@ -188,7 +193,7 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
           <div className="flex items-center gap-2">
             <StatusBadge status={order.status} />
             <StatusBadge status={order.payment_status} />
-            {order.payment_status === 'pending' && ['khalti', 'esewa'].includes(order.payment_method) && (
+            {order.status !== 'cancelled' && order.payment_status === 'pending' && ['khalti', 'esewa'].includes(order.payment_method) && (
                <Button variant="primary" size="sm" onClick={initiatePayment} disabled={paying}>
                  {paying ? 'Processing...' : 'Pay Now'}
                </Button>

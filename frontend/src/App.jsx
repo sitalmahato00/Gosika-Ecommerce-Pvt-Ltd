@@ -315,11 +315,12 @@ export default function App() {
     <>
       <EmailVerificationPrompt />
       <Routes>
-      <Route path="/vendor/register" element={<Navigate to="/vendor/login?mode=register" replace />} />
-      <Route path="/admin/login" element={<GuestRoute><AdminLogin /></GuestRoute>} />
+      <Route path="/vendor/register" element={<Navigate to="/seller/login?mode=register" replace />} />
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/seller/login" element={<VendorLogin />} />
       <Route path="/vendor/login" element={<VendorLogin />} />
       <Route path="/admin-login" element={<Navigate to="/admin/login" replace />} />
-      <Route path="/vendor-login" element={<Navigate to="/vendor/login" replace />} />
+      <Route path="/vendor-login" element={<Navigate to="/seller/login" replace />} />
       <Route path="/*" element={<CustomerLayout />} />
 
       {/* Vendor Portal */}

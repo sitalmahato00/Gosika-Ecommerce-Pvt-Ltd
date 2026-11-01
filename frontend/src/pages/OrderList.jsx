@@ -10,6 +10,8 @@ import Pagination from '../components/ui/Pagination'
 import { ProductCardSkeletonMini } from '../components/ui/Skeleton'
 import { money, formatDateTime, apiImage, getProductImage } from '../utils/format'
 import { PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../utils/constants'
+import { useCart } from '../context/CartContext'
+import { useToast } from '../context/ToastContext'
 
 const STATUS_TABS = [
   { value: '', label: 'All' },
@@ -24,6 +26,9 @@ const STATUS_TABS = [
 
 export default function OrderList({ basePath = '/orders' }) {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { addItem } = useCart()
+  const toast = useToast()
+  const [reorderingId, setReorderingId] = React.useState(null)
   const status = searchParams.get('status') || ''
 
   const fetcher = useCallback(
@@ -52,6 +57,43 @@ export default function OrderList({ basePath = '/orders' }) {
   const changeStatus = (value) => {
     setSearchParams(value ? { status: value } : {}, { replace: true })
     setPage(1)
+  }
+
+  const reorder = async (event, order) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setReorderingId(order.id)
+
+    let added = 0
+    let unavailable = false
+    try {
+      for (const item of order.items || []) {
+        if (!item.product_id) {
+          unavailable = true
+          continue
+        }
+
+        try {
+          await addItem({
+            productId: item.product_id,
+            variantId: item.variant_id || null,
+            quantity: item.quantity,
+          })
+          added += 1
+        } catch {
+          unavailable = true
+        }
+      }
+
+      if (added > 0) {
+        toast.success(unavailable ? 'Available items were added to your cart.' : 'Order items added to your cart.')
+        window.location.assign('/cart')
+      } else {
+        toast.error('The products in this order are no longer available.')
+      }
+    } finally {
+      setReorderingId(null)
+    }
   }
 
   if (loading) {
@@ -155,6 +197,18 @@ export default function OrderList({ basePath = '/orders' }) {
                     }}
                   >
                     Pay Now
+                  </button>
+                </div>
+              )}
+              {o.status === 'cancelled' && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={reorderingId === o.id}
+                    onClick={(event) => reorder(event, o)}
+                  >
+                    {reorderingId === o.id ? 'Adding to cart…' : 'Order Again'}
                   </button>
                 </div>
               )}

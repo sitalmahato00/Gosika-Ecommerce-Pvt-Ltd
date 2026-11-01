@@ -60,8 +60,13 @@ export default function PaymentCallback() {
     if (statusParam === 'failure' || statusParam === 'canceled' || statusParam === 'cancelled') {
       done.current = true
       setFailed(true)
-      setIsCancelled(true)
-      setError('Payment was cancelled or could not be completed on eSewa. Your order is safely saved in your account and can be paid anytime.')
+      const oid = searchParams.get('order_id')
+      if (oid) setOrderId(oid)
+      const cancelled = searchParams.get('cancelled') === '1'
+      setIsCancelled(cancelled)
+      setError(cancelled
+        ? 'eSewa payment was cancelled and the order has been cancelled.'
+        : 'Payment could not be completed on eSewa. Check your order status or try payment again.')
       return
     }
 
@@ -78,6 +83,15 @@ export default function PaymentCallback() {
       .post('/payments/esewa/callback', { data })
       .then((res) => {
         const payment = res.data.data
+        if (payment?.status !== 'paid') {
+          setFailed(true)
+          setIsCancelled(payment?.status === 'cancelled' || payment?.order_status === 'cancelled')
+          setOrderId(payment?.order_id || null)
+          setError(payment?.status === 'cancelled' || payment?.order_status === 'cancelled'
+            ? 'eSewa payment was cancelled and the order has been cancelled.'
+            : 'eSewa payment is not complete. Your order has not been confirmed.')
+          return
+        }
         if (typeof fetchCart === 'function') {
           fetchCart()
         }
@@ -192,7 +206,7 @@ export default function PaymentCallback() {
           {error || 'We could not confirm your eSewa payment. Your order is preserved and remains pending payment.'}
         </p>
 
-        {orderId && (
+        {orderId && !isCancelled && (
           <div style={{ marginBottom: 20 }}>
             <Button variant="primary" size="md" onClick={retryPayment} disabled={retrying}>
               <RotateCw size={15} className={retrying ? 'spin' : ''} /> {retrying ? 'Connecting to eSewa…' : 'Try Payment Again'}

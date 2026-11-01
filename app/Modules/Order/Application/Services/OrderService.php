@@ -37,7 +37,7 @@ class OrderService
     {
         return Order::query()
             ->where('user_id', $user->id)
-            ->with(['items'])
+            ->with(['items.product', 'items.variant'])
             ->orderByDesc('created_at')
             ->get();
     }
@@ -47,7 +47,7 @@ class OrderService
         return Order::query()
             ->where('user_id', $user->id)
             ->where('uuid', $uuid)
-            ->with(['items', 'vendorOrders.items', 'vendorOrders.assignments.tracking', 'shippingAddress'])
+            ->with(['items.product', 'items.variant', 'vendorOrders.items', 'vendorOrders.assignments.tracking', 'shippingAddress'])
             ->first();
     }
 
@@ -216,6 +216,57 @@ class OrderService
         });
     }
 
+    public function cancelForPaymentFailure(Order $order, string $reason): Order
+    {
+        return DB::transaction(function () use ($order, $reason) {
+            $order = Order::query()->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($order->status === OrderStatus::CANCELLED) {
+                return $order;
+            }
+
+            if (! in_array($order->status, [OrderStatus::PENDING, OrderStatus::PAYMENT_PENDING], true)) {
+                return $order;
+            }
+
+            $from = $order->status->value;
+            $order->status = OrderStatus::CANCELLED;
+            $order->cancelled_at = now();
+            $order->cancelled_reason = $reason;
+            $order->save();
+
+            foreach ($order->vendorOrders()->lockForUpdate()->get() as $vendorOrder) {
+                $voFrom = $vendorOrder->status->value;
+                $vendorOrder->update([
+                    'status' => OrderStatus::CANCELLED,
+                    'delivery_status' => \App\Modules\Shared\Domain\Enums\DeliveryStatus::FAILED,
+                ]);
+
+                OrderStatusHistory::create([
+                    'trackable_type' => VendorOrder::class,
+                    'trackable_id' => $vendorOrder->id,
+                    'from_status' => $voFrom,
+                    'to_status' => OrderStatus::CANCELLED->value,
+                    'reason' => $reason,
+                    'actor_user_id' => null,
+                ]);
+            }
+
+            $this->restoreStock($order);
+
+            OrderStatusHistory::create([
+                'trackable_type' => Order::class,
+                'trackable_id' => $order->id,
+                'from_status' => $from,
+                'to_status' => OrderStatus::CANCELLED->value,
+                'reason' => $reason,
+                'actor_user_id' => null,
+            ]);
+
+            return $order->fresh(['items', 'vendorOrders.items']);
+        });
+    }
+
     protected function handlePaymentCancellation(Order $order, User $actor, ?string $reason): void
     {
         $payment = \App\Modules\Payment\Infrastructure\Models\Payment::query()
@@ -264,9 +315,10 @@ class OrderService
         $order->customer_notes = $notes;
         $order->placed_at = now();
 
-        $deliveryOtp = sprintf('%06d', random_int(100000, 999999));
         $orderMeta = (array) ($order->meta ?? []);
-        $orderMeta['delivery_otp'] = $deliveryOtp;
+        if ($order->payment_method === 'cod') {
+            $orderMeta['delivery_otp'] = sprintf('%06d', random_int(100000, 999999));
+        }
         $order->meta = $orderMeta;
 
         $order->save();
@@ -310,7 +362,9 @@ class OrderService
         $vendorOrder->vendor_payable = round($grandTotal - $commissionAmount, 2);
 
         $voMeta = (array) ($vendorOrder->meta ?? []);
-        $voMeta['delivery_otp'] = $order->meta['delivery_otp'] ?? $deliveryOtp;
+        if (! empty($order->meta['delivery_otp'])) {
+            $voMeta['delivery_otp'] = $order->meta['delivery_otp'];
+        }
         $vendorOrder->meta = $voMeta;
 
         $vendorOrder->save();

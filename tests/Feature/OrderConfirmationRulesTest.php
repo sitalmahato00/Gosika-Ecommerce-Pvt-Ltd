@@ -9,13 +9,19 @@ use App\Modules\Order\Application\Services\OrderConfirmationSchedulerService;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
+use App\Modules\Order\Presentation\Resources\OrderResource;
+use App\Modules\Payment\Application\Services\PaymentService;
+use App\Modules\Payment\Domain\Contracts\PaymentProviderContract;
+use App\Modules\Payment\Infrastructure\Models\Payment;
 use App\Modules\Platform\Infrastructure\Models\Setting;
 use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Enums\PaymentMethod;
+use App\Modules\Shared\Domain\Enums\PaymentStatus;
 use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Domain\Enums\UserStatus;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
+use App\Modules\Payment\Domain\Exceptions\PaymentProviderException;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Carbon\Carbon;
@@ -193,6 +199,115 @@ class OrderConfirmationRulesTest extends TestCase
 
         // Stock restored exactly once (+2)
         $this->assertEquals($initialProductQty + 2, $this->product->fresh()->quantity);
+    }
+
+    public function test_cancelled_order_cannot_start_or_complete_payment(): void
+    {
+        [$order, , $customer] = $this->createOrder(OrderStatus::CANCELLED);
+        $payment = Payment::create([
+            'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
+            'order_id' => $order->id,
+            'user_id' => $customer->id,
+            'amount' => $order->grand_total,
+            'currency' => 'NPR',
+            'method' => 'esewa',
+            'provider' => 'esewa',
+            'status' => PaymentStatus::FAILED,
+            'initiated_at' => now(),
+        ]);
+        $paymentService = app(PaymentService::class);
+
+        try {
+            $paymentService->initiate($order, $customer, 'esewa');
+            $this->fail('Cancelled order payment initiation should be rejected.');
+        } catch (PaymentProviderException $exception) {
+            $this->assertSame('This order has been cancelled and cannot be paid.', $exception->getMessage());
+        }
+
+        try {
+            $paymentService->markPaid($payment);
+            $this->fail('Cancelled order payment callback should be rejected.');
+        } catch (PaymentProviderException $exception) {
+            $this->assertSame('This order has been cancelled and cannot be paid.', $exception->getMessage());
+        }
+
+        $this->assertSame(PaymentStatus::FAILED, $payment->fresh()->status);
+        $this->assertSame(OrderStatus::CANCELLED, $order->fresh()->status);
+    }
+
+    public function test_online_order_only_gets_delivery_otp_after_payment_is_confirmed(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::PAYMENT_PENDING, false);
+        $order->update(['payment_status' => OrderPaymentStatus::PENDING]);
+        $vendorOrder->update(['status' => OrderStatus::PENDING]);
+
+        $resourceBeforePayment = OrderResource::make($order->fresh())->toArray(request());
+        $this->assertNull($resourceBeforePayment['delivery_otp']);
+
+        $payment = Payment::create([
+            'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
+            'order_id' => $order->id,
+            'user_id' => $customer->id,
+            'amount' => $order->grand_total,
+            'currency' => 'NPR',
+            'method' => 'esewa',
+            'provider' => 'esewa',
+            'status' => PaymentStatus::PROCESSING,
+            'initiated_at' => now(),
+        ]);
+
+        app(PaymentService::class)->markPaid($payment);
+
+        $paidOrder = $order->fresh();
+        $this->assertSame(OrderPaymentStatus::PAID, $paidOrder->payment_status);
+        $this->assertSame(OrderStatus::CONFIRMED, $paidOrder->status);
+        $this->assertMatchesRegularExpression('/^\d{6}$/', $paidOrder->meta['delivery_otp']);
+        $this->assertSame($paidOrder->meta['delivery_otp'], $vendorOrder->fresh()->meta['delivery_otp']);
+    }
+
+    public function test_verified_esewa_cancellation_cancels_order_and_restores_stock(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::PAYMENT_PENDING, false);
+        $order->update(['payment_status' => OrderPaymentStatus::PENDING]);
+        $vendorOrder->update(['status' => OrderStatus::PENDING]);
+
+        $payment = Payment::create([
+            'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
+            'order_id' => $order->id,
+            'user_id' => $customer->id,
+            'amount' => $order->grand_total,
+            'currency' => 'NPR',
+            'method' => 'esewa',
+            'provider' => 'esewa',
+            'status' => PaymentStatus::PROCESSING,
+            'initiated_at' => now(),
+        ]);
+
+        $paymentService = app(PaymentService::class);
+        $paymentService->setProvider('esewa', new class implements PaymentProviderContract {
+            public function name(): string
+            {
+                return 'esewa';
+            }
+
+            public function initiate(array $payload): array
+            {
+                return [];
+            }
+
+            public function lookup(string $reference, ?array $params = null): array
+            {
+                return ['status' => 'CANCELED'];
+            }
+        });
+
+        $paymentService->verifyEsewaOrderStatus($payment);
+
+        $this->assertSame(PaymentStatus::FAILED, $payment->fresh()->status);
+        $this->assertSame(OrderStatus::CANCELLED, $order->fresh()->status);
+        $this->assertSame(OrderStatus::CANCELLED, $vendorOrder->fresh()->status);
+        $this->assertSame(10, $this->product->fresh()->quantity);
+        $this->assertNull(OrderResource::make($order->fresh())->toArray(request())['delivery_otp']);
     }
 
     // ── 2. Cancellation with "Other" requires explanation ──────────────

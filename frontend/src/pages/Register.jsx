@@ -116,7 +116,7 @@ export default function Register() {
           <GoogleIcon /> Continue with Google
         </a>
 
-        <Link to="/vendor/login" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', marginTop: 4 }}>
+        <Link to="/seller/login" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', marginTop: 4 }}>
           <Store size={15} /> Sell on Gosika as a Merchant
         </Link>
       </div>

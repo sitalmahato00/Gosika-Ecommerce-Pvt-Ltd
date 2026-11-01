@@ -89,6 +89,10 @@ class PaymentService
 
     public function initiate(Order $order, User $user, string $method, array $options = []): Payment
     {
+        if ($order->status === OrderStatus::CANCELLED) {
+            throw new PaymentProviderException('This order has been cancelled and cannot be paid.', 422);
+        }
+
         if ($order->payment_status->value === OrderPaymentStatus::PAID->value) {
             throw new PaymentProviderException('Order has already been paid.', 422);
         }
@@ -242,9 +246,9 @@ class PaymentService
             $payload['success_url'] = (string) $options['success_url'];
         }
 
-        if (! empty($options['failure_url'])) {
-            $payload['failure_url'] = (string) $options['failure_url'];
-        }
+        $payload['failure_url'] = rtrim((string) config('app.url'), '/')
+            .'/payments/esewa/callback?status=failure&transaction_uuid='
+            .rawurlencode($payment->payment_number);
 
         $attempt = PaymentAttempt::create([
             'payment_id' => $payment->id,
@@ -473,15 +477,19 @@ class PaymentService
                 'PARTIAL_REFUND' => 'Payment was partially refunded by eSewa.',
             ];
 
-            DB::transaction(function () use ($payment, $responseStatus, $statusMessages) {
+            $message = $statusMessages[$responseStatus] ?? 'eSewa payment not completed (status: '.$responseStatus.').';
+            if ($responseStatus === 'CANCELED') {
+                return $this->failCanceledEsewaPayment($payment, $message);
+            }
+
+            DB::transaction(function () use ($payment, $responseStatus) {
                 $from = $payment->status;
                 $payment->status = PaymentStatus::FAILED;
                 $payment->save();
                 $this->recordStatus($payment, $from, PaymentStatus::FAILED, 'eSewa status: '.$responseStatus, $payment->user_id);
             });
 
-            $message = $statusMessages[$responseStatus] ?? 'eSewa payment not completed (status: '.$responseStatus.').';
-            throw new PaymentProviderException($message, 422);
+            return $payment->fresh(['order']);
         }
 
         $provider = $this->provider($payment->method);
@@ -531,6 +539,10 @@ class PaymentService
                     }
 
                     if ($apiStatus !== 'COMPLETE') {
+                        if ($apiStatus === 'CANCELED') {
+                            return $this->failCanceledEsewaPayment($payment, 'Payment was canceled on eSewa.');
+                        }
+
                         DB::transaction(function () use ($payment, $apiStatus) {
                             $from = $payment->status;
                             $payment->status = PaymentStatus::FAILED;
@@ -568,6 +580,15 @@ class PaymentService
     public function markPaid(Payment $payment): Payment
     {
         return DB::transaction(function () use ($payment) {
+            $order = $payment->order_id
+                ? Order::query()->whereKey($payment->order_id)->lockForUpdate()->first()
+                : null;
+
+            if ($order?->status === OrderStatus::CANCELLED) {
+                throw new PaymentProviderException('This order has been cancelled and cannot be paid.', 422);
+            }
+
+            $payment = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->firstOrFail();
             $from = $payment->status;
             $payment->status = PaymentStatus::PAID;
             $payment->verified_at = now();
@@ -575,7 +596,7 @@ class PaymentService
 
             $this->recordStatus($payment, $from, PaymentStatus::PAID, 'Payment verified.', $payment->user_id);
 
-            $order = $payment->order;
+            $order ??= $payment->order;
 
             if ($order && $order->payment_status->value !== OrderPaymentStatus::PAID->value) {
                 $order->payment_status = OrderPaymentStatus::PAID;
@@ -594,7 +615,18 @@ class PaymentService
                     ]);
                 }
 
+                $orderMeta = (array) ($order->meta ?? []);
+                $deliveryOtp = $orderMeta['delivery_otp'] ?? sprintf('%06d', random_int(100000, 999999));
+                $orderMeta['delivery_otp'] = $deliveryOtp;
+                $order->meta = $orderMeta;
                 $order->save();
+
+                foreach ($order->vendorOrders()->lockForUpdate()->get() as $vendorOrder) {
+                    $vendorMeta = (array) ($vendorOrder->meta ?? []);
+                    $vendorMeta['delivery_otp'] = $deliveryOtp;
+                    $vendorOrder->meta = $vendorMeta;
+                    $vendorOrder->save();
+                }
             }
 
             return $payment->fresh(['order']);
@@ -603,6 +635,10 @@ class PaymentService
 
     public function verifyEsewaOrderStatus(Payment $payment): Payment
     {
+        if ($payment->isPaid()) {
+            return $payment->fresh(['order']);
+        }
+
         $transactionUuid = $this->esewaTransactionUuid($payment);
 
         if ($transactionUuid === '') {
@@ -648,12 +684,56 @@ class PaymentService
             'PARTIAL_REFUND' => 'Payment was partially refunded by eSewa.',
         ];
 
+        if ($status === 'CANCELED' && $payment->order) {
+            return $this->failCanceledEsewaPayment($payment, $statusMessages[$status]);
+        }
+
         $from = $payment->status;
         $payment->status = PaymentStatus::FAILED;
         $payment->save();
         $this->recordStatus($payment, $from, PaymentStatus::FAILED, 'eSewa status: '.$status, $payment->user_id);
 
         throw new PaymentProviderException($statusMessages[$status] ?? 'eSewa payment not completed (status: '.$status.').', 422);
+    }
+
+    public function verifyEsewaPaymentByTransactionUuid(string $transactionUuid): Payment
+    {
+        $payment = Payment::query()
+            ->where('payment_number', $transactionUuid)
+            ->where('method', PaymentMethod::ESEWA->value)
+            ->first();
+
+        if (! $payment) {
+            throw new PaymentProviderException('Payment reference not found.', 404);
+        }
+
+        return $this->verifyEsewaOrderStatus($payment);
+    }
+
+    protected function failCanceledEsewaPayment(Payment $payment, string $reason): Payment
+    {
+        return DB::transaction(function () use ($payment, $reason) {
+            $order = $payment->order_id
+                ? Order::query()->whereKey($payment->order_id)->lockForUpdate()->first()
+                : null;
+            $payment = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($payment->isPaid() || $order?->payment_status === OrderPaymentStatus::PAID) {
+                return $payment->fresh(['order']);
+            }
+
+            $from = $payment->status;
+            $payment->status = PaymentStatus::FAILED;
+            $payment->save();
+            $this->recordStatus($payment, $from, PaymentStatus::FAILED, $reason, $payment->user_id);
+
+            if ($order) {
+                app(\App\Modules\Order\Application\Services\OrderService::class)
+                    ->cancelForPaymentFailure($order, $reason);
+            }
+
+            return $payment->fresh(['order']);
+        });
     }
 
     public function markCodCollected(Order $order): Payment

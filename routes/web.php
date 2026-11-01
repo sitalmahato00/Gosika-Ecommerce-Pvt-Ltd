@@ -24,6 +24,10 @@ Route::get('/payments/esewa/callback', function (Request $request) {
         return app(PaymentController::class)->esewaWebCallback($request);
     }
 
+    if ($request->query('status') === 'failure' && $request->filled('transaction_uuid')) {
+        return app(PaymentController::class)->esewaWebFailureCallback($request);
+    }
+
     return app(SpaController::class)();
 });
 

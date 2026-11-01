@@ -222,7 +222,10 @@ export default function Shop() {
       if (v) next.set(k, v)
       else next.delete(k)
     })
-    if (reset) next.delete('page')
+    if (reset) {
+      next.delete('page')
+      setPage(1)
+    }
     setParams(next, { replace: true })
     setFilterOpen(false)
   }

@@ -8,9 +8,10 @@ import Spinner from '../ui/Spinner'
 import useEmailVerification from '../../hooks/useEmailVerification'
 
 const SKIP_PREFIXES = [
+  '/admin/login',
   '/login',
   '/register',
-  '/vendor/login',
+  '/seller/login',
   '/vendor/register',
   '/verify',
   '/forgot-password',

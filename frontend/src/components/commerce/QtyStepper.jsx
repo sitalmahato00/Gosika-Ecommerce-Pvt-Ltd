@@ -1,7 +1,28 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
 
-export default function QtyStepper({ value, onChange, min = 1, max = 99, disabled, compact }) {
+export default function QtyStepper({
+  value,
+  onChange,
+  min = 1,
+  max = 99,
+  disabled,
+  compact,
+  deferInputChange = false,
+}) {
+  const [draftValue, setDraftValue] = useState(String(value))
+
+  useEffect(() => {
+    setDraftValue(String(value))
+  }, [value])
+
+  const commitDraft = () => {
+    const parsed = Number.parseInt(draftValue, 10)
+    const nextValue = Number.isNaN(parsed) ? min : Math.min(max, Math.max(min, parsed))
+    setDraftValue(String(nextValue))
+    if (nextValue !== value) onChange(nextValue)
+  }
+
   return (
     <div
       className="flex items-center"
@@ -26,13 +47,24 @@ export default function QtyStepper({ value, onChange, min = 1, max = 99, disable
       </button>
       <input
         type="number"
-        value={value}
+        value={deferInputChange ? draftValue : value}
         min={min}
         max={max}
         onChange={(e) => {
+          if (deferInputChange) {
+            setDraftValue(e.target.value)
+            return
+          }
           const v = parseInt(e.target.value, 10)
           onChange(Number.isNaN(v) ? min : Math.min(max, Math.max(min, v)))
         }}
+        onBlur={deferInputChange ? commitDraft : undefined}
+        onKeyDown={deferInputChange ? (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            e.currentTarget.blur()
+          }
+        } : undefined}
         disabled={disabled}
         aria-label="Quantity"
         style={{

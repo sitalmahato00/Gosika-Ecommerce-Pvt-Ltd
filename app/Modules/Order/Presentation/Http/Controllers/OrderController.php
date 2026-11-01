@@ -28,7 +28,7 @@ class OrderController extends Controller
 
         $orders = Order::query()
             ->where('user_id', $request->user()->id)
-            ->with(['items'])
+            ->with(['items.product', 'items.variant'])
             ->when($request->filled('status'), fn ($query, $status) => $query->where('status', $status))
             ->latest()
             ->paginate($perPage);

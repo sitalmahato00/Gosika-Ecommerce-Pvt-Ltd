@@ -66,12 +66,14 @@ class PublicCatalogController extends Controller
 
     public function products(Request $request): JsonResponse
     {
+        $categoryIds = $request->filled('category')
+            ? $this->categoryAndDescendantIds((string) $request->input('category'))
+            : [];
+
         $products = Product::query()
             ->available()
             ->with(['store', 'brand', 'primaryImage', 'variants' => fn ($q) => $q->orderBy('is_default', 'desc')])
-            ->when($request->filled('category'), fn ($q) => $q->whereHas('category', function ($q) use ($request) {
-                $q->where('slug', $request->category)->orWhere('uuid', $request->category);
-            }))
+            ->when($request->filled('category'), fn ($q) => $q->whereIn('category_id', $categoryIds))
             ->when($request->filled('brand'), fn ($q) => $q->whereHas('brand', function ($q) use ($request) {
                 $q->where('slug', $request->brand)->orWhere('uuid', $request->brand);
             }))
@@ -104,6 +106,33 @@ class PublicCatalogController extends Controller
             'Products retrieved.',
             $this->paginatorMeta($products)
         );
+    }
+
+    protected function categoryAndDescendantIds(string $identifier): array
+    {
+        $category = Category::query()
+            ->where('status', 'active')
+            ->where(fn ($query) => $query->where('slug', $identifier)->orWhere('uuid', $identifier))
+            ->first();
+
+        if (! $category) {
+            return [];
+        }
+
+        $ids = [$category->id];
+        $frontier = $ids;
+
+        while ($frontier !== []) {
+            $frontier = Category::query()
+                ->where('status', 'active')
+                ->whereIn('parent_id', $frontier)
+                ->whereNotIn('id', $ids)
+                ->pluck('id')
+                ->all();
+            $ids = array_merge($ids, $frontier);
+        }
+
+        return $ids;
     }
 
     public function deals(Request $request): JsonResponse

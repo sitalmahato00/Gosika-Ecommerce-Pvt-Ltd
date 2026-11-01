@@ -18,6 +18,7 @@ class PaymentResource extends JsonResource
             'method' => $this->method,
             'provider' => $this->provider,
             'status' => $this->status->value,
+            'order_status' => $this->order?->status?->value,
             'provider_pidx' => $this->provider_pidx,
             'provider_transaction_id' => $this->provider_transaction_id,
             'payment_url' => $this->provider_response['payment_url'] ?? null,

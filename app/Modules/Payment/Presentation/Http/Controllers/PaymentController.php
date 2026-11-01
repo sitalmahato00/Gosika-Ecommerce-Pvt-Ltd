@@ -105,11 +105,47 @@ class PaymentController extends Controller
             $payment = $this->paymentService->verifyFromEsewaCallback($decoded);
             $orderUuid = $payment->order?->uuid ?? $payment->order_id;
 
+            if ($payment->status !== PaymentStatus::PAID) {
+                $cancelled = $payment->order?->status?->value === \App\Modules\Shared\Domain\Enums\OrderStatus::CANCELLED->value;
+
+                return redirect($frontendUrl . '/payments/esewa/callback?status=failure&order_id=' . urlencode((string) $orderUuid) . ($cancelled ? '&cancelled=1' : ''));
+            }
+
             return redirect($frontendUrl . '/order-success?order_id=' . $orderUuid . '&esewa=1');
         } catch (\Throwable $e) {
             \Log::error('eSewa web callback failed', [
                 'error' => $e->getMessage(),
                 'transaction_uuid' => $decoded['transaction_uuid'] ?? null,
+            ]);
+
+            return redirect($frontendUrl . '/payments/esewa/callback?status=failure');
+        }
+    }
+
+    public function esewaWebFailureCallback(\Illuminate\Http\Request $request)
+    {
+        $frontendUrl = rtrim(config('app.frontend_url'), '/');
+        $transactionUuid = trim((string) $request->query('transaction_uuid', ''));
+
+        if ($transactionUuid === '') {
+            return redirect($frontendUrl . '/payments/esewa/callback?status=failure');
+        }
+
+        try {
+            $payment = $this->paymentService->verifyEsewaPaymentByTransactionUuid($transactionUuid);
+            $orderUuid = $payment->order?->uuid ?? $payment->order_id;
+
+            if ($payment->status === PaymentStatus::PAID) {
+                return redirect($frontendUrl . '/order-success?order_id=' . urlencode((string) $orderUuid) . '&esewa=1');
+            }
+
+            $cancelled = $payment->order?->status?->value === \App\Modules\Shared\Domain\Enums\OrderStatus::CANCELLED->value;
+
+            return redirect($frontendUrl . '/payments/esewa/callback?status=failure&order_id=' . urlencode((string) $orderUuid) . ($cancelled ? '&cancelled=1' : ''));
+        } catch (\Throwable $e) {
+            \Log::error('eSewa failure callback verification failed', [
+                'error' => $e->getMessage(),
+                'transaction_uuid' => $transactionUuid,
             ]);
 
             return redirect($frontendUrl . '/payments/esewa/callback?status=failure');

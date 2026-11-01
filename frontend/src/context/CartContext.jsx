@@ -71,13 +71,43 @@ export function CartProvider({ children }) {
 
   const updateItem = async (itemId, quantity) => {
     const token = localStorage.getItem('gosika_token')
-    const res = await api.put(
-      `/cart/items/${itemId}`,
-      { quantity },
-      { headers: token ? {} : { 'X-Session-Id': sessionId.current } }
-    )
-    await fetchCart()
-    return res
+    const previousCart = cart
+    if (previousCart) {
+      const previousItem = previousCart.items.find((item) => item.id === itemId)
+      setCart({
+        ...previousCart,
+        item_count: Number(previousCart.item_count || 0)
+          + quantity - Number(previousItem?.quantity || 0),
+        subtotal: previousCart.items.reduce((sum, item) => {
+          const itemQuantity = item.id === itemId ? quantity : Number(item.quantity || 0)
+          return sum + Number(item.unit_price || 0) * itemQuantity
+        }, 0).toFixed(2),
+        items: previousCart.items.map((item) => item.id === itemId
+          ? {
+              ...item,
+              quantity,
+              total_price: (Number(item.unit_price || 0) * quantity).toFixed(2),
+            }
+          : item
+        ),
+      })
+    }
+
+    try {
+      const res = await api.put(
+        `/cart/items/${itemId}`,
+        { quantity },
+        { headers: token ? {} : { 'X-Session-Id': sessionId.current } }
+      )
+      const updatedCart = res.data?.data
+      if (updatedCart && Array.isArray(updatedCart.items)) {
+        setCart(updatedCart)
+      }
+      return res
+    } catch (error) {
+      if (previousCart) setCart(previousCart)
+      throw error
+    }
   }
 
   const removeItem = async (itemId) => {

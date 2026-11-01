@@ -62,7 +62,7 @@ export default function Login() {
         let roleType = ''
         
         if (isVendor) {
-          correctPortal = '/vendor/login'
+          correctPortal = '/seller/login'
           roleType = 'vendor'
         } else if (hasStaffRole) {
           correctPortal = '/admin/login'
@@ -139,7 +139,7 @@ export default function Login() {
         <p className="muted text-sm mt-2" style={{ textAlign: 'center' }}>
           Don't have an account? <Link to="/register" className="text-primary font-semibold">Create one</Link>
         </p>
-        <Link to="/vendor/login" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', marginTop: 4 }}>
+        <Link to="/seller/login" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', marginTop: 4 }}>
           <Store size={15} /> Become a Seller on Gosika
         </Link>
         
