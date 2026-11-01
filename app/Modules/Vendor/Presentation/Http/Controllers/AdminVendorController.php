@@ -4,7 +4,10 @@ namespace App\Modules\Vendor\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
+use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Shared\Domain\Enums\KycStatus;
+use App\Modules\Shared\Domain\Enums\StoreStatus;
+use App\Modules\Shared\Domain\Enums\UserStatus;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
@@ -18,6 +21,9 @@ use App\Modules\Vendor\Presentation\Resources\VendorResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AdminVendorController extends Controller
 {
@@ -242,5 +248,63 @@ class AdminVendorController extends Controller
         $store = $this->service->rejectStore($request->user(), $store, $request->input('reason'));
 
         return Response::success(new StoreResource($store), 'Store rejected.');
+    }
+
+    /**
+     * Admin creates a seller account directly.
+     * POST /api/v1/admin/vendors/create-seller
+     *
+     * Payload:
+     *   first_name, last_name, email, phone, password, company_name,
+     *   business_email? (defaults to email), business_phone? (defaults to phone)
+     */
+    public function createSeller(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'first_name'     => ['required', 'string', 'max:80'],
+            'last_name'      => ['required', 'string', 'max:80'],
+            'email'          => ['required', 'email', 'unique:users,email', 'max:180'],
+            'phone'          => ['required', 'string', 'max:30'],
+            'password'       => ['required', 'string', 'min:8'],
+            'company_name'   => ['required', 'string', 'max:180'],
+            'business_email' => ['nullable', 'email', 'max:180'],
+            'business_phone' => ['nullable', 'string', 'max:30'],
+        ]);
+
+        $vendor = DB::transaction(function () use ($data, $request) {
+            // 1. Create the user account
+            $user = User::create([
+                'first_name'        => $data['first_name'],
+                'last_name'         => $data['last_name'],
+                'email'             => strtolower($data['email']),
+                'phone'             => $data['phone'],
+                'password'          => Hash::make($data['password']),
+                'status'            => UserStatus::ACTIVE,
+                'email_verified_at' => null, // seller must verify email themselves
+            ]);
+
+            // 2. Assign vendor role
+            $user->assignRole(Roles::VENDOR_ADMIN);
+
+            // 3. Create vendor record (pending by default)
+            $vendor = Vendor::create([
+                'user_id'        => $user->id,
+                'company_name'   => $data['company_name'],
+                'business_email' => $data['business_email'] ?? strtolower($data['email']),
+                'business_phone' => $data['business_phone'] ?? $data['phone'],
+                'status'         => VendorStatus::PENDING,
+            ]);
+
+            return $vendor;
+        });
+
+        $vendor->loadMissing(['kyc', 'stores', 'user']);
+
+        return Response::success(
+            new VendorResource($vendor),
+            'Seller account created. The seller can now log in and complete KYC verification.',
+            [],
+            201
+        );
     }
 }

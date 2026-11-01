@@ -17,6 +17,7 @@ class KycResource extends JsonResource
             'owner_phone' => $this->owner_phone,
             'business_type' => $this->business_type,
             'address' => $this->address,
+            'landmark' => $this->landmark,
             'province' => $this->province,
             'district' => $this->district,
             'municipality' => $this->municipality,

@@ -19,6 +19,7 @@ import {
 import api from '../../api/client'
 import { useToast } from '../../context/ToastContext'
 import Spinner from '../ui/Spinner'
+import LocationMapPicker from '../common/LocationMapPicker'
 
 export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
   const toast = useToast()
@@ -57,12 +58,43 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
 
   // Address state
   const [addressForm, setAddressForm] = useState({
-    province: 'Bagmati Province',
-    district: 'Kathmandu',
-    municipality: 'Kathmandu',
+    province: onboarding?.province || 'Bagmati Province',
+    district: onboarding?.district || 'Kathmandu',
+    municipality: onboarding?.municipality || 'Kathmandu',
     address: onboarding?.address || '',
+    landmark: onboarding?.landmark || '',
+    coordinates: onboarding?.latitude && onboarding?.longitude
+      ? { lat: Number(onboarding.latitude), lng: Number(onboarding.longitude) }
+      : null,
   })
+  const [editingAddress, setEditingAddress] = useState(!hasAddress)
   const [savingAddress, setSavingAddress] = useState(false)
+
+  useEffect(() => {
+    if (hasAddress) {
+      setEditingAddress(false)
+      setAddressForm((prev) => ({
+        ...prev,
+        province: onboarding?.province || prev.province,
+        district: onboarding?.district || prev.district,
+        municipality: onboarding?.municipality || prev.municipality,
+        address: onboarding?.address || prev.address,
+        landmark: onboarding?.landmark || prev.landmark,
+        coordinates: onboarding?.latitude && onboarding?.longitude
+          ? { lat: Number(onboarding.latitude), lng: Number(onboarding.longitude) }
+          : prev.coordinates,
+      }))
+    }
+  }, [
+    hasAddress,
+    onboarding?.province,
+    onboarding?.district,
+    onboarding?.municipality,
+    onboarding?.address,
+    onboarding?.landmark,
+    onboarding?.latitude,
+    onboarding?.longitude,
+  ])
 
   // Handle email verification send
   const handleSendEmailCode = async () => {
@@ -103,7 +135,7 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
   // Handle saving address
   const handleSaveAddress = async (e) => {
     e.preventDefault()
-    if (!addressForm.address.trim()) {
+    if (!addressForm.address.trim() || !addressForm.province || !addressForm.district || !addressForm.municipality) {
       toast.error('Please enter your street or warehouse address.')
       return
     }
@@ -112,12 +144,16 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
       await api.post('/vendor/kyc', {
         owner_full_name: user?.name || user?.first_name || 'Vendor Owner',
         address: addressForm.address.trim(),
+        landmark: addressForm.landmark.trim() || null,
         province: addressForm.province,
         district: addressForm.district,
         municipality: addressForm.municipality,
+        latitude: addressForm.coordinates?.lat?.toString(),
+        longitude: addressForm.coordinates?.lng?.toString(),
       })
       toast.success('Business address saved!')
-      if (onRefresh) onRefresh()
+      if (onRefresh) await onRefresh()
+      setEditingAddress(false)
       setActiveStep(3)
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Failed to save address.')
@@ -129,7 +165,7 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
   const steps = [
     { id: 1, name: 'Email', completed: isEmailVerified },
     { id: 2, name: 'Address', completed: hasAddress },
-    { id: 3, name: 'ID Bank', completed: isKycApproved },
+    { id: 3, name: 'Registration & KYC', completed: isKycApproved },
     { id: 4, name: 'Product', completed: hasProduct },
   ]
 
@@ -395,7 +431,7 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
               </div>
             </div>
 
-            {hasAddress ? (
+            {hasAddress && !editingAddress ? (
               <div
                 style={{
                   display: 'flex',
@@ -417,7 +453,7 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setAddressForm((prev) => ({ ...prev, address: '' }))}
+                  onClick={() => setEditingAddress(true)}
                   style={{
                     background: 'transparent',
                     border: 'none',
@@ -432,74 +468,25 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
               </div>
             ) : (
               <form onSubmit={handleSaveAddress} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
-                      Province *
-                    </label>
-                    <select
-                      value={addressForm.province}
-                      onChange={(e) => setAddressForm({ ...addressForm, province: e.target.value })}
-                      style={{
-                        width: '100%',
-                        height: 40,
-                        padding: '0 10px',
-                        border: '1.5px solid #E2E8F0',
-                        borderRadius: 8,
-                        fontSize: 13,
-                      }}
-                    >
-                      <option value="Bagmati Province">Bagmati Province</option>
-                      <option value="Koshi Province">Koshi Province</option>
-                      <option value="Madhesh Province">Madhesh Province</option>
-                      <option value="Gandaki Province">Gandaki Province</option>
-                      <option value="Lumbini Province">Lumbini Province</option>
-                      <option value="Karnali Province">Karnali Province</option>
-                      <option value="Sudurpashchim Province">Sudurpashchim Province</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
-                      District / City *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Kathmandu, Lalitpur, Pokhara"
-                      value={addressForm.district}
-                      onChange={(e) => setAddressForm({ ...addressForm, district: e.target.value })}
-                      style={{
-                        width: '100%',
-                        height: 40,
-                        padding: '0 12px',
-                        border: '1.5px solid #E2E8F0',
-                        borderRadius: 8,
-                        fontSize: 13,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
-                    Street Address / Ward / Landmark *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. New Road, Ward No. 22, Near Bishal Bazaar"
-                    value={addressForm.address}
-                    onChange={(e) => setAddressForm({ ...addressForm, address: e.target.value })}
-                    style={{
-                      width: '100%',
-                      height: 40,
-                      padding: '0 12px',
-                      border: '1.5px solid #E2E8F0',
-                      borderRadius: 8,
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
+                <LocationMapPicker
+                  title="Delivery & Map Pinpoint Location"
+                  description="Pinpoint your warehouse or pickup point, then confirm the address details."
+                  province={addressForm.province}
+                  district={addressForm.district}
+                  municipality={addressForm.municipality}
+                  address={addressForm.address}
+                  landmark={addressForm.landmark}
+                  coordinates={addressForm.coordinates}
+                  onChange={(location) => setAddressForm((prev) => ({
+                    ...prev,
+                    province: location.province,
+                    district: location.district,
+                    municipality: location.municipality,
+                    address: location.street,
+                    landmark: location.landmark,
+                    coordinates: location.coordinates,
+                  }))}
+                />
 
                 <div>
                   <button
@@ -662,6 +649,9 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
               </div>
             ) : (
               <div style={{ position: 'relative', display: 'inline-block' }}>
+                <p style={{ maxWidth: 420, margin: '0 0 12px', fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
+                  Complete your business, store branding, owner verification and payout bank details in the KYC form.
+                </p>
                 {/* Daraz-style callout tooltip bubble on the left */}
                 <div
                   style={{
@@ -684,7 +674,7 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
                     gap: 6,
                   }}
                 >
-                  <span>Click Here! Complete Onboarding tasks to start selling.</span>
+                  <span>Complete your seller registration and KYC to start selling.</span>
                   {/* Arrow pointer */}
                   <div
                     style={{
@@ -719,7 +709,7 @@ export default function SellerOnboardingCard({ onboarding, onRefresh, user }) {
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  Add
+                  Complete Registration &amp; KYC
                 </Link>
               </div>
             )}

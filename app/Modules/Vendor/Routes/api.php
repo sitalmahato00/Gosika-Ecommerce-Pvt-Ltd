@@ -37,10 +37,12 @@ Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group
 
     Route::get('bank-accounts', [BankAccountController::class, 'index']);
     Route::post('bank-accounts', [BankAccountController::class, 'store']);
+    Route::put('bank-accounts/{account}', [BankAccountController::class, 'update']);
     Route::delete('bank-accounts/{account}', [BankAccountController::class, 'destroy']);
 });
 
 Route::prefix('v1/admin/vendors')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
+    Route::post('create-seller', [AdminVendorController::class, 'createSeller']);
     Route::get('/', [AdminVendorController::class, 'index']);
     Route::get('stores', [AdminVendorController::class, 'stores']);
     Route::get('kyc', [AdminVendorController::class, 'kycList']);

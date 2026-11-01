@@ -39,6 +39,24 @@ class BankAccountController extends Controller
         return Response::success(new BankAccountResource($account), 'Bank account added.', [], 201);
     }
 
+    public function update(BankAccountRequest $request, string $accountId): JsonResponse
+    {
+        $vendor = $this->vendorFor($request);
+        $account = $vendor->bankAccounts()->where('uuid', $accountId)->first();
+
+        if (! $account) {
+            throw new DomainException('Bank account not found.', 404);
+        }
+
+        $account = $this->service->updateBankAccount(
+            $vendor,
+            $account,
+            BankAccountDTO::fromArray($request->validated())
+        );
+
+        return Response::success(new BankAccountResource($account), 'Bank account updated.');
+    }
+
     public function destroy(Request $request, string $accountId): JsonResponse
     {
         $vendor = $this->vendorFor($request);

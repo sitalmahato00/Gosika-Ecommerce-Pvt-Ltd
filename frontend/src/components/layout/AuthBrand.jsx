@@ -1,7 +1,7 @@
 import React from 'react'
-import { ShoppingBag } from 'lucide-react'
 import { useBranding } from '../../context/BrandingContext'
 import { apiImage } from '../../utils/format'
+import GosikaLogo from '../common/GosikaLogo'
 
 export default function AuthBrand() {
   const branding = useBranding()
@@ -13,7 +13,7 @@ export default function AuthBrand() {
       {logoUrl ? (
         <img src={apiImage(logoUrl)} alt={brandName} style={{ height: 42, width: 'auto', maxWidth: 240, objectFit: 'contain' }} />
       ) : (
-        <span className="brand-mark"><ShoppingBag size={18} /></span>
+        <GosikaLogo size={36} showText={false} />
       )}
       <span>{brandName}</span>
     </span>

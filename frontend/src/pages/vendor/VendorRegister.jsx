@@ -21,7 +21,7 @@ import { useToast } from '../../context/ToastContext'
 const EMAIL_RE = /^\S+@\S+\.\S+$/
 const PHONE_RE = /^[0-9+ -]{7,20}$/
 
-export default function VendorRegister({ hideHeader = false }) {
+export default function VendorRegister({ hideHeader = false, embedded = false }) {
   const { user, saveSession } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
@@ -151,13 +151,13 @@ export default function VendorRegister({ hideHeader = false }) {
     <div
       className="card"
       style={{
-        maxWidth: 620,
-        margin: '0 auto',
-        padding: '36px 38px',
-        background: '#FFFFFF',
-        borderRadius: 18,
-        border: '1px solid #EAECEF',
-        boxShadow: '0 16px 45px rgba(23, 32, 51, 0.08)',
+        maxWidth: embedded ? 'none' : 620,
+        margin: embedded ? '22px 0 0' : '0 auto',
+        padding: embedded ? 0 : '36px 38px',
+        background: embedded ? 'transparent' : '#FFFFFF',
+        borderRadius: embedded ? 0 : 18,
+        border: embedded ? 0 : '1px solid #EAECEF',
+        boxShadow: embedded ? 'none' : '0 16px 45px rgba(23, 32, 51, 0.08)',
       }}
     >
       {!hideHeader && (
@@ -194,7 +194,7 @@ export default function VendorRegister({ hideHeader = false }) {
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {/* Row 1: First Name & Last Name */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="vendor-register__row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
               First Name *
@@ -286,7 +286,7 @@ export default function VendorRegister({ hideHeader = false }) {
         </div>
 
         {/* Row 3: Phone Number & Shop Name */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="vendor-register__row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
               Mobile Phone *
@@ -348,7 +348,7 @@ export default function VendorRegister({ hideHeader = false }) {
 
         {/* Row 4: Password & Confirm Password (if not logged in) */}
         {!user && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div className="vendor-register__row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
                 Password *

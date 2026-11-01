@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ShoppingBag, Store } from 'lucide-react'
+import { Store } from 'lucide-react'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
@@ -8,6 +8,7 @@ import { useToast } from '../context/ToastContext'
 import { useBranding } from '../context/BrandingContext'
 import { apiImage } from '../utils/format'
 import api from '../api/client'
+import GosikaLogo from '../components/common/GosikaLogo'
 
 const SOCIAL_BASE = '/api/v1/auth'
 
@@ -112,7 +113,7 @@ export default function Login() {
             {logoUrl ? (
               <img src={apiImage(logoUrl)} alt={brandName} style={{ height: 40, width: 'auto', objectFit: 'contain' }} />
             ) : (
-              <span className="brand-mark"><ShoppingBag size={18} /></span>
+              <GosikaLogo size={36} showText={false} />
             )}
             <span>{brandName}</span>
           </span>

@@ -61,6 +61,7 @@ class VendorOnboardingService
                     'owner_phone' => $dto->owner_phone,
                     'business_type' => $dto->business_type,
                     'address' => $dto->address,
+                    'landmark' => $dto->landmark,
                     'province' => $dto->province,
                     'district' => $dto->district,
                     'municipality' => $dto->municipality,
@@ -161,6 +162,22 @@ class VendorOnboardingService
             'account_type' => $dto->account_type,
             'is_default' => $isFirst,
         ]);
+    }
+
+    public function updateBankAccount(Vendor $vendor, BankAccount $account, BankAccountDTO $dto): BankAccount
+    {
+        $this->assertVendorCanEdit($vendor);
+
+        $account->update([
+            'bank_name' => $dto->bank_name,
+            'branch_name' => $dto->branch_name,
+            'account_name' => $dto->account_name,
+            'account_number' => $dto->account_number,
+            'account_type' => $dto->account_type,
+            'is_verified' => false,
+        ]);
+
+        return $account;
     }
 
     public function approveVendor(User $admin, Vendor $vendor): Vendor

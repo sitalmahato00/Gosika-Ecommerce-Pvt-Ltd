@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import {
   ShieldCheck, Building2, Check, CheckCircle2, UploadCloud, FileText,
-  MapPin, Phone, Mail, Award, XCircle, Clock, FileUp, Hash
+  MapPin, Phone, Mail, Award, XCircle, Clock, FileUp, Hash, User, Store, CreditCard
 } from 'lucide-react'
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
@@ -9,9 +9,12 @@ import { Skeleton } from '../../components/ui/Skeleton'
 import ErrorState from '../../components/ui/ErrorState'
 import Input from '../../components/ui/Input'
 import Select from '../../components/ui/Select'
+import Textarea from '../../components/ui/Textarea'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import LocationMapPicker from '../../components/common/LocationMapPicker'
+import ImageUpload from '../../components/ui/ImageUpload'
+import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import { errorMessage, apiImage, formatDate } from '../../utils/format'
 
@@ -38,13 +41,30 @@ const DOC_CARDS = [
 
 export default function VendorVerification() {
   const toast = useToast()
+  const { user, updateUser } = useAuth()
   const [vendor, setVendor] = useState(null)
+  const [account, setAccount] = useState({ first_name: '', last_name: '', phone: '' })
   const [basic, setBasic] = useState({
     company_name: '',
     business_email: '',
     business_phone: '',
     pan_vat: '',
     registration_number: '',
+  })
+  const [storeForm, setStoreForm] = useState({
+    id: '',
+    name: '',
+    description: '',
+    logo: '',
+    banner: '',
+  })
+  const [bankForm, setBankForm] = useState({
+    id: '',
+    bank_name: '',
+    branch_name: '',
+    account_name: '',
+    account_number: '',
+    account_type: 'savings',
   })
   const [kyc, setKyc] = useState({
     owner_full_name: '',
@@ -53,6 +73,7 @@ export default function VendorVerification() {
     owner_phone: '',
     business_type: '',
     address: '',
+    landmark: '',
     province: '',
     district: '',
     city: '',
@@ -64,10 +85,18 @@ export default function VendorVerification() {
   const [saving, setSaving] = useState('')
   const [uploading, setUploading] = useState('')
 
+  useEffect(() => {
+    setAccount({
+      first_name: user?.first_name || '',
+      last_name: user?.last_name || '',
+      phone: user?.phone || '',
+    })
+  }, [user])
+
   const load = () => {
     setLoading(true)
     setError(null)
-    api.get('/vendor/me')
+    return api.get('/vendor/me')
       .then((r) => {
         const v = r.data.data || {}
         setVendor(v)
@@ -78,6 +107,23 @@ export default function VendorVerification() {
           pan_vat: v.pan_vat || '',
           registration_number: v.registration_number || '',
         })
+        const store = v.stores?.[0] || {}
+        setStoreForm({
+          id: store.id || '',
+          name: store.name || '',
+          description: store.description || '',
+          logo: store.logo || '',
+          banner: store.banner || '',
+        })
+        const bank = v.bank_accounts?.[0] || {}
+        setBankForm({
+          id: bank.id || '',
+          bank_name: bank.bank_name || '',
+          branch_name: bank.branch_name || '',
+          account_name: bank.account_name || '',
+          account_number: bank.account_number || '',
+          account_type: bank.account_type || 'savings',
+        })
         const k = v.kyc || {}
         setKyc({
           owner_full_name: k.owner_full_name || '',
@@ -86,6 +132,7 @@ export default function VendorVerification() {
           owner_phone: k.owner_phone || '',
           business_type: k.business_type || '',
           address: k.address || '',
+          landmark: k.landmark || '',
           province: k.province || '',
           district: k.district || '',
           city: k.municipality || '',
@@ -95,7 +142,9 @@ export default function VendorVerification() {
       .catch((e) => setError(e))
       .finally(() => setLoading(false))
   }
-  useEffect(load, [])
+  useEffect(() => {
+    load()
+  }, [])
 
   const saveBasic = async (e) => {
     e.preventDefault()
@@ -111,8 +160,93 @@ export default function VendorVerification() {
     }
   }
 
+  const saveAccount = async (e) => {
+    e.preventDefault()
+    setSaving('account')
+    try {
+      await api.put('/vendor/profile', account)
+      updateUser({
+        first_name: account.first_name,
+        last_name: account.last_name,
+        name: `${account.first_name} ${account.last_name}`.trim(),
+        phone: account.phone,
+      })
+      toast.success('Account details updated successfully')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSaving('')
+    }
+  }
+
+  const saveStore = async (e) => {
+    e.preventDefault()
+    setSaving('store')
+    try {
+      const payload = {
+        name: storeForm.name,
+        description: storeForm.description,
+        logo: storeForm.logo,
+        banner: storeForm.banner,
+        contact_email: basic.business_email,
+        contact_phone: basic.business_phone,
+      }
+      if (storeForm.id) {
+        await api.put(`/vendor/stores/${storeForm.id}`, payload)
+      } else {
+        await api.post('/vendor/stores', payload)
+      }
+      toast.success('Store information saved successfully')
+      await load()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSaving('')
+    }
+  }
+
+  const saveBank = async (e) => {
+    e.preventDefault()
+    setSaving('bank')
+    try {
+      if (bankForm.id) {
+        await api.put(`/vendor/bank-accounts/${bankForm.id}`, bankForm)
+      } else {
+        await api.post('/vendor/bank-accounts', bankForm)
+      }
+      toast.success('Payout bank details saved successfully')
+      await load()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setSaving('')
+    }
+  }
+
   const saveKyc = async (e) => {
     e.preventDefault()
+    const requiredRegistrationFields = [
+      [account.first_name, 'First name'],
+      [account.last_name, 'Last name'],
+      [user?.email, 'Account email'],
+      [account.phone, 'Account phone'],
+      [basic.company_name, 'Business name'],
+      [basic.pan_vat, 'Tax ID / VAT number'],
+      [kyc.business_type, 'Business type'],
+      [storeForm.name, 'Store name'],
+      [storeForm.description, 'Store description'],
+      [storeForm.logo, 'Store logo'],
+      [storeForm.banner, 'Store cover image'],
+      [bankForm.bank_name, 'Bank name'],
+      [bankForm.account_number, 'Bank account number'],
+      [bankForm.account_name, 'Bank account holder'],
+      [kyc.owner_full_name, 'Legal owner name'],
+    ]
+    const missingField = requiredRegistrationFields.find(([value]) => !String(value || '').trim())
+    if (missingField) {
+      toast.error(`Complete and save the ${missingField[1]} before submitting KYC.`)
+      return
+    }
     setSaving('kyc')
     try {
       await api.post('/vendor/kyc', {
@@ -122,6 +256,7 @@ export default function VendorVerification() {
         owner_phone: kyc.owner_phone,
         business_type: kyc.business_type,
         address: kyc.address,
+        landmark: kyc.landmark,
         province: kyc.province,
         district: kyc.district,
         municipality: kyc.city,
@@ -214,6 +349,43 @@ export default function VendorVerification() {
         </div>
       </div>
 
+      <form className="card" onSubmit={saveAccount} style={{ padding: 24, marginBottom: 20 }}>
+        <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 8px' }} className="flex items-center gap-2">
+          <User size={18} color="var(--primary)" /> Account Details
+        </h3>
+        <p className="muted text-sm" style={{ margin: '0 0 16px' }}>
+          These are the personal details used when the seller account was registered. Email is fixed to the verified account; update your password under Security.
+        </p>
+        <div className="form-row">
+          <Input
+            label="First Name *"
+            required
+            value={account.first_name}
+            onChange={(e) => setAccount({ ...account, first_name: e.target.value })}
+          />
+          <Input
+            label="Last Name *"
+            required
+            value={account.last_name}
+            onChange={(e) => setAccount({ ...account, last_name: e.target.value })}
+          />
+        </div>
+        <div className="form-row">
+          <Input label="Account Email" type="email" value={user?.email || ''} readOnly />
+          <Input
+            label="Account Phone *"
+            required
+            value={account.phone}
+            onChange={(e) => setAccount({ ...account, phone: e.target.value })}
+          />
+        </div>
+        <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+          <Button type="submit" size="sm" disabled={saving === 'account'}>
+            {saving === 'account' ? <Spinner size={14} color="#fff" /> : <><Check size={14} /> Save Account Details</>}
+          </Button>
+        </div>
+      </form>
+
       {/* Summary cards */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 18 }}>
         <InfoCard icon={Hash} color="#2563eb" label="PAN / VAT" value={v.pan_vat} />
@@ -226,9 +398,9 @@ export default function VendorVerification() {
       <form className="card" onSubmit={saveBasic} style={{ padding: 24, marginBottom: 24 }}>
         <div className="flex items-center justify-between mb-3">
           <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
-            <Building2 size={18} color="var(--primary)" /> Business &amp; Enterprise Information
+            <Building2 size={18} color="var(--primary)" /> Business Details
           </h3>
-          <span className="muted text-xs">Public company information shown on store receipts</span>
+          <span className="muted text-xs">Registration and tax information</span>
         </div>
 
         <div className="form-row">
@@ -258,6 +430,7 @@ export default function VendorVerification() {
           />
           <Input
             label="PAN / VAT Registration Number"
+            required
             value={basic.pan_vat}
             onChange={(e) => setBasic({ ...basic, pan_vat: e.target.value })}
             placeholder="e.g. 609842103"
@@ -268,11 +441,134 @@ export default function VendorVerification() {
             onChange={(e) => setBasic({ ...basic, registration_number: e.target.value })}
             placeholder="e.g. REG-KOSHI-2024-8841"
           />
+          <Select
+            label="Business Type *"
+            required
+            value={kyc.business_type}
+            onChange={(e) => setKyc({ ...kyc, business_type: e.target.value })}
+            hint="This is submitted with your final KYC application."
+          >
+            <option value="">Select business type</option>
+            <option value="Retail">Retail</option>
+            <option value="Wholesale">Wholesale</option>
+            <option value="Manufacturing">Manufacturing</option>
+            <option value="Service">Service</option>
+            <option value="Private Limited (Pvt. Ltd.)">Private Limited (Pvt. Ltd.)</option>
+            <option value="Sole Proprietorship">Sole Proprietorship (Ekala Swamittwa)</option>
+            <option value="Partnership Firm">Partnership Firm (Sajhedari)</option>
+            <option value="Public Limited">Public Limited</option>
+            <option value="Cooperative (Sahakari)">Cooperative (Sahakari)</option>
+          </Select>
         </div>
 
         <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
           <Button type="submit" size="sm" disabled={saving === 'basic'}>
             {saving === 'basic' ? <Spinner size={14} color="#fff" /> : <><Check size={14} /> Save Business Profile</>}
+          </Button>
+        </div>
+      </form>
+
+      <form className="card" onSubmit={saveStore} style={{ padding: 24, marginBottom: 24 }}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
+            <Store size={18} color="var(--primary)" /> Store Information &amp; Branding
+          </h3>
+          <span className="muted text-xs">Name, description, logo and cover image</span>
+        </div>
+        <div className="form-row">
+          <Input
+            label="Store Name *"
+            required
+            value={storeForm.name}
+            onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })}
+            placeholder="e.g. Gosika Organic Farms"
+          />
+        </div>
+        <div className="form-row">
+          <Textarea
+            label="Store Description *"
+            required
+            value={storeForm.description}
+            onChange={(e) => setStoreForm({ ...storeForm, description: e.target.value })}
+            placeholder="Describe your store and products"
+            rows={4}
+          />
+        </div>
+        <div className="form-row">
+          <ImageUpload
+            label="Store Logo *"
+            value={storeForm.logo}
+            onChange={(logo) => setStoreForm((prev) => ({ ...prev, logo }))}
+            folder="stores"
+            required
+            aspectRatio="1/1"
+          />
+          <ImageUpload
+            label="Store Cover Image *"
+            value={storeForm.banner}
+            onChange={(banner) => setStoreForm((prev) => ({ ...prev, banner }))}
+            folder="stores"
+            required
+            aspectRatio="16/9"
+          />
+        </div>
+        <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+          <Button type="submit" size="sm" disabled={saving === 'store'}>
+            {saving === 'store' ? <Spinner size={14} color="#fff" /> : <><Check size={14} /> Save Store Details</>}
+          </Button>
+        </div>
+      </form>
+
+      <form className="card" onSubmit={saveBank} style={{ padding: 24, marginBottom: 24 }}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
+            <CreditCard size={18} color="var(--primary)" /> Bank Details
+          </h3>
+          <span className="muted text-xs">Used for seller payouts</span>
+        </div>
+        <div className="form-row">
+          <Input
+            label="Bank Name *"
+            required
+            value={bankForm.bank_name}
+            onChange={(e) => setBankForm({ ...bankForm, bank_name: e.target.value })}
+            placeholder="e.g. Nabil Bank"
+          />
+          <Input
+            label="Branch Name"
+            value={bankForm.branch_name}
+            onChange={(e) => setBankForm({ ...bankForm, branch_name: e.target.value })}
+            placeholder="Branch"
+          />
+        </div>
+        <div className="form-row">
+          <Input
+            label="Account Number *"
+            required
+            value={bankForm.account_number}
+            onChange={(e) => setBankForm({ ...bankForm, account_number: e.target.value })}
+            placeholder="Bank account number"
+          />
+          <Input
+            label="Account Holder Name *"
+            required
+            value={bankForm.account_name}
+            onChange={(e) => setBankForm({ ...bankForm, account_name: e.target.value })}
+            placeholder="Name on the bank account"
+          />
+          <Select
+            label="Account Type"
+            value={bankForm.account_type}
+            onChange={(e) => setBankForm({ ...bankForm, account_type: e.target.value })}
+          >
+            <option value="savings">Savings</option>
+            <option value="current">Current</option>
+            <option value="other">Other</option>
+          </Select>
+        </div>
+        <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+          <Button type="submit" size="sm" disabled={saving === 'bank'}>
+            {saving === 'bank' ? <Spinner size={14} color="#fff" /> : <><Check size={14} /> Save Bank Details</>}
           </Button>
         </div>
       </form>
@@ -327,18 +623,6 @@ export default function VendorVerification() {
             onChange={(e) => setKyc({ ...kyc, owner_phone: e.target.value })}
             placeholder="+977 98XXXXXXXX"
           />
-          <Select
-            label="Legal Business Entity Type"
-            value={kyc.business_type}
-            onChange={(e) => setKyc({ ...kyc, business_type: e.target.value })}
-          >
-            <option value="">Select entity type</option>
-            <option value="Private Limited (Pvt. Ltd.)">Private Limited (Pvt. Ltd.)</option>
-            <option value="Sole Proprietorship">Sole Proprietorship (Ekala Swamittwa)</option>
-            <option value="Partnership Firm">Partnership Firm (Sajhedari)</option>
-            <option value="Public Limited">Public Limited</option>
-            <option value="Cooperative (Sahakari)">Cooperative (Sahakari)</option>
-          </Select>
         </div>
 
         {/* Nepal Cascading OpenStreetMap Location Picker */}
@@ -351,6 +635,7 @@ export default function VendorVerification() {
             district={kyc.district}
             city={kyc.city}
             address={kyc.address}
+            landmark={kyc.landmark}
             coordinates={kyc.coordinates}
             onChange={(loc) => {
               setKyc((prev) => ({
@@ -359,6 +644,7 @@ export default function VendorVerification() {
                 district: loc.district,
                 city: loc.city,
                 address: loc.address,
+                landmark: loc.landmark,
                 coordinates: loc.coordinates,
               }))
             }}
@@ -432,9 +718,28 @@ export default function VendorVerification() {
           </div>
         </div>
 
+        <div style={{ margin: '20px 0', padding: 16, background: '#F8FAFC', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+          <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 10px' }}>Review &amp; Submit Registration</h4>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+            {[
+              ['Account', `${account.first_name} ${account.last_name} · ${user?.email || ''} · ${account.phone}`],
+              ['Business', `${basic.company_name} · ${kyc.business_type} · Tax ID ${basic.pan_vat}`],
+              ['Store', `${storeForm.name} · ${storeForm.description}`],
+              ['Store Logo', storeForm.logo ? 'Uploaded' : 'Not completed'],
+              ['Store Cover', storeForm.banner ? 'Uploaded' : 'Not completed'],
+              ['Owner KYC', kyc.owner_full_name],
+              ['Payout Bank', `${bankForm.bank_name} · ${bankForm.account_name} · ${bankForm.account_number}`],
+            ].map(([label, value]) => (
+              <div key={label} style={{ fontSize: 12, color: 'var(--muted)' }}>
+                <strong style={{ color: 'var(--ink)' }}>{label}:</strong> {value || 'Not completed'}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="flex justify-end pt-3" style={{ borderTop: '1px solid var(--border)' }}>
           <Button type="submit" size="sm" disabled={saving === 'kyc'}>
-            {saving === 'kyc' ? <Spinner size={14} color="#fff" /> : <><ShieldCheck size={14} /> Send for KYC Verification</>}
+            {saving === 'kyc' ? <Spinner size={14} color="#fff" /> : <><ShieldCheck size={14} /> Review &amp; Submit KYC</>}
           </Button>
         </div>
       </form>

@@ -17,6 +17,7 @@ class VendorKyc extends BaseModel
         'owner_phone',
         'business_type',
         'address',
+        'landmark',
         'province',
         'district',
         'municipality',

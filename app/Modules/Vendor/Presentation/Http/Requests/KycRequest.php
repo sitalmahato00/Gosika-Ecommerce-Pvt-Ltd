@@ -20,11 +20,12 @@ class KycRequest extends FormRequest
             'owner_phone' => ['nullable', 'string', 'max:20'],
             'business_type' => ['nullable', 'string', 'max:60'],
             'address' => ['nullable', 'string', 'max:255'],
+            'landmark' => ['nullable', 'string', 'max:255'],
             'province' => ['nullable', 'string', 'max:100'],
             'district' => ['nullable', 'string', 'max:100'],
             'municipality' => ['nullable', 'string', 'max:120'],
-            'latitude' => ['nullable', 'string', 'max:20'],
-            'longitude' => ['nullable', 'string', 'max:20'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
 }
