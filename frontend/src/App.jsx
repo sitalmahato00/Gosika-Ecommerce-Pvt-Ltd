@@ -49,7 +49,6 @@ import AccountNotifications from './pages/account/Notifications'
 import { AccountTitle } from './pages/account/AccountUI'
 import EmailVerificationPrompt from './components/common/EmailVerificationPrompt'
 
-import VendorRegister from './pages/vendor/VendorRegister'
 import VendorDashboard from './pages/vendor/VendorDashboard'
 import VendorOrders from './pages/vendor/VendorOrders'
 import VendorOrderDetail from './pages/vendor/VendorOrderDetail'
@@ -255,20 +254,6 @@ function AdminIndexRedirect() {
   return <Navigate to="/admin/unauthorized" replace />
 }
 
-function StandaloneCustomerShell({ children }) {
-  const navigate = useNavigate()
-  return (
-    <div className="flex flex-col customer-shell" style={{ minHeight: '100vh' }}>
-      <CustomerHeader />
-      <main className="customer-main flex-1" style={{ display: 'flex', flexDirection: 'column' }}>
-        {children}
-      </main>
-      <CustomerFooter />
-      <CustomerBottomNav onSearchClick={() => navigate('/search')} />
-    </div>
-  )
-}
-
 function CustomerLayout() {
   const navigate = useNavigate()
   return (
@@ -294,8 +279,6 @@ function CustomerLayout() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/help" element={<Help />} />
           <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
-          <Route path="/admin-login" element={<GuestRoute><AdminLogin /></GuestRoute>} />
-          <Route path="/vendor-login" element={<GuestRoute><VendorLogin /></GuestRoute>} />
           <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
           <Route path="/verify" element={<GuestRoute><Verify /></GuestRoute>} />
           <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
@@ -332,7 +315,11 @@ export default function App() {
     <>
       <EmailVerificationPrompt />
       <Routes>
-      <Route path="/vendor/register" element={<StandaloneCustomerShell><VendorRegister /></StandaloneCustomerShell>} />
+      <Route path="/vendor/register" element={<Navigate to="/vendor/login?mode=register" replace />} />
+      <Route path="/admin/login" element={<GuestRoute><AdminLogin /></GuestRoute>} />
+      <Route path="/vendor/login" element={<VendorLogin />} />
+      <Route path="/admin-login" element={<Navigate to="/admin/login" replace />} />
+      <Route path="/vendor-login" element={<Navigate to="/vendor/login" replace />} />
       <Route path="/*" element={<CustomerLayout />} />
 
       {/* Vendor Portal */}

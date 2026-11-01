@@ -19,7 +19,8 @@ export default function useEmailVerification({ email, verified, onVerified, auto
     try {
       await api.post('/auth/email/resend', { email })
       setSent(true)
-      toast.success(`Verification code sent to ${email}`)
+      setCode('')
+      toast.success(`Verification code sent to ${email}. It expires in 60 seconds.`)
     } catch (err) {
       setError(errorMessage(err))
     } finally {

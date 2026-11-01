@@ -137,7 +137,7 @@ export default function CustomerHeader() {
             <Link to="/help" className="flex items-center gap-1.5" style={{ color: '#ffffff', opacity: 0.95, textDecoration: 'none' }}>
               <HelpCircle size={13} /> Help Center
             </Link>
-            <Link to="/vendor/register" className="flex items-center gap-1.5" style={{ color: '#ffffff', fontWeight: 600, textDecoration: 'none' }}>
+            <Link to="/vendor/login" className="flex items-center gap-1.5" style={{ color: '#ffffff', fontWeight: 600, textDecoration: 'none' }}>
               <Store size={13} /> Become a Seller
             </Link>
           </span>
@@ -379,7 +379,7 @@ export default function CustomerHeader() {
                         <UserCheck size={15} /> Create Account
                       </Link>
                       <div className="account-dropdown-divider" />
-                      <Link className="account-dropdown-link" to="/vendor/register" onClick={() => setAccountOpen(false)} role="menuitem" style={{ color: 'var(--primary)' }}>
+                      <Link className="account-dropdown-link" to="/vendor/login" onClick={() => setAccountOpen(false)} role="menuitem" style={{ color: 'var(--primary)' }}>
                         <Store size={15} /> Become a Seller
                       </Link>
                     </div>
@@ -540,7 +540,7 @@ export default function CustomerHeader() {
           <NavLink to="/brands" className="nav-link" style={{ fontWeight: 600, fontSize: 13.5, color: '#334155', textDecoration: 'none' }}>Top Brands</NavLink>
           <NavLink to="/shop?mode=stores" className="nav-link" style={{ fontWeight: 600, fontSize: 13.5, color: '#334155', textDecoration: 'none' }}>Stores</NavLink>
           <NavLink to="/help" className="nav-link" style={{ fontWeight: 600, fontSize: 13.5, color: '#334155', textDecoration: 'none' }}>Help Center</NavLink>
-          <Link to="/vendor/register" className="nav-link" style={{ marginLeft: 'auto', color: '#ff5500', fontWeight: 700, fontSize: 13.5, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+          <Link to="/vendor/login" className="nav-link" style={{ marginLeft: 'auto', color: '#ff5500', fontWeight: 700, fontSize: 13.5, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
             <Store size={15} /> Sell on GOSIKA
           </Link>
         </div>
@@ -630,7 +630,7 @@ export default function CustomerHeader() {
 
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', padding: '12px 0 4px', letterSpacing: '0.06em' }}>Sell on GOSIKA</div>
           {!isAdminUser && (
-            <Link className="dash-nav-link" style={{ color: 'var(--primary)', background: 'none', fontWeight: 600 }} to="/vendor/register" onClick={() => setMenuOpen(false)}>
+            <Link className="dash-nav-link" style={{ color: 'var(--primary)', background: 'none', fontWeight: 600 }} to="/vendor/login" onClick={() => setMenuOpen(false)}>
               <Store size={15} /> Become a Seller
             </Link>
           )}

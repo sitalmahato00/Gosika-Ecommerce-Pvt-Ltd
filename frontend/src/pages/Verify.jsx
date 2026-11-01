@@ -14,6 +14,7 @@ export default function Verify() {
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
   const [sent, setSent] = useState(false)
 
   const verify = async (e) => {
@@ -31,12 +32,17 @@ export default function Verify() {
   }
 
   const resend = async () => {
+    if (!email || resending) return
+    setResending(true)
     try {
       await api.post('/auth/email/resend', { email })
       setSent(true)
-      toast.info('Verification code resent')
+      setCode('')
+      toast.info('Verification code resent. It expires in 60 seconds.')
     } catch (err) {
       toast.error(errorMessage(err))
+    } finally {
+      setResending(false)
     }
   }
 
@@ -51,12 +57,19 @@ export default function Verify() {
         <form onSubmit={verify}>
           <Input label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           <Input label="Verification code" required value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code" />
+          {sent && (
+            <div className="alert alert-info">
+              A new verification code was sent. It expires in 60 seconds.
+            </div>
+          )}
           <Button type="submit" block disabled={loading}>
             {loading ? <Spinner size={16} color="#fff" /> : 'Verify email'}
           </Button>
         </form>
         <div className="flex items-center justify-between mt-2 text-sm">
-          <button className="btn btn-ghost btn-sm" onClick={resend} disabled={sent}>Resend code</button>
+          <button className="btn btn-ghost btn-sm" onClick={resend} disabled={!email || resending}>
+            {resending ? 'Sending…' : sent ? 'Resend code' : 'Send code'}
+          </button>
           <Link to="/login" className="text-primary">Back to login</Link>
         </div>
       </div>

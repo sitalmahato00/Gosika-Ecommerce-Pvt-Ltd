@@ -30,7 +30,7 @@ export function GuestRoute({ children }) {
 export function VendorRoute({ children }) {
   const { user, booted, isVendor, isSuperAdmin } = useAuth()
   if (!booted) return <FullPageLoading />
-  if (!user) return <Navigate to="/login" state={{ from: '/vendor' }} replace />
+  if (!user) return <Navigate to="/vendor/login" state={{ from: '/vendor' }} replace />
   // Allow vendors or super admins (super admins can access all portals)
   if (!isVendor() && !isSuperAdmin()) return <Navigate to="/account" replace />
   return children
@@ -39,7 +39,7 @@ export function VendorRoute({ children }) {
 export function AdminRoute({ children }) {
   const { user, booted, isSuperAdmin, isDeliveryPartner } = useAuth()
   if (!booted) return <FullPageLoading />
-  if (!user) return <Navigate to="/login" state={{ from: '/admin' }} replace />
+  if (!user) return <Navigate to="/admin/login" state={{ from: '/admin' }} replace />
   
   // Allow super_admin, delivery_partner, or custom admin roles
   const roles = user?.roles || []
@@ -59,7 +59,7 @@ export function AdminRoute({ children }) {
 export function DeliveryRoute({ children }) {
   const { user, booted, isDeliveryPartner, isSuperAdmin } = useAuth()
   if (!booted) return <FullPageLoading />
-  if (!user) return <Navigate to="/login" state={{ from: '/delivery' }} replace />
+  if (!user) return <Navigate to="/admin/login" state={{ from: '/delivery' }} replace />
   // Allow delivery partners or super admins (for testing/managing delivery operations)
   if (!isDeliveryPartner() && !isSuperAdmin()) return <Navigate to="/account" replace />
   return children

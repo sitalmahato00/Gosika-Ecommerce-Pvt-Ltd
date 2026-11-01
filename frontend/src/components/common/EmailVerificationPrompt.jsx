@@ -10,6 +10,7 @@ import useEmailVerification from '../../hooks/useEmailVerification'
 const SKIP_PREFIXES = [
   '/login',
   '/register',
+  '/vendor/login',
   '/vendor/register',
   '/verify',
   '/forgot-password',
@@ -53,7 +54,7 @@ export default function EmailVerificationPrompt() {
         <div className="min-w-0">
           <div className="font-bold text-sm text-ink">Welcome! One more step to activate your account.</div>
           <p className="muted text-xs m-0">
-            To verify your email <b style={{ color: 'var(--ink)' }}>{email}</b>, click "Send Code" below to receive a 6-digit verification code.
+            To verify your email <b style={{ color: 'var(--ink)' }}>{email}</b>, click "Send Code" below to receive a 6-digit verification code. The code is valid for 60 seconds.
           </p>
         </div>
       </div>
@@ -63,7 +64,7 @@ export default function EmailVerificationPrompt() {
         {sent && !error && (
           <div className="alert" style={{ margin: 0, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', color: '#0f9d76', fontSize: 12.5 }}>
             <MailCheck size={14} style={{ verticalAlign: '-2px', marginRight: 6 }} />
-            Code sent! Check <b>{email}</b> (and spam folder). It expires in 60 minutes.
+            Code sent! Check <b>{email}</b> (and spam folder). It expires in 60 seconds.
           </div>
         )}
         <div>

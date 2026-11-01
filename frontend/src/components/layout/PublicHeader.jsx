@@ -64,7 +64,7 @@ export default function PublicHeader() {
             <Truck size={13} /> Free delivery over Rs. 2,000 — nationwide across Nepal
           </span>
           <span className="flex items-center gap-4 hide-sm">
-            <Link to="/vendor/register" className="flex items-center gap-1" style={{ fontWeight: 600 }}>
+            <Link to="/vendor/login" className="flex items-center gap-1" style={{ fontWeight: 600 }}>
               <Store size={13} /> Sell on Gosika
             </Link>
           </span>
@@ -129,7 +129,7 @@ export default function PublicHeader() {
                     <>
                       <Link className="dash-nav-link" style={{ color: 'var(--ink)' }} to="/login">Login</Link>
                       <Link className="dash-nav-link" style={{ color: 'var(--ink)' }} to="/register">Create Account</Link>
-                      <Link className="dash-nav-link" style={{ color: 'var(--primary)' }} to="/vendor/register">Become a Seller</Link>
+                      <Link className="dash-nav-link" style={{ color: 'var(--primary)' }} to="/vendor/login">Become a Seller</Link>
                     </>
                   )}
                 </div>

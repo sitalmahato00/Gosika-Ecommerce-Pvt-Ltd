@@ -49,7 +49,7 @@ export default function EmailVerificationCard({ user, onVerified }) {
         {sent && !error && (
           <div className="alert" style={{ margin: 0, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', color: '#0f9d76', fontSize: 12.5 }}>
             <MailCheck size={14} style={{ verticalAlign: '-2px', marginRight: 6 }} />
-            Code sent! Check <b>{email}</b> (and spam folder). It expires in 60 minutes.
+            Code sent! Check <b>{email}</b> (and spam folder). It expires in 60 seconds.
           </div>
         )}
         <div className="flex items-end gap-2 wrap">

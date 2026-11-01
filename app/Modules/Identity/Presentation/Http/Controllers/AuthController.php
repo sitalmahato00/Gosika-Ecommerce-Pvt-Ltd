@@ -17,6 +17,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -76,7 +77,8 @@ class AuthController extends Controller
     {
         $request->validate(['email' => ['required', 'email']]);
 
-        $user = \App\Modules\Identity\Infrastructure\Models\User::where('email', $request->input('email'))->first();
+        $email = Str::lower(trim($request->input('email')));
+        $user = \App\Modules\Identity\Infrastructure\Models\User::whereRaw('LOWER(email) = ?', [$email])->first();
         if (! $user) {
             return Response::error('User not found.', [], 404);
         }
@@ -84,7 +86,7 @@ class AuthController extends Controller
         app(\App\Modules\Identity\Infrastructure\Services\IdentityNotificationService::class)
             ->sendEmailVerification($user);
 
-        return Response::success(null, 'Verification email sent.');
+        return Response::success(null, 'Verification code sent. It expires in 60 seconds.');
     }
 
     public function sendPhoneOtp(Request $request): JsonResponse

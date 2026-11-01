@@ -59,7 +59,7 @@ export default function Homepage() {
           </p>
           <div className="flex gap-4">
             <a href="/shop" className="btn btn-primary">Shop Now</a>
-            <a href="/vendor/register" className="btn btn-outline">Become a Vendor</a>
+            <a href="/vendor/login" className="btn btn-outline">Become a Vendor</a>
           </div>
         </div>
 

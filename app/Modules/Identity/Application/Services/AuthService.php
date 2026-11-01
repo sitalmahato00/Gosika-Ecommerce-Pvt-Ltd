@@ -87,16 +87,31 @@ class AuthService
 
     public function verifyEmail(string $email, string $code): User
     {
-        $user = User::where('email', $email)->firstOrFail();
+        $email = Str::lower(trim($email));
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->firstOrFail();
 
         if (! $user->email_verified_at) {
-            $expected = cache("email_verify:{$email}");
-            if (! $expected || ! hash_equals($expected, hash('sha256', $code))) {
-                throw new DomainException('Invalid or expired verification code.', 422);
+            $key = $this->notifications->emailVerificationKey($email);
+            $expected = Cache::get($key);
+
+            if (! $expected) {
+                if (Cache::has($this->notifications->emailVerificationIssuedKey($email))) {
+                    throw new DomainException(
+                        'Your verification code has expired. Codes are valid for 60 seconds. Please request a new code.',
+                        422
+                    );
+                }
+
+                throw new DomainException('No active verification code found. Please request a new code.', 422);
+            }
+
+            if (! hash_equals($expected, hash('sha256', $code))) {
+                throw new DomainException('Invalid verification code. Check the code in your email and try again.', 422);
             }
 
             $user->forceFill(['email_verified_at' => now()])->save();
-            cache()->forget("email_verify:{$email}");
+            Cache::forget($key);
+            Cache::forget($this->notifications->emailVerificationIssuedKey($email));
         }
 
         $this->activateIfVerified($user);

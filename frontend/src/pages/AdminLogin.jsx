@@ -1,23 +1,17 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Shield, ShoppingBag } from 'lucide-react'
 import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../context/ToastContext'
-import { useBranding } from '../context/BrandingContext'
-import { apiImage } from '../utils/format'
+import AuthPortalShell from '../components/layout/AuthPortalShell'
 import api from '../api/client'
 
 export default function AdminLogin() {
   const toast = useToast()
-  const branding = useBranding()
   const [form, setForm] = useState({ identifier: '', password: '' })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
-
-  const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
-  const logoUrl = branding.logo_light || ''
 
   const submit = async (e) => {
     e.preventDefault()
@@ -51,7 +45,7 @@ export default function AdminLogin() {
         let roleType = ''
         
         if (isVendor) {
-          correctPortal = '/vendor-login'
+          correctPortal = '/vendor/login'
           roleType = 'vendor'
         } else if (isCustomer) {
           correctPortal = '/login'
@@ -70,9 +64,9 @@ export default function AdminLogin() {
         
         // Show error - DON'T save anything to localStorage
         if (correctPortal) {
-          setError(`❌ Access Denied: This is the Admin & Staff Portal. You are a ${roleType} user. Please use the correct portal at ${correctPortal}`)
+          setError(`This account belongs to the ${roleType} portal. Please sign in through ${correctPortal}.`)
         } else {
-          setError('❌ Access Denied: You do not have permission to access any portal. Please contact support.')
+          setError('You do not have permission to access this portal. Please contact support.')
         }
         setLoading(false)
         return
@@ -98,35 +92,14 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="page-shell" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
-      <div className="card" style={{ maxWidth: 440, width: '100%', padding: '32px 28px' }}>
-        <div className="text-center mb-2">
-          <div className="flex items-center justify-center mb-3">
-            <div style={{ 
-              width: 56, 
-              height: 56, 
-              borderRadius: '50%', 
-              background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <Shield size={28} color="#fff" />
-            </div>
-          </div>
-          <span className="brand" style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            {logoUrl ? (
-              <img src={apiImage(logoUrl)} alt={brandName} style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
-            ) : (
-              <span className="brand-mark"><ShoppingBag size={16} /></span>
-            )}
-            <span style={{ fontSize: 16 }}>{brandName}</span>
-          </span>
-          <h1 style={{ fontSize: 22, marginTop: 8, fontWeight: 800 }}>Admin & Staff Portal</h1>
-          <p className="muted m-0 text-sm">Sign in to access administrative dashboard</p>
-        </div>
-        {error && <div className="alert alert-error" style={{ marginTop: 16 }}>{error}</div>}
-        <form onSubmit={submit} style={{ marginTop: 20 }}>
+    <AuthPortalShell
+      portal="Admin Portal"
+      title="Admin"
+      description="Manage your marketplace, users, and products, and keep everything running smoothly."
+      highlights={['Manage vendors and products', 'Handle orders and payments', 'Track platform performance', 'Configure system settings']}
+    >
+      {error && <div className="alert alert-error auth-portal__error" role="alert">{error}</div>}
+      <form onSubmit={submit} className="auth-portal__form">
           <Input 
             label="Email or phone" 
             required 
@@ -148,23 +121,10 @@ export default function AdminLogin() {
             <Link to="/forgot-password" className="text-primary">Forgot password?</Link>
           </p>
           <Button type="submit" block size="lg" disabled={loading} style={{ marginTop: 12 }}>
-            {loading ? <Spinner size={16} color="#fff" /> : 'Sign In'}
+            {loading ? <Spinner size={16} color="#fff" /> : 'Login as Admin'}
           </Button>
         </form>
-
-        <div className="alert alert-info" style={{ fontSize: 12, marginTop: 16, padding: '10px 12px' }}>
-          <strong>🔒 Restricted Access</strong><br />
-          This portal is for administrative staff, delivery partners, and authorized personnel only.
-        </div>
-
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
-          <p className="muted text-xs">Not an admin?</p>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <Link to="/login" className="btn btn-ghost btn-sm" style={{ flex: 1 }}>Customer Login</Link>
-            <Link to="/vendor-login" className="btn btn-ghost btn-sm" style={{ flex: 1 }}>Vendor Login</Link>
-          </div>
-        </div>
-      </div>
-    </div>
+      <p className="auth-portal__restricted">Restricted to authorized administrators and staff</p>
+    </AuthPortalShell>
   )
 }

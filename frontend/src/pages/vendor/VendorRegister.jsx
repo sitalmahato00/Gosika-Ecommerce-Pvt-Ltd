@@ -650,7 +650,7 @@ export default function VendorRegister() {
 
         {!hasAccountTab && (
           <p className="muted text-sm mt-2" style={{ textAlign: 'center' }}>
-            Already have an account? <Link to="/login" state={{ from: '/vendor/register' }} className="text-primary font-semibold">Login</Link>
+            Already have an account? <Link to="/vendor/login" className="text-primary font-semibold">Login</Link>
           </p>
         )}
       </form>

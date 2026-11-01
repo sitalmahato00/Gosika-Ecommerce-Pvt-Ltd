@@ -19,8 +19,15 @@ rawApi.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('gosika_token')
       localStorage.removeItem('gosika_user')
-      if (!window.location.pathname.startsWith('/login')) {
-        window.location.assign('/login')
+      const path = window.location.pathname
+      const loginRoute = path.startsWith('/admin') || path.startsWith('/delivery')
+        ? '/admin/login'
+        : path.startsWith('/vendor')
+          ? '/vendor/login'
+          : '/login'
+      const isLoginPage = ['/login', '/admin/login', '/vendor/login'].includes(path)
+      if (!isLoginPage) {
+        window.location.assign(loginRoute)
       }
     }
 

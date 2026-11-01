@@ -62,10 +62,10 @@ export default function Login() {
         let roleType = ''
         
         if (isVendor) {
-          correctPortal = '/vendor-login'
+          correctPortal = '/vendor/login'
           roleType = 'vendor'
         } else if (hasStaffRole) {
-          correctPortal = '/admin-login'
+          correctPortal = '/admin/login'
           roleType = 'staff/admin'
         } else {
           correctPortal = ''
@@ -81,9 +81,9 @@ export default function Login() {
         
         // Show error - DON'T save anything to localStorage
         if (correctPortal) {
-          setError(`❌ Access Denied: This is the Customer Portal. You are a ${roleType} user. Please use the correct portal at ${correctPortal}`)
+          setError(`This account belongs to the ${roleType} portal. Please sign in through ${correctPortal}.`)
         } else {
-          setError('❌ Access Denied: You do not have permission to access any portal. Please contact support.')
+          setError('You do not have permission to access this portal. Please contact support.')
         }
         setLoading(false)
         return
@@ -139,21 +139,10 @@ export default function Login() {
         <p className="muted text-sm mt-2" style={{ textAlign: 'center' }}>
           Don't have an account? <Link to="/register" className="text-primary font-semibold">Create one</Link>
         </p>
-        <Link to="/vendor/register" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', marginTop: 4 }}>
+        <Link to="/vendor/login" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', marginTop: 4 }}>
           <Store size={15} /> Become a Seller on Gosika
         </Link>
         
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
-          <p className="muted text-xs">Staff or Vendor?</p>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <Link to="/admin-login" className="btn btn-ghost btn-sm" style={{ flex: 1 }}>Admin Login</Link>
-            <Link to="/vendor-login" className="btn btn-ghost btn-sm" style={{ flex: 1 }}>Vendor Login</Link>
-          </div>
-        </div>
-        
-        <div className="alert alert-info" style={{ fontSize: 13 }}>
-          Demo accounts (password: <code>password</code>): customer@gosika.com.np · vendor@gosika.com.np · admin@gosika.com.np
-        </div>
       </div>
     </div>
   )
