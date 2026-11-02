@@ -4,6 +4,7 @@ import { User, Settings, Trash, Eye, Edit, XCircle, Check, Clock, Calendar, Mail
 import api from '../../api/client'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDate } from '../../utils/format'
+import { Skeleton } from '../../components/ui/Skeleton'
 
 export default function CustomerProfile() {
   const [profile, setProfile] = useState(null)

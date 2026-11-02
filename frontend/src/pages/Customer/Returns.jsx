@@ -4,6 +4,7 @@ import { Undo2, Check, Trash, Clock, Eye, Edit, XCircle } from 'lucide-react'
 import api from '../../api/client'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDate } from '../../utils/format'
+import { Skeleton } from '../../components/ui/Skeleton'
 
 export default function CustomerReturns() {
   const [returns, setReturns] = useState([])

@@ -27,7 +27,7 @@ class ProductRequest extends FormRequest
             'status' => ['nullable', Rule::enum(ProductStatus::class)],
             'quantity' => ['nullable', 'integer', 'min:0'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:0'],
-            'price' => ['nullable', 'numeric', 'min:0'],
+            'price' => ['required', 'numeric', 'min:0'],
             'compare_at_price' => ['nullable', 'numeric', 'min:0'],
             'cost_price' => ['nullable', 'numeric', 'min:0'],
             'weight_grams' => ['nullable', 'integer', 'min:0'],

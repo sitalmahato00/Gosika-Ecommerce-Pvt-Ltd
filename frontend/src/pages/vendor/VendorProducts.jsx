@@ -8,6 +8,7 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import { Skeleton } from '../../components/ui/Skeleton'
 import { money, errorMessage, getProductImage, handleImgError } from '../../utils/format'
 
 import { useToast } from '../../context/ToastContext'

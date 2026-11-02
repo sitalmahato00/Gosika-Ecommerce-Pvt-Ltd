@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Loader2, Check, Trash, Eye, Edit, XCircle, Calendar, RefreshCw, Plus } from 'lucide-react'
 import api from '../../api/client'
 import { useToast } from '../../context/ToastContext'
+import { Skeleton } from '../../components/ui/Skeleton'
 
 export default function VendorPayouts() {
   const [payouts, setPayouts] = useState([])

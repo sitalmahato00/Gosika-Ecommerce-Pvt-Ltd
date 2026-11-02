@@ -4,6 +4,7 @@ import { MapPin, Plus, Trash, Eye, Edit, XCircle, Check, Clock } from 'lucide-re
 import api from '../../api/client'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDate } from '../../utils/format'
+import { Skeleton } from '../../components/ui/Skeleton'
 
 export default function CustomerAddresses() {
   const [addresses, setAddresses] = useState([])

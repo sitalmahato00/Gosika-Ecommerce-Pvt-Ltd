@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { User, Settings, Trash, Eye, EyeOff, ArrowLeft, Check, XCircle, Clock, Calendar, Mail, Phone, Shield, Layout } from 'lucide-react'
 import api from '../../api/client'
 import { useToast } from '../../context/ToastContext'
+import { Skeleton } from '../../components/ui/Skeleton'
 
 export default function VendorProfile() {
   const [profile, setProfile] = useState(null)
