@@ -55,6 +55,11 @@ class VendorProductValidationTest extends TestCase
                 'name' => 'Product with a price',
                 'sku' => 'TEST-PRICE-002',
                 'price' => '1250.50',
+                'barcode' => 'BAR-002',
+                'cost_price' => '700.00',
+                'hs_code' => '123456',
+                'manufacturer' => 'Original maker',
+                'tax_rate' => 13,
                 'images' => [UploadedFile::fake()->createWithContent(
                     'product.jpg',
                     base64_decode('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigD//2Q==')
@@ -91,14 +96,41 @@ class VendorProductValidationTest extends TestCase
                 'name' => 'Updated product name',
                 'sku' => 'TEST-PRICE-002',
                 'price' => '1300.00',
+                'compare_at_price' => '1500.00',
+                'quantity' => '17',
+                'low_stock_threshold' => '3',
+                'weight_grams' => '450',
+                'dimensions' => '10x20x3',
+                'description' => 'Updated product description',
+                'short_description' => 'Updated summary',
+                'is_featured' => '1',
+                'is_negotiable' => '1',
             ])
             ->assertOk()
             ->assertJsonPath('data.name', 'Updated product name')
-            ->assertJsonPath('data.price', '1300.00');
+            ->assertJsonPath('data.price', '1300.00')
+            ->assertJsonPath('data.quantity', 17)
+            ->assertJsonPath('data.low_stock_threshold', 3)
+            ->assertJsonPath('data.compare_at_price', '1500.00')
+            ->assertJsonPath('data.weight_grams', 450)
+            ->assertJsonPath('data.dimensions', '10x20x3')
+            ->assertJsonPath('data.description', 'Updated product description')
+            ->assertJsonPath('data.short_description', 'Updated summary')
+            ->assertJsonPath('data.is_featured', true)
+            ->assertJsonPath('data.is_negotiable', true);
 
         $this->assertDatabaseHas('products', [
             'sku' => 'TEST-PRICE-002',
             'name' => 'Updated product name',
+            'quantity' => 17,
+            'low_stock_threshold' => 3,
+            'weight_grams' => 450,
+            'dimensions' => '10x20x3',
+            'barcode' => 'BAR-002',
+            'cost_price' => '700.00',
+            'hs_code' => '123456',
+            'manufacturer' => 'Original maker',
+            'tax_rate' => 13,
         ]);
 
         $imageUrl = 'https://example.test/product-photo.jpg';
@@ -108,6 +140,7 @@ class VendorProductValidationTest extends TestCase
                 'name' => 'Updated product name',
                 'sku' => 'TEST-PRICE-002',
                 'price' => '1300.00',
+                'quantity' => '17',
                 'image_urls' => [$imageUrl],
                 'primary_image_url' => $imageUrl,
             ])
@@ -121,5 +154,78 @@ class VendorProductValidationTest extends TestCase
             'is_primary' => true,
         ]);
         $this->assertDatabaseCount('product_images', 2);
+
+        $variantProductId = $this->actingAs($vendor)
+            ->postJson('/api/v1/vendor/products', [
+                'name' => 'Variant product',
+                'sku' => 'TEST-VARIANT-PARENT',
+                'price' => '100',
+                'image_urls' => ['https://example.test/variant-product.jpg'],
+                'variants' => [
+                    [
+                        'sku' => 'TEST-VARIANT-001',
+                        'name' => 'Small',
+                        'price' => '100',
+                        'quantity' => '4',
+                        'options' => ['size' => 'S'],
+                    ],
+                    [
+                        'sku' => 'TEST-VARIANT-002',
+                        'name' => 'Large',
+                        'price' => '120',
+                        'quantity' => '6',
+                        'options' => ['size' => 'L'],
+                    ],
+                ],
+            ])
+            ->assertCreated()
+            ->json('data.id');
+        $variantProduct = $this->actingAs($vendor)
+            ->getJson('/api/v1/vendor/products/'.$variantProductId)
+            ->assertOk()
+            ->json('data');
+
+        $variantId = $variantProduct['variants'][0]['id'];
+        $this->actingAs($vendor)
+            ->post('/api/v1/vendor/products/'.$variantProduct['id'], [
+                '_method' => 'PUT',
+                'name' => 'Variant product updated',
+                'sku' => 'TEST-VARIANT-PARENT',
+                'price' => '100',
+                'quantity' => '4',
+                'variants_present' => '1',
+                'variants' => [
+                    [
+                        'sku' => 'TEST-VARIANT-001',
+                        'name' => 'Small',
+                        'price' => '100',
+                        'quantity' => '12',
+                        'options' => ['size' => 'S'],
+                    ],
+                    [
+                        'sku' => 'TEST-VARIANT-002',
+                        'name' => 'Large',
+                        'price' => '120',
+                        'quantity' => '8',
+                        'options' => ['size' => 'L'],
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.quantity', 20)
+            ->assertJsonPath('data.variants.0.id', $variantId)
+            ->assertJsonPath('data.variants.0.quantity', 12)
+            ->assertJsonPath('data.variants.1.quantity', 8);
+
+        $this->assertDatabaseHas('products', [
+            'uuid' => $variantProduct['id'],
+            'quantity' => 20,
+        ]);
+        $this->assertDatabaseHas('product_variants', [
+            'product_id' => Product::query()->where('uuid', $variantProduct['id'])->value('id'),
+            'sku' => 'TEST-VARIANT-001',
+            'quantity' => 12,
+        ]);
+        $this->assertDatabaseCount('product_variants', 2);
     }
 }

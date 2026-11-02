@@ -31,7 +31,7 @@ class CatalogService
 
         return DB::transaction(function () use ($vendor, $dto) {
             $categoryId = $this->resolveId(Category::class, $dto->category_id);
-            $taxRate = $dto->tax_rate ?: (Category::query()->find($categoryId)?->tax_rate ?? 0);
+            $taxRate = $dto->tax_rate ?? (Category::query()->find($categoryId)?->tax_rate ?? 0);
 
             $product = Product::query()->create([
                 'vendor_id' => $vendor->id,
@@ -46,12 +46,12 @@ class CatalogService
                 'barcode' => $dto->barcode,
                 'status' => $dto->status ?: ProductStatus::DRAFT,
                 'stock_status' => StockStatus::OUT_OF_STOCK,
-                'quantity' => $dto->quantity,
-                'low_stock_threshold' => $dto->low_stock_threshold,
+                'quantity' => $dto->quantity ?? 0,
+                'low_stock_threshold' => $dto->low_stock_threshold ?? 5,
                 'price' => $dto->price,
                 'compare_at_price' => $dto->compare_at_price,
                 'cost_price' => $dto->cost_price,
-                'weight_grams' => $dto->weight_grams,
+                'weight_grams' => $dto->weight_grams ?? 0,
                 'dimensions' => $dto->dimensions,
                 'hs_code' => $dto->hs_code,
                 'tax_rate' => $taxRate,
@@ -63,7 +63,7 @@ class CatalogService
             ]);
 
             $this->syncVariants($product, $dto->variants);
-            $this->syncAttributes($product, $dto->attributes);
+            $this->syncAttributes($product, $dto->attributes ?? []);
             $this->storeImages(
                 $product,
                 $dto->images,
@@ -85,7 +85,9 @@ class CatalogService
 
         return DB::transaction(function () use ($product, $dto) {
             $categoryId = $this->resolveId(Category::class, $dto->category_id);
-            $taxRate = $dto->tax_rate ?: (Category::query()->find($categoryId)?->tax_rate ?? 0);
+            $isVariant = $dto->variants_provided
+                ? ! empty($dto->variants)
+                : $product->is_variant;
 
             $product->update([
                 'category_id' => $categoryId,
@@ -97,27 +99,31 @@ class CatalogService
                 'description' => $dto->description,
                 'short_description' => $dto->short_description,
                 'sku' => $dto->sku,
-                'barcode' => $dto->barcode,
+                'barcode' => $dto->barcode ?? $product->barcode,
                 'status' => $dto->status ?: $product->status,
-                'low_stock_threshold' => $dto->low_stock_threshold,
+                'quantity' => $dto->quantity ?? $product->quantity,
+                'low_stock_threshold' => $dto->low_stock_threshold ?? $product->low_stock_threshold,
                 'price' => $dto->price,
                 'compare_at_price' => $dto->compare_at_price,
-                'cost_price' => $dto->cost_price,
-                'weight_grams' => $dto->weight_grams,
+                'cost_price' => $dto->cost_price ?? $product->cost_price,
+                'weight_grams' => $dto->weight_grams ?? $product->weight_grams,
                 'dimensions' => $dto->dimensions,
-                'hs_code' => $dto->hs_code,
-                'tax_rate' => $taxRate,
-                'manufacturer' => $dto->manufacturer,
-                'is_variant' => $dto->is_variant || ! empty($dto->variants),
+                'hs_code' => $dto->hs_code ?? $product->hs_code,
+                'tax_rate' => $dto->tax_rate ?? $product->tax_rate,
+                'manufacturer' => $dto->manufacturer ?? $product->manufacturer,
+                'is_variant' => $isVariant,
                 'is_featured' => $dto->is_featured,
                 'is_negotiable' => $dto->is_negotiable,
-                'meta' => $dto->meta,
+                'meta' => $dto->meta ?: $product->meta,
             ]);
 
-            $product->variants()->delete();
-            $product->attributes()->delete();
-            $this->syncVariants($product, $dto->variants);
-            $this->syncAttributes($product, $dto->attributes);
+            if ($dto->variants_provided) {
+                $this->syncVariants($product, $dto->variants, deleteMissing: true);
+            }
+            if ($dto->attributes !== null) {
+                $product->attributes()->delete();
+                $this->syncAttributes($product, $dto->attributes);
+            }
             if (! empty($dto->images) || ! empty($dto->image_urls) || $dto->primary_image_url !== null) {
                 $this->storeImages(
                     $product,
@@ -275,35 +281,47 @@ class CatalogService
         }
     }
 
-    protected function syncVariants(Product $product, array $variants): void
+    protected function syncVariants(Product $product, array $variants, bool $deleteMissing = false): void
     {
-        if (empty($variants)) {
-            return;
-        }
-
         $defaultSet = false;
+        $retainedSkus = [];
 
-        foreach ($variants as $index => $variantData) {
+        foreach ($variants as $variantData) {
             $options = $variantData['options'] ?? [];
+            $retainedSkus[] = $variantData['sku'];
 
-            $variant = ProductVariant::query()->create([
+            $variant = ProductVariant::query()->firstOrNew([
                 'product_id' => $product->id,
                 'sku' => $variantData['sku'],
+            ]);
+            $variant->fill([
                 'name' => $variantData['name'] ?? null,
                 'combination_hash' => empty($options) ? null : md5(json_encode($options)),
                 'price' => $variantData['price'],
                 'compare_at_price' => $variantData['compare_at_price'] ?? null,
                 'quantity' => $variantData['quantity'] ?? 0,
-                'stock_status' => StockStatus::OUT_OF_STOCK,
+                'stock_status' => $this->resolveStockStatus(
+                    (int) ($variantData['quantity'] ?? 0),
+                    $product->low_stock_threshold
+                ),
                 'options' => $options,
                 'is_default' => ! $defaultSet,
             ]);
+            $variant->save();
 
             $defaultSet = true;
 
             if (isset($variantData['image'])) {
                 $this->storeVariantImage($product, $variant, $variantData['image']);
             }
+        }
+
+        if ($deleteMissing) {
+            $query = $product->variants();
+            if ($retainedSkus !== []) {
+                $query->whereNotIn('sku', $retainedSkus);
+            }
+            $query->delete();
         }
     }
 

@@ -59,6 +59,7 @@ class ProductRequest extends FormRequest
             'meta' => ['nullable', 'array'],
 
             'variants' => ['nullable', 'array'],
+            'variants_present' => ['nullable', 'boolean'],
             'variants.*.sku' => ['required_with:variants', 'string', 'max:80', 'distinct'],
             'variants.*.name' => ['nullable', 'string', 'max:200'],
             'variants.*.price' => ['required_with:variants', 'numeric', 'min:0'],
@@ -78,7 +79,7 @@ class ProductRequest extends FormRequest
             'images.*' => ['nullable', 'image', 'max:5120'],
             'image_urls' => ['nullable', 'array', 'max:10'],
             'image_urls.*' => ['required', 'url', 'max:2048'],
-            'primary_image_url' => ['nullable', 'url', 'max:2048'],
+            'primary_image_url' => ['nullable', 'string', 'max:2048', 'regex:/^(https?:\/\/|\/?storage\/|[a-z0-9_-]+\/)[^\s]+$/i'],
             'primary_image_upload_index' => ['nullable', 'integer', 'min:0'],
         ];
     }

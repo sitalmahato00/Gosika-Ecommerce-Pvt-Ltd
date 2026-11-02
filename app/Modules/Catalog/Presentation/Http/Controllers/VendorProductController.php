@@ -80,6 +80,7 @@ class VendorProductController extends Controller
         $product = $this->findOwned($vendor->id, $productId);
 
         $product = $this->service->updateProduct($request->user(), $product, ProductDTO::fromArray($request->validated()));
+        $product->load(['category', 'brand', 'images', 'primaryImage', 'variants', 'attributes.values']);
 
         return Response::success(new ProductResource($product), 'Product updated.');
     }

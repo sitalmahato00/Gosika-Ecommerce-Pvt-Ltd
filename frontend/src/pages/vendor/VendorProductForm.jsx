@@ -24,6 +24,11 @@ const emptyForm = {
   brand_id: '',
   weight_grams: '0',
   dimensions: '',
+  barcode: '',
+  cost_price: '',
+  hs_code: '',
+  manufacturer: '',
+  tax_rate: '',
   primary_image: '',
   images: [],
   is_negotiable: false,
@@ -74,6 +79,11 @@ export default function VendorProductForm() {
             brand_id: p.brand?.id || '',
             weight_grams: String(p.weight_grams ?? '0'),
             dimensions: p.dimensions || '',
+            barcode: p.barcode || '',
+            cost_price: String(p.cost_price ?? ''),
+            hs_code: p.hs_code || '',
+            manufacturer: p.manufacturer || '',
+            tax_rate: String(p.tax_rate ?? ''),
             primary_image: p.primary_image?.url || p.images?.[0]?.url || '',
             images,
             is_negotiable: !!p.is_negotiable,
@@ -206,6 +216,11 @@ export default function VendorProductForm() {
     put('low_stock_threshold', form.low_stock_threshold)
     put('weight_grams', form.weight_grams)
     putNullable('dimensions', form.dimensions)
+    putNullable('barcode', form.barcode)
+    putNullable('cost_price', form.cost_price)
+    putNullable('hs_code', form.hs_code)
+    putNullable('manufacturer', form.manufacturer)
+    putNullable('tax_rate', form.tax_rate)
     fd.append('is_featured', form.is_featured ? '1' : '0')
     fd.append('is_negotiable', form.is_negotiable ? '1' : '0')
     fd.append('variants_present', '1')
@@ -215,7 +230,7 @@ export default function VendorProductForm() {
         put(`variants[${i}][sku]`, v.sku)
         put(`variants[${i}][name]`, v.name)
         put(`variants[${i}][price]`, v.price)
-        put(`variants[${i}][compare_at_price]`, v.compare_at_price)
+        putNullable(`variants[${i}][compare_at_price]`, v.compare_at_price)
         put(`variants[${i}][quantity]`, v.quantity)
         const opts = parseVariantOptions(v.options)
         Object.keys(opts).forEach((key) => fd.append(`variants[${i}][options][${key}]`, opts[key]))
@@ -330,6 +345,11 @@ export default function VendorProductForm() {
             </Select>
             <Input label="Shipping Weight (grams)" type="number" min="0" value={form.weight_grams} onChange={set('weight_grams')} placeholder="500" error={fieldErrors.weight_grams?.[0]} />
             <Input label="Dimensions (LxWxH cm)" value={form.dimensions} onChange={set('dimensions')} placeholder="e.g. 25x15x8 cm" error={fieldErrors.dimensions?.[0]} />
+            <Input label="Barcode" value={form.barcode} onChange={set('barcode')} error={fieldErrors.barcode?.[0]} />
+            <Input label="Cost Price (NPR)" type="number" min="0" step="0.01" value={form.cost_price} onChange={set('cost_price')} error={fieldErrors.cost_price?.[0]} />
+            <Input label="HS Code" value={form.hs_code} onChange={set('hs_code')} error={fieldErrors.hs_code?.[0]} />
+            <Input label="Manufacturer" value={form.manufacturer} onChange={set('manufacturer')} error={fieldErrors.manufacturer?.[0]} />
+            <Input label="Tax Rate (%)" type="number" min="0" max="100" value={form.tax_rate} onChange={set('tax_rate')} error={fieldErrors.tax_rate?.[0]} />
           </div>
 
           <Textarea label="Short Summary (shown at top of product detail)" rows={2} value={form.short_description} onChange={set('short_description')} placeholder="Brief 1-2 sentence highlight of the product…" error={fieldErrors.short_description?.[0]} />
@@ -490,6 +510,7 @@ export default function VendorProductForm() {
                 <Input label="Variant SKU" required value={v.sku} onChange={(e) => setVariant(idx, 'sku', e.target.value)} placeholder="VAR-RED-M" />
                 <Input label="Variant Title" value={v.name} onChange={(e) => setVariant(idx, 'name', e.target.value)} placeholder="e.g. Red / Medium" />
                 <Input label="Price (NPR)" type="number" step="0.01" value={v.price} onChange={(e) => setVariant(idx, 'price', e.target.value)} />
+                <Input label="Compare-at Price (NPR)" type="number" min="0" step="0.01" value={v.compare_at_price} onChange={(e) => setVariant(idx, 'compare_at_price', e.target.value)} />
                 <Input label="Stock Quantity" type="number" min="0" value={v.quantity} onChange={(e) => setVariant(idx, 'quantity', e.target.value)} />
               </div>
               <Input label="Options (key=value, separated by comma)" value={v.options} onChange={(e) => setVariant(idx, 'options', e.target.value)} placeholder="color=Red, size=M" />
