@@ -69,6 +69,12 @@ class PublicStoreResource extends JsonResource
             return $path;
         }
 
-        return '/storage/'.ltrim($path, '/');
+        $normalized = ltrim($path, '/');
+
+        if (Str::startsWith($normalized, 'storage/')) {
+            return '/'.$normalized;
+        }
+
+        return '/storage/'.$normalized;
     }
 }

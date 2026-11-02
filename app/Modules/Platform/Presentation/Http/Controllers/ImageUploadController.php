@@ -25,17 +25,17 @@ class ImageUploadController extends Controller
 
         $request->validate([
             'image' => ['nullable', 'file', 'image', 'mimes:jpeg,png,jpg,webp,svg,gif', 'max:10240'],
-            'file'  => ['nullable', 'file', 'image', 'mimes:jpeg,png,jpg,webp,svg,gif', 'max:10240'],
+            'file' => ['nullable', 'file', 'image', 'mimes:jpeg,png,jpg,webp,svg,gif', 'max:10240'],
             'folder' => ['nullable', 'string', 'max:50', 'regex:/^[a-zA-Z0-9_\-\/]+$/'],
         ]);
 
         $folder = $request->input('folder', 'general');
         $cleanFolder = trim(preg_replace('/[^a-zA-Z0-9_\-]/', '', $folder)) ?: 'general';
 
-        $filename = Str::uuid()->toString() . '.' . ($file->getClientOriginalExtension() ?: 'jpg');
-        $path = $file->storeAs('uploads/' . $cleanFolder, $filename, 'public');
+        $filename = Str::uuid()->toString().'.'.($file->getClientOriginalExtension() ?: 'jpg');
+        $path = $file->storeAs('uploads/'.$cleanFolder, $filename, 'public');
 
-        $url = '/storage/' . $path;
+        $url = $path;
 
         return Response::success([
             'url' => $url,
