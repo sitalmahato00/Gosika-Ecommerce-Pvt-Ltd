@@ -16,7 +16,8 @@ import LocationMapPicker from '../../components/common/LocationMapPicker'
 import ImageUpload from '../../components/ui/ImageUpload'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
-import { errorMessage, apiImage, formatDate } from '../../utils/format'
+import { errorMessage, formatDate } from '../../utils/format'
+import { downloadVendorDocument } from '../../utils/vendorDocuments'
 
 function InfoCard({ icon: Icon, color, label, value }) {
   return (
@@ -146,13 +147,56 @@ export default function VendorVerification() {
     load()
   }, [])
 
+  const persistAccount = async () => {
+    await api.put('/vendor/profile', account)
+    updateUser({
+      first_name: account.first_name,
+      last_name: account.last_name,
+      name: `${account.first_name} ${account.last_name}`.trim(),
+      phone: account.phone,
+    })
+  }
+
+  const persistBasic = async () => {
+    await api.put('/vendor/me', basic)
+  }
+
+  const persistStore = async () => {
+    const payload = {
+      name: storeForm.name,
+      description: storeForm.description,
+      logo: storeForm.logo,
+      banner: storeForm.banner,
+      contact_email: basic.business_email,
+      contact_phone: basic.business_phone,
+    }
+    const response = storeForm.id
+      ? await api.put(`/vendor/stores/${storeForm.id}`, payload)
+      : await api.post('/vendor/stores', payload)
+    const savedStore = response.data?.data
+    if (savedStore?.id) {
+      setStoreForm((prev) => ({ ...prev, id: savedStore.id }))
+    }
+  }
+
+  const persistBank = async () => {
+    if (bankForm.id) {
+      await api.put(`/vendor/bank-accounts/${bankForm.id}`, bankForm)
+    } else {
+      const response = await api.post('/vendor/bank-accounts', bankForm)
+      const savedBank = response.data?.data
+      if (savedBank?.id) {
+        setBankForm((prev) => ({ ...prev, id: savedBank.id }))
+      }
+    }
+  }
+
   const saveBasic = async (e) => {
     e.preventDefault()
     setSaving('basic')
     try {
-      await api.put('/vendor/me', basic)
+      await persistBasic()
       toast.success('Business profile updated successfully')
-      load()
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -164,13 +208,7 @@ export default function VendorVerification() {
     e.preventDefault()
     setSaving('account')
     try {
-      await api.put('/vendor/profile', account)
-      updateUser({
-        first_name: account.first_name,
-        last_name: account.last_name,
-        name: `${account.first_name} ${account.last_name}`.trim(),
-        phone: account.phone,
-      })
+      await persistAccount()
       toast.success('Account details updated successfully')
     } catch (err) {
       toast.error(errorMessage(err))
@@ -183,21 +221,8 @@ export default function VendorVerification() {
     e.preventDefault()
     setSaving('store')
     try {
-      const payload = {
-        name: storeForm.name,
-        description: storeForm.description,
-        logo: storeForm.logo,
-        banner: storeForm.banner,
-        contact_email: basic.business_email,
-        contact_phone: basic.business_phone,
-      }
-      if (storeForm.id) {
-        await api.put(`/vendor/stores/${storeForm.id}`, payload)
-      } else {
-        await api.post('/vendor/stores', payload)
-      }
+      await persistStore()
       toast.success('Store information saved successfully')
-      await load()
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -209,13 +234,8 @@ export default function VendorVerification() {
     e.preventDefault()
     setSaving('bank')
     try {
-      if (bankForm.id) {
-        await api.put(`/vendor/bank-accounts/${bankForm.id}`, bankForm)
-      } else {
-        await api.post('/vendor/bank-accounts', bankForm)
-      }
+      await persistBank()
       toast.success('Payout bank details saved successfully')
-      await load()
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -231,6 +251,7 @@ export default function VendorVerification() {
       [user?.email, 'Account email'],
       [account.phone, 'Account phone'],
       [basic.company_name, 'Business name'],
+      [basic.business_email, 'Business email'],
       [basic.pan_vat, 'Tax ID / VAT number'],
       [kyc.business_type, 'Business type'],
       [storeForm.name, 'Store name'],
@@ -247,8 +268,17 @@ export default function VendorVerification() {
       toast.error(`Complete and save the ${missingField[1]} before submitting KYC.`)
       return
     }
+    const missingDocument = DOC_CARDS.find((doc) => !uploadedTypes.includes(doc.type))
+    if (missingDocument) {
+      toast.error(`Upload the ${missingDocument.label} before submitting KYC.`)
+      return
+    }
     setSaving('kyc')
     try {
+      await persistAccount()
+      await persistBasic()
+      await persistStore()
+      await persistBank()
       await api.post('/vendor/kyc', {
         owner_full_name: kyc.owner_full_name,
         owner_citizenship_number: kyc.owner_citizenship_number,
@@ -264,7 +294,7 @@ export default function VendorVerification() {
         longitude: kyc.coordinates?.lng,
       })
       toast.success('KYC verification submitted successfully for review')
-      load()
+      await load()
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -275,18 +305,45 @@ export default function VendorVerification() {
   const uploadDocument = async (type, file) => {
     if (!file) return
     const preview = URL.createObjectURL(file)
-    setPreviews((prev) => ({ ...prev, [type]: preview }))
     setUploading(type)
     const fd = new FormData()
     fd.append('document_type', type)
     fd.append('file', file)
     try {
-      await api.post('/vendor/documents', fd)
+      const response = await api.post('/vendor/documents', fd)
+      const uploadedDocument = response.data?.data
+      if (!uploadedDocument?.id) {
+        throw new Error('Upload succeeded, but the server did not return the saved document.')
+      }
+      setVendor((prev) => prev ? {
+        ...prev,
+        documents: [
+          ...(prev.documents || []).filter((document) => document.document_type !== type),
+          uploadedDocument,
+        ],
+      } : prev)
+      setPreviews((prev) => {
+        if (prev[type]) URL.revokeObjectURL(prev[type])
+        return { ...prev, [type]: preview }
+      })
       toast.success('Document uploaded and sent for review')
     } catch (err) {
+      URL.revokeObjectURL(preview)
       toast.error(errorMessage(err))
     } finally {
       setUploading('')
+    }
+
+    const downloadDocument = async (document) => {
+      try {
+        const extension = document.file_path?.split('.').pop() || 'file'
+        await downloadVendorDocument(
+          `/vendor/documents/${document.id}/download`,
+          `${document.document_type || 'verification-document'}.${extension}`
+        )
+      } catch (err) {
+        toast.error(errorMessage(err, 'Could not download this verification document.'))
+      }
     }
   }
 
@@ -665,7 +722,7 @@ export default function VendorVerification() {
                 <div key={doc.type} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, background: 'var(--bg)' }}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-bold text-xs text-ink">{doc.label}</span>
-                    {uploaded && <StatusBadge status="approved" />}
+                    {uploaded && <StatusBadge status={existing?.status || 'pending'} />}
                   </div>
                   <div
                     style={{
@@ -684,9 +741,9 @@ export default function VendorVerification() {
                     {previews[doc.type] ? (
                       <img src={previews[doc.type]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : existing?.file_path ? (
-                      <a href={apiImage(existing.file_path)} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                      <button type="button" onClick={() => downloadDocument(existing)} aria-label={`Download ${doc.label}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: 'transparent', border: 0, cursor: 'pointer' }}>
                         <FileText size={28} color="var(--primary)" />
-                      </a>
+                      </button>
                     ) : (
                       <span className="muted text-xs flex items-center gap-1"><UploadCloud size={18} /> Not uploaded</span>
                     )}

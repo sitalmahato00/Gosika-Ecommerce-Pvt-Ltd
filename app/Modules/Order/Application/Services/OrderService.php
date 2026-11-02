@@ -120,7 +120,7 @@ class OrderService
                 $order->update(['status' => OrderStatus::CONFIRMED]);
             }
 
-            app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->orderConfirmation($order);
+            app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->orderPlaced($order);
             foreach ($vendorOrders as $vendorOrder) {
                 app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->vendorNewOrder($vendorOrder);
             }

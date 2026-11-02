@@ -14,6 +14,7 @@ Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group
     Route::put('me', [VendorController::class, 'update']);
     Route::post('kyc', [VendorController::class, 'submitKyc']);
     Route::post('documents', [VendorController::class, 'uploadDocument']);
+    Route::get('documents/{document}/download', [VendorController::class, 'downloadDocument']);
 
     Route::get('profile', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'show']);
     Route::put('profile', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'update']);
@@ -47,6 +48,7 @@ Route::prefix('v1/admin/vendors')->middleware(['auth:sanctum', 'ensure:admin'])-
     Route::get('stores', [AdminVendorController::class, 'stores']);
     Route::get('kyc', [AdminVendorController::class, 'kycList']);
     Route::get('kyc/{kyc}', [AdminVendorController::class, 'kycShow']);
+    Route::get('documents/{document}/download', [AdminVendorController::class, 'downloadKycDocument']);
     Route::post('kyc/{kyc}/approve', [AdminVendorController::class, 'approveKyc']);
     Route::post('kyc/{kyc}/reject', [AdminVendorController::class, 'rejectKyc']);
     Route::post('kyc/{kyc}/request-changes', [AdminVendorController::class, 'requestChangesKyc']);

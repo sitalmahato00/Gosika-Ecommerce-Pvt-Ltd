@@ -184,6 +184,8 @@ const api = new Proxy(rawApi, {
           invalidateCache('/cart')
           invalidateCache('/admin/analytics')
         } else if (url.includes('/stores') || url.includes('/vendor')) {
+          invalidateCache('/vendor')
+          invalidateCache('/admin/vendors')
           invalidateCache('/stores')
           invalidateCache('/marketplace')
         } else {

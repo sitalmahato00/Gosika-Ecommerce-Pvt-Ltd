@@ -1095,9 +1095,9 @@ class DeliveryService
             $vendorOrder->save();
 
             $this->transitionVendorOrder($vendorOrder, OrderStatus::ACCEPTED, $actor);
-            $this->syncOrder($vendorOrder->order, $actor);
+            $this->syncOrder($order ?? $vendorOrder->order, $actor);
 
-            if ($order && ! $order->confirmed_at) {
+            if ($order && ! $this->isOnlinePaymentPending($order) && ! $order->confirmed_at) {
                 $order->confirmed_at = now();
                 $order->save();
             }
@@ -1107,7 +1107,7 @@ class DeliveryService
             $storeSettings = (array) ($store?->settings ?? []);
             if (! empty($storeSettings['auto_ready_for_pickup'])) {
                 $this->transitionVendorOrder($vendorOrder, OrderStatus::READY_FOR_PICKUP, $actor);
-                $this->syncOrder($vendorOrder->order, $actor);
+                $this->syncOrder($order ?? $vendorOrder->order, $actor);
                 $this->dispatcher->orderDeliveryUpdate($vendorOrder, 'ready_for_pickup');
             } else {
                 $this->dispatcher->orderDeliveryUpdate($vendorOrder, 'confirmed');
@@ -1848,6 +1848,12 @@ class DeliveryService
             $newStatus = OrderStatus::CONFIRMED;
         }
 
+        if ($newStatus !== null
+            && $newStatus !== OrderStatus::CANCELLED
+            && $this->isOnlinePaymentPending($order)) {
+            $newStatus = OrderStatus::PAYMENT_PENDING;
+        }
+
         if ($newStatus !== null && $order->status !== $newStatus) {
             $from = $order->status->value;
             $updates = ['status' => $newStatus];
@@ -1861,6 +1867,12 @@ class DeliveryService
             $order->update($updates);
             $this->logStatus($order, $from, $newStatus->value, $actor, 'Order status synced from vendor order updates.');
         }
+    }
+
+    protected function isOnlinePaymentPending(Order $order): bool
+    {
+        return in_array($order->payment_method, [PaymentMethod::ESEWA->value, PaymentMethod::KHALTI->value], true)
+            && $order->payment_status !== OrderPaymentStatus::PAID;
     }
 
     protected function restoreStock(VendorOrder $vendorOrder): void

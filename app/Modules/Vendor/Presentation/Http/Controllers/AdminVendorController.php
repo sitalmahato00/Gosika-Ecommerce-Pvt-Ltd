@@ -14,6 +14,7 @@ use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Application\Services\VendorOnboardingService;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
+use App\Modules\Vendor\Infrastructure\Models\VendorDocument;
 use App\Modules\Vendor\Infrastructure\Models\VendorKyc;
 use App\Modules\Vendor\Presentation\Http\Requests\VendorReviewRequest;
 use App\Modules\Vendor\Presentation\Resources\StoreResource;
@@ -23,7 +24,9 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AdminVendorController extends Controller
 {
@@ -166,6 +169,17 @@ class AdminVendorController extends Controller
             ->firstOrFail();
 
         return Response::success($kyc, 'KYC detail retrieved.');
+    }
+
+    public function downloadKycDocument(VendorDocument $document): StreamedResponse
+    {
+        if (! Storage::disk('local')->exists($document->file_path)) {
+            throw new DomainException('Document file not found.', 404);
+        }
+
+        return Storage::disk('local')->download($document->file_path, basename($document->file_path), [
+            'Content-Type' => $document->mime_type ?? 'application/octet-stream',
+        ]);
     }
 
     public function approveKyc(Request $request, string $kycId): JsonResponse

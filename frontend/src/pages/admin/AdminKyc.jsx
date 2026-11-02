@@ -10,6 +10,7 @@ import FilterBar from '../../components/admin/FilterBar'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { formatDateTime, timeAgo } from '../../utils/format'
+import { downloadVendorDocument } from '../../utils/vendorDocuments'
 import { useToast } from '../../context/ToastContext'
 
 export default function AdminKyc() {
@@ -68,6 +69,18 @@ export default function AdminKyc() {
       kyc,
       loading: false
     })
+  }
+
+  const handleDocumentDownload = async (doc) => {
+    try {
+      const extension = doc.file_path?.split('.').pop() || 'file'
+      await downloadVendorDocument(
+        `/admin/vendors/documents/${doc.id}/download`,
+        `${doc.document_type || 'verification-document'}.${extension}`
+      )
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not download this verification document.')
+    }
   }
 
   const handleConfirmAction = async (reason) => {
@@ -372,15 +385,15 @@ export default function AdminKyc() {
                       </div>
 
                       {doc.file_path && (
-                        <a
-                          href={`/storage/${doc.file_path.replace('public/', '')}`}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => handleDocumentDownload(doc)}
+                          aria-label={`Download ${doc.document_type || 'verification document'}`}
                           className="btn btn-outline btn-xs"
                           style={{ flexShrink: 0, padding: '4px 8px' }}
                         >
                           <ExternalLink size={12} />
-                        </a>
+                        </button>
                       )}
                     </div>
                   ))}

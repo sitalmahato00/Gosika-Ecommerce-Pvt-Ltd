@@ -12,7 +12,9 @@ use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Platform\Infrastructure\Models\Setting;
+use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
+use App\Modules\Shared\Domain\Enums\PaymentMethod;
 use App\Modules\Shared\Domain\Enums\UserStatus;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryPartner;
@@ -42,13 +44,64 @@ class NotificationDispatcher
     {
         $order->loadMissing('user');
 
-        if (! $order->user) {
+        if (! $order->user
+            || $order->status !== OrderStatus::CONFIRMED
+            || (in_array($order->payment_method, [PaymentMethod::ESEWA->value, PaymentMethod::KHALTI->value], true)
+                && $order->payment_status?->value !== OrderPaymentStatus::PAID->value)) {
             return;
         }
 
         $this->email($order->user->email, new \App\Modules\Marketing\Application\Mail\OrderConfirmationMail($order));
-        $this->customer($order->user, 'order', 'Order '.$order->order_number.' confirmed', 'Your order has been placed and is being processed by our sellers.', [
+        $this->customer($order->user, 'order', 'Order '.$order->order_number.' confirmed', 'Your payment was received and your order is confirmed. It is now awaiting seller acceptance.', [
             'link' => 'account/orders/'.$order->uuid,
+            'event' => 'order_confirmed',
+            'order_uuid' => $order->uuid,
+            'order_number' => $order->order_number,
+            'status' => $order->status->value,
+            'payment_status' => $order->payment_status?->value,
+            'payment_method' => $order->payment_method,
+            'total' => (float) $order->grand_total,
+            'currency' => $order->currency,
+        ]);
+    }
+
+    public function orderPlaced(Order $order): void
+    {
+        $order->loadMissing(['user', 'items']);
+
+        if (! $order->user) {
+            return;
+        }
+
+        $isPaymentPending = in_array($order->payment_method, [PaymentMethod::ESEWA->value, PaymentMethod::KHALTI->value], true)
+            && $order->payment_status?->value !== OrderPaymentStatus::PAID->value;
+
+        if ($isPaymentPending) {
+            $title = 'Payment pending for order '.$order->order_number;
+            $message = 'We received your order, but your online payment is still pending. The order will be confirmed only after the payment succeeds.';
+            $type = 'payment';
+        } else {
+            $title = 'Order '.$order->order_number.' received';
+            $message = 'Your order has been placed and is awaiting seller confirmation.';
+            $type = 'order';
+        }
+
+        $this->email($order->user->email, new \App\Modules\Marketing\Application\Mail\OrderStatusMail(
+            $order,
+            $order->status->value,
+            $title,
+            $message,
+        ));
+        $this->customer($order->user, $type, $title, $message, [
+            'link' => 'account/orders/'.$order->uuid,
+            'event' => 'order_placed',
+            'order_uuid' => $order->uuid,
+            'order_number' => $order->order_number,
+            'status' => $order->status->value,
+            'payment_status' => $order->payment_status?->value,
+            'payment_method' => $order->payment_method,
+            'total' => (float) $order->grand_total,
+            'currency' => $order->currency,
         ]);
     }
 
@@ -61,6 +114,12 @@ class NotificationDispatcher
 
         $order = $vendorOrder->order;
         if (! $order || ! $order->user) {
+            return;
+        }
+
+        if (in_array($order->payment_method, [PaymentMethod::ESEWA->value, PaymentMethod::KHALTI->value], true)
+            && $order->payment_status?->value !== OrderPaymentStatus::PAID->value
+            && $status !== 'cancelled') {
             return;
         }
 
@@ -89,6 +148,15 @@ class NotificationDispatcher
         $this->email($order->user->email, new \App\Modules\Marketing\Application\Mail\OrderStatusMail($order, $status, $headline, $message));
         $this->customer($order->user, $type, $headline.' — '.$order->order_number, $message, [
             'link' => 'account/orders/'.$order->uuid,
+            'event' => 'order_status',
+            'order_uuid' => $order->uuid,
+            'order_number' => $order->order_number,
+            'status' => $order->status->value,
+            'vendor_order_status' => $vendorOrder->status->value,
+            'payment_status' => $order->payment_status?->value,
+            'payment_method' => $order->payment_method,
+            'total' => (float) $order->grand_total,
+            'currency' => $order->currency,
         ]);
     }
 

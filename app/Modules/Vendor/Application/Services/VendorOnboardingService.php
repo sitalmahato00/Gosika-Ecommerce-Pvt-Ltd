@@ -77,6 +77,10 @@ class VendorOnboardingService
                 $kycData
             );
 
+            $vendor->documents()
+                ->whereNull('vendor_kyc_id')
+                ->update(['vendor_kyc_id' => $kyc->id]);
+
             $vendor->update(['status' => VendorStatus::UNDER_REVIEW]);
 
             return $kyc;

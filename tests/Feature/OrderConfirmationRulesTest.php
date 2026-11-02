@@ -5,6 +5,10 @@ namespace Tests\Feature;
 use App\Modules\Catalog\Infrastructure\Models\Product;
 use App\Modules\Identity\Domain\Roles;
 use App\Modules\Identity\Infrastructure\Models\User;
+use App\Modules\Marketing\Application\Mail\OrderConfirmationMail;
+use App\Modules\Marketing\Application\Mail\OrderStatusMail;
+use App\Modules\Marketing\Application\Services\NotificationDispatcher;
+use App\Modules\Marketing\Infrastructure\Models\CustomerNotification;
 use App\Modules\Order\Application\Services\OrderConfirmationSchedulerService;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
@@ -22,11 +26,13 @@ use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Domain\Enums\UserStatus;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
 use App\Modules\Payment\Domain\Exceptions\PaymentProviderException;
+use App\Modules\Shipping\Application\Services\DeliveryService;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Carbon\Carbon;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -243,6 +249,7 @@ class OrderConfirmationRulesTest extends TestCase
 
         $resourceBeforePayment = OrderResource::make($order->fresh())->toArray(request());
         $this->assertNull($resourceBeforePayment['delivery_otp']);
+        Mail::fake();
 
         $payment = Payment::create([
             'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
@@ -257,12 +264,70 @@ class OrderConfirmationRulesTest extends TestCase
         ]);
 
         app(PaymentService::class)->markPaid($payment);
+        app(PaymentService::class)->markPaid($payment->fresh());
 
         $paidOrder = $order->fresh();
         $this->assertSame(OrderPaymentStatus::PAID, $paidOrder->payment_status);
         $this->assertSame(OrderStatus::CONFIRMED, $paidOrder->status);
         $this->assertMatchesRegularExpression('/^\d{6}$/', $paidOrder->meta['delivery_otp']);
         $this->assertSame($paidOrder->meta['delivery_otp'], $vendorOrder->fresh()->meta['delivery_otp']);
+        $this->assertSame(1, CustomerNotification::query()->where('user_id', $customer->id)->count());
+        $this->assertSame(
+            OrderStatus::CONFIRMED->value,
+            CustomerNotification::query()->where('user_id', $customer->id)->firstOrFail()->data['status']
+        );
+        Mail::assertSent(OrderConfirmationMail::class, function (OrderConfirmationMail $mail) use ($order): bool {
+            $html = $mail->render();
+
+            return str_contains($html, $order->order_number)
+                && str_contains($html, 'Payment received')
+                && str_contains($html, 'awaiting seller acceptance');
+        });
+        Mail::assertNotSent(OrderStatusMail::class);
+    }
+
+    public function test_pending_online_order_sends_accurate_payment_pending_notification_and_email(): void
+    {
+        [$order, , $customer] = $this->createOrder(OrderStatus::PAYMENT_PENDING, false);
+        $order->update(['payment_status' => OrderPaymentStatus::PENDING]);
+        Mail::fake();
+
+        $dispatcher = app(NotificationDispatcher::class);
+        $dispatcher->orderPlaced($order->fresh());
+        $dispatcher->orderConfirmation($order->fresh());
+
+        $notification = CustomerNotification::query()->where('user_id', $customer->id)->firstOrFail();
+        $this->assertSame('payment', $notification->type);
+        $this->assertSame('Payment pending for order '.$order->order_number, $notification->title);
+        $this->assertSame('payment_pending', $notification->data['status']);
+        $this->assertSame('pending', $notification->data['payment_status']);
+        $this->assertSame('order_placed', $notification->data['event']);
+
+        Mail::assertSent(OrderStatusMail::class);
+        $statusMail = Mail::sent(OrderStatusMail::class)->first();
+        $statusEmailHtml = $statusMail->render();
+        $this->assertStringContainsString($order->order_number, $statusEmailHtml);
+        $this->assertStringContainsString('Singing Bowl', $statusEmailHtml);
+        $this->assertStringContainsString('pending', strtolower($statusEmailHtml));
+        Mail::assertNotSent(OrderConfirmationMail::class);
+    }
+
+    public function test_vendor_acceptance_does_not_confirm_or_notify_an_unpaid_online_order(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::PAYMENT_PENDING, false);
+        $order->update(['payment_status' => OrderPaymentStatus::PENDING]);
+        $vendorOrder->update(['status' => OrderStatus::PENDING]);
+        Carbon::setTestNow(Carbon::parse($order->placed_at)->addMinutes(20));
+        Mail::fake();
+
+        app(DeliveryService::class)->vendorAccept($vendorOrder, $this->vendorUser);
+
+        $pendingOrder = $order->fresh();
+        $this->assertSame(OrderStatus::PAYMENT_PENDING, $pendingOrder->status);
+        $this->assertNull($pendingOrder->confirmed_at);
+        $this->assertSame(0, CustomerNotification::query()->where('user_id', $customer->id)->count());
+        Mail::assertNotSent(OrderConfirmationMail::class);
+        Mail::assertNotSent(OrderStatusMail::class);
     }
 
     public function test_verified_esewa_cancellation_cancels_order_and_restores_stock(): void

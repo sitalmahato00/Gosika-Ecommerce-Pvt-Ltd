@@ -579,7 +579,9 @@ class PaymentService
 
     public function markPaid(Payment $payment): Payment
     {
-        return DB::transaction(function () use ($payment) {
+        $confirmationOrderId = null;
+
+        $paidPayment = DB::transaction(function () use ($payment, &$confirmationOrderId) {
             $order = $payment->order_id
                 ? Order::query()->whereKey($payment->order_id)->lockForUpdate()->first()
                 : null;
@@ -589,6 +591,10 @@ class PaymentService
             }
 
             $payment = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->firstOrFail();
+            if ($payment->isPaid()) {
+                return $payment->fresh(['order']);
+            }
+
             $from = $payment->status;
             $payment->status = PaymentStatus::PAID;
             $payment->verified_at = now();
@@ -604,6 +610,7 @@ class PaymentService
                 if ($order->status->value === OrderStatus::PAYMENT_PENDING->value) {
                     $order->status = OrderStatus::CONFIRMED;
                     $order->confirmed_at = now();
+                    $confirmationOrderId = $order->id;
 
                     OrderStatusHistory::create([
                         'trackable_type' => Order::class,
@@ -631,6 +638,16 @@ class PaymentService
 
             return $payment->fresh(['order']);
         });
+
+        if ($confirmationOrderId !== null) {
+            $order = Order::query()->with('user')->find($confirmationOrderId);
+            if ($order) {
+                app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)
+                    ->orderConfirmation($order);
+            }
+        }
+
+        return $paidPayment;
     }
 
     public function verifyEsewaOrderStatus(Payment $payment): Payment

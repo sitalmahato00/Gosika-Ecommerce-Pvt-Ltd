@@ -26,6 +26,7 @@ class OrderConfirmationMail extends BrandedMail
                 'methodLabel' => strtoupper((string) $order->payment_method),
                 'statusLabel' => Str::title(str_replace('_', ' ', (string) $order->status?->value)),
                 'total' => MailBrand::money((float) $order->grand_total),
+                'paymentStatusLabel' => Str::title(str_replace('_', ' ', (string) $order->payment_status?->value)),
                 'orderUrl' => MailBrand::url('account/orders/'.$order->uuid),
             ]);
     }
