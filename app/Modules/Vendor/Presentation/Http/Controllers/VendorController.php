@@ -10,6 +10,7 @@ use App\Modules\Vendor\Application\Services\VendorOnboardingService;
 use App\Modules\Vendor\Infrastructure\Models\VendorDocument;
 use App\Modules\Vendor\Presentation\Http\Requests\ApplyVendorRequest;
 use App\Modules\Vendor\Presentation\Http\Requests\KycRequest;
+use App\Modules\Vendor\Presentation\Http\Requests\VendorVerificationSubmissionRequest;
 use App\Modules\Vendor\Presentation\Resources\VendorResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,7 +40,14 @@ class VendorController extends Controller
 
     public function myVendor(Request $request): JsonResponse
     {
-        $vendor = $request->user()->vendor()->with(['kyc', 'stores', 'bankAccounts', 'documents'])->first();
+        $vendor = $request->user()->vendor()->with([
+            'kyc',
+            'stores.addresses.province',
+            'stores.addresses.district',
+            'stores.addresses.municipality',
+            'bankAccounts',
+            'documents',
+        ])->first();
 
         if (! $vendor) {
             throw new DomainException('No vendor application found for this account.', 404);
@@ -76,6 +84,21 @@ class VendorController extends Controller
         $kyc = $this->service->submitKyc($vendor, KycDTO::fromArray($request->validated()));
 
         return Response::success($kyc, 'KYC submitted for review.');
+    }
+
+    public function submitVerification(VendorVerificationSubmissionRequest $request): JsonResponse
+    {
+        $vendor = $this->vendorFor($request);
+        $kyc = $this->service->submitVerification(
+            $request->user(),
+            $vendor,
+            $request->validated()
+        );
+
+        return Response::success(
+            $kyc->load(['vendor', 'documents']),
+            'Vendor verification saved and submitted for review.'
+        );
     }
 
     public function uploadDocument(Request $request): JsonResponse

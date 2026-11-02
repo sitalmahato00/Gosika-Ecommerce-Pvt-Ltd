@@ -4,6 +4,10 @@ namespace App\Modules\Vendor\Application\Services;
 
 use App\Modules\Identity\Domain\Roles;
 use App\Modules\Identity\Infrastructure\Models\User;
+use App\Modules\Platform\Infrastructure\Models\Country;
+use App\Modules\Platform\Infrastructure\Models\District;
+use App\Modules\Platform\Infrastructure\Models\Municipality;
+use App\Modules\Platform\Infrastructure\Models\Province;
 use App\Modules\Shared\Domain\Enums\KycStatus;
 use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
@@ -25,6 +29,95 @@ use Illuminate\Support\Facades\Storage;
 
 class VendorOnboardingService
 {
+    public function submitVerification(User $user, Vendor $vendor, array $data): VendorKyc
+    {
+        $this->assertVendorCanEdit($vendor);
+
+        return DB::transaction(function () use ($user, $vendor, $data) {
+            $user->fill([
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'phone' => $data['phone'],
+            ])->save();
+
+            $vendor->update([
+                'company_name' => $data['company_name'],
+                'business_email' => $data['business_email'],
+                'business_phone' => $data['business_phone'] ?? null,
+                'pan_vat' => $data['pan_vat'],
+                'registration_number' => $data['registration_number'] ?? null,
+            ]);
+
+            $storeData = [
+                'name' => $data['store_name'],
+                'description' => $data['store_description'],
+                'logo' => $data['store_logo'],
+                'banner' => $data['store_banner'],
+                'contact_email' => $data['business_email'],
+                'contact_phone' => $data['business_phone'] ?? null,
+            ];
+            $store = ! empty($data['store_id'])
+                ? $vendor->stores()->where('uuid', $data['store_id'])->firstOrFail()
+                : null;
+
+            if ($store) {
+                $store = $this->updateStore($vendor, $store, StoreDTO::fromArray($storeData));
+            } else {
+                $store = $this->createStore($vendor, StoreDTO::fromArray($storeData));
+            }
+
+            $province = Province::query()
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower($data['province'])])
+                ->first();
+            $district = District::query()
+                ->when($province, fn ($query) => $query->where('province_id', $province->id))
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower($data['district'])])
+                ->first();
+            $municipality = Municipality::query()
+                ->when($district, fn ($query) => $query->where('district_id', $district->id))
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower($data['municipality'])])
+                ->first();
+
+            $store->addresses()->updateOrCreate(
+                ['address_type' => 'business'],
+                [
+                    'address_line_1' => $data['address'],
+                    'address_line_2' => implode(', ', array_filter([
+                        $data['municipality'],
+                        $data['district'],
+                        $data['province'],
+                    ])),
+                    'country_id' => Country::query()->where('code', 'NP')->value('id'),
+                    'province_id' => $province?->id,
+                    'district_id' => $district?->id,
+                    'municipality_id' => $municipality?->id,
+                    'landmark' => $data['landmark'] ?? null,
+                    'latitude' => $data['latitude'] ?? null,
+                    'longitude' => $data['longitude'] ?? null,
+                ]
+            );
+
+            $bankData = [
+                'bank_name' => $data['bank_name'],
+                'branch_name' => $data['branch_name'] ?? null,
+                'account_name' => $data['account_name'],
+                'account_number' => $data['account_number'],
+                'account_type' => $data['account_type'],
+            ];
+            $account = ! empty($data['bank_account_id'])
+                ? $vendor->bankAccounts()->where('uuid', $data['bank_account_id'])->firstOrFail()
+                : null;
+
+            if ($account) {
+                $this->updateBankAccount($vendor, $account, BankAccountDTO::fromArray($bankData));
+            } else {
+                $this->addBankAccount($vendor, BankAccountDTO::fromArray($bankData));
+            }
+
+            return $this->submitKyc($vendor, KycDTO::fromArray($data));
+        });
+    }
+
     public function apply(User $user, ApplyVendorDTO $dto): Vendor
     {
         if ($user->vendor()->exists()) {

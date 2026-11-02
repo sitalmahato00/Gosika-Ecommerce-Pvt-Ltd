@@ -42,9 +42,7 @@ export default function ImageUpload({
 
     setUploading(true)
     try {
-      const res = await api.post('/upload/image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      const res = await api.post('/upload/image', formData)
       const uploadedUrl = res.data?.data?.url || res.data?.url
       if (uploadedUrl) {
         onChange(uploadedUrl)
@@ -53,17 +51,7 @@ export default function ImageUpload({
         throw new Error('Upload completed but no URL returned.')
       }
     } catch (err) {
-      // Fallback: if offline or server error, use FileReader data URL so user isn't blocked
-      try {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          onChange(e.target.result)
-          toast.success('Image attached locally.')
-        }
-        reader.readAsDataURL(file)
-      } catch (readErr) {
-        toast.error(errorMessage(err, 'Failed to upload image.'))
-      }
+      toast.error(errorMessage(err, 'Failed to upload image.'))
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''

@@ -13,6 +13,7 @@ Route::prefix('v1/vendor')->middleware(['auth:sanctum', 'ensure:vendor'])->group
     Route::get('me', [VendorController::class, 'myVendor']);
     Route::put('me', [VendorController::class, 'update']);
     Route::post('kyc', [VendorController::class, 'submitKyc']);
+    Route::post('verification/submit', [VendorController::class, 'submitVerification']);
     Route::post('documents', [VendorController::class, 'uploadDocument']);
     Route::get('documents/{document}/download', [VendorController::class, 'downloadDocument']);
 

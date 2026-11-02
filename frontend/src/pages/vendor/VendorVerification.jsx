@@ -126,18 +126,23 @@ export default function VendorVerification() {
           account_type: bank.account_type || 'savings',
         })
         const k = v.kyc || {}
+        const storeAddress = store.addresses?.find((address) => address.address_type === 'business') || {}
         setKyc({
           owner_full_name: k.owner_full_name || '',
           owner_citizenship_number: k.owner_citizenship_number || '',
           owner_email: k.owner_email || '',
           owner_phone: k.owner_phone || '',
           business_type: k.business_type || '',
-          address: k.address || '',
-          landmark: k.landmark || '',
-          province: k.province || '',
-          district: k.district || '',
-          city: k.municipality || '',
-          coordinates: k.latitude && k.longitude ? { lat: Number(k.latitude), lng: Number(k.longitude) } : null,
+          address: k.address || storeAddress.address_line_1 || '',
+          landmark: k.landmark || storeAddress.landmark || '',
+          province: k.province || storeAddress.province || '',
+          district: k.district || storeAddress.district || '',
+          city: k.municipality || storeAddress.municipality || '',
+          coordinates: k.latitude && k.longitude
+            ? { lat: Number(k.latitude), lng: Number(k.longitude) }
+            : storeAddress.latitude && storeAddress.longitude
+              ? { lat: Number(storeAddress.latitude), lng: Number(storeAddress.longitude) }
+              : null,
         })
       })
       .catch((e) => setError(e))
@@ -275,11 +280,26 @@ export default function VendorVerification() {
     }
     setSaving('kyc')
     try {
-      await persistAccount()
-      await persistBasic()
-      await persistStore()
-      await persistBank()
-      await api.post('/vendor/kyc', {
+      await api.post('/vendor/verification/submit', {
+        first_name: account.first_name,
+        last_name: account.last_name,
+        phone: account.phone,
+        company_name: basic.company_name,
+        business_email: basic.business_email,
+        business_phone: basic.business_phone || null,
+        pan_vat: basic.pan_vat,
+        registration_number: basic.registration_number || null,
+        store_id: storeForm.id || null,
+        store_name: storeForm.name,
+        store_description: storeForm.description,
+        store_logo: storeForm.logo,
+        store_banner: storeForm.banner,
+        bank_account_id: bankForm.id || null,
+        bank_name: bankForm.bank_name,
+        branch_name: bankForm.branch_name || null,
+        account_name: bankForm.account_name,
+        account_number: bankForm.account_number,
+        account_type: bankForm.account_type,
         owner_full_name: kyc.owner_full_name,
         owner_citizenship_number: kyc.owner_citizenship_number,
         owner_email: kyc.owner_email,
@@ -292,6 +312,12 @@ export default function VendorVerification() {
         municipality: kyc.city,
         latitude: kyc.coordinates?.lat,
         longitude: kyc.coordinates?.lng,
+      })
+      updateUser({
+        first_name: account.first_name,
+        last_name: account.last_name,
+        name: `${account.first_name} ${account.last_name}`.trim(),
+        phone: account.phone,
       })
       toast.success('KYC verification submitted successfully for review')
       await load()
@@ -333,17 +359,17 @@ export default function VendorVerification() {
     } finally {
       setUploading('')
     }
+  }
 
-    const downloadDocument = async (document) => {
-      try {
-        const extension = document.file_path?.split('.').pop() || 'file'
-        await downloadVendorDocument(
-          `/vendor/documents/${document.id}/download`,
-          `${document.document_type || 'verification-document'}.${extension}`
-        )
-      } catch (err) {
-        toast.error(errorMessage(err, 'Could not download this verification document.'))
-      }
+  const downloadDocument = async (document) => {
+    try {
+      const extension = document.file_path?.split('.').pop() || 'file'
+      await downloadVendorDocument(
+        `/vendor/documents/${document.id}/download`,
+        `${document.document_type || 'verification-document'}.${extension}`
+      )
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not download this verification document.'))
     }
   }
 

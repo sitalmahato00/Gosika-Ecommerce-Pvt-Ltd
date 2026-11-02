@@ -18,6 +18,17 @@ class StoreResource extends JsonResource
             'description' => $this->description,
             'contact_email' => $this->contact_email,
             'contact_phone' => $this->contact_phone,
+            'addresses' => $this->whenLoaded('addresses', fn () => $this->addresses->map(fn ($address) => [
+                'address_type' => $address->address_type,
+                'address_line_1' => $address->address_line_1,
+                'address_line_2' => $address->address_line_2,
+                'landmark' => $address->landmark,
+                'province' => $address->province?->name,
+                'district' => $address->district?->name,
+                'municipality' => $address->municipality?->name,
+                'latitude' => $address->latitude,
+                'longitude' => $address->longitude,
+            ])),
             'status' => $this->status,
             'settings' => array_merge([
                 'order_confirmation_mode' => 'manual',
