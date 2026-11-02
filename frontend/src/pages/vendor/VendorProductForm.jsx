@@ -98,6 +98,7 @@ export default function VendorProductForm() {
     setFieldErrors((current) => {
       const next = { ...current }
       delete next[key]
+      if (key === 'category_id') delete next.category_id
       return next
     })
     setFormError('')
@@ -191,21 +192,23 @@ export default function VendorProductForm() {
     const put = (k, v) => {
       if (v !== undefined && v !== null && v !== '') fd.append(k, v)
     }
+    const putNullable = (k, v) => fd.append(k, v ?? '')
     put('name', form.name)
-    put('slug', form.slug)
-    put('description', form.description)
-    put('short_description', form.short_description)
-    put('category_id', form.category_id)
-    put('brand_id', form.brand_id)
+    putNullable('slug', form.slug)
+    putNullable('description', form.description)
+    putNullable('short_description', form.short_description)
+    putNullable('category_id', form.category_id)
+    putNullable('brand_id', form.brand_id)
     put('sku', form.sku)
     put('price', form.price)
-    put('compare_at_price', form.compare_at_price)
+    putNullable('compare_at_price', form.compare_at_price)
     put('quantity', form.quantity)
     put('low_stock_threshold', form.low_stock_threshold)
     put('weight_grams', form.weight_grams)
-    put('dimensions', form.dimensions)
+    putNullable('dimensions', form.dimensions)
     fd.append('is_featured', form.is_featured ? '1' : '0')
     fd.append('is_negotiable', form.is_negotiable ? '1' : '0')
+    fd.append('variants_present', '1')
     form.variants
       .filter((v) => v.sku.trim() && v.price !== '')
       .forEach((v, i) => {
@@ -229,7 +232,7 @@ export default function VendorProductForm() {
         fd.append('image_urls[]', img.url)
       }
     })
-    if (/^(https?:\/\/|\/storage\/|storage\/)/i.test(form.primary_image)) {
+    if (form.images.some((image) => image.url === form.primary_image && !image.file)) {
       primaryImageUrl = form.primary_image
     }
     if (primaryImageUrl) fd.append('primary_image_url', primaryImageUrl)
@@ -272,12 +275,14 @@ export default function VendorProductForm() {
   }
 
   const setVariant = (idx, key, value) => {
-    const variants = [...form.variants]
-    variants[idx] = { ...variants[idx], [key]: value }
-    setForm({ ...form, variants })
+    setForm((current) => {
+      const variants = [...current.variants]
+      variants[idx] = { ...variants[idx], [key]: value }
+      return { ...current, variants }
+    })
   }
-  const addVariant = () => setForm({ ...form, variants: [...form.variants, { sku: '', name: '', price: '', compare_at_price: '', quantity: '0', options: '' }] })
-  const removeVariant = (idx) => setForm({ ...form, variants: form.variants.filter((_, i) => i !== idx) })
+  const addVariant = () => setForm((current) => ({ ...current, variants: [...current.variants, { sku: '', name: '', price: '', compare_at_price: '', quantity: '0', options: '' }] }))
+  const removeVariant = (idx) => setForm((current) => ({ ...current, variants: current.variants.filter((_, i) => i !== idx) }))
 
   if (isEdit && loadFailed) {
     return <div className="alert alert-error">Product not found.</div>
@@ -304,39 +309,39 @@ export default function VendorProductForm() {
         <div className="card mb-3">
           <h3 style={{ fontSize: 16, marginBottom: 14 }}>Basic Information</h3>
           <div className="form-row">
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label className="label">Product Name <span className="req">*</span></label>
               <input className="input" required value={form.name} onChange={set('name')} placeholder="e.g. Handwoven Himalayan Cashmere Shawl" />
               {fieldErrors.name && <div className="field-error">{fieldErrors.name[0]}</div>}
             </div>
             <Input label="SKU (Stock Keeping Unit)" required value={form.sku} onChange={set('sku')} placeholder="GOS-PRD-001" error={fieldErrors.sku?.[0]} />
             <Input label="Slug / URL Key (optional)" value={form.slug} onChange={set('slug')} hint="auto-generated if left blank" error={fieldErrors.slug?.[0]} />
-            <Input label="Regular Price (NPR)" type="number" step="0.01" required value={form.price} onChange={set('price')} placeholder="1500" error={fieldErrors.price?.[0]} />
-            <Input label="Compare-At / Strike-Through Price" type="number" step="0.01" value={form.compare_at_price} onChange={set('compare_at_price')} placeholder="2000" />
-            <Input label="Stock Quantity Available" type="number" min="0" value={form.quantity} onChange={set('quantity')} />
-            <Input label="Low Stock Warning Threshold" type="number" min="0" value={form.low_stock_threshold} onChange={set('low_stock_threshold')} />
-            <Select label="Product Category" value={form.category_id} onChange={set('category_id')}>
+            <Input label="Regular Price (NPR)" type="number" step="0.01" min="0" required value={form.price} onChange={set('price')} placeholder="1500" error={fieldErrors.price?.[0]} />
+            <Input label="Compare-At / Strike-Through Price" type="number" step="0.01" value={form.compare_at_price} onChange={set('compare_at_price')} placeholder="2000" error={fieldErrors.compare_at_price?.[0]} />
+            <Input label="Stock Quantity Available" type="number" min="0" value={form.quantity} onChange={set('quantity')} error={fieldErrors.quantity?.[0]} disabled={form.variants.length > 0} hint={form.variants.length > 0 ? 'Set stock quantities on each variant below.' : ''} />
+            <Input label="Low Stock Warning Threshold" type="number" min="0" value={form.low_stock_threshold} onChange={set('low_stock_threshold')} error={fieldErrors.low_stock_threshold?.[0]} />
+            <Select label="Product Category" value={form.category_id} onChange={set('category_id')} error={fieldErrors.category_id?.[0]}>
               <option value="">Select a category</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
-            <Select label="Brand" value={form.brand_id} onChange={set('brand_id')}>
+            <Select label="Brand" value={form.brand_id} onChange={set('brand_id')} error={fieldErrors.brand_id?.[0]}>
               <option value="">Select / Unbranded</option>
               {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </Select>
-            <Input label="Shipping Weight (grams)" type="number" min="0" value={form.weight_grams} onChange={set('weight_grams')} placeholder="500" />
-            <Input label="Dimensions (LxWxH cm)" value={form.dimensions} onChange={set('dimensions')} placeholder="e.g. 25x15x8 cm" />
+            <Input label="Shipping Weight (grams)" type="number" min="0" value={form.weight_grams} onChange={set('weight_grams')} placeholder="500" error={fieldErrors.weight_grams?.[0]} />
+            <Input label="Dimensions (LxWxH cm)" value={form.dimensions} onChange={set('dimensions')} placeholder="e.g. 25x15x8 cm" error={fieldErrors.dimensions?.[0]} />
           </div>
 
-          <Textarea label="Short Summary (shown at top of product detail)" rows={2} value={form.short_description} onChange={set('short_description')} placeholder="Brief 1-2 sentence highlight of the product…" />
-          <Textarea label="Full Detailed Description" rows={5} value={form.description} onChange={set('description')} placeholder="Detail the materials, care instructions, origin, and features…" />
+          <Textarea label="Short Summary (shown at top of product detail)" rows={2} value={form.short_description} onChange={set('short_description')} placeholder="Brief 1-2 sentence highlight of the product…" error={fieldErrors.short_description?.[0]} />
+          <Textarea label="Full Detailed Description" rows={5} value={form.description} onChange={set('description')} placeholder="Detail the materials, care instructions, origin, and features…" error={fieldErrors.description?.[0]} />
 
           <div className="flex items-center gap-4 wrap mt-2">
             <label className="checkbox-row">
-              <input type="checkbox" checked={form.is_negotiable} onChange={(e) => setForm({ ...form, is_negotiable: e.target.checked })} />
+              <input type="checkbox" checked={form.is_negotiable} onChange={(e) => updateField('is_negotiable', e.target.checked)} />
               <span>Allow price negotiation / inquiries</span>
             </label>
             <label className="checkbox-row">
-              <input type="checkbox" checked={form.is_featured} onChange={(e) => setForm({ ...form, is_featured: e.target.checked })} />
+              <input type="checkbox" checked={form.is_featured} onChange={(e) => updateField('is_featured', e.target.checked)} />
               <span>Feature this product in store showcase</span>
             </label>
           </div>
@@ -356,7 +361,7 @@ export default function VendorProductForm() {
           {/* Primary Cover Image Preview */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: 20, alignItems: 'start', marginBottom: 20 }}>
             <div>
-            <span className="label">Primary Cover Image <span className="req">*</span></span>
+            <span className="label">Primary Cover Image {!isEdit && <span className="req">*</span>}</span>
               <div
                 style={{
                   width: '100%',
@@ -387,7 +392,7 @@ export default function VendorProductForm() {
             </div>
 
             <div>
-              <span className="label">Add a real product photo <span className="req">*</span></span>
+              <span className="label">Add a real product photo {!isEdit && <span className="req">*</span>}</span>
               <div className="flex gap-2 mb-2">
                 <input
                   type="url"
@@ -493,7 +498,7 @@ export default function VendorProductForm() {
         </div>
 
         {/* Submit Actions */}
-        <div className="flex items-center gap-3 mt-4">
+        <div className="flex items-center gap-3 mt-4" style={{ position: 'sticky', bottom: 0, zIndex: 5, padding: '12px 0', background: 'var(--surface, #fff)', borderTop: '1px solid var(--border)' }}>
           <Button type="submit" size="lg" disabled={saving}>
             {saving ? <Spinner size={16} color="#fff" /> : isEdit ? 'Update Product' : 'Save Product'}
           </Button>
