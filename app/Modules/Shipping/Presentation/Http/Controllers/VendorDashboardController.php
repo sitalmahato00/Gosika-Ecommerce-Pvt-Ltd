@@ -3,7 +3,6 @@
 namespace App\Modules\Shipping\Presentation\Http\Controllers;
 
 use App\Modules\Catalog\Infrastructure\Models\Product;
-use App\Modules\Identity\Domain\Roles;
 use App\Modules\Marketplace\Infrastructure\Models\ProductReview;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
@@ -26,7 +25,7 @@ class VendorDashboardController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::VENDOR_ADMIN);
+        $this->middleware('ensure:vendor');
     }
 
     public function dashboard(Request $request): JsonResponse

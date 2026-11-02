@@ -3,7 +3,6 @@
 namespace App\Modules\Analytics\Presentation\Http\Controllers;
 
 use App\Modules\Catalog\Infrastructure\Models\Product;
-use App\Modules\Identity\Domain\Roles;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
@@ -22,7 +21,7 @@ class VendorAnalyticsController extends Controller
     public function __construct()
     {
         $this->middleware('auth:sanctum');
-        $this->middleware('role:'.Roles::VENDOR_ADMIN);
+        $this->middleware('ensure:vendor');
     }
 
     public function summary(Request $request): JsonResponse

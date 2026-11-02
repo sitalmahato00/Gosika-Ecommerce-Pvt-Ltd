@@ -81,6 +81,80 @@ class AdminAccountInvitationTest extends TestCase
         }
     }
 
+    public function test_duplicate_phone_is_rejected_before_creating_account_or_sending_invitation(): void
+    {
+        Mail::fake();
+
+        User::create([
+            'first_name' => 'Existing',
+            'last_name' => 'User',
+            'email' => 'existing@example.test',
+            'phone' => '+977979704191610',
+            'password' => 'existing-password',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($this->admin)->postJson('/api/v1/admin/users', [
+            'first_name' => 'New',
+            'last_name' => 'Staff',
+            'email' => 'new-staff@example.test',
+            'phone' => '+977979704191610',
+            'roles' => [Roles::SUPER_ADMIN],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['phone']);
+
+        $this->assertDatabaseMissing('users', ['email' => 'new-staff@example.test']);
+        Mail::assertNothingSent();
+    }
+
+    public function test_admin_created_vendor_role_has_vendor_profile_and_can_load_dashboard_data(): void
+    {
+        Mail::fake();
+
+        $this->actingAs($this->admin)->postJson('/api/v1/admin/users', [
+            'first_name' => 'Vendor',
+            'last_name' => 'Member',
+            'email' => 'vendor-member@example.test',
+            'phone' => '9800000003',
+            'roles' => [Roles::VENDOR_ADMIN],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('meta.invitation_sent', true);
+
+        $vendorUser = User::where('email', 'vendor-member@example.test')->firstOrFail();
+        $this->assertNotNull($vendorUser->vendor);
+        $this->assertSame('Vendor Member', $vendorUser->vendor->company_name);
+
+        $this->actingAs($vendorUser)
+            ->getJson('/api/v1/vendor/dashboard')
+            ->assertOk()
+            ->assertJsonPath('message', 'Vendor dashboard retrieved.');
+    }
+
+    public function test_saving_vendor_role_repairs_existing_admin_created_account(): void
+    {
+        $user = User::create([
+            'first_name' => 'Legacy',
+            'last_name' => 'Vendor',
+            'email' => 'legacy-vendor@example.test',
+            'password' => 'unusable-password',
+            'status' => 'active',
+        ]);
+        $user->assignRole(Roles::VENDOR_ADMIN);
+
+        $this->actingAs($this->admin)
+            ->postJson("/api/v1/admin/users/{$user->uuid}/roles", [
+                'roles' => [Roles::VENDOR_ADMIN],
+            ])
+            ->assertOk();
+
+        $this->assertNotNull($user->fresh()->vendor);
+        $this->actingAs($user->fresh())
+            ->getJson('/api/v1/vendor/dashboard')
+            ->assertOk();
+    }
+
     public function test_invitation_verifies_email_sets_password_and_cannot_be_reused(): void
     {
         Mail::fake();

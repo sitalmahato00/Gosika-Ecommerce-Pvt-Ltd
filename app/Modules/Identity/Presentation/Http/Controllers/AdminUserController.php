@@ -3,12 +3,13 @@
 namespace App\Modules\Identity\Presentation\Http\Controllers;
 
 use App\Modules\Administration\Application\Services\AuditLogService;
+use App\Modules\Identity\Application\Services\AdminAccountInvitationService;
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
-use App\Modules\Identity\Application\Services\AdminAccountInvitationService;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Identity\Presentation\Resources\UserResource;
 use App\Modules\Shared\Domain\Enums\UserStatus;
+use App\Modules\Shared\Domain\Enums\VendorStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Role;
 
 class AdminUserController extends Controller
@@ -73,10 +75,16 @@ class AdminUserController extends Controller
             'first_name' => ['required', 'string', 'max:80'],
             'last_name'  => ['nullable', 'string', 'max:80'],
             'email'      => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'phone'      => ['nullable', 'string', 'max:20'],
+            'phone'      => ['nullable', 'string', 'max:20', Rule::unique('users', 'phone')],
             'roles'      => ['nullable', 'array'],
             'roles.*'    => ['string', 'exists:roles,name'],
         ]);
+
+        if (in_array(Roles::VENDOR_ADMIN, $validated['roles'] ?? [], true)) {
+            $request->validate([
+                'email' => [Rule::unique('vendors', 'business_email')],
+            ]);
+        }
 
         $user = DB::transaction(function () use ($validated) {
             $user = User::create([
@@ -91,19 +99,25 @@ class AdminUserController extends Controller
             $roleNames = $validated['roles'] ?? [Roles::SUPER_ADMIN];
             $user->syncRoles(Role::whereIn('name', $roleNames)->get());
 
+            if (in_array(Roles::VENDOR_ADMIN, $roleNames, true)) {
+                $this->ensureVendorProfile($user);
+            }
+
             return $user;
         });
 
-        $invitationSent = app(AdminAccountInvitationService::class)->send($user, 'staff');
+        $isVendor = $user->hasRole(Roles::VENDOR_ADMIN);
+        $invitationSent = app(AdminAccountInvitationService::class)->send($user, $isVendor ? 'seller' : 'staff');
 
         app(AuditLogService::class)->record($request->user(), 'user.created', 'user', $user->uuid, null, [
             'email' => $user->email,
             'roles' => $user->getRoleNames()->toArray(),
         ]);
 
+        $accountType = $isVendor ? 'Seller' : 'Staff';
         $message = $invitationSent
-            ? 'Staff account created. An invitation link was sent to the user’s email.'
-            : 'Staff account created, but the invitation email could not be sent. Check email settings and logs.';
+            ? "{$accountType} account created. An invitation link was sent to the user’s email."
+            : "{$accountType} account created, but the invitation email could not be sent. Check email settings and logs.";
 
         return Response::success(
             new UserResource($user->load('roles')),
@@ -169,15 +183,40 @@ class AdminUserController extends Controller
         ]);
 
         $user = User::where('uuid', $userId)->firstOrFail();
+        $roles = $request->input('roles');
+        if (in_array(Roles::VENDOR_ADMIN, $roles, true) && ! $user->vendor()->exists()) {
+            validator(
+                ['email' => $user->email],
+                ['email' => [Rule::unique('vendors', 'business_email')]],
+                [],
+                ['email' => 'user email']
+            )->validate();
+        }
 
-        DB::transaction(function () use ($user, $request) {
-            $roles = Role::whereIn('name', $request->input('roles'))->get();
-            $user->syncRoles($roles);
+        DB::transaction(function () use ($user, $roles) {
+            $user->syncRoles(Role::whereIn('name', $roles)->get());
+            if (in_array(Roles::VENDOR_ADMIN, $roles, true)) {
+                $this->ensureVendorProfile($user);
+            }
         });
 
         app(AuditLogService::class)->record($request->user(), 'user.roles_updated', 'user', $user->uuid, null, ['roles' => $request->input('roles')]);
 
         return Response::success(new UserResource($user->load('roles')), 'Roles updated.');
+    }
+
+    private function ensureVendorProfile(User $user): void
+    {
+        if ($user->vendor()->exists()) {
+            return;
+        }
+
+        $user->vendor()->create([
+            'company_name' => trim($user->full_name),
+            'business_email' => Str::lower($user->email),
+            'business_phone' => $user->phone,
+            'status' => VendorStatus::PENDING,
+        ]);
     }
 
     public function destroy(string $userId): JsonResponse
