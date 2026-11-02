@@ -1,5 +1,6 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { createPortal } from 'react-dom'
 import { Package, Plus, Pencil, Trash2, Send, Search, Eye, MoreVertical } from 'lucide-react'
 import api from '../../api/client'
 import { useList } from '../../hooks/useApi'
@@ -23,19 +24,83 @@ const STATUS_FILTERS = [
 
 function ActionMenu({ product, onSubmit, onDelete }) {
   const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState(null)
+  const buttonRef = useRef(null)
+  const menuRef = useRef(null)
+
+  useLayoutEffect(() => {
+    if (!open) return undefined
+
+    const updatePosition = () => {
+      if (!buttonRef.current || !menuRef.current) return
+
+      const button = buttonRef.current.getBoundingClientRect()
+      const menu = menuRef.current.getBoundingClientRect()
+      const gap = 6
+      const edge = 8
+      const openBelow = window.innerHeight - button.bottom >= menu.height + gap + edge
+      const top = openBelow
+        ? button.bottom + gap
+        : Math.max(edge, button.top - menu.height - gap)
+      const left = Math.max(edge, Math.min(
+        button.right - menu.width,
+        window.innerWidth - menu.width - edge,
+      ))
+
+      setPosition({ top, left })
+    }
+
+    const closeOnOutsideClick = (event) => {
+      if (buttonRef.current?.contains(event.target) || menuRef.current?.contains(event.target)) return
+      setOpen(false)
+    }
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+
+    updatePosition()
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open])
+
   return (
     <div className="action-menu">
       <button
+        ref={buttonRef}
         className="icon-btn icon-btn-sm"
         style={{ border: 'none' }}
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+        onClick={(e) => {
+          e.stopPropagation()
+          setPosition(null)
+          setOpen((current) => !current)
+        }}
         aria-label="More actions"
         aria-expanded={open}
+        aria-haspopup="menu"
       >
         <MoreVertical size={15} />
       </button>
-      {open && (
-        <div className="action-menu-dropdown" onClick={() => setOpen(false)}>
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          className="action-menu-dropdown action-menu-dropdown-portal"
+          style={{
+            top: position?.top ?? 0,
+            left: position?.left ?? 0,
+            visibility: position ? 'visible' : 'hidden',
+          }}
+          role="menu"
+          onClick={() => setOpen(false)}
+        >
           <Link className="action-menu-item" to={`/product/${product.id}`} target="_blank">
             <Eye size={14} /> View on Store
           </Link>
@@ -51,7 +116,8 @@ function ActionMenu({ product, onSubmit, onDelete }) {
           <button className="action-menu-item danger" onClick={() => onDelete(product)}>
             <Trash2 size={14} /> Delete Product
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

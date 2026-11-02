@@ -2354,6 +2354,13 @@ button {
   overflow: hidden;
   animation: slideUp 0.15s ease;
 }
+.action-menu-dropdown-portal {
+  position: fixed;
+  right: auto;
+  z-index: 2000;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+}
 .action-menu-item {
   display: flex;
   align-items: center;
