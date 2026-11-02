@@ -9,9 +9,30 @@ import DataTable from '../../components/admin/DataTable'
 import FilterBar from '../../components/admin/FilterBar'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import { formatDateTime, timeAgo } from '../../utils/format'
+import { apiImage, formatDateTime, timeAgo } from '../../utils/format'
 import { downloadVendorDocument } from '../../utils/vendorDocuments'
 import { useToast } from '../../context/ToastContext'
+
+const displayValue = (value) => {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  return String(value)
+}
+
+const formatLabel = (value) => String(value || '')
+  .replaceAll('_', ' ')
+  .replace(/\b\w/g, (letter) => letter.toUpperCase())
+
+function DetailField({ label, value, wide = false, multiline = false }) {
+  return (
+    <div className={`kyc-detail-field${wide ? ' kyc-detail-field-wide' : ''}`}>
+      <div className="kyc-detail-field-label">{label}</div>
+      <div className={`kyc-detail-field-value${multiline ? ' kyc-detail-field-multiline' : ''}`}>
+        {displayValue(value)}
+      </div>
+    </div>
+  )
+}
 
 export default function AdminKyc() {
   const toast = useToast()
@@ -21,6 +42,7 @@ export default function AdminKyc() {
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedKyc, setSelectedKyc] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   // Dialog State
   const [dialogState, setDialogState] = useState({
@@ -69,6 +91,24 @@ export default function AdminKyc() {
       kyc,
       loading: false
     })
+  }
+
+  const openKycDetails = async (kyc) => {
+    const targetId = kyc.uuid || kyc.id
+    setSelectedKyc(kyc)
+    setDetailLoading(true)
+    try {
+      const response = await api.get(`/admin/vendors/kyc/${targetId}`, { skipCache: true })
+      setSelectedKyc((current) => (
+        (current?.uuid || current?.id) === targetId
+          ? response.data?.data || current
+          : current
+      ))
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not load complete KYC submission details.')
+    } finally {
+      setDetailLoading(false)
+    }
   }
 
   const handleDocumentDownload = async (doc) => {
@@ -185,7 +225,7 @@ export default function AdminKyc() {
           <button
             type="button"
             className="btn btn-outline btn-xs"
-            onClick={() => setSelectedKyc(item)}
+            onClick={() => openKycDetails(item)}
             title="Inspect Verification Details"
             style={{ display: 'flex', alignItems: 'center', gap: 4 }}
           >
@@ -219,6 +259,11 @@ export default function AdminKyc() {
       )
     }
   ]
+
+  const detailVendor = selectedKyc?.vendor || {}
+  const detailUser = detailVendor.user || {}
+  const detailStores = detailVendor.stores || []
+  const detailBankAccounts = detailVendor.bank_accounts || []
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -286,15 +331,15 @@ export default function AdminKyc() {
             className="card"
             style={{
               width: '100%',
-              maxWidth: 720,
+              maxWidth: 1080,
               maxHeight: '90vh',
               overflowY: 'auto',
               background: '#fff',
               borderRadius: 16,
-              padding: 24,
+              padding: 28,
               display: 'flex',
               flexDirection: 'column',
-              gap: 20
+              gap: 22
             }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
@@ -306,7 +351,10 @@ export default function AdminKyc() {
                   <StatusBadge status={selectedKyc.status} />
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>
-                  Vendor: <strong>{selectedKyc.vendor?.company_name || 'Merchant'}</strong>
+                  Vendor: <strong>{detailVendor.company_name || 'Merchant'}</strong>
+                  {selectedKyc.created_at && (
+                    <span> · Submitted {formatDateTime(selectedKyc.created_at)}</span>
+                  )}
                 </p>
               </div>
               <button
@@ -318,39 +366,125 @@ export default function AdminKyc() {
               </button>
             </div>
 
-            {/* Business & Owner Info Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div style={{ padding: 14, background: '#f8fafc', borderRadius: 10, border: '1px solid var(--border)' }}>
-                <h4 style={{ fontSize: 12, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 8 }}>
-                  Owner / Representative
-                </h4>
-                <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-                  <div><strong>Full Name:</strong> {selectedKyc.owner_full_name}</div>
-                  <div><strong>Citizenship #:</strong> {selectedKyc.owner_citizenship_number || '—'}</div>
-                  <div><strong>Email:</strong> {selectedKyc.owner_email || '—'}</div>
-                  <div><strong>Phone:</strong> {selectedKyc.owner_phone || '—'}</div>
-                  <div><strong>Address:</strong> {selectedKyc.address || '—'}</div>
-                </div>
-              </div>
+            {detailLoading && (
+              <div className="kyc-detail-loading" role="status">Loading complete submitted details…</div>
+            )}
 
-              <div style={{ padding: 14, background: '#f8fafc', borderRadius: 10, border: '1px solid var(--border)' }}>
-                <h4 style={{ fontSize: 12, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 8 }}>
-                  Business Entity
-                </h4>
-                <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-                  <div><strong>Company:</strong> {selectedKyc.vendor?.company_name}</div>
-                  <div><strong>Business Type:</strong> {selectedKyc.business_type || 'Sole Proprietorship'}</div>
-                  <div><strong>PAN / VAT:</strong> {selectedKyc.vendor?.pan_vat || '—'}</div>
-                  <div><strong>Registration #:</strong> {selectedKyc.vendor?.registration_number || '—'}</div>
-                  <div><strong>Status:</strong> {selectedKyc.vendor?.status || '—'}</div>
+            <div className="kyc-detail-sections">
+              <section className="kyc-detail-section">
+                <h4><UserCheck size={16} /> Owner / Authorized Representative</h4>
+                <div className="kyc-detail-fields">
+                  <DetailField label="Full name" value={selectedKyc.owner_full_name} />
+                  <DetailField label="Citizenship / ID number" value={selectedKyc.owner_citizenship_number} />
+                  <DetailField label="Email" value={selectedKyc.owner_email || detailUser.email} />
+                  <DetailField label="Phone" value={selectedKyc.owner_phone || detailUser.phone} />
                 </div>
-              </div>
+              </section>
+
+              <section className="kyc-detail-section">
+                <h4><Building size={16} /> Business Registration</h4>
+                <div className="kyc-detail-fields">
+                  <DetailField label="Company / business name" value={detailVendor.company_name} />
+                  <DetailField label="Business type" value={selectedKyc.business_type} />
+                  <DetailField label="PAN / VAT number" value={detailVendor.pan_vat} />
+                  <DetailField label="Registration number" value={detailVendor.registration_number} />
+                  <DetailField label="Business email" value={detailVendor.business_email} />
+                  <DetailField label="Business phone" value={detailVendor.business_phone} />
+                  <DetailField label="Vendor status" value={formatLabel(detailVendor.status)} />
+                  <DetailField label="KYC status" value={formatLabel(selectedKyc.status)} />
+                </div>
+              </section>
+
+              <section className="kyc-detail-section">
+                <h4><Building size={16} /> Registered Business Address</h4>
+                <div className="kyc-detail-fields">
+                  <DetailField label="Street / address" value={selectedKyc.address} />
+                  <DetailField label="Landmark" value={selectedKyc.landmark} />
+                  <DetailField label="Municipality" value={selectedKyc.municipality} />
+                  <DetailField label="District" value={selectedKyc.district} />
+                  <DetailField label="Province" value={selectedKyc.province} />
+                  <DetailField
+                    label="Map coordinates"
+                    value={selectedKyc.latitude && selectedKyc.longitude
+                      ? `${selectedKyc.latitude}, ${selectedKyc.longitude}`
+                      : null}
+                  />
+                </div>
+              </section>
+
+              <section className="kyc-detail-section">
+                <h4><Building size={16} /> Store Details ({detailStores.length})</h4>
+                {detailStores.length ? detailStores.map((store) => (
+                  <div className="kyc-detail-record" key={store.uuid || store.id}>
+                    <div className="kyc-detail-record-title">
+                      {store.name || 'Store'}
+                      <span>{formatLabel(store.status)}</span>
+                    </div>
+                    <div className="kyc-detail-fields">
+                      <DetailField label="Store name" value={store.name} />
+                      <DetailField label="Store URL slug" value={store.slug} />
+                      <DetailField label="Contact email" value={store.contact_email} />
+                      <DetailField label="Contact phone" value={store.contact_phone} />
+                      <DetailField label="Description" value={store.description} wide multiline />
+                    </div>
+                    {store.addresses?.map((address) => (
+                      <div className="kyc-store-address" key={address.uuid || address.id}>
+                        <div className="kyc-store-address-title">
+                          {formatLabel(address.address_type || 'business')} address
+                        </div>
+                        <div className="kyc-detail-fields">
+                          <DetailField label="Address line" value={address.address_line_1} />
+                          <DetailField label="Additional address" value={address.address_line_2} />
+                          <DetailField label="Province" value={address.province?.name} />
+                          <DetailField label="District" value={address.district?.name} />
+                          <DetailField label="Municipality" value={address.municipality?.name} />
+                          <DetailField label="Landmark" value={address.landmark} />
+                          <DetailField
+                            label="Map coordinates"
+                            value={address.latitude && address.longitude
+                              ? `${address.latitude}, ${address.longitude}`
+                              : null}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    {store.logo && (
+                      <div className="kyc-store-image">
+                        <span>Store logo</span>
+                        <img src={apiImage(store.logo)} alt={`${store.name || 'Store'} logo`} />
+                      </div>
+                    )}
+                    {store.banner && (
+                      <div className="kyc-store-image">
+                        <span>Store banner</span>
+                        <img src={apiImage(store.banner)} alt={`${store.name || 'Store'} banner`} />
+                      </div>
+                    )}
+                  </div>
+                )) : <p className="kyc-detail-empty">No store record is attached to this submission.</p>}
+              </section>
+
+              <section className="kyc-detail-section">
+                <h4><ShieldCheck size={16} /> Payout Bank Details ({detailBankAccounts.length})</h4>
+                {detailBankAccounts.length ? detailBankAccounts.map((account) => (
+                  <div className="kyc-detail-record" key={account.uuid || account.id}>
+                    <div className="kyc-detail-fields">
+                      <DetailField label="Bank" value={account.bank_name} />
+                      <DetailField label="Branch" value={account.branch_name} />
+                      <DetailField label="Account holder" value={account.account_name} />
+                      <DetailField label="Account number" value={account.account_number} />
+                      <DetailField label="Account type" value={formatLabel(account.account_type)} />
+                      <DetailField label="Verified" value={account.is_verified} />
+                    </div>
+                  </div>
+                )) : <p className="kyc-detail-empty">No bank account is attached to this submission.</p>}
+              </section>
             </div>
 
             {/* Documents Section */}
             <div>
-              <h4 style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>
-                Submitted Verification Documents
+              <h4 className="kyc-detail-heading">
+                <FileText size={16} /> Submitted Verification Documents ({selectedKyc.documents?.length || 0})
               </h4>
               {(!selectedKyc.documents || selectedKyc.documents.length === 0) ? (
                 <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', background: '#fafbfc', borderRadius: 8, fontSize: 13 }}>
@@ -376,11 +510,25 @@ export default function AdminKyc() {
                         <FileText size={20} color="var(--primary)" />
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }} className="truncate">
-                            {doc.document_type ? doc.document_type.replace('_', ' ').toUpperCase() : 'Document'}
+                            {formatLabel(doc.document_type) || 'Document'}
                           </div>
                           <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>
-                            {doc.file_size ? `${Math.round(doc.file_size / 1024)} KB` : 'Attached'}
+                            {doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : 'Attached'}
+                            {doc.mime_type ? ` · ${doc.mime_type}` : ''}
                           </div>
+                          <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 3 }}>
+                            Status: {formatLabel(doc.status)}
+                          </div>
+                          {doc.created_at && (
+                            <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 3 }}>
+                              Uploaded: {formatDateTime(doc.created_at)}
+                            </div>
+                          )}
+                          {doc.rejection_reason && (
+                            <div style={{ fontSize: 10.5, color: '#b91c1c', marginTop: 3 }}>
+                              Note: {doc.rejection_reason}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -407,6 +555,11 @@ export default function AdminKyc() {
                 <strong>Previous Review Notes:</strong> {selectedKyc.review_notes}
               </div>
             )}
+            <div className="kyc-detail-review-meta">
+              <DetailField label="Submitted" value={selectedKyc.created_at ? formatDateTime(selectedKyc.created_at) : null} />
+              <DetailField label="Last updated" value={selectedKyc.updated_at ? formatDateTime(selectedKyc.updated_at) : null} />
+              <DetailField label="Reviewed" value={selectedKyc.reviewed_at ? formatDateTime(selectedKyc.reviewed_at) : null} />
+            </div>
 
             {/* Bottom Actions */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 16, borderTop: '1px solid var(--border)' }}>

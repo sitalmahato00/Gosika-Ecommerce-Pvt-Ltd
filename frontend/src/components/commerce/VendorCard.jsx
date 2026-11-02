@@ -15,13 +15,26 @@ export default function VendorCard({ store }) {
     >
       <div style={{ height: 64, background: 'linear-gradient(120deg, var(--primary), var(--primary-darker))', position: 'relative' }}>
         {image && (
-          <img src={apiImage(image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img
+            src={apiImage(image)}
+            alt=""
+            onError={(event) => { event.currentTarget.style.display = 'none' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
         )}
       </div>
       <div style={{ padding: 14, paddingTop: 30, position: 'relative' }}>
         <div className="avatar" style={{ position: 'absolute', top: -26, left: 14, width: 52, height: 52, border: '3px solid #fff', boxShadow: 'var(--shadow)' }}>
           {logo ? (
-            <img src={apiImage(logo)} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <>
+              <Store size={24} color="var(--primary)" style={{ position: 'absolute' }} />
+              <img
+                src={apiImage(logo)}
+                alt={store.name}
+                onError={(event) => { event.currentTarget.style.display = 'none' }}
+                style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </>
           ) : (
             <Store size={24} />
           )}

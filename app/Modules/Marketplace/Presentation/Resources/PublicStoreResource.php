@@ -26,11 +26,21 @@ class PublicStoreResource extends JsonResource
             'product_count' => $productCount,
             'rating_avg' => $reviews->isNotEmpty() ? round($reviews->avg('rating'), 1) : null,
             'rating_count' => $reviews->count(),
-            'location' => $address?->address_line_1,
+            'location' => $address
+                ? collect([
+                    $address->address_line_1,
+                    $address->municipality?->name,
+                    $address->district?->name,
+                    $address->province?->name,
+                ])->filter()->unique()->implode(', ')
+                : null,
             'address' => $address ? [
                 'address_type' => $address->address_type,
                 'address_line_1' => $address->address_line_1,
                 'address_line_2' => $address->address_line_2,
+                'province' => $address->province?->name,
+                'district' => $address->district?->name,
+                'municipality' => $address->municipality?->name,
                 'postal_code' => $address->postal_code,
                 'landmark' => $address->landmark,
             ] : null,
@@ -59,6 +69,6 @@ class PublicStoreResource extends JsonResource
             return $path;
         }
 
-        return url('/storage/'.ltrim($path, '/'));
+        return '/storage/'.ltrim($path, '/');
     }
 }

@@ -15,6 +15,7 @@ import Drawer from '../components/ui/Drawer'
 import { useList } from '../hooks/useApi'
 import { errorMessage } from '../utils/format'
 import { PRICE_RANGES } from '../utils/constants'
+import VendorCard from '../components/commerce/VendorCard'
 
 const SORTS = [
   { value: '', label: 'Newest First' },
@@ -160,7 +161,49 @@ function FilterSidebar({ categories, brands, filters, onUpdate, onClear }) {
   )
 }
 
-export default function Shop() {
+function StoreDirectory() {
+  const fetcher = useCallback(
+    (page) => api.get('/marketplace/stores', { params: { page, per_page: 12 } }),
+    [],
+  )
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { pageSize: 12 })
+
+  return (
+    <div className="page-shell container">
+      <div className="breadcrumb" aria-label="Breadcrumb">
+        <Link to="/">Home</Link>
+        <ChevronRight size={13} className="breadcrumb-sep" />
+        <span style={{ color: 'var(--ink)', fontWeight: 600 }}>Stores</span>
+      </div>
+      <div className="mb-3">
+        <h1 style={{ fontSize: 24, marginBottom: 4 }}>Shop by Store</h1>
+        <p className="muted text-sm m-0">
+          {loading ? 'Loading stores…' : `${meta.total} store${meta.total === 1 ? '' : 's'} to explore`}
+        </p>
+      </div>
+      {loading ? (
+        <div className="product-grid">
+          {Array.from({ length: 8 }).map((_, index) => <ProductCardSkeletonMini key={index} />)}
+        </div>
+      ) : error ? (
+        <ErrorState message={errorMessage(error, 'Could not load stores.')} onRetry={reload} />
+      ) : items.length ? (
+        <>
+          <div className="product-grid">
+            {items.map((store) => <VendorCard key={store.id} store={store} />)}
+          </div>
+          <div style={{ marginTop: 24 }}>
+            <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
+          </div>
+        </>
+      ) : (
+        <EmptyState title="No stores available" message="There are no active stores to show right now. Please check back soon." />
+      )}
+    </div>
+  )
+}
+
+function ProductShop() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const [filterOpen, setFilterOpen] = useState(false)
@@ -173,7 +216,8 @@ export default function Shop() {
   const category = params.get('category') || ''
   const brand = params.get('brand') || ''
   const store = params.get('store') || ''
-  const sort = params.get('sort') || ''
+  const filter = params.get('filter') || ''
+  const sort = params.get('sort') || (filter === 'deals' ? 'discount' : '')
   const range = params.get('range') || ''
   const minRating = params.get('minRating') || ''
   const inStock = params.get('inStock') || ''
@@ -190,7 +234,8 @@ export default function Shop() {
     const q = {
       per_page: 16,
       load: 'brand,store,images',
-      sort: p.sort || undefined,
+      sort: p.sort || (p.filter === 'deals' ? 'discount' : undefined),
+      discount: p.filter === 'deals' ? 1 : undefined,
       search: p.search || undefined,
       category: p.category || undefined,
       brand: p.brand || undefined,
@@ -212,7 +257,7 @@ export default function Shop() {
   )
 
   const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
-    deps: [search, category, brand, store, sort, range, minRating, inStock, mode],
+    deps: [search, category, brand, store, sort, range, minRating, inStock, mode, filter],
     pageSize: 16,
   })
 
@@ -232,11 +277,13 @@ export default function Shop() {
 
   const clearAll = () => navigate('/shop', { replace: true })
 
-  const activeFilters = [category, brand, range, minRating, inStock].filter(Boolean).length
+  const activeFilters = [category, brand, range, minRating, inStock, filter].filter(Boolean).length
   const pageTitle = category
     ? categories.find((c) => c.slug === category)?.name || 'Products'
     : search
     ? `Results for "${search}"`
+    : filter === 'deals'
+    ? 'Flash Deals'
     : 'All Products'
 
   return (
@@ -359,6 +406,12 @@ export default function Shop() {
               <button onClick={() => update({ inStock: '' })} aria-label="Remove stock filter"><X size={12} /></button>
             </span>
           )}
+          {filter === 'deals' && (
+            <span className="filter-chip">
+              Flash Deals
+              <button onClick={() => update({ filter: '' })} aria-label="Remove flash deals filter"><X size={12} /></button>
+            </span>
+          )}
           <button className="btn btn-ghost btn-xs" onClick={clearAll} style={{ color: 'var(--danger)' }}>
             Clear all
           </button>
@@ -436,4 +489,9 @@ export default function Shop() {
       {quickView && <ProductQuickView product={quickView} onClose={() => setQuickView(null)} />}
     </div>
   )
+}
+
+export default function Shop() {
+  const [params] = useSearchParams()
+  return params.get('mode') === 'stores' ? <StoreDirectory /> : <ProductShop />
 }

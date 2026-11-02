@@ -35,6 +35,7 @@ import CategoryPage from './pages/Public/CategoryPage'
 import BrandPage from './pages/Public/BrandPage'
 import DealsPage from './pages/Public/DealsPage'
 import SearchPage from './pages/Public/SearchPage'
+import BrandsPage from './pages/Public/BrandsPage'
 
 import AccountProfile from './pages/account/AccountProfile'
 import AccountAddresses from './pages/account/AccountAddresses'
@@ -276,6 +277,7 @@ function CustomerLayout() {
           <Route path="/orders/:id" element={<AuthRoute><OrderDetail /></AuthRoute>} />
           <Route path="/category/:category" element={<CategoryPage />} />
           <Route path="/brand/:brand" element={<BrandPage />} />
+          <Route path="/brands" element={<BrandsPage />} />
           <Route path="/deals" element={<DealsPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/help" element={<Help />} />

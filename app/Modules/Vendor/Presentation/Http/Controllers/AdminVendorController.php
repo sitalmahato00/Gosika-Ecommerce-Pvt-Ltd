@@ -163,7 +163,14 @@ class AdminVendorController extends Controller
     public function kycShow(string $kycId): JsonResponse
     {
         $kyc = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::query()
-            ->with(['vendor', 'documents'])
+            ->with([
+                'vendor.user',
+                'vendor.stores.addresses.province',
+                'vendor.stores.addresses.district',
+                'vendor.stores.addresses.municipality',
+                'vendor.bankAccounts',
+                'documents',
+            ])
             ->where('uuid', $kycId)
             ->when(ctype_digit($kycId), fn ($q) => $q->orWhere('id', (int) $kycId))
             ->firstOrFail();

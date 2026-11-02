@@ -67,12 +67,23 @@ export default function Store() {
     <div className="page-shell container">
       <div className="card card-pad-none" style={{ overflow: 'hidden' }}>
         <div style={{ height: 200, position: 'relative', overflow: 'hidden', background: 'var(--navy)' }}>
-          <img src={storeBanner} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img
+            src={storeBanner}
+            alt=""
+            onError={(event) => { event.currentTarget.style.display = 'none' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,23,42,0.7) 0%, rgba(15,23,42,0.1) 60%)' }} />
         </div>
         <div style={{ padding: '0 20px 20px', position: 'relative' }}>
           <div className="avatar" style={{ position: 'absolute', top: -36, width: 72, height: 72, border: '4px solid #fff', boxShadow: 'var(--shadow-md)', overflow: 'hidden', background: '#fff' }}>
-            <img src={storeLogo} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <StoreIcon size={28} color="var(--primary)" style={{ position: 'absolute' }} />
+            <img
+              src={storeLogo}
+              alt={store.name}
+              onError={(event) => { event.currentTarget.style.display = 'none' }}
+              style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'cover' }}
+            />
           </div>
           <div style={{ paddingTop: 44 }}>
             <div className="flex items-center gap-2 wrap">
@@ -110,8 +121,12 @@ export default function Store() {
               <span className="muted flex items-start gap-1.5">
                 <MapPin size={13} style={{ marginTop: 2, flexShrink: 0 }} />
                 <span>
-                  {store.address?.address_line_1}
-                  {store.address?.address_line_2 ? `, ${store.address.address_line_2}` : ''}
+                  {[store.address?.address_line_1, store.address?.address_line_2, store.address?.municipality, store.address?.district, store.address?.province]
+                    .filter(Boolean)
+                    .filter((value, index, values) => values.indexOf(value) === index)
+                    .join(', ') || store.location}
+                  {store.address?.landmark ? ` · Landmark: ${store.address.landmark}` : ''}
+                  {store.address?.postal_code ? ` · ${store.address.postal_code}` : ''}
                 </span>
               </span>
             )}

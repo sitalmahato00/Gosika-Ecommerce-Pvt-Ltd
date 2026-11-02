@@ -26,7 +26,7 @@ class MarketplaceService
             ->where('status', \App\Modules\Shared\Domain\Enums\StoreStatus::ACTIVE)
             ->withCount(['products' => fn ($q) => $q->where('status', ProductStatus::PUBLISHED)])
             ->with([
-                'addresses' => fn ($q) => $q->take(1),
+                'addresses' => fn ($q) => $q->with(['province', 'district', 'municipality'])->take(1),
                 'reviews' => fn ($q) => $q->approved(),
             ])
             ->orderBy('name')
@@ -42,7 +42,9 @@ class MarketplaceService
             })
             ->withCount(['products' => fn ($q) => $q->where('status', ProductStatus::PUBLISHED)])
             ->with([
-                'addresses',
+                'addresses.province',
+                'addresses.district',
+                'addresses.municipality',
                 'operatingHours',
                 'reviews' => fn ($q) => $q->approved(),
             ])
