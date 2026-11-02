@@ -13,7 +13,7 @@ Route::prefix('v1/auth')->group(function () {
     Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:password');
     Route::post('email/verify', [AuthController::class, 'verifyEmail'])->middleware('throttle:auth');
     Route::post('email/resend', [AuthController::class, 'resendEmailVerification'])->middleware('throttle:otp');
-    Route::post('admin-invitation/complete', [AuthController::class, 'completeAdminInvitation'])->middleware('throttle:password');
+    Route::post('admin-invitation/complete', [AuthController::class, 'completeAdminInvitation'])->middleware('throttle:invitation');
 
     // Social login (OAuth)
     Route::get('/{provider}/redirect', [SocialAuthController::class, 'redirect'])->name('social.redirect');

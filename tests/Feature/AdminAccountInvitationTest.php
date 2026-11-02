@@ -9,6 +9,7 @@ use App\Modules\Marketing\Application\Mail\AdminAccountInvitationMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -111,6 +112,7 @@ class AdminAccountInvitationTest extends TestCase
             'password_confirmation' => 'new-secure-password',
         ];
 
+        RateLimiter::hit('throttle:password:127.0.0.1', 900);
         $this->postJson('/api/v1/auth/admin-invitation/complete', $payload)
             ->assertOk()
             ->assertJsonPath('data.user.email', 'invited@example.test');
