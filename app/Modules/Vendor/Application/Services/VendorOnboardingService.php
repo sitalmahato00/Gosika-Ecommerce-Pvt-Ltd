@@ -19,6 +19,7 @@ use App\Modules\Vendor\Infrastructure\Models\VendorDocument;
 use App\Modules\Vendor\Infrastructure\Models\VendorKyc;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
@@ -52,23 +53,28 @@ class VendorOnboardingService
         $this->assertVendorCanEdit($vendor);
 
         return DB::transaction(function () use ($vendor, $dto) {
+            $kycData = [
+                'owner_full_name' => $dto->owner_full_name,
+                'owner_citizenship_number' => $dto->owner_citizenship_number,
+                'owner_email' => $dto->owner_email,
+                'owner_phone' => $dto->owner_phone,
+                'business_type' => $dto->business_type,
+                'address' => $dto->address,
+                'province' => $dto->province,
+                'district' => $dto->district,
+                'municipality' => $dto->municipality,
+                'latitude' => $dto->latitude,
+                'longitude' => $dto->longitude,
+                'status' => KycStatus::SUBMITTED,
+            ];
+
+            if (Schema::hasColumn('vendor_kycs', 'landmark')) {
+                $kycData['landmark'] = $dto->landmark;
+            }
+
             $kyc = VendorKyc::query()->updateOrCreate(
                 ['vendor_id' => $vendor->id],
-                [
-                    'owner_full_name' => $dto->owner_full_name,
-                    'owner_citizenship_number' => $dto->owner_citizenship_number,
-                    'owner_email' => $dto->owner_email,
-                    'owner_phone' => $dto->owner_phone,
-                    'business_type' => $dto->business_type,
-                    'address' => $dto->address,
-                    'landmark' => $dto->landmark,
-                    'province' => $dto->province,
-                    'district' => $dto->district,
-                    'municipality' => $dto->municipality,
-                    'latitude' => $dto->latitude,
-                    'longitude' => $dto->longitude,
-                    'status' => KycStatus::SUBMITTED,
-                ]
+                $kycData
             );
 
             $vendor->update(['status' => VendorStatus::UNDER_REVIEW]);
