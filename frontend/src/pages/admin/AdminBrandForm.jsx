@@ -173,7 +173,7 @@ export default function AdminBrandForm() {
             </div>
 
             <div style={{ width: 96, height: 96, borderRadius: 'var(--radius)', overflow: 'hidden', border: '1px solid var(--border)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src={apiImage(form.logo, form.name)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={apiImage(form.logo)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
 
             <input

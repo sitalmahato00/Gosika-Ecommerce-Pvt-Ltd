@@ -16,14 +16,11 @@ use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Shared\Domain\Enums\ProductStatus;
 use App\Modules\Shared\Domain\Enums\ReviewStatus;
 use App\Modules\Shared\Domain\Enums\StockStatus;
-use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
-use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CatalogService
@@ -67,7 +64,13 @@ class CatalogService
 
             $this->syncVariants($product, $dto->variants);
             $this->syncAttributes($product, $dto->attributes);
-            $this->storeImages($product, $dto->images);
+            $this->storeImages(
+                $product,
+                $dto->images,
+                $dto->image_urls,
+                $dto->primary_image_url,
+                $dto->primary_image_upload_index
+            );
             $this->refreshDerivedState($product);
 
             return $product;
@@ -115,8 +118,14 @@ class CatalogService
             $product->attributes()->delete();
             $this->syncVariants($product, $dto->variants);
             $this->syncAttributes($product, $dto->attributes);
-            if (! empty($dto->images)) {
-                $this->storeImages($product, $dto->images);
+            if (! empty($dto->images) || ! empty($dto->image_urls) || $dto->primary_image_url !== null) {
+                $this->storeImages(
+                    $product,
+                    $dto->images,
+                    $dto->image_urls,
+                    $dto->primary_image_url,
+                    $dto->primary_image_upload_index
+                );
             }
             $this->refreshDerivedState($product);
 
@@ -317,22 +326,59 @@ class CatalogService
         }
     }
 
-    protected function storeImages(Product $product, array $images): void
-    {
+    protected function storeImages(
+        Product $product,
+        array $images,
+        array $imageUrls = [],
+        ?string $primaryImageUrl = null,
+        ?int $primaryUploadIndex = null
+    ): void {
+        $hasPrimary = $product->images()->where('is_primary', true)->exists();
+        $hasExplicitPrimary = $primaryImageUrl !== null || $primaryUploadIndex !== null;
+
+        if ($hasExplicitPrimary) {
+            $product->images()->update(['is_primary' => false]);
+
+            if ($primaryImageUrl !== null) {
+                $product->images()
+                    ->where('file_path', $primaryImageUrl)
+                    ->update(['is_primary' => true]);
+            }
+        }
+
         foreach ($images as $index => $image) {
             if (! $image instanceof UploadedFile) {
                 continue;
             }
 
             $path = $image->store('products/'.$product->uuid, 'public');
+            $isPrimary = $primaryUploadIndex === $index
+                || (! $hasExplicitPrimary && ! $hasPrimary && $index === 0);
 
             ProductImage::query()->create([
                 'product_id' => $product->id,
                 'variant_id' => null,
                 'file_path' => $path,
                 'sort_order' => $index,
-                'is_primary' => $index === 0 && $product->images()->where('is_primary', true)->doesntExist(),
+                'is_primary' => $isPrimary,
             ]);
+
+            $hasPrimary = $hasPrimary || $isPrimary;
+        }
+
+        foreach ($imageUrls as $index => $url) {
+            $isPrimary = $primaryImageUrl === $url
+                || (! $hasExplicitPrimary && ! $hasPrimary && empty($images) && $index === 0);
+
+            ProductImage::query()->create([
+                'product_id' => $product->id,
+                'variant_id' => null,
+                'file_path' => $url,
+                'sort_order' => count($images) + $index,
+                'is_primary' => $isPrimary,
+            ]);
+
+            $hasPrimary = $hasPrimary || $isPrimary;
         }
     }
 

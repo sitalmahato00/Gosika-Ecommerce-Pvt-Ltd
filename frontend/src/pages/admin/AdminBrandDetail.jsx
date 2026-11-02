@@ -106,7 +106,7 @@ export default function AdminBrandDetail() {
             flexShrink: 0,
           }}
         >
-          <img src={apiImage(brand.logo, brand.name)} alt={brand.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={apiImage(brand.logo)} alt={brand.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </span>
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink)' }}>{brand.name}</div>
@@ -164,7 +164,7 @@ export default function AdminBrandDetail() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span className="thumb" style={{ width: 38, height: 38, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-                      <img src={apiImage(p.primary_image?.url || p.image, p.product_name)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={apiImage(p.primary_image?.url || p.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </span>
                     <div>
                       <div className="font-bold text-sm text-ink">{p.product_name}</div>

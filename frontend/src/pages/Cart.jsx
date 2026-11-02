@@ -328,7 +328,7 @@ export default function Cart() {
                           }}
                         >
                           <img
-                            src={item.image ? apiImage(item.image, item.name) : getProductImage(item, 0, true)}
+                            src={item.image ? apiImage(item.image) : getProductImage(item, 0, true)}
                             alt={item.name}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             onError={handleImgError}

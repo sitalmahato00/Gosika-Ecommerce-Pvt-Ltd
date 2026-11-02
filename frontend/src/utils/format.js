@@ -32,47 +32,9 @@ export const IMG_PLACEHOLDER =
 
 
 
-export const FALLBACK_PRODUCT_IMAGES = [
-  'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80', // Pashmina / Shawl
-  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80', // Headphones / Tech
-  'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&q=80', // Organic Herbal Tea
-  'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=600&q=80', // Clothing / Fashion
-  'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=600&q=80', // Spices & Herbs
-  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80', // Shoes / Footwear
-  'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600&q=80', // Handmade Crafts
-  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&q=80', // Smartphone & Accessories
-  'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&q=80', // Trekking Backpack
-  'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=600&q=80', // Watch / Accessories
-  'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&q=80', // Skincare & Beauty
-  'https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&q=80', // Kitchen & Cookware
-]
-
-const KEYWORD_IMAGE_MAP = [
-  { keywords: ['pashmina', 'shawl', 'cashmere', 'wool', 'scarf'], url: 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' },
-  { keywords: ['tea', 'herbal', 'green tea', 'organic', 'honey'], url: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&q=80' },
-  { keywords: ['headphone', 'earbud', 'audio', 'speaker', 'bluetooth'], url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80' },
-  { keywords: ['phone', 'mobile', 'smartphone', 'gadget', 'electronic'], url: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&q=80' },
-  { keywords: ['shirt', 'jacket', 'hoodie', 'dress', 'apparel', 'cloth', 'kurti'], url: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=600&q=80' },
-  { keywords: ['shoe', 'sneaker', 'boot', 'footwear', 'sandal'], url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80' },
-  { keywords: ['craft', 'handmade', 'statue', 'brass', 'singing bowl', 'art'], url: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600&q=80' },
-  { keywords: ['spice', 'cardamom', 'ginger', 'pepper', 'dal', 'rice'], url: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=600&q=80' },
-  { keywords: ['bag', 'backpack', 'wallet', 'purse', 'leather'], url: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&q=80' },
-  { keywords: ['watch', 'clock', 'smartwatch'], url: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=600&q=80' },
-  { keywords: ['cream', 'lotion', 'beauty', 'cosmetic', 'serum', 'soap'], url: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&q=80' },
-  { keywords: ['cook', 'pot', 'pan', 'kitchen', 'knife', 'bowl'], url: 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&q=80' },
-]
-
-export function apiImage(path, fallbackKey = 0) {
+export function apiImage(path) {
   if (!path) {
-    if (typeof fallbackKey === 'string') {
-      const lower = fallbackKey.toLowerCase()
-      const found = KEYWORD_IMAGE_MAP.find((item) => item.keywords.some((kw) => lower.includes(kw)))
-      if (found) return found.url
-      const hash = lower.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-      return FALLBACK_PRODUCT_IMAGES[hash % FALLBACK_PRODUCT_IMAGES.length]
-    }
-    const idx = Math.abs(Number(fallbackKey) || 0)
-    return FALLBACK_PRODUCT_IMAGES[idx % FALLBACK_PRODUCT_IMAGES.length]
+    return IMG_PLACEHOLDER
   }
   const cleanPath = String(path).replace(/^.*?\/storage\/(https?:\/\/)/i, '$1')
   if (/^https?:\/\//.test(cleanPath)) return cleanPath
@@ -82,7 +44,7 @@ export function apiImage(path, fallbackKey = 0) {
 }
 
 export function getProductImage(product, index = 0, isFallback = false) {
-  if (!product) return FALLBACK_PRODUCT_IMAGES[0]
+  if (!product) return IMG_PLACEHOLDER
   if (!isFallback) {
     const explicit = product.primary_image?.url ||
       product.images?.[index]?.url ||
@@ -91,12 +53,11 @@ export function getProductImage(product, index = 0, isFallback = false) {
       product.cover_image
 
     if (explicit && typeof explicit === 'string' && explicit.trim()) {
-      return apiImage(explicit, product.product_name || product.name || index)
+      return apiImage(explicit)
     }
   }
 
-  const nameOrCategory = `${product.product_name || ''} ${product.name || ''} ${product.title || ''} ${product.category?.name || ''} ${product.category?.slug || ''}`
-  return apiImage(null, nameOrCategory.trim() || product.id || index)
+  return IMG_PLACEHOLDER
 }
 
 export const FALLBACK_STORE_BANNERS = [
@@ -230,5 +191,3 @@ export function errorMessage(err, fallback = 'Something went wrong. Please try a
   // 5. Fallback
   return fallback
 }
-
-

@@ -221,7 +221,7 @@ export default function AdminBrands() {
                           }}
                         >
                           <img
-                            src={apiImage(b.logo, b.name)}
+                            src={apiImage(b.logo)}
                             alt={b.name}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           />

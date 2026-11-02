@@ -172,7 +172,7 @@ export default function OrderList({ basePath = '/orders' }) {
               <div className="flex gap-2 mt-2" style={{ overflow: 'hidden' }}>
                 {o.items?.slice(0, 4).map((it) => {
                   const fallback = getProductImage(it, 0, true)
-                  const src = it.image ? apiImage(it.image, it.product_name || it.name) : fallback
+                  const src = it.image ? apiImage(it.image) : fallback
                   return (
                     <span key={it.id} className="thumb" style={{ width: 44, height: 44, borderRadius: 6, overflow: 'hidden', display: 'inline-block', background: 'var(--bg)' }}>
                       <img

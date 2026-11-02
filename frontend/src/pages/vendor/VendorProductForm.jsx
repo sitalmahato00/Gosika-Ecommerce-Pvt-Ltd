@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Trash2, Plus, Image as ImageIcon, Upload, CheckCircle2, Sparkles } from 'lucide-react'
+import { ArrowLeft, Trash2, Plus, Image as ImageIcon, Upload, CheckCircle2 } from 'lucide-react'
 import api from '../../api/client'
 import Input from '../../components/ui/Input'
 import Select from '../../components/ui/Select'
@@ -9,18 +9,6 @@ import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import { useToast } from '../../context/ToastContext'
 import { errorMessage, apiImage } from '../../utils/format'
-
-const PRESET_PRODUCT_IMAGES = [
-  { label: 'Pashmina Shawl', url: 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=600&q=80' },
-  { label: 'Organic Herbal Tea', url: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&q=80' },
-  { label: 'Electronics & Audio', url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80' },
-  { label: 'Smartphone & Gadget', url: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&q=80' },
-  { label: 'Handicrafts & Art', url: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600&q=80' },
-  { label: 'Apparel & Fashion', url: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=600&q=80' },
-  { label: 'Shoes & Footwear', url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80' },
-  { label: 'Trekking Backpack', url: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&q=80' },
-  { label: 'Spices & Herbs', url: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=600&q=80' },
-]
 
 const emptyForm = {
   name: '',
@@ -52,10 +40,13 @@ export default function VendorProductForm() {
   const [categories, setCategories] = useState([])
   const [brands, setBrands] = useState([])
   const [fieldErrors, setFieldErrors] = useState({})
+  const [formError, setFormError] = useState('')
+  const [imageError, setImageError] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [customImageUrl, setCustomImageUrl] = useState('')
+  const [existingImageUrls, setExistingImageUrls] = useState([])
 
   useEffect(() => {
     api.get('/categories').then((r) => setCategories(r.data.data || [])).catch(() => {})
@@ -67,6 +58,8 @@ export default function VendorProductForm() {
         .get(`/vendor/products/${id}`)
         .then((r) => {
           const p = r.data.data
+          const images = (p.images || []).map((img) => ({ url: img.url || img, file: null }))
+          setExistingImageUrls(images.map((img) => img.url))
           setForm({
             name: p.name,
             slug: p.slug || '',
@@ -82,7 +75,7 @@ export default function VendorProductForm() {
             weight_grams: String(p.weight_grams ?? '0'),
             dimensions: p.dimensions || '',
             primary_image: p.primary_image?.url || p.images?.[0]?.url || '',
-            images: (p.images || []).map((img) => ({ url: img.url || img, file: null })),
+            images,
             is_negotiable: !!p.is_negotiable,
             is_featured: !!p.is_featured,
             variants: (p.variants || []).map((v) => ({
@@ -100,49 +93,78 @@ export default function VendorProductForm() {
     }
   }, [id, isEdit])
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
+  const updateField = (key, value) => {
+    setForm((current) => ({ ...current, [key]: value }))
+    setFieldErrors((current) => {
+      const next = { ...current }
+      delete next[key]
+      return next
+    })
+    setFormError('')
+  }
+
+  const set = (k) => (e) => updateField(k, e.target.value)
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError('Each product image must be 5 MB or smaller.')
+      e.target.value = ''
+      return
+    }
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result
       const entry = { url: dataUrl, file }
-      if (!form.primary_image) {
-        setForm({ ...form, primary_image: dataUrl, images: [...form.images, entry] })
-      } else {
-        setForm({ ...form, images: [...form.images, entry] })
-      }
+      setForm((current) => ({
+        ...current,
+        primary_image: current.primary_image || dataUrl,
+        images: [...current.images, entry],
+      }))
+      setImageError('')
       toast.success('Image added')
     }
     reader.readAsDataURL(file)
+    e.target.value = ''
   }
 
   const addCustomImage = () => {
     if (!customImageUrl.trim()) return
     const url = customImageUrl.trim()
-    if (!form.primary_image) {
-      setForm({ ...form, primary_image: url, images: [...form.images, { url, file: null }] })
-    } else {
-      setForm({ ...form, images: [...form.images, { url, file: null }] })
+    try {
+      const parsed = new URL(url)
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid image URL')
+    } catch {
+      setImageError('Enter a valid image URL starting with http:// or https://.')
+      return
     }
+    setForm((current) => ({
+      ...current,
+      primary_image: current.primary_image || url,
+      images: [...current.images, { url, file: null }],
+    }))
+    setImageError('')
     setCustomImageUrl('')
     toast.success('Image added to gallery')
   }
 
   const setCoverImage = (url) => {
-    setForm({ ...form, primary_image: url })
+    setForm((current) => ({ ...current, primary_image: url }))
     toast.info('Cover image updated')
   }
 
   const removeImage = (indexToRemove) => {
-    const updated = form.images.filter((_, idx) => idx !== indexToRemove)
-    setForm({
-      ...form,
-      images: updated,
-      primary_image: form.primary_image === form.images[indexToRemove]?.url ? (updated[0]?.url || '') : form.primary_image
+    setForm((current) => {
+      const removed = current.images[indexToRemove]
+      const updated = current.images.filter((_, idx) => idx !== indexToRemove)
+      return {
+        ...current,
+        images: updated,
+        primary_image: current.primary_image === removed?.url ? (updated[0]?.url || '') : current.primary_image,
+      }
     })
+    setImageError('')
   }
 
   const parseVariantOptions = (str) => {
@@ -156,6 +178,12 @@ export default function VendorProductForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!isEdit && form.images.length === 0) {
+      setImageError('Add at least one product image before saving.')
+      return
+    }
+    setImageError('')
+    setFormError('')
     setFieldErrors({})
     setSaving(true)
 
@@ -189,13 +217,28 @@ export default function VendorProductForm() {
         const opts = parseVariantOptions(v.options)
         Object.keys(opts).forEach((key) => fd.append(`variants[${i}][options][${key}]`, opts[key]))
       })
-    form.images
-      .filter((img) => img.file)
-      .forEach((img) => fd.append('images[]', img.file))
+    let uploadIndex = 0
+    let primaryUploadIndex = null
+    let primaryImageUrl = null
+    form.images.forEach((img) => {
+      if (img.file) {
+        fd.append('images[]', img.file)
+        if (img.url === form.primary_image) primaryUploadIndex = uploadIndex
+        uploadIndex += 1
+      } else if (!existingImageUrls.includes(img.url) && /^https?:\/\//i.test(img.url)) {
+        fd.append('image_urls[]', img.url)
+      }
+    })
+    if (/^(https?:\/\/|\/storage\/|storage\/)/i.test(form.primary_image)) {
+      primaryImageUrl = form.primary_image
+    }
+    if (primaryImageUrl) fd.append('primary_image_url', primaryImageUrl)
+    if (primaryUploadIndex !== null) fd.append('primary_image_upload_index', String(primaryUploadIndex))
 
     try {
       if (isEdit) {
-        await api.put(`/vendor/products/${id}`, fd)
+        fd.append('_method', 'PUT')
+        await api.post(`/vendor/products/${id}`, fd)
         toast.success('Product updated successfully')
       } else {
         await api.post('/vendor/products', fd)
@@ -204,8 +247,15 @@ export default function VendorProductForm() {
       navigate('/vendor/products')
     } catch (err) {
       const d = err.response?.data
-      if (d?.errors) setFieldErrors(d.errors)
-      else toast.error(errorMessage(err))
+      if (d?.errors) {
+        setFieldErrors(d.errors)
+        setFormError(d.message || errorMessage(err))
+        if (d.errors.images) setImageError(d.errors.images[0])
+      } else {
+        const message = errorMessage(err)
+        setFormError(message)
+        toast.error(message)
+      }
     } finally {
       setSaving(false)
     }
@@ -245,6 +295,11 @@ export default function VendorProductForm() {
       </div>
 
       <form onSubmit={handleSubmit}>
+        {formError && (
+          <div className="alert alert-error mb-3" role="alert">
+            {formError}
+          </div>
+        )}
         {/* Basic Information */}
         <div className="card mb-3">
           <h3 style={{ fontSize: 16, marginBottom: 14 }}>Basic Information</h3>
@@ -299,9 +354,9 @@ export default function VendorProductForm() {
           </div>
 
           {/* Primary Cover Image Preview */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 240px) 1fr', gap: 20, alignItems: 'start', marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: 20, alignItems: 'start', marginBottom: 20 }}>
             <div>
-              <span className="label">Primary Cover Image</span>
+            <span className="label">Primary Cover Image <span className="req">*</span></span>
               <div
                 style={{
                   width: '100%',
@@ -332,13 +387,15 @@ export default function VendorProductForm() {
             </div>
 
             <div>
-              <span className="label">Upload Image or Add Image URL</span>
+              <span className="label">Add a real product photo <span className="req">*</span></span>
               <div className="flex gap-2 mb-2">
                 <input
+                  type="url"
                   className="input flex-1"
                   placeholder="Paste image URL (https://…)"
                   value={customImageUrl}
                   onChange={(e) => setCustomImageUrl(e.target.value)}
+                  aria-label="Product image URL"
                 />
                 <button type="button" className="btn btn-outline btn-sm" onClick={addCustomImage}>
                   Add URL
@@ -353,28 +410,8 @@ export default function VendorProductForm() {
                 <span className="muted text-xs">Supports JPG, PNG, WEBP up to 5MB</span>
               </div>
 
-              {/* Presets Quick Pick */}
-              <span className="label flex items-center gap-1"><Sparkles size={13} color="var(--primary)" /> Or Pick a High-Quality Category Photo</span>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {PRESET_PRODUCT_IMAGES.map((p) => (
-                  <button
-                    key={p.label}
-                    type="button"
-                    className="btn btn-ghost btn-xs"
-                    style={{ border: '1px solid var(--border)', background: 'var(--bg)' }}
-                    onClick={() => {
-                      if (!form.primary_image) {
-                        setForm({ ...form, primary_image: p.url, images: [...form.images, { url: p.url, file: null }] })
-                      } else {
-                        setForm({ ...form, images: [...form.images, { url: p.url, file: null }] })
-                      }
-                      toast.success(`Selected ${p.label}`)
-                    }}
-                  >
-                    + {p.label}
-                  </button>
-                ))}
-              </div>
+              <p className="muted text-xs m-0">Use your own product photo. Photos are required; generic category pictures are not added automatically.</p>
+              {imageError && <div className="field-error" role="alert">{imageError}</div>}
             </div>
           </div>
 

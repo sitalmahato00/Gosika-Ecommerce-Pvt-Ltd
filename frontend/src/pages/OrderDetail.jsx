@@ -357,7 +357,7 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
                 <div key={it.id} className="flex items-center gap-3" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                   <Link to={`/product/${it.product_id}`} className="thumb" style={{ width: 56, height: 56 }}>
                     <img
-                      src={it.image ? apiImage(it.image, it.product_name || it.name) : getProductImage(it, 0, true)}
+                      src={it.image ? apiImage(it.image) : getProductImage(it, 0, true)}
                       alt={it.product_name || ''}
                       className="thumb-img"
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}

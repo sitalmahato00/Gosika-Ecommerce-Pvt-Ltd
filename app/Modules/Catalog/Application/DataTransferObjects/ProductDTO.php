@@ -31,8 +31,10 @@ final class ProductDTO
         public readonly array $variants,
         public readonly array $attributes,
         public readonly array $images,
-    ) {
-    }
+        public readonly array $image_urls,
+        public readonly ?string $primary_image_url,
+        public readonly ?int $primary_image_upload_index,
+    ) {}
 
     public static function fromArray(array $data): self
     {
@@ -63,6 +65,11 @@ final class ProductDTO
             variants: $data['variants'] ?? [],
             attributes: $data['attributes'] ?? [],
             images: $data['images'] ?? [],
+            image_urls: $data['image_urls'] ?? [],
+            primary_image_url: $data['primary_image_url'] ?? null,
+            primary_image_upload_index: isset($data['primary_image_upload_index'])
+                ? (int) $data['primary_image_upload_index']
+                : null,
         );
     }
 }

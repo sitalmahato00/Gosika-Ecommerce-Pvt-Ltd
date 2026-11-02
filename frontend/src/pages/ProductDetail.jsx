@@ -9,7 +9,7 @@ import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { apiImage, money, formatDate, errorMessage, getProductImage, FALLBACK_PRODUCT_IMAGES } from '../utils/format'
+import { apiImage, money, formatDate, errorMessage, getProductImage } from '../utils/format'
 import ProductCard, { ProductCardSkeletonMini } from '../components/commerce/ProductCard'
 import ProductImageZoom from '../components/commerce/ProductImageZoom'
 import RatingStars from '../components/commerce/RatingStars'
@@ -97,7 +97,7 @@ export default function ProductDetail() {
     ? product.images.slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     : product?.primary_image
       ? [{ url: product.primary_image.url || product.primary_image }]
-      : [{ url: defaultImg }, { url: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=600&q=80' }]
+      : [{ url: defaultImg }]
   const activeImage = images[imageIdx]?.url || defaultImg
 
   const variant = product?.variants?.find((v) => v.id === variantId)

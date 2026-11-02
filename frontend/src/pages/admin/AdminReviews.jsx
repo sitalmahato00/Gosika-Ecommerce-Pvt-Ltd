@@ -538,7 +538,7 @@ function QaTab() {
               <div className="flex items-center gap-2 mb-2 wrap">
                 {q.target?.image && (
                   <span className="thumb" style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={apiImage(q.target.image, q.target.name)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={apiImage(q.target.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </span>
                 )}
                 <div className="flex items-center gap-1 flex-wrap">

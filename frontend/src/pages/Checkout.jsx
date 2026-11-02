@@ -692,7 +692,7 @@ export default function Checkout() {
                 <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '48px 1fr auto', gap: 10, alignItems: 'center' }}>
                   <span className="thumb" style={{ width: 48, height: 48, borderRadius: 6, overflow: 'hidden', background: 'var(--bg)' }}>
                     <img
-                      src={item.image ? apiImage(item.image, item.name) : getProductImage(item, 0, true)}
+                      src={item.image ? apiImage(item.image) : getProductImage(item, 0, true)}
                       alt={item.name || ''}
                       className="thumb-img"
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}

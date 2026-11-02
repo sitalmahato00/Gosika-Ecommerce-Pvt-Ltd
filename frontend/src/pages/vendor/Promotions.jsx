@@ -274,7 +274,7 @@ export default function VendorPromotions() {
                 <div>
                   <div style={{ height: 130, position: 'relative', overflow: 'hidden', background: 'var(--navy)' }}>
                     <img
-                      src={apiImage(p.banner_image, p.name)}
+                      src={apiImage(p.banner_image)}
                       alt={p.name}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
