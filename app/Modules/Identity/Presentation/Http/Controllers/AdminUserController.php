@@ -5,6 +5,7 @@ namespace App\Modules\Identity\Presentation\Http\Controllers;
 use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
+use App\Modules\Identity\Application\Services\AdminAccountInvitationService;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Identity\Presentation\Resources\UserResource;
 use App\Modules\Shared\Domain\Enums\UserStatus;
@@ -14,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
 class AdminUserController extends Controller
@@ -72,7 +74,6 @@ class AdminUserController extends Controller
             'last_name'  => ['nullable', 'string', 'max:80'],
             'email'      => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'phone'      => ['nullable', 'string', 'max:20'],
-            'password'   => ['required', 'string', 'min:8', 'confirmed'],
             'roles'      => ['nullable', 'array'],
             'roles.*'    => ['string', 'exists:roles,name'],
         ]);
@@ -80,10 +81,10 @@ class AdminUserController extends Controller
         $user = DB::transaction(function () use ($validated) {
             $user = User::create([
                 'first_name' => $validated['first_name'],
-                'last_name'  => $validated['last_name'] ?? null,
+                'last_name'  => $validated['last_name'] ?? '',
                 'email'      => $validated['email'],
                 'phone'      => $validated['phone'] ?? null,
-                'password'   => $validated['password'],
+                'password'   => Str::random(64),
                 'status'     => UserStatus::ACTIVE,
             ]);
 
@@ -93,12 +94,23 @@ class AdminUserController extends Controller
             return $user;
         });
 
+        $invitationSent = app(AdminAccountInvitationService::class)->send($user, 'staff');
+
         app(AuditLogService::class)->record($request->user(), 'user.created', 'user', $user->uuid, null, [
             'email' => $user->email,
             'roles' => $user->getRoleNames()->toArray(),
         ]);
 
-        return Response::success(new UserResource($user->load('roles')), 'Admin user created successfully.', [], 201);
+        $message = $invitationSent
+            ? 'Staff account created. An invitation link was sent to the user’s email.'
+            : 'Staff account created, but the invitation email could not be sent. Check email settings and logs.';
+
+        return Response::success(
+            new UserResource($user->load('roles')),
+            $message,
+            ['invitation_sent' => $invitationSent],
+            201
+        );
     }
 
     public function resetPassword(Request $request, string $userId): JsonResponse

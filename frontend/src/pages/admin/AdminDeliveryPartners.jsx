@@ -29,7 +29,6 @@ export default function AdminDeliveryPartners() {
     vehicle_type: 'Motorcycle',
     vehicle_number: '',
     service_areas: '',
-    password: '',
   })
 
   const [dialogState, setDialogState] = useState({
@@ -107,18 +106,21 @@ export default function AdminDeliveryPartners() {
 
     setCreating(true)
     try {
-      await api.post('/admin/delivery-partners', {
+      const response = await api.post('/admin/delivery-partners', {
         name: form.name,
         email: form.email,
         phone: form.phone,
         vehicle_type: form.vehicle_type,
         vehicle_number: form.vehicle_number,
         service_areas: form.service_areas ? form.service_areas.split(',').map(s => s.trim()) : ['Kathmandu Valley'],
-        password: form.password || 'password123'
       })
-      toast.success('New delivery partner registered successfully!')
+      if (response.data?.meta?.invitation_sent === false) {
+        toast.error(response.data?.message || 'Delivery partner created, but the invitation email could not be sent.')
+      } else {
+        toast.success(`Delivery partner created. An invitation link was sent to ${form.email}.`)
+      }
       setCreateOpen(false)
-      setForm({ name: '', email: '', phone: '', vehicle_type: 'Motorcycle', vehicle_number: '', service_areas: '', password: '' })
+      setForm({ name: '', email: '', phone: '', vehicle_type: 'Motorcycle', vehicle_number: '', service_areas: '' })
       loadPartners()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to register delivery partner.')

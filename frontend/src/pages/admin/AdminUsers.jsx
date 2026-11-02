@@ -46,7 +46,7 @@ export default function AdminUsers() {
   const [createOpen, setCreateOpen] = useState(false)
   const [rolesTarget, setRolesTarget] = useState(null)
   const [createForm, setCreateForm] = useState({
-    first_name: '', last_name: '', email: '', phone: '', password: '', password_confirmation: '', roles: ['super_admin'],
+    first_name: '', last_name: '', email: '', phone: '', roles: ['super_admin'],
   })
   const [selectedRoles, setSelectedRoles] = useState([])
   const [formSaving, setFormSaving] = useState(false)
@@ -114,20 +114,20 @@ export default function AdminUsers() {
   }
 
   const handleCreate = () => {
-    if (!createForm.first_name.trim() || !createForm.email.trim() || !createForm.password) {
-      toast.error('Name, email and password are required.')
-      return
-    }
-    if (createForm.password !== createForm.password_confirmation) {
-      toast.error('Password confirmation does not match.')
+    if (!createForm.first_name.trim() || !createForm.email.trim()) {
+      toast.error('Name and email are required.')
       return
     }
     setFormSaving(true)
     api.post('/admin/users', { ...createForm, roles: createForm.roles })
-      .then(() => {
-        toast.success('Admin user created')
+      .then((response) => {
+        if (response.data?.meta?.invitation_sent === false) {
+          toast.error(response.data?.message || 'Staff account created, but the invitation email could not be sent.')
+        } else {
+          toast.success(response.data?.message || 'Staff account created. An invitation link was sent by email.')
+        }
         setCreateOpen(false)
-        setCreateForm({ first_name: '', last_name: '', email: '', phone: '', password: '', password_confirmation: '', roles: ['super_admin'] })
+        setCreateForm({ first_name: '', last_name: '', email: '', phone: '', roles: ['super_admin'] })
         reload()
       })
       .catch((err) => toast.error(errorMessage(err)))
@@ -422,15 +422,8 @@ export default function AdminUsers() {
             <label className="label">Phone</label>
             <input className="input" type="tel" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder="98XXXXXXXX" autoComplete="tel" />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label className="label">Password *</label>
-              <input className="input" type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} placeholder="Min 8 characters" />
-            </div>
-            <div>
-              <label className="label">Confirm Password *</label>
-              <input className="input" type="password" value={createForm.password_confirmation} onChange={(e) => setCreateForm({ ...createForm, password_confirmation: e.target.value })} placeholder="Repeat password" />
-            </div>
+          <div className="alert" style={{ fontSize: 12 }}>
+            The staff member will receive a secure email link to verify their address and set a password.
           </div>
           <div>
             <label className="label">Roles</label>

@@ -30,6 +30,14 @@ use Illuminate\Support\Facades\Mail;
  */
 class NotificationDispatcher
 {
+    public function adminAccountInvitation(User $user, string $invitationUrl, string $accountType): bool
+    {
+        return $this->email(
+            $user->email,
+            new \App\Modules\Marketing\Application\Mail\AdminAccountInvitationMail($user, $invitationUrl, $accountType)
+        );
+    }
+
     public function emailVerificationCode(User $user, string $code): void
     {
         $this->email($user->email, new \App\Modules\Marketing\Application\Mail\EmailVerificationMail($user, $code));
@@ -418,26 +426,29 @@ class NotificationDispatcher
         }
     }
 
-    protected function email(string $recipient, Mailable $mailable): void
+    protected function email(string $recipient, Mailable $mailable): bool
     {
         if ($recipient === '' || $recipient === null) {
-            return;
+            return false;
         }
 
         if ($this->emailsEnabled() === false) {
             Log::channel('notification')->info('Email suppressed by settings', ['to' => $recipient, 'subject' => $mailable->subject]);
 
-            return;
+            return false;
         }
 
         try {
             Mail::to($recipient)->send($mailable);
+            return true;
         } catch (\Throwable $e) {
             Log::channel('notification')->error('Email dispatch failed', [
                 'to' => $recipient,
                 'subject' => $mailable->subject,
                 'error' => $e->getMessage(),
             ]);
+
+            return false;
         }
     }
 

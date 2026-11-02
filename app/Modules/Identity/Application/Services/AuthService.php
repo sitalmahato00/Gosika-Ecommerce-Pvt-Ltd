@@ -64,6 +64,10 @@ class AuthService
             throw new DomainException('Invalid credentials.', 401);
         }
 
+        if (data_get($user->meta, 'admin_account_invitation') && ! $user->email_verified_at) {
+            throw new DomainException('Please use the invitation link sent to your email to verify your address and set your password.', 403);
+        }
+
         if (in_array($user->status, [UserStatus::SUSPENDED, UserStatus::BLOCKED], true)) {
             throw new DomainException('Your account has been suspended. Please contact support.', 403);
         }

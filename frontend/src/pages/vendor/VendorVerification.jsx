@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import {
   ShieldCheck, Building2, Check, CheckCircle2, UploadCloud, FileText,
-  MapPin, Phone, Mail, Award, XCircle, Clock, FileUp, Hash, User, Store, CreditCard
+  MapPin, Phone, Mail, Award, XCircle, Clock, Hash, User, Store, CreditCard,
+  ChevronLeft, ChevronRight
 } from 'lucide-react'
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
@@ -16,7 +17,7 @@ import LocationMapPicker from '../../components/common/LocationMapPicker'
 import ImageUpload from '../../components/ui/ImageUpload'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
-import { errorMessage, formatDate } from '../../utils/format'
+import { apiImage, errorMessage, formatDate } from '../../utils/format'
 import { downloadVendorDocument } from '../../utils/vendorDocuments'
 
 function InfoCard({ icon: Icon, color, label, value }) {
@@ -38,6 +39,20 @@ const DOC_CARDS = [
   { type: 'citizenship_back', label: 'Citizenship (Back)' },
   { type: 'pan_vat', label: 'PAN / VAT Certificate' },
   { type: 'business_registration', label: 'Company Darta Certificate' },
+]
+
+const isImageDocument = (document) => (
+  document.mime_type?.startsWith('image/')
+  || /\.(avif|bmp|gif|jpe?g|png|svg|webp)$/i.test(document.file_path || '')
+)
+
+const VERIFICATION_STEPS = [
+  'Account',
+  'Business',
+  'Store',
+  'Bank',
+  'Owner & Documents',
+  'Review & Submit',
 ]
 
 export default function VendorVerification() {
@@ -81,10 +96,24 @@ export default function VendorVerification() {
     coordinates: null,
   })
   const [previews, setPreviews] = useState({})
+  const [documentPreviewUrls, setDocumentPreviewUrls] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState('')
   const [uploading, setUploading] = useState('')
+  const [activeStep, setActiveStep] = useState(0)
+  const [completedSteps, setCompletedSteps] = useState([])
+
+  const invalidateFrom = (step) => {
+    setCompletedSteps((current) => current.filter((completedStep) => completedStep < step))
+  }
+
+  const completeStep = (step) => {
+    setCompletedSteps((current) => (
+      current.includes(step) ? current : [...current, step].sort((a, b) => a - b)
+    ))
+    setActiveStep(step + 1)
+  }
 
   useEffect(() => {
     setAccount({
@@ -127,6 +156,22 @@ export default function VendorVerification() {
         })
         const k = v.kyc || {}
         const storeAddress = store.addresses?.find((address) => address.address_type === 'business') || {}
+        const documentTypes = (v.documents || []).map((document) => document.document_type)
+        const savedSteps = []
+        if (user?.first_name?.trim() && user?.last_name?.trim() && user?.phone?.trim()) savedSteps.push(0)
+        if (v.company_name?.trim() && v.business_email?.trim() && v.pan_vat?.trim()) savedSteps.push(1)
+        if (store.name?.trim() && store.description?.trim() && store.logo?.trim() && store.banner?.trim()) savedSteps.push(2)
+        if (bank.bank_name?.trim() && bank.account_number?.trim() && bank.account_name?.trim()) savedSteps.push(3)
+        if (
+          k.business_type?.trim()
+          && k.owner_full_name?.trim()
+          && (k.address || storeAddress.address_line_1)?.trim()
+          && (k.province || storeAddress.province)?.trim()
+          && (k.district || storeAddress.district)?.trim()
+          && (k.municipality || storeAddress.municipality)?.trim()
+          && DOC_CARDS.every((document) => documentTypes.includes(document.type))
+        ) savedSteps.push(4)
+        setCompletedSteps(savedSteps)
         setKyc({
           owner_full_name: k.owner_full_name || '',
           owner_citizenship_number: k.owner_citizenship_number || '',
@@ -151,6 +196,42 @@ export default function VendorVerification() {
   useEffect(() => {
     load()
   }, [])
+
+  useEffect(() => {
+    if (![4, 5].includes(activeStep)) return undefined
+
+    let cancelled = false
+    const objectUrls = []
+    const imageDocuments = (vendor?.documents || []).filter(isImageDocument)
+
+    setDocumentPreviewUrls({})
+    Promise.all(imageDocuments.map(async (document) => {
+      try {
+        const response = await api.get(`/vendor/documents/${document.id}/download`, {
+          responseType: 'blob',
+          skipCache: true,
+        })
+        if (cancelled) return null
+        const objectUrl = URL.createObjectURL(response.data)
+        objectUrls.push(objectUrl)
+        return [document.document_type, objectUrl]
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(errorMessage(err, `Could not load preview for ${document.document_type}.`))
+        }
+        return null
+      }
+    })).then((entries) => {
+      if (!cancelled) {
+        setDocumentPreviewUrls(Object.fromEntries(entries.filter(Boolean)))
+      }
+    })
+
+    return () => {
+      cancelled = true
+      objectUrls.forEach((objectUrl) => URL.revokeObjectURL(objectUrl))
+    }
+  }, [activeStep, vendor?.documents])
 
   const persistAccount = async () => {
     await api.put('/vendor/profile', account)
@@ -202,6 +283,7 @@ export default function VendorVerification() {
     try {
       await persistBasic()
       toast.success('Business profile updated successfully')
+      completeStep(1)
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -215,6 +297,7 @@ export default function VendorVerification() {
     try {
       await persistAccount()
       toast.success('Account details updated successfully')
+      completeStep(0)
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -228,6 +311,7 @@ export default function VendorVerification() {
     try {
       await persistStore()
       toast.success('Store information saved successfully')
+      completeStep(2)
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -241,6 +325,7 @@ export default function VendorVerification() {
     try {
       await persistBank()
       toast.success('Payout bank details saved successfully')
+      completeStep(3)
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -248,8 +333,35 @@ export default function VendorVerification() {
     }
   }
 
+  const continueKyc = (e) => {
+    e.preventDefault()
+    const requiredFields = [
+      [kyc.business_type, 'Business type'],
+      [kyc.owner_full_name, 'Legal owner name'],
+      [kyc.address, 'Business address'],
+      [kyc.province, 'Province'],
+      [kyc.district, 'District'],
+      [kyc.city, 'Municipality'],
+    ]
+    const missingField = requiredFields.find(([value]) => !String(value || '').trim())
+    if (missingField) {
+      toast.error(`Complete the ${missingField[1]} before continuing.`)
+      return
+    }
+    const missingDocument = DOC_CARDS.find((doc) => !uploadedTypes.includes(doc.type))
+    if (missingDocument) {
+      toast.error(`Upload the ${missingDocument.label} before continuing.`)
+      return
+    }
+    completeStep(4)
+  }
+
   const saveKyc = async (e) => {
     e.preventDefault()
+    if (![0, 1, 2, 3, 4].every((step) => completedSteps.includes(step))) {
+      toast.error('Complete each verification section before submitting.')
+      return
+    }
     const requiredRegistrationFields = [
       [account.first_name, 'First name'],
       [account.last_name, 'Last name'],
@@ -267,15 +379,20 @@ export default function VendorVerification() {
       [bankForm.account_number, 'Bank account number'],
       [bankForm.account_name, 'Bank account holder'],
       [kyc.owner_full_name, 'Legal owner name'],
+      [kyc.address, 'Business address'],
+      [kyc.province, 'Province'],
+      [kyc.district, 'District'],
+      [kyc.city, 'Municipality'],
     ]
     const missingField = requiredRegistrationFields.find(([value]) => !String(value || '').trim())
     if (missingField) {
-      toast.error(`Complete and save the ${missingField[1]} before submitting KYC.`)
+      toast.error(`Complete the ${missingField[1]} before submitting KYC.`)
       return
     }
     const missingDocument = DOC_CARDS.find((doc) => !uploadedTypes.includes(doc.type))
     if (missingDocument) {
       toast.error(`Upload the ${missingDocument.label} before submitting KYC.`)
+      setActiveStep(4)
       return
     }
     setSaving('kyc')
@@ -419,7 +536,7 @@ export default function VendorVerification() {
             <div>
               <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0, color: 'var(--ink)' }}>KYC Verification</h1>
               <p className="muted text-sm" style={{ marginTop: 4 }}>
-                Business &amp; legal owner details captured at registration, editable below.
+                Complete each section in order, then review and submit your registration.
               </p>
             </div>
           </div>
@@ -432,7 +549,31 @@ export default function VendorVerification() {
         </div>
       </div>
 
-      <form className="card" onSubmit={saveAccount} style={{ padding: 24, marginBottom: 20 }}>
+      <div role="tablist" aria-label="Seller verification sections" className="flex wrap gap-2" style={{ marginBottom: 20 }}>
+        {VERIFICATION_STEPS.map((step, index) => {
+          const canOpen = index === 0
+            || VERIFICATION_STEPS.slice(0, index).every((_, previousStep) => completedSteps.includes(previousStep))
+          const isComplete = completedSteps.includes(index)
+          return (
+            <button
+              key={step}
+              type="button"
+              id={`verification-tab-${index}`}
+              role="tab"
+              aria-selected={activeStep === index}
+              aria-controls={`verification-panel-${index}`}
+              disabled={!canOpen || Boolean(saving)}
+              onClick={() => setActiveStep(index)}
+              className={`btn btn-sm ${activeStep === index ? 'btn-primary' : 'btn-outline'}`}
+              style={{ opacity: canOpen ? 1 : 0.55 }}
+            >
+              {isComplete ? <CheckCircle2 size={14} /> : <span>{index + 1}.</span>} {step}
+            </button>
+          )
+        })}
+      </div>
+
+      {activeStep === 0 && <form id="verification-panel-0" role="tabpanel" aria-labelledby="verification-tab-0" className="card" onChange={() => invalidateFrom(0)} onSubmit={saveAccount} style={{ padding: 24, marginBottom: 20 }}>
         <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 8px' }} className="flex items-center gap-2">
           <User size={18} color="var(--primary)" /> Account Details
         </h3>
@@ -463,22 +604,21 @@ export default function VendorVerification() {
           />
         </div>
         <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-          <Button type="submit" size="sm" disabled={saving === 'account'}>
-            {saving === 'account' ? <Spinner size={14} color="#fff" /> : <><Check size={14} /> Save Account Details</>}
+          <Button type="submit" size="sm" disabled={Boolean(saving)}>
+            {saving === 'account' ? <Spinner size={14} color="#fff" /> : <>Save &amp; Continue <ChevronRight size={14} /></>}
           </Button>
         </div>
-      </form>
-
-      {/* Summary cards */}
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 18 }}>
-        <InfoCard icon={Hash} color="#2563eb" label="PAN / VAT" value={v.pan_vat} />
-        <InfoCard icon={FileText} color="#f59e0b" label="Registration No." value={v.registration_number} />
-        <InfoCard icon={Mail} color="#10b981" label="Business Email" value={v.business_email} />
-        <InfoCard icon={Phone} color="#ef4444" label="Business Phone" value={v.business_phone} />
-      </div>
+      </form>}
 
       {/* Section 1: Business Information */}
-      <form className="card" onSubmit={saveBasic} style={{ padding: 24, marginBottom: 24 }}>
+      {activeStep === 1 && <div id="verification-panel-1" role="tabpanel" aria-labelledby="verification-tab-1">
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 18 }}>
+          <InfoCard icon={Hash} color="#2563eb" label="PAN / VAT" value={v.pan_vat} />
+          <InfoCard icon={FileText} color="#f59e0b" label="Registration No." value={v.registration_number} />
+          <InfoCard icon={Mail} color="#10b981" label="Business Email" value={v.business_email} />
+          <InfoCard icon={Phone} color="#ef4444" label="Business Phone" value={v.business_phone} />
+        </div>
+      <form className="card" onChange={() => invalidateFrom(1)} onSubmit={saveBasic} style={{ padding: 24, marginBottom: 24 }}>
         <div className="flex items-center justify-between mb-3">
           <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
             <Building2 size={18} color="var(--primary)" /> Business Details
@@ -524,34 +664,20 @@ export default function VendorVerification() {
             onChange={(e) => setBasic({ ...basic, registration_number: e.target.value })}
             placeholder="e.g. REG-KOSHI-2024-8841"
           />
-          <Select
-            label="Business Type *"
-            required
-            value={kyc.business_type}
-            onChange={(e) => setKyc({ ...kyc, business_type: e.target.value })}
-            hint="This is submitted with your final KYC application."
-          >
-            <option value="">Select business type</option>
-            <option value="Retail">Retail</option>
-            <option value="Wholesale">Wholesale</option>
-            <option value="Manufacturing">Manufacturing</option>
-            <option value="Service">Service</option>
-            <option value="Private Limited (Pvt. Ltd.)">Private Limited (Pvt. Ltd.)</option>
-            <option value="Sole Proprietorship">Sole Proprietorship (Ekala Swamittwa)</option>
-            <option value="Partnership Firm">Partnership Firm (Sajhedari)</option>
-            <option value="Public Limited">Public Limited</option>
-            <option value="Cooperative (Sahakari)">Cooperative (Sahakari)</option>
-          </Select>
         </div>
 
         <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-          <Button type="submit" size="sm" disabled={saving === 'basic'}>
-            {saving === 'basic' ? <Spinner size={14} color="#fff" /> : <><Check size={14} /> Save Business Profile</>}
+          <Button type="button" variant="outline" size="sm" onClick={() => setActiveStep(0)} disabled={Boolean(saving)}>
+            <ChevronLeft size={14} /> Back
+          </Button>
+          <Button type="submit" size="sm" disabled={Boolean(saving)}>
+            {saving === 'basic' ? <Spinner size={14} color="#fff" /> : <>Save &amp; Continue <ChevronRight size={14} /></>}
           </Button>
         </div>
       </form>
+      </div>}
 
-      <form className="card" onSubmit={saveStore} style={{ padding: 24, marginBottom: 24 }}>
+      {activeStep === 2 && <form id="verification-panel-2" role="tabpanel" aria-labelledby="verification-tab-2" className="card" onChange={() => invalidateFrom(2)} onSubmit={saveStore} style={{ padding: 24, marginBottom: 24 }}>
         <div className="flex items-center justify-between mb-3">
           <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
             <Store size={18} color="var(--primary)" /> Store Information &amp; Branding
@@ -596,13 +722,16 @@ export default function VendorVerification() {
           />
         </div>
         <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-          <Button type="submit" size="sm" disabled={saving === 'store'}>
-            {saving === 'store' ? <Spinner size={14} color="#fff" /> : <><Check size={14} /> Save Store Details</>}
+          <Button type="button" variant="outline" size="sm" onClick={() => setActiveStep(1)} disabled={Boolean(saving)}>
+            <ChevronLeft size={14} /> Back
+          </Button>
+          <Button type="submit" size="sm" disabled={Boolean(saving)}>
+            {saving === 'store' ? <Spinner size={14} color="#fff" /> : <>Save &amp; Continue <ChevronRight size={14} /></>}
           </Button>
         </div>
-      </form>
+      </form>}
 
-      <form className="card" onSubmit={saveBank} style={{ padding: 24, marginBottom: 24 }}>
+      {activeStep === 3 && <form id="verification-panel-3" role="tabpanel" aria-labelledby="verification-tab-3" className="card" onChange={() => invalidateFrom(3)} onSubmit={saveBank} style={{ padding: 24, marginBottom: 24 }}>
         <div className="flex items-center justify-between mb-3">
           <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
             <CreditCard size={18} color="var(--primary)" /> Bank Details
@@ -650,14 +779,17 @@ export default function VendorVerification() {
           </Select>
         </div>
         <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-          <Button type="submit" size="sm" disabled={saving === 'bank'}>
-            {saving === 'bank' ? <Spinner size={14} color="#fff" /> : <><Check size={14} /> Save Bank Details</>}
+          <Button type="button" variant="outline" size="sm" onClick={() => setActiveStep(2)} disabled={Boolean(saving)}>
+            <ChevronLeft size={14} /> Back
+          </Button>
+          <Button type="submit" size="sm" disabled={Boolean(saving)}>
+            {saving === 'bank' ? <Spinner size={14} color="#fff" /> : <>Save &amp; Continue <ChevronRight size={14} /></>}
           </Button>
         </div>
-      </form>
+      </form>}
 
       {/* Section 2: KYC & Owner Verification */}
-      <form className="card" onSubmit={saveKyc} style={{ padding: 24 }}>
+      {activeStep === 4 && <form id="verification-panel-4" role="tabpanel" aria-labelledby="verification-tab-4" className="card" onChange={() => invalidateFrom(4)} onSubmit={continueKyc} style={{ padding: 24 }}>
         <div className="flex items-center justify-between mb-3">
           <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }} className="flex items-center gap-2">
             <ShieldCheck size={18} color="var(--primary)" /> KYC &amp; Legal Owner Verification
@@ -675,6 +807,25 @@ export default function VendorVerification() {
         {k.reviewed_at && (
           <div className="muted text-xs mb-4">Reviewed {formatDate(k.reviewed_at)}</div>
         )}
+
+        <Select
+          label="Business Type *"
+          required
+          value={kyc.business_type}
+          onChange={(e) => setKyc({ ...kyc, business_type: e.target.value })}
+          hint="Choose the legal structure or activity that best describes your business."
+        >
+          <option value="">Select business type</option>
+          <option value="Retail">Retail</option>
+          <option value="Wholesale">Wholesale</option>
+          <option value="Manufacturing">Manufacturing</option>
+          <option value="Service">Service</option>
+          <option value="Private Limited (Pvt. Ltd.)">Private Limited (Pvt. Ltd.)</option>
+          <option value="Sole Proprietorship">Sole Proprietorship (Ekala Swamittwa)</option>
+          <option value="Partnership Firm">Partnership Firm (Sajhedari)</option>
+          <option value="Public Limited">Public Limited</option>
+          <option value="Cooperative (Sahakari)">Cooperative (Sahakari)</option>
+        </Select>
 
         <div className="form-row">
           <Input
@@ -721,6 +872,7 @@ export default function VendorVerification() {
             landmark={kyc.landmark}
             coordinates={kyc.coordinates}
             onChange={(loc) => {
+              invalidateFrom(4)
               setKyc((prev) => ({
                 ...prev,
                 province: loc.province,
@@ -764,8 +916,12 @@ export default function VendorVerification() {
                       color: 'var(--muted)',
                     }}
                   >
-                    {previews[doc.type] ? (
-                      <img src={previews[doc.type]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {previews[doc.type] || documentPreviewUrls[doc.type] ? (
+                      <img
+                        src={previews[doc.type] || documentPreviewUrls[doc.type]}
+                        alt={`${doc.label} preview`}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
                     ) : existing?.file_path ? (
                       <button type="button" onClick={() => downloadDocument(existing)} aria-label={`Download ${doc.label}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: 'transparent', border: 0, cursor: 'pointer' }}>
                         <FileText size={28} color="var(--primary)" />
@@ -801,31 +957,118 @@ export default function VendorVerification() {
           </div>
         </div>
 
-        <div style={{ margin: '20px 0', padding: 16, background: '#F8FAFC', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-          <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 10px' }}>Review &amp; Submit Registration</h4>
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
-            {[
-              ['Account', `${account.first_name} ${account.last_name} · ${user?.email || ''} · ${account.phone}`],
-              ['Business', `${basic.company_name} · ${kyc.business_type} · Tax ID ${basic.pan_vat}`],
-              ['Store', `${storeForm.name} · ${storeForm.description}`],
-              ['Store Logo', storeForm.logo ? 'Uploaded' : 'Not completed'],
-              ['Store Cover', storeForm.banner ? 'Uploaded' : 'Not completed'],
-              ['Owner KYC', kyc.owner_full_name],
-              ['Payout Bank', `${bankForm.bank_name} · ${bankForm.account_name} · ${bankForm.account_number}`],
-            ].map(([label, value]) => (
-              <div key={label} style={{ fontSize: 12, color: 'var(--muted)' }}>
-                <strong style={{ color: 'var(--ink)' }}>{label}:</strong> {value || 'Not completed'}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex justify-end pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-          <Button type="submit" size="sm" disabled={saving === 'kyc'}>
-            {saving === 'kyc' ? <Spinner size={14} color="#fff" /> : <><ShieldCheck size={14} /> Review &amp; Submit KYC</>}
+        <div className="flex justify-between pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+          <Button type="button" variant="outline" size="sm" onClick={() => setActiveStep(3)} disabled={Boolean(saving)}>
+            <ChevronLeft size={14} /> Back
+          </Button>
+          <Button type="submit" size="sm" disabled={Boolean(saving) || Boolean(uploading)}>
+            <Check size={14} /> Continue to review <ChevronRight size={14} />
           </Button>
         </div>
-      </form>
+      </form>}
+
+      {activeStep === 5 && <form id="verification-panel-5" role="tabpanel" aria-labelledby="verification-tab-5" className="card" onSubmit={saveKyc} style={{ padding: 24 }}>
+        <div className="flex items-center gap-2 mb-3">
+          <CheckCircle2 size={20} color="var(--primary)" />
+          <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Review Your Registration</h3>
+        </div>
+        <p className="muted text-sm" style={{ margin: '0 0 18px' }}>
+          Check every section before submitting. Use the tabs above to make changes.
+        </p>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+          {[
+            ['Account', `${account.first_name} ${account.last_name} · ${user?.email || ''} · ${account.phone}`],
+            ['Business', `${basic.company_name} · ${kyc.business_type} · Tax ID ${basic.pan_vat} · Registration ${basic.registration_number || 'Not provided'}`],
+            ['Business contact', `${basic.business_email} · ${basic.business_phone || 'No business phone'}`],
+            ['Business location', [kyc.address, kyc.landmark, kyc.city, kyc.district, kyc.province].filter(Boolean).join(', ')],
+            ['Store', `${storeForm.name} · ${storeForm.description}`],
+            ['Store branding', `Logo: ${storeForm.logo ? 'Uploaded' : 'Missing'} · Cover: ${storeForm.banner ? 'Uploaded' : 'Missing'}`],
+            ['Owner', `${kyc.owner_full_name} · ${kyc.owner_citizenship_number || 'No citizenship number'} · ${kyc.owner_email || ''} · ${kyc.owner_phone || ''}`],
+            ['Payout bank', `${bankForm.bank_name} · ${bankForm.branch_name || 'No branch'} · ${bankForm.account_name} · ${bankForm.account_number} · ${bankForm.account_type}`],
+          ].map(([label, value]) => (
+            <div key={label} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12 }}>
+              <div className="muted text-xs font-semibold uppercase" style={{ marginBottom: 4 }}>{label}</div>
+              <div className="text-sm" style={{ color: 'var(--ink)', wordBreak: 'break-word' }}>{value || 'Not completed'}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 16, padding: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+          <strong className="text-sm">Verification documents</strong>
+          <div className="flex wrap gap-2" style={{ marginTop: 8 }}>
+            {DOC_CARDS.map((document) => {
+              const isUploaded = uploadedTypes.includes(document.type)
+              return (
+                <span key={document.type} className="chip chip-sm" style={{ color: isUploaded ? '#059669' : '#dc2626' }}>
+                  {isUploaded ? <CheckCircle2 size={12} /> : <XCircle size={12} />} {document.label}
+                </span>
+              )
+            })}
+          </div>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 14 }}>
+            {DOC_CARDS.map((document) => {
+              const uploadedDocument = docs.find((item) => item.document_type === document.type)
+              const imageUrl = previews[document.type] || documentPreviewUrls[document.type]
+              return (
+                <div key={document.type} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 10, background: '#fff' }}>
+                  <div className="text-xs font-semibold" style={{ marginBottom: 8 }}>{document.label}</div>
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={`${document.label} preview`}
+                      style={{ width: '100%', height: 150, objectFit: 'contain', borderRadius: 'var(--radius-sm)', background: 'var(--bg)' }}
+                    />
+                  ) : uploadedDocument ? (
+                    <button
+                      type="button"
+                      onClick={() => downloadDocument(uploadedDocument)}
+                      aria-label={`Download ${document.label}`}
+                      style={{ width: '100%', height: 150, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg)', color: 'var(--primary)', cursor: 'pointer' }}
+                    >
+                      <FileText size={32} />
+                      <span className="muted text-xs" style={{ display: 'block', marginTop: 6 }}>
+                        {uploadedDocument.mime_type === 'application/pdf' ? 'PDF document — click to download' : 'Preview loading — click to download'}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="muted text-xs" style={{ height: 150, display: 'grid', placeItems: 'center', background: 'var(--bg)', borderRadius: 'var(--radius-sm)' }}>
+                      No document uploaded
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 14 }}>
+          {[
+            ['Store logo', storeForm.logo, 'contain'],
+            ['Store cover image', storeForm.banner, 'cover'],
+          ].map(([label, image, fit]) => (
+            <div key={label} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 10 }}>
+              <div className="text-xs font-semibold" style={{ marginBottom: 8 }}>{label}</div>
+              {image ? (
+                <img
+                  src={apiImage(image)}
+                  alt={`${label} preview`}
+                  style={{ width: '100%', height: 150, objectFit: fit, borderRadius: 'var(--radius-sm)', background: 'var(--bg)' }}
+                />
+              ) : (
+                <div className="muted text-xs" style={{ height: 150, display: 'grid', placeItems: 'center', background: 'var(--bg)', borderRadius: 'var(--radius-sm)' }}>
+                  No image uploaded
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-between pt-3" style={{ borderTop: '1px solid var(--border)', marginTop: 18 }}>
+          <Button type="button" variant="outline" size="sm" onClick={() => setActiveStep(4)} disabled={Boolean(saving)}>
+            <ChevronLeft size={14} /> Back
+          </Button>
+          <Button type="submit" size="sm" disabled={Boolean(saving)}>
+            {saving === 'kyc' ? <Spinner size={14} color="#fff" /> : <><ShieldCheck size={14} /> Submit Registration</>}
+          </Button>
+        </div>
+      </form>}
     </div>
   )
 }

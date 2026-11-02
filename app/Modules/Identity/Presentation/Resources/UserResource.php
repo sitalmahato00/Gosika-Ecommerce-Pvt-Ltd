@@ -10,6 +10,9 @@ class UserResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $meta = (array) $this->meta;
+        unset($meta['admin_account_invitation']);
+
         return [
             'id' => $this->uuid,
             'first_name' => $this->first_name,
@@ -32,7 +35,7 @@ class UserResource extends JsonResource
                 return $this->getAllPermissions()->pluck('name')->toArray();
             }),
             'address' => $this->meta['address'] ?? null,
-            'meta' => $this->meta,
+            'meta' => $meta,
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

@@ -4,6 +4,7 @@ namespace App\Modules\Identity\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Application\DataTransferObjects\LoginDTO;
 use App\Modules\Identity\Application\DataTransferObjects\RegisterUserDTO;
+use App\Modules\Identity\Application\Services\AdminAccountInvitationService;
 use App\Modules\Identity\Application\Services\AuthService;
 use App\Modules\Identity\Presentation\Http\Requests\ForgotPasswordRequest;
 use App\Modules\Identity\Presentation\Http\Requests\LoginRequest;
@@ -115,5 +116,25 @@ class AuthController extends Controller
         $this->auth->resetPassword($request->only('otp', 'email', 'password', 'password_confirmation'));
 
         return Response::success(null, 'Password reset successfully.');
+    }
+
+    public function completeAdminInvitation(Request $request, AdminAccountInvitationService $invitations): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'token' => ['required', 'string', 'size:64'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = $invitations->complete(
+            $validated['email'],
+            $validated['token'],
+            $validated['password'],
+        );
+
+        return Response::success(
+            ['user' => new UserResource($user)],
+            'Email verified and password set. You can now sign in.'
+        );
     }
 }

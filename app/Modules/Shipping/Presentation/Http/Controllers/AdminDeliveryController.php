@@ -4,6 +4,7 @@ namespace App\Modules\Shipping\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
+use App\Modules\Identity\Application\Services\AdminAccountInvitationService;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Enums\DeliveryPartnerStatus;
@@ -21,6 +22,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AdminDeliveryController extends Controller
 {
@@ -113,37 +116,52 @@ class AdminDeliveryController extends Controller
             'vehicle_number' => ['nullable', 'string', 'max:30'],
             'service_areas' => ['nullable', 'array'],
             'service_areas.*' => ['string', 'max:120'],
-            'password' => ['required', 'string', 'min:8'],
             'province' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $user = User::query()->create([
-            'first_name' => explode(' ', trim((string) $data['name']))[0] ?? trim((string) $data['name']),
-            'last_name' => trim(substr((string) $data['name'], strlen(explode(' ', trim((string) $data['name']))[0] ?? ''))),
-            'email' => $data['email'],
-            'phone' => $data['phone'],
-            'password' => bcrypt($data['password']),
-            'status' => 'active',
-        ]);
-
-        $user->assignRole(Roles::DELIVERY_PARTNER);
-
         $areas = array_values(array_filter(array_map('trim', (array) ($data['service_areas'] ?? []))));
 
-        $partner = DeliveryPartner::query()->create([
-            'user_id' => $user->id,
-            'name' => $data['name'],
-            'phone' => $data['phone'],
-            'email' => $data['email'],
-            'vehicle_type' => $data['vehicle_type'] ?? null,
-            'vehicle_number' => $data['vehicle_number'] ?? null,
-            'service_areas' => $areas,
-            'status' => DeliveryPartnerStatus::APPROVED,
-            'is_online' => false,
-            'meta' => ['assigned_province' => $data['province'] ?? null],
-        ]);
+        [$user, $partner] = DB::transaction(function () use ($data, $areas): array {
+            $nameParts = explode(' ', trim((string) $data['name']), 2);
+            $user = User::query()->create([
+                'first_name' => $nameParts[0] ?? trim((string) $data['name']),
+                'last_name' => $nameParts[1] ?? '',
+                'email' => $data['email'],
+                'phone' => $data['phone'],
+                'password' => Str::random(64),
+                'status' => 'active',
+            ]);
 
-        return Response::created(new DeliveryPartnerResource($partner->load('user')), 'Delivery partner account created.');
+            $user->assignRole(Roles::DELIVERY_PARTNER);
+
+            $partner = DeliveryPartner::query()->create([
+                'user_id' => $user->id,
+                'name' => $data['name'],
+                'phone' => $data['phone'],
+                'email' => $data['email'],
+                'vehicle_type' => $data['vehicle_type'] ?? null,
+                'vehicle_number' => $data['vehicle_number'] ?? null,
+                'service_areas' => $areas,
+                'status' => DeliveryPartnerStatus::APPROVED,
+                'is_online' => false,
+                'meta' => ['assigned_province' => $data['province'] ?? null],
+            ]);
+
+            return [$user, $partner];
+        });
+
+        $invitationSent = app(AdminAccountInvitationService::class)->send($user, 'delivery partner');
+
+        $message = $invitationSent
+            ? 'Delivery partner account created. An invitation link was sent to verify their email and set a password.'
+            : 'Delivery partner account created, but the invitation email could not be sent. Check email settings and logs.';
+
+        return Response::success(
+            new DeliveryPartnerResource($partner->load('user')),
+            $message,
+            ['invitation_sent' => $invitationSent],
+            201
+        );
     }
 
     public function partner(string $partnerId): JsonResponse

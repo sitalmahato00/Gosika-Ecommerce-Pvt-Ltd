@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   Store, Eye, Check, X, ShieldAlert, CheckCircle2,
   RefreshCw, Download, Store as StoreIcon, ShieldCheck,
-  UserPlus, Mail, Phone, Lock, Building2, EyeOff, AlertCircle
+  UserPlus, Mail, Phone, Building2, AlertCircle
 } from 'lucide-react'
 import api from '../../api/client'
 import PageHeader from '../../components/admin/PageHeader'
@@ -20,13 +20,12 @@ import { exportReportFromRows, companyFromBranding, personLabel } from '../../ut
 /* ─── Add Seller Modal ────────────────────────────────────────────────────── */
 const EMPTY_SELLER = {
   first_name: '', last_name: '', email: '', phone: '',
-  password: '', company_name: '', business_email: '', business_phone: ''
+  company_name: '', business_email: '', business_phone: ''
 }
 
 function AddSellerModal({ open, onClose, onCreated }) {
   const toast = useToast()
   const [form, setForm] = useState(EMPTY_SELLER)
-  const [showPw, setShowPw] = useState(false)
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const firstRef = useRef(null)
@@ -52,8 +51,6 @@ function AddSellerModal({ open, onClose, onCreated }) {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Enter a valid email'
     if (!form.phone.trim()) errs.phone = 'Phone number is required'
     if (!form.company_name.trim()) errs.company_name = 'Company / business name is required'
-    if (!form.password) errs.password = 'Password is required'
-    else if (form.password.length < 8) errs.password = 'Password must be at least 8 characters'
     return errs
   }
 
@@ -69,13 +66,16 @@ function AddSellerModal({ open, onClose, onCreated }) {
         last_name: form.last_name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
-        password: form.password,
         company_name: form.company_name.trim(),
         business_email: form.business_email.trim() || undefined,
         business_phone: form.business_phone.trim() || undefined,
       }
-      await api.post('/admin/vendors/create-seller', payload)
-      toast.success(`Seller account for "${form.company_name}" created successfully.`)
+      const response = await api.post('/admin/vendors/create-seller', payload)
+      if (response.data?.meta?.invitation_sent === false) {
+        toast.error(response.data?.message || 'Seller account created, but the invitation email could not be sent.')
+      } else {
+        toast.success(`Seller account created. An invitation link was sent to ${form.email}.`)
+      }
       onCreated()
       onClose()
     } catch (err) {
@@ -101,47 +101,21 @@ function AddSellerModal({ open, onClose, onCreated }) {
         {Icon && (
           <Icon size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }} />
         )}
-        {name === 'password' ? (
-          <>
-            <input
-              type={showPw ? 'text' : 'password'}
-              value={form[name]}
-              onChange={set(name)}
-              placeholder={placeholder}
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                padding: Icon ? '8px 36px 8px 30px' : '8px 12px',
-                border: `1px solid ${errors[name] ? '#fca5a5' : '#E5E7EB'}`,
-                borderRadius: 8, fontSize: 13, outline: 'none',
-                background: errors[name] ? '#fff5f5' : '#fff',
-                color: '#111827'
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPw(p => !p)}
-              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#9CA3AF' }}
-            >
-              {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-          </>
-        ) : (
-          <input
-            ref={name === 'first_name' ? firstRef : undefined}
-            type={type}
-            value={form[name]}
-            onChange={set(name)}
-            placeholder={placeholder}
-            style={{
-              width: '100%', boxSizing: 'border-box',
-              padding: Icon ? '8px 12px 8px 30px' : '8px 12px',
-              border: `1px solid ${errors[name] ? '#fca5a5' : '#E5E7EB'}`,
-              borderRadius: 8, fontSize: 13, outline: 'none',
-              background: errors[name] ? '#fff5f5' : '#fff',
-              color: '#111827'
-            }}
-          />
-        )}
+        <input
+          ref={name === 'first_name' ? firstRef : undefined}
+          type={type}
+          value={form[name]}
+          onChange={set(name)}
+          placeholder={placeholder}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            padding: Icon ? '8px 12px 8px 30px' : '8px 12px',
+            border: `1px solid ${errors[name] ? '#fca5a5' : '#E5E7EB'}`,
+            borderRadius: 8, fontSize: 13, outline: 'none',
+            background: errors[name] ? '#fff5f5' : '#fff',
+            color: '#111827'
+          }}
+        />
       </div>
       {errors[name] && (
         <span style={{ fontSize: 11, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -174,7 +148,7 @@ function AddSellerModal({ open, onClose, onCreated }) {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>Create Seller Account</div>
-            <div style={{ fontSize: 12, color: '#6B7280' }}>Add a new seller — they can log in and complete KYC verification</div>
+            <div style={{ fontSize: 12, color: '#6B7280' }}>Add a seller — they will receive a secure email invitation</div>
           </div>
           <button
             onClick={onClose}
@@ -203,7 +177,9 @@ function AddSellerModal({ open, onClose, onCreated }) {
                   <Field label="Phone" name="phone" placeholder="98XXXXXXXX" icon={Phone} required />
                 </div>
                 <div style={{ marginTop: 10 }}>
-                  <Field label="Password" name="password" placeholder="Min. 8 characters" icon={Lock} required />
+                  <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#166534', lineHeight: 1.5 }}>
+                    The seller will receive a one-time email link to verify their email and set their own password.
+                  </div>
                 </div>
               </div>
 
@@ -225,7 +201,7 @@ function AddSellerModal({ open, onClose, onCreated }) {
               <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '10px 12px', display: 'flex', gap: 8 }}>
                 <CheckCircle2 size={15} style={{ color: '#16a34a', flexShrink: 0, marginTop: 1 }} />
                 <div style={{ fontSize: 12, color: '#166534', lineHeight: 1.5 }}>
-                  The seller will be created with <strong>Pending</strong> status. They must log in and complete email verification and KYC before selling.
+                  The seller will be created with <strong>Pending</strong> status. They must verify their email, set a password, and complete KYC before selling.
                 </div>
               </div>
 

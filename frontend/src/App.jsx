@@ -26,6 +26,7 @@ import Register from './pages/Register'
 import Verify from './pages/Verify'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import SetPassword from './pages/SetPassword'
 import SocialAuth from './pages/SocialAuth'
 import Help from './pages/Help'
 import NotFound from './pages/NotFound'
@@ -319,6 +320,7 @@ export default function App() {
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/seller/login" element={<VendorLogin />} />
       <Route path="/vendor/login" element={<VendorLogin />} />
+      <Route path="/set-password" element={<SetPassword />} />
       <Route path="/admin-login" element={<Navigate to="/admin/login" replace />} />
       <Route path="/vendor-login" element={<Navigate to="/seller/login" replace />} />
       <Route path="/*" element={<CustomerLayout />} />

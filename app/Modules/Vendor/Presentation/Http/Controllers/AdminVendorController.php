@@ -4,6 +4,7 @@ namespace App\Modules\Vendor\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
+use App\Modules\Identity\Application\Services\AdminAccountInvitationService;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Shared\Domain\Enums\KycStatus;
 use App\Modules\Shared\Domain\Enums\StoreStatus;
@@ -23,7 +24,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -269,7 +269,7 @@ class AdminVendorController extends Controller
      * POST /api/v1/admin/vendors/create-seller
      *
      * Payload:
-     *   first_name, last_name, email, phone, password, company_name,
+     *   first_name, last_name, email, phone, company_name,
      *   business_email? (defaults to email), business_phone? (defaults to phone)
      */
     public function createSeller(Request $request): JsonResponse
@@ -279,7 +279,6 @@ class AdminVendorController extends Controller
             'last_name'      => ['required', 'string', 'max:80'],
             'email'          => ['required', 'email', 'unique:users,email', 'max:180'],
             'phone'          => ['required', 'string', 'max:30'],
-            'password'       => ['required', 'string', 'min:8'],
             'company_name'   => ['required', 'string', 'max:180'],
             'business_email' => ['nullable', 'email', 'max:180'],
             'business_phone' => ['nullable', 'string', 'max:30'],
@@ -292,7 +291,7 @@ class AdminVendorController extends Controller
                 'last_name'         => $data['last_name'],
                 'email'             => strtolower($data['email']),
                 'phone'             => $data['phone'],
-                'password'          => Hash::make($data['password']),
+                'password'          => Str::random(64),
                 'status'            => UserStatus::ACTIVE,
                 'email_verified_at' => null, // seller must verify email themselves
             ]);
@@ -312,12 +311,17 @@ class AdminVendorController extends Controller
             return $vendor;
         });
 
+        $invitationSent = app(AdminAccountInvitationService::class)->send($vendor->user, 'seller');
         $vendor->loadMissing(['kyc', 'stores', 'user']);
+
+        $message = $invitationSent
+            ? 'Seller account created. An invitation link was sent to verify their email and set a password.'
+            : 'Seller account created, but the invitation email could not be sent. Check email settings and logs.';
 
         return Response::success(
             new VendorResource($vendor),
-            'Seller account created. The seller can now log in and complete KYC verification.',
-            [],
+            $message,
+            ['invitation_sent' => $invitationSent],
             201
         );
     }
