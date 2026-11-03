@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  Store, Upload, Image as ImageIcon, ArrowLeft, Eye, Send, Mail, Phone
+  Store, Upload, Image as ImageIcon, ArrowLeft, Eye, Mail, Phone
 } from 'lucide-react'
 import api from '../../api/client'
 import Input from '../../components/ui/Input'
@@ -22,7 +22,6 @@ export default function VendorStoreEdit() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
   const [storeId, setStoreId] = useState(id || null)
 
   const [form, setForm] = useState({
@@ -155,20 +154,6 @@ export default function VendorStoreEdit() {
       toast.error(errorMessage(err))
     } finally {
       setSaving(false)
-    }
-  }
-
-  const submitForApproval = async () => {
-    if (!storeId) return
-    setSubmitting(true)
-    try {
-      await api.post(`/vendor/stores/${storeId}/submit`)
-      toast.success('Store submitted for approval')
-      navigate('/vendor/stores')
-    } catch (err) {
-      toast.error(errorMessage(err))
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -417,11 +402,6 @@ export default function VendorStoreEdit() {
           <Link to="/vendor/stores" className="btn btn-outline">
             Cancel
           </Link>
-          {storeId && (
-            <button type="button" className="btn btn-soft" onClick={submitForApproval} disabled={submitting}>
-              {submitting ? <Spinner size={16} color="#fff" /> : <><Send size={14} /> Submit for Approval</>}
-            </button>
-          )}
           <button
             type="submit"
             className="btn btn-primary"
