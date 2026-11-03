@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { NavLink, Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   ShoppingBag, Menu, X, LogOut, Bell,
-  Store, Wallet, Search, User,
+  Store, Wallet, User,
   Settings, KeyRound, Headphones,
   LayoutDashboard, UserCheck,
   Calendar, ChevronDown, ChevronRight,
@@ -17,6 +17,7 @@ import MobileBottomNav from './MobileBottomNav'
 import api from '../../api/client'
 import { filterNavigation } from '../../utils/navigationFilter'
 import { ADMIN_PERMISSION_MAP } from '../../utils/constants'
+import PageSearch from './PageSearch'
 
 export default function DashboardLayout({
   nav, title, roleLabel, homePath, rider, onDuty, onToggleDuty, dutyToggling, mobileNav,
@@ -51,7 +52,6 @@ export default function DashboardLayout({
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [userDropdown, setUserDropdown] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [unreadCount, setUnreadCount] = useState(0)
   // Track which nav section is open — accordion: only one open at a time.
   // null means all sections are collapsed.
@@ -116,30 +116,6 @@ export default function DashboardLayout({
   const duty = onDuty ?? rider?.is_online ?? false
   const riderName = rider?.name || user?.name || 'Delivery Partner'
   const riderArea = Array.isArray(rider?.service_areas) && rider.service_areas.length > 0 ? rider.service_areas[0] : 'Dispatch Hub'
-
-  const handleGlobalSearch = (e) => {
-    e.preventDefault()
-    if (!searchQuery.trim()) return
-    const q = searchQuery.trim().toLowerCase()
-    if (isDelivery) {
-      if (q.includes('order') || q.includes('deliver')) navigate('/delivery/deliveries')
-      else if (q.includes('earning') || q.includes('payout')) navigate('/delivery/earnings')
-      else if (q.includes('profile') || q.includes('vehicle')) navigate('/delivery/profile')
-      else navigate('/delivery/deliveries')
-    } else if (isVendor) {
-      if (q.includes('order')) navigate('/vendor/orders')
-      else if (q.includes('product')) navigate('/vendor/products')
-      else if (q.includes('wallet') || q.includes('earning')) navigate('/vendor/wallet')
-      else navigate('/vendor/orders')
-    } else {
-      if (q.includes('vendor') || q.includes('seller')) navigate('/admin/marketplace/vendors')
-      else if (q.includes('order')) navigate('/admin/orders')
-      else if (q.includes('product') || q.includes('category')) navigate('/admin/marketplace/products')
-      else if (q.includes('user') || q.includes('customer')) navigate('/admin/customers')
-      else navigate('/admin/orders')
-    }
-    setSearchQuery('')
-  }
 
   const displayName = isDelivery
     ? riderName
@@ -282,56 +258,16 @@ export default function DashboardLayout({
         </div>
 
         {/* Center: omni search pill */}
-        <form
-          onSubmit={handleGlobalSearch}
+        <PageSearch
+          nav={filteredNav}
           className="hide-sm"
-          style={{ flex: 1, maxWidth: 540, margin: '0 24px', position: 'relative' }}
-        >
-          <Search
-            size={16}
-            style={{
-              position: 'absolute',
-              left: 14,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#94a3b8',
-              pointerEvents: 'none',
-              zIndex: 1
-            }}
-          />
-          <input
-            type="text"
-            style={{
-              width: '100%',
-              height: 40,
-              paddingLeft: 40,
-              paddingRight: 20,
-              fontSize: 13.5,
-              background: '#f1f5f9',
-              color: '#1e293b',
-              borderRadius: 9999,
-              border: '1px solid transparent',
-              outline: 'none',
-              boxShadow: 'inset 0 1px 2px rgba(15, 23, 42, 0.04)',
-              transition: 'box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease'
-            }}
-            onFocus={(e) => {
-              e.target.style.background = '#ffffff'
-              e.target.style.boxShadow = '0 0 0 3px rgba(255, 85, 0, 0.14)'
-            }}
-            onBlur={(e) => {
-              e.target.style.background = '#f1f5f9'
-              e.target.style.boxShadow = 'inset 0 1px 2px rgba(15, 23, 42, 0.04)'
-            }}
-            placeholder={
-              isDelivery ? 'Search deliveries, earnings, customers...'
-              : isVendor ? 'Search orders, products, inventory...'
-              : 'Search orders, products, customers...'
-            }
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </form>
+          placeholder={
+            isDelivery ? 'Search delivery pages...'
+            : isVendor ? 'Search vendor pages...'
+            : 'Search admin pages...'
+          }
+          style={{ flex: 1, maxWidth: 540, margin: '0 24px' }}
+        />
 
         {/* Right: actions + user */}
         <div className="flex items-center gap-2" style={{ gap: 8 }}>

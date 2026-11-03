@@ -3232,6 +3232,17 @@ button {
   white-space: nowrap;
   scrollbar-width: none;
 }
+.acc-desktop-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.acc-page-search {
+  flex: 0 1 320px;
+  margin-bottom: 16px;
+}
+.acc-mobile-page-search { display: none; }
 .acc-breadcrumb::-webkit-scrollbar { display: none; }
 .acc-breadcrumb a { color: var(--muted); text-decoration: none; }
 .acc-breadcrumb a:hover { color: var(--primary); }
@@ -3449,6 +3460,8 @@ button {
 
 @media (max-width: 779px) {
   .acc-breadcrumb { display: none; }
+  .acc-desktop-toolbar { display: none; }
+  .acc-mobile-page-search { display: block; margin-bottom: 16px; }
   .acc-sidebar { display: none; }
 
   .acc-mobilebar {

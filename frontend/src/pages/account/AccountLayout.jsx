@@ -7,6 +7,7 @@ import { useBranding } from '../../context/BrandingContext'
 import { initials, apiImage } from '../../utils/format'
 import { CUSTOMER_NAV } from '../../utils/constants'
 import { AccountNavContext } from './AccountUI'
+import PageSearch from '../../components/layout/PageSearch'
 
 function AccountNavItems({ onNavigate }) {
   return CUSTOMER_NAV.map((item, idx) => {
@@ -71,8 +72,11 @@ export default function AccountLayout() {
 
   return (
     <div className="page-shell container account-shell" style={{ paddingTop: 24 }}>
-      {/* Desktop breadcrumb */}
-      <BreadcrumbNav activeLabel={label} />
+      {/* Desktop breadcrumb and page search */}
+      <div className="acc-desktop-toolbar">
+        <BreadcrumbNav activeLabel={label} />
+        <PageSearch nav={CUSTOMER_NAV} placeholder="Search account pages..." className="acc-page-search" />
+      </div>
 
       {/* Mobile account toolbar */}
       <div className="acc-mobilebar">
@@ -94,6 +98,7 @@ export default function AccountLayout() {
           )}
         </Link>
       </div>
+      <PageSearch nav={CUSTOMER_NAV} placeholder="Search account pages..." className="acc-mobile-page-search" />
 
       {/* Mobile drawer + backdrop */}
       {menuOpen && <div className="acc-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />}
