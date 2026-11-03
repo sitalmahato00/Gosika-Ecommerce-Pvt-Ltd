@@ -125,11 +125,13 @@ export default function DeliveryCodSettlement() {
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
             Your settlement breakdown — COD remitted to the hub, delivery fees you keep.
           </p>
-          <ExportScopeNote>Exports all matching delivered COD orders in the branded Excel report format.</ExportScopeNote>
         </div>
-        <button type="button" className="btn btn-outline btn-xs flex items-center gap-1" onClick={exportReport} disabled={inPeriod.length === 0}>
-          <Download size={13} /> Export filtered report
-        </button>
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote>Exports all matching delivered COD orders in the branded Excel report format.</ExportScopeNote>
+          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportReport} disabled={inPeriod.length === 0}>
+            <Download size={14} /> Export filtered report
+          </button>
+        </div>
       </div>
       <FilterBar
         search={search}

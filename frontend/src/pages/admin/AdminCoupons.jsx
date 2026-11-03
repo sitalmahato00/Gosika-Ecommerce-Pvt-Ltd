@@ -217,9 +217,9 @@ export default function AdminCoupons() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Create promotional coupon codes, discounts, usage limits, and campaign rules.
           </p>
-          <ExportScopeNote />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote />
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>
             <Download size={14} /> Export CSV
           </button>

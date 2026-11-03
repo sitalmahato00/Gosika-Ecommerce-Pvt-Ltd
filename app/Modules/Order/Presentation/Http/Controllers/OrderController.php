@@ -34,7 +34,7 @@ class OrderController extends Controller
 
         $query = Order::query()
             ->where('user_id', $request->user()->id)
-            ->with(['items.product', 'items.variant'])
+            ->with(['items.product', 'items.variant', 'vendorOrders.assignments'])
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($filters['search'] ?? null, function ($query, $search) {
                 $query->where(function ($inner) use ($search) {

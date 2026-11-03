@@ -104,11 +104,13 @@ export default function AdminAuditLogs() {
         <div className="page-header-left">
           <h1>Security Audit & Activity Logs</h1>
           <p>Immutable forensic record of all administrative modifications, approvals, payments, and system accesses</p>
-          <ExportScopeNote />
         </div>
-        <button className="btn btn-outline btn-sm" onClick={exportLogs}>
-          <Download size={14} /> Export Audit Log
-        </button>
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote />
+          <button className="btn btn-outline btn-sm" onClick={exportLogs}>
+            <Download size={14} /> Export Audit Log
+          </button>
+        </div>
       </div>
 
       <FilterBar

@@ -16,8 +16,10 @@ use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Order\Presentation\Resources\OrderResource;
 use App\Modules\Payment\Application\Services\PaymentService;
 use App\Modules\Payment\Domain\Contracts\PaymentProviderContract;
+use App\Modules\Payment\Domain\Exceptions\PaymentProviderException;
 use App\Modules\Payment\Infrastructure\Models\Payment;
 use App\Modules\Platform\Infrastructure\Models\Setting;
+use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Enums\PaymentMethod;
@@ -25,8 +27,9 @@ use App\Modules\Shared\Domain\Enums\PaymentStatus;
 use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Domain\Enums\UserStatus;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
-use App\Modules\Payment\Domain\Exceptions\PaymentProviderException;
 use App\Modules\Shipping\Application\Services\DeliveryService;
+use App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment;
+use App\Modules\Shipping\Infrastructure\Models\DeliveryPartner;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Carbon\Carbon;
@@ -41,9 +44,13 @@ class OrderConfirmationRulesTest extends TestCase
     use RefreshDatabase;
 
     protected User $adminUser;
+
     protected User $vendorUser;
+
     protected Vendor $vendor;
+
     protected Store $store;
+
     protected Product $product;
 
     protected function setUp(): void
@@ -87,7 +94,7 @@ class OrderConfirmationRulesTest extends TestCase
             'uuid' => (string) Str::uuid(),
             'vendor_id' => $this->vendor->id,
             'name' => 'Himalayan Store',
-            'slug' => 'himalayan-store-' . Str::random(6),
+            'slug' => 'himalayan-store-'.Str::random(6),
             'status' => StoreStatus::ACTIVE,
         ]);
 
@@ -96,8 +103,8 @@ class OrderConfirmationRulesTest extends TestCase
             'vendor_id' => $this->vendor->id,
             'store_id' => $this->store->id,
             'name' => 'Singing Bowl',
-            'slug' => 'singing-bowl-' . Str::random(6),
-            'sku' => 'SKU-' . strtoupper(Str::random(8)),
+            'slug' => 'singing-bowl-'.Str::random(6),
+            'sku' => 'SKU-'.strtoupper(Str::random(8)),
             'price' => 1200.00,
             'quantity' => 10,
             'stock_status' => 'in_stock',
@@ -129,14 +136,14 @@ class OrderConfirmationRulesTest extends TestCase
             'uuid' => (string) Str::uuid(),
             'first_name' => 'Sital',
             'last_name' => 'Mahato',
-            'email' => 'customer_' . Str::random(8) . '@gosika.com',
+            'email' => 'customer_'.Str::random(8).'@gosika.com',
             'password' => bcrypt('password'),
             'status' => UserStatus::ACTIVE,
         ]);
 
         $order = Order::create([
             'uuid' => (string) Str::uuid(),
-            'order_number' => 'ORD-' . strtoupper(Str::random(8)),
+            'order_number' => 'ORD-'.strtoupper(Str::random(8)),
             'user_id' => $customer->id,
             'payment_method' => $isCod ? PaymentMethod::COD->value : 'esewa',
             'payment_status' => $isCod ? OrderPaymentStatus::PENDING : OrderPaymentStatus::PAID,
@@ -152,7 +159,7 @@ class OrderConfirmationRulesTest extends TestCase
 
         $vendorOrder = VendorOrder::create([
             'uuid' => (string) Str::uuid(),
-            'vendor_order_number' => 'VO-' . strtoupper(Str::random(8)),
+            'vendor_order_number' => 'VO-'.strtoupper(Str::random(8)),
             'order_id' => $order->id,
             'vendor_id' => $this->vendor->id,
             'store_id' => $this->store->id,
@@ -343,7 +350,8 @@ class OrderConfirmationRulesTest extends TestCase
         ]);
 
         $paymentService = app(PaymentService::class);
-        $paymentService->setProvider('esewa', new class implements PaymentProviderContract {
+        $paymentService->setProvider('esewa', new class implements PaymentProviderContract
+        {
             public function name(): string
             {
                 return 'esewa';
@@ -568,6 +576,32 @@ class OrderConfirmationRulesTest extends TestCase
         $this->assertSame(0, $scheduler->processExpiredReturnWindows());
     }
 
+    public function test_delivered_order_without_completed_at_completes_after_assignment_return_window_expires(): void
+    {
+        Setting::set('return.window_days', 7, 'return', 'integer', true);
+        [$order, $vendorOrder] = $this->createOrder(OrderStatus::DELIVERED);
+        $order->update(['completed_at' => null]);
+        $partner = DeliveryPartner::create([
+            'uuid' => (string) Str::uuid(),
+            'user_id' => $this->vendorUser->id,
+            'name' => 'Delivery Partner',
+            'phone' => '9800000098',
+            'status' => 'approved',
+        ]);
+        DeliveryAssignment::create([
+            'uuid' => (string) Str::uuid(),
+            'vendor_order_id' => $vendorOrder->id,
+            'delivery_partner_id' => $partner->id,
+            'status' => DeliveryStatus::DELIVERED,
+            'delivery_fee' => 100,
+            'delivered_at' => now()->subDays(8),
+        ]);
+
+        $scheduler = app(OrderConfirmationSchedulerService::class);
+        $this->assertSame(1, $scheduler->processExpiredReturnWindows());
+        $this->assertSame(OrderStatus::COMPLETED, $order->fresh()->status);
+    }
+
     public function test_return_request_window_starts_at_delivery_and_expires_after_configured_days(): void
     {
         Setting::set('return.window_days', 7, 'return', 'integer', true);
@@ -614,6 +648,50 @@ class OrderConfirmationRulesTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonPath('message', 'The return and refund window for this order has expired.');
+    }
+
+    public function test_delivered_orders_without_completed_at_use_delivery_assignment_date_for_return_window(): void
+    {
+        Setting::set('return.window_days', 7, 'return', 'integer', true);
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED);
+        $deliveredAt = now()->subDays(2)->startOfSecond();
+        $order->update(['completed_at' => null]);
+        $vendorOrder->update(['status' => OrderStatus::DELIVERED]);
+
+        $partner = DeliveryPartner::create([
+            'uuid' => (string) Str::uuid(),
+            'user_id' => $this->vendorUser->id,
+            'name' => 'Delivery Partner',
+            'phone' => '9800000099',
+            'status' => 'approved',
+        ]);
+        DeliveryAssignment::create([
+            'uuid' => (string) Str::uuid(),
+            'vendor_order_id' => $vendorOrder->id,
+            'delivery_partner_id' => $partner->id,
+            'status' => DeliveryStatus::DELIVERED,
+            'delivery_fee' => 100,
+            'delivered_at' => $deliveredAt,
+        ]);
+
+        $this->actingAs($customer)
+            ->getJson('/api/v1/orders')
+            ->assertOk()
+            ->assertJsonFragment([
+                'can_request_return' => true,
+                'return_window_expires_at' => $deliveredAt->copy()->addDays(7)->toISOString(),
+            ]);
+
+        $item = $order->items()->firstOrFail();
+        $this->actingAs($customer)
+            ->postJson('/api/v1/customer/returns', [
+                'order_id' => $order->uuid,
+                'order_item_id' => $item->uuid,
+                'reason_type' => 'damaged',
+                'reason' => 'The item arrived damaged.',
+                'quantity' => 1,
+            ])
+            ->assertCreated();
     }
 
     // ── 11. Admin settings validation enforces precedence ───────────────

@@ -178,9 +178,9 @@ export default function VendorSettlements() {
         <div className="page-header-left">
           <h1>Settlements</h1>
           <p>Your payout cycles — every amount is tracked and transparent</p>
-          <ExportScopeNote>Exports all matching settlements across pages in the branded Excel report format.</ExportScopeNote>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote>Exports all matching settlements across pages in the branded Excel report format.</ExportScopeNote>
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportSettlements} disabled={!meta.total || loading}>
             <Download size={14} /> Export filtered report
           </button>

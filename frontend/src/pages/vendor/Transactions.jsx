@@ -143,11 +143,13 @@ export default function VendorTransactions() {
           <h1>Transactions</h1>
           <p>Complete financial ledger for your account</p>
         </div>
-        <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportTransactions} disabled={!meta.total || loading}>
-          <Download size={14} /> Export filtered report
-        </button>
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote>Exports all matching transactions across pages in the branded Excel report format.</ExportScopeNote>
+          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportTransactions} disabled={!meta.total || loading}>
+            <Download size={14} /> Export filtered report
+          </button>
+        </div>
       </div>
-      <ExportScopeNote>Exports all matching transactions across pages in the branded Excel report format.</ExportScopeNote>
 
       <FilterBar
         search={search}

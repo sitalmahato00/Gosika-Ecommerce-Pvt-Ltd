@@ -141,7 +141,7 @@ export default function FilterBar({
 
         <div style={{ display: 'flex', alignItems: hasDateFilters ? 'flex-end' : 'center', flexWrap: 'wrap', gap: 8, width: '100%' }}>
           {statusOptions.length > 0 && !segmented && (
-            <div style={{ flex: '1 1 150px', minWidth: 130, maxWidth: 220 }}>
+            <div style={{ flex: '1 1 170px', minWidth: 150, maxWidth: 220 }}>
               <select
                 className="input"
                 value={statusFilter || 'all'}
@@ -151,7 +151,8 @@ export default function FilterBar({
                   fontSize: 13,
                   borderRadius: 8,
                   fontWeight: 600,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  width: '100%'
                 }}
                 aria-label="Filter by status"
               >
@@ -207,11 +208,15 @@ export default function FilterBar({
           </div>
         )}
 
-        {extraFilters}
+        {extraFilters && (
+          <div style={{ flex: '1 1 170px', minWidth: 150, maxWidth: 220, width: '100%' }}>
+            {extraFilters}
+          </div>
+        )}
 
         {hasDateFilters && (
           <>
-            <label style={{ display: 'flex', flex: '1 1 150px', flexDirection: 'column', gap: 4, minWidth: 135, maxWidth: 190 }}>
+            <label style={{ display: 'flex', flex: '1 1 170px', flexDirection: 'column', gap: 4, minWidth: 150, maxWidth: 220 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.04em' }}>From date</span>
               <input
                 type="date"
@@ -219,10 +224,10 @@ export default function FilterBar({
                 value={fromDate || ''}
                 max={toDate || undefined}
                 onChange={e => onFromDateChange?.(e.target.value)}
-                style={{ height: 36, fontSize: 13, borderRadius: 8 }}
+                style={{ height: 36, fontSize: 13, borderRadius: 8, width: '100%' }}
               />
             </label>
-            <label style={{ display: 'flex', flex: '1 1 150px', flexDirection: 'column', gap: 4, minWidth: 135, maxWidth: 190 }}>
+            <label style={{ display: 'flex', flex: '1 1 170px', flexDirection: 'column', gap: 4, minWidth: 150, maxWidth: 220 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.04em' }}>To date</span>
               <input
                 type="date"
@@ -230,7 +235,7 @@ export default function FilterBar({
                 value={toDate || ''}
                 min={fromDate || undefined}
                 onChange={e => onToDateChange?.(e.target.value)}
-                style={{ height: 36, fontSize: 13, borderRadius: 8 }}
+                style={{ height: 36, fontSize: 13, borderRadius: 8, width: '100%' }}
               />
             </label>
             {!dateRangeValid && (
@@ -242,7 +247,7 @@ export default function FilterBar({
         )}
 
         {(onApplyFilters || (showReset && hasActiveFilters && onReset)) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: onApplyFilters ? 'auto' : 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginLeft: onApplyFilters ? 'auto' : 0, flex: '0 0 auto' }}>
             {showReset && onReset && (onApplyFilters || hasActiveFilters) && (
               <button
                 type="button"

@@ -57,21 +57,25 @@ class OrderConfirmationSchedulerService
 
         $orders = Order::query()
             ->where('status', OrderStatus::DELIVERED)
-            ->whereNotNull('completed_at')
-            ->where('completed_at', '<=', $cutoff)
+            ->where(fn ($query) => $query
+                ->where('completed_at', '<=', $cutoff)
+                ->orWhereNull('completed_at'))
+            ->with('vendorOrders.assignments')
             ->orderBy('id')
             ->get();
 
         $completedCount = 0;
 
         foreach ($orders as $candidate) {
-            $completed = DB::transaction(function () use ($candidate, $days): bool {
+            $completed = DB::transaction(function () use ($candidate): bool {
                 $order = Order::query()->whereKey($candidate->id)->lockForUpdate()->first();
-                if (! $order || $order->status !== OrderStatus::DELIVERED || ! $order->completed_at) {
+                if (! $order || $order->status !== OrderStatus::DELIVERED) {
                     return false;
                 }
 
-                if ($order->completed_at->copy()->addDays($days)->isFuture()) {
+                $order->loadMissing('vendorOrders.assignments');
+                $windowExpiresAt = OrderReturnWindow::expiresAt($order);
+                if (! $windowExpiresAt || $windowExpiresAt->isFuture()) {
                     return false;
                 }
 
@@ -190,7 +194,7 @@ class OrderConfirmationSchedulerService
                 try {
                     $this->dispatcher->orderDeliveryUpdate($vo, 'cancelled');
                 } catch (\Throwable $e) {
-                    Log::warning('Failed to dispatch cancellation notification: ' . $e->getMessage());
+                    Log::warning('Failed to dispatch cancellation notification: '.$e->getMessage());
                 }
 
                 return true;
@@ -336,7 +340,7 @@ class OrderConfirmationSchedulerService
                     $event = $autoReady ? 'ready_for_pickup' : 'confirmed';
                     $this->dispatcher->orderDeliveryUpdate($vo, $event);
                 } catch (\Throwable $e) {
-                    Log::warning('Failed to dispatch auto-confirmation notification: ' . $e->getMessage());
+                    Log::warning('Failed to dispatch auto-confirmation notification: '.$e->getMessage());
                 }
 
                 return true;
@@ -361,7 +365,7 @@ class OrderConfirmationSchedulerService
             try {
                 $this->refundService->create($payment, $order->user, (float) $payment->amount, $reason);
             } catch (\Throwable $e) {
-                Log::error('Refund creation failed on order auto-cancellation: ' . $e->getMessage());
+                Log::error('Refund creation failed on order auto-cancellation: '.$e->getMessage());
             }
         } elseif ($payment->status === PaymentStatus::PENDING || $payment->status === PaymentStatus::INITIATED) {
             $payment->update(['status' => PaymentStatus::FAILED]);

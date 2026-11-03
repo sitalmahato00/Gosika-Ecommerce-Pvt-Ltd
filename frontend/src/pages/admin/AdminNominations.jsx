@@ -155,9 +155,9 @@ export default function AdminNominations() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Platform-wide oversight of store promotions — review, pause or end vendor offers from one place.
           </p>
-          <ExportScopeNote />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote />
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>
             <Download size={14} /> Export CSV
           </button>

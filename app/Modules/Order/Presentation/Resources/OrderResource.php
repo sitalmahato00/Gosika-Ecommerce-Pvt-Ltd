@@ -2,8 +2,10 @@
 
 namespace App\Modules\Order\Presentation\Resources;
 
+use App\Modules\Order\Application\Services\OrderReturnWindow;
 use App\Modules\Order\Presentation\Http\Requests\CancelOrderRequest;
 use App\Modules\Platform\Infrastructure\Models\Setting;
+use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -46,15 +48,14 @@ class OrderResource extends JsonResource
         }
 
         $secondsRemaining = $isWithinWindow ? max(0, $now->diffInSeconds($cancellationDeadline, false)) : 0;
-        $returnWindowDays = max(1, (int) Setting::get('return.window_days', 7));
-        $returnWindowExpiresAt = $this->completed_at?->copy()->addDays($returnWindowDays);
+        $returnWindowExpiresAt = OrderReturnWindow::expiresAt($this->resource);
         $canRequestReturn = in_array($this->status, [OrderStatus::DELIVERED, OrderStatus::COMPLETED], true)
             && $returnWindowExpiresAt !== null
             && $now->lessThan($returnWindowExpiresAt);
 
         $otpAvailable = ! in_array($this->status, [OrderStatus::DELIVERED, OrderStatus::COMPLETED], true)
             && (
-                $this->payment_status->value === \App\Modules\Shared\Domain\Enums\OrderPaymentStatus::PAID->value
+                $this->payment_status->value === OrderPaymentStatus::PAID->value
                 || $this->payment_method === 'cod'
             );
         $deliveryOtp = $otpAvailable ? ($this->meta['delivery_otp'] ?? null) : null;

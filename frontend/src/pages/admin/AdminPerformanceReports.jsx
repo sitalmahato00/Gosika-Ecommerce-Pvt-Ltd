@@ -185,6 +185,7 @@ export default function AdminPerformanceReports() {
         pill={<span style={{ background: 'rgba(255,85,0,0.1)', color: '#ff5500', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800 }}>Super Admin</span>}
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <ExportScopeNote>Report includes only the selected sections and date range.</ExportScopeNote>
             <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               {RANGES.map((r) => (
                 <button
@@ -254,7 +255,6 @@ export default function AdminPerformanceReports() {
           </div>
         }
       />
-      <ExportScopeNote>Report includes only the selected sections and date range.</ExportScopeNote>
 
       {/* KPI strip */}
       <div className="pr-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0,1fr))', gap: 12 }}>

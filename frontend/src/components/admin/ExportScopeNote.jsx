@@ -10,7 +10,8 @@ export default function ExportScopeNote({ children = 'Export contains only the f
         gap: 5,
         color: '#64748b',
         fontSize: 11,
-        lineHeight: 1.4
+        lineHeight: 1.4,
+        maxWidth: 360
       }}
     >
       <Info size={13} aria-hidden="true" />

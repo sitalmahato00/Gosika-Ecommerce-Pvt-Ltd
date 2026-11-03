@@ -122,9 +122,9 @@ export default function VendorAnalytics() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Monitor real-time revenue velocity, top converting catalog products, and regional sales distribution.
           </p>
-          <ExportScopeNote>Export reflects the currently selected reporting range.</ExportScopeNote>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote>Export reflects the currently selected reporting range.</ExportScopeNote>
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportReport}>
             <Download size={13} /> Export Report
           </button>

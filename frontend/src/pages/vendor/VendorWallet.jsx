@@ -185,11 +185,13 @@ export default function VendorWallet() {
       <div className="card">
         <div className="flex items-center justify-between wrap mb-2">
           <h3 style={{ fontSize: 16 }}>Transactions</h3>
-          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportTransactions} disabled={!meta.total || transactionsLoading}>
-            <Download size={14} /> Export filtered report
-          </button>
+          <div className="flex items-center gap-2 wrap">
+            <ExportScopeNote>Exports all matching wallet transactions across pages in the branded Excel report format.</ExportScopeNote>
+            <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportTransactions} disabled={!meta.total || transactionsLoading}>
+              <Download size={14} /> Export filtered report
+            </button>
+          </div>
         </div>
-        <ExportScopeNote>Exports all matching wallet transactions across pages in the branded Excel report format.</ExportScopeNote>
         <FilterBar
           search={search}
           onSearchChange={(value) => { setPage(1); setSearch(value) }}

@@ -94,9 +94,9 @@ export default function VendorEarnings() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Track sales revenue, platform commissions, settled payouts, and withdrawable wallet balances.
           </p>
-          <ExportScopeNote>Export includes the earnings summary and revenue trend for the selected range in the branded Excel report format.</ExportScopeNote>
         </div>
         <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote>Export includes the earnings summary and revenue trend for the selected range in the branded Excel report format.</ExportScopeNote>
           <div className="date-filter-group">
             {RANGES.map((r) => (
               <button

@@ -177,11 +177,13 @@ export default function AdminSupport() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Manage incoming customer and artisan vendor inquiries, dispute mediations, and resolution escalations.
           </p>
-          <ExportScopeNote />
         </div>
-        <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>
-          <Download size={14} /> Export CSV
-        </button>
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote />
+          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>
+            <Download size={14} /> Export CSV
+          </button>
+        </div>
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>

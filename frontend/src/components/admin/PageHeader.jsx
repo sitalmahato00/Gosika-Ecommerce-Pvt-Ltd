@@ -60,18 +60,13 @@ export default function PageHeader({
           )}
         </div>
 
-        {actions && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {(actions || exportInfo) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10, maxWidth: '100%' }}>
+            {exportInfo && <ExportScopeNote>{exportInfo}</ExportScopeNote>}
             {actions}
           </div>
         )}
       </div>
-
-      {exportInfo && (
-        <div style={{ marginTop: 8 }}>
-          <ExportScopeNote>{exportInfo}</ExportScopeNote>
-        </div>
-      )}
 
       {children && (
         <div style={{ marginTop: 16 }}>

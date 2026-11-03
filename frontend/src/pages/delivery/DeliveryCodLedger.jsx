@@ -103,11 +103,13 @@ export default function DeliveryCodLedger() {
             Cash collected on {codEntries.length} cash-on-delivery order{codEntries.length === 1 ? '' : 's'}.
           </p>
         </div>
-        <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCod} disabled={!codEntries.length}>
-          <Download size={14} /> Export filtered report
-        </button>
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote>Exports all matching delivered COD orders in the branded Excel report format.</ExportScopeNote>
+          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCod} disabled={!codEntries.length}>
+            <Download size={14} /> Export filtered report
+          </button>
+        </div>
       </div>
-      <ExportScopeNote>Exports all matching delivered COD orders in the branded Excel report format.</ExportScopeNote>
       <FilterBar
         search={search}
         onSearchChange={setSearch}

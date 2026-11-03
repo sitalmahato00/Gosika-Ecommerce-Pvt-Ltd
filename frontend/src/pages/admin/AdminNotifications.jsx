@@ -135,9 +135,9 @@ export default function AdminNotifications() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Send instant announcements, SMS push alerts, and monitor automatic system broadcasts to customers, vendors, and couriers.
           </p>
-          <ExportScopeNote />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote />
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>
             <Download size={14} /> Export CSV
           </button>

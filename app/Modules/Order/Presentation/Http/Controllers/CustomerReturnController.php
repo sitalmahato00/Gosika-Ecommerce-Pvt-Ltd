@@ -2,16 +2,15 @@
 
 namespace App\Modules\Order\Presentation\Http\Controllers;
 
+use App\Modules\Marketing\Application\Services\NotificationDispatcher;
+use App\Modules\Order\Application\Services\OrderReturnWindow;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
-use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Order\Presentation\Resources\CustomerReturnResource;
-use App\Modules\Platform\Infrastructure\Models\Setting;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Presentation\Http\Response;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -81,13 +80,11 @@ class CustomerReturnController extends Controller
             return Response::error('Returns can only be requested after the order has been delivered.', [], 422);
         }
 
-        $deliveredAt = $order->completed_at;
-        if (! $deliveredAt) {
+        $windowExpiresAt = OrderReturnWindow::expiresAt($order);
+        if (! $windowExpiresAt) {
             return Response::error('The delivery date for this order is unavailable. Please contact support.', [], 422);
         }
 
-        $windowDays = max(1, (int) Setting::get('return.window_days', 7));
-        $windowExpiresAt = Carbon::parse($deliveredAt)->addDays($windowDays);
         if (now()->greaterThanOrEqualTo($windowExpiresAt)) {
             return Response::error('The return and refund window for this order has expired.', [], 422);
         }
@@ -125,7 +122,7 @@ class CustomerReturnController extends Controller
             'window_expires_at' => $windowExpiresAt,
         ]);
 
-        app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->returnRequested($return);
+        app(NotificationDispatcher::class)->returnRequested($return);
 
         return Response::created(
             new CustomerReturnResource($return->load('orderItem.product', 'order')),

@@ -218,9 +218,9 @@ export default function AdminUsers() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Manage internal operational roles, administrative users, and account permissions.
           </p>
-          <ExportScopeNote />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 wrap">
+          <ExportScopeNote />
           <button className="btn btn-outline btn-sm" onClick={exportCSV}>
             <Download size={14} /> Export CSV
           </button>
