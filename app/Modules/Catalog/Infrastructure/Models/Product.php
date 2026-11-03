@@ -3,6 +3,7 @@
 namespace App\Modules\Catalog\Infrastructure\Models;
 
 use App\Modules\Shared\Domain\Enums\ProductStatus;
+use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Infrastructure\Models\BaseModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -117,6 +118,7 @@ class Product extends BaseModel
     public function scopeAvailable($query)
     {
         return $query->where('status', ProductStatus::PUBLISHED)
-            ->where('stock_status', '!=', \App\Modules\Shared\Domain\Enums\StockStatus::OUT_OF_STOCK);
+            ->where('stock_status', '!=', \App\Modules\Shared\Domain\Enums\StockStatus::OUT_OF_STOCK)
+            ->whereHas('store', fn ($storeQuery) => $storeQuery->where('status', StoreStatus::ACTIVE));
     }
 }

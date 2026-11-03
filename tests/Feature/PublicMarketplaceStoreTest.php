@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\Catalog\Infrastructure\Models\Product;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Platform\Infrastructure\Models\Country;
 use App\Modules\Platform\Infrastructure\Models\District;
@@ -16,6 +17,49 @@ use Tests\TestCase;
 class PublicMarketplaceStoreTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_products_from_unapproved_stores_are_not_publicly_listed(): void
+    {
+        $user = User::factory()->create();
+        $vendor = Vendor::query()->create([
+            'user_id' => $user->id,
+            'company_name' => 'Pending Store Company',
+            'business_email' => 'pending-store-company@example.test',
+        ]);
+        $store = Store::query()->create([
+            'vendor_id' => $vendor->id,
+            'name' => 'Pending Store',
+            'slug' => 'pending-store',
+            'status' => 'pending_approval',
+        ]);
+        $product = Product::query()->create([
+            'vendor_id' => $vendor->id,
+            'store_id' => $store->id,
+            'name' => 'Hidden Until Store Approval',
+            'slug' => 'hidden-until-store-approval',
+            'sku' => 'PENDING-STORE-001',
+            'status' => 'published',
+            'stock_status' => 'in_stock',
+            'quantity' => 5,
+            'price' => 100,
+        ]);
+
+        $this->getJson('/api/v1/products')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+        $this->getJson('/api/v1/products/'.$product->uuid)
+            ->assertNotFound();
+
+        $store->update(['status' => 'active']);
+
+        $this->getJson('/api/v1/products')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $product->uuid);
+        $this->getJson('/api/v1/products/'.$product->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.id', $product->uuid);
+    }
 
     public function test_public_store_details_include_complete_location_and_same_site_media_urls(): void
     {

@@ -320,8 +320,8 @@ export default function VendorProductForm() {
             {formError}
             {fieldErrors.store && (
               <div className="mt-2">
-                <Link to="/vendor/stores/new" className="btn btn-primary btn-sm">
-                  Create Store
+                <Link to="/vendor/stores" className="btn btn-primary btn-sm">
+                  Review Store Profile
                 </Link>
               </div>
             )}

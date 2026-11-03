@@ -43,12 +43,89 @@ class VendorProductValidationTest extends TestCase
                 'image_urls' => ['https://example.test/no-store.jpg'],
             ])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Create a store profile before listing products.')
-            ->assertJsonPath('errors.store.0', 'Create a store profile before listing products.');
+            ->assertJsonPath('message', 'Create a store profile and submit it for approval before listing products.')
+            ->assertJsonPath('errors.store.0', 'Create a store profile and submit it for approval before listing products.');
 
         $this->assertDatabaseMissing('products', [
             'sku' => 'TEST-NO-STORE-001',
         ]);
+    }
+
+    public function test_product_creation_requires_store_approval(): void
+    {
+        Storage::fake('public');
+
+        Role::findOrCreate(Roles::VENDOR_ADMIN, 'web');
+        $vendor = User::factory()->create();
+        $vendor->assignRole(Roles::VENDOR_ADMIN);
+        $vendorProfile = Vendor::query()->create([
+            'user_id' => $vendor->id,
+            'company_name' => 'Pending Store Vendor',
+            'business_email' => 'pending-store-vendor@example.test',
+            'status' => VendorStatus::APPROVED,
+        ]);
+        $store = Store::query()->create([
+            'vendor_id' => $vendorProfile->id,
+            'name' => 'Pending Store',
+            'slug' => 'pending-store',
+            'status' => 'draft',
+        ]);
+
+        $this->actingAs($vendor)
+            ->postJson('/api/v1/vendor/products', [
+                'name' => 'Product from unapproved store',
+                'sku' => 'TEST-UNAPPROVED-STORE-001',
+                'price' => '100',
+                'image_urls' => ['https://example.test/unapproved-store.jpg'],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'message',
+                'Complete your store profile and submit it for approval before listing products.'
+            );
+
+        $store->update(['status' => 'pending_approval']);
+
+        $this->actingAs($vendor)
+            ->postJson('/api/v1/vendor/products', [
+                'name' => 'Product awaiting store approval',
+                'sku' => 'TEST-PENDING-STORE-001',
+                'price' => '100',
+                'image_urls' => ['https://example.test/pending-store.jpg'],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'message',
+                'Your store is awaiting approval. You can list products after an administrator approves it.'
+            );
+
+        $this->assertDatabaseMissing('products', [
+            'sku' => 'TEST-UNAPPROVED-STORE-001',
+        ]);
+        $this->assertDatabaseMissing('products', [
+            'sku' => 'TEST-PENDING-STORE-001',
+        ]);
+
+        $store->update(['status' => 'active']);
+        $productId = $this->actingAs($vendor)
+            ->postJson('/api/v1/vendor/products', [
+                'name' => 'Product awaiting store approval',
+                'sku' => 'TEST-STORE-SUSPENSION-001',
+                'price' => '100',
+                'image_urls' => ['https://example.test/store-suspension.jpg'],
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $store->update(['status' => 'pending_approval']);
+
+        $this->actingAs($vendor)
+            ->postJson('/api/v1/vendor/products/'.$productId.'/submit')
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'message',
+                'Your store is awaiting approval. You can list products after an administrator approves it.'
+            );
     }
 
     public function test_vendor_product_unique_conflicts_are_reported_as_conflicts(): void

@@ -16,8 +16,10 @@ use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Shared\Domain\Enums\ProductStatus;
 use App\Modules\Shared\Domain\Enums\ReviewStatus;
 use App\Modules\Shared\Domain\Enums\StockStatus;
+use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -28,12 +30,7 @@ class CatalogService
     public function createProduct(User $user, ProductDTO $dto): Product
     {
         $vendor = $this->vendorFor($user);
-        $store = $vendor->stores()->first();
-
-        if (! $store) {
-            $message = 'Create a store profile before listing products.';
-            throw new DomainException($message, 422, ['store' => [$message]]);
-        }
+        $store = $this->storeForProductListing($vendor);
 
         return DB::transaction(function () use ($vendor, $store, $dto) {
             $categoryId = $this->resolveId(Category::class, $dto->category_id);
@@ -150,6 +147,7 @@ class CatalogService
         $vendor = $this->vendorFor($user);
         $this->assertOwns($vendor, $product);
         $this->assertEditable($product);
+        $this->storeForProductListing($vendor);
 
         if (! $product->price && ! $product->is_variant) {
             throw new DomainException('Product must have a price before submission.');
@@ -285,6 +283,24 @@ class CatalogService
         if (! in_array($product->status, [ProductStatus::DRAFT, ProductStatus::HIDDEN], true)) {
             throw new DomainException('Product cannot be edited in its current state.');
         }
+    }
+
+    protected function storeForProductListing(Vendor $vendor): Store
+    {
+        $store = $vendor->stores()->where('status', StoreStatus::ACTIVE)->first();
+        if ($store) {
+            return $store;
+        }
+
+        $existingStore = $vendor->stores()->first();
+        $message = match ($existingStore?->status) {
+            null => 'Create a store profile and submit it for approval before listing products.',
+            StoreStatus::DRAFT => 'Complete your store profile and submit it for approval before listing products.',
+            StoreStatus::PENDING_APPROVAL => 'Your store is awaiting approval. You can list products after an administrator approves it.',
+            default => 'Your store must be approved and active before you can list products.',
+        };
+
+        throw new DomainException($message, 422, ['store' => [$message]]);
     }
 
     protected function syncVariants(Product $product, array $variants, bool $deleteMissing = false): void
