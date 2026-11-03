@@ -10,7 +10,7 @@ import DataTable from '../../components/admin/DataTable'
 import FilterBar from '../../components/admin/FilterBar'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import { timeAgo } from '../../utils/format'
+import { apiImage, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 
 export default function AdminStores() {
@@ -123,7 +123,7 @@ export default function AdminStores() {
             }}
           >
             {item.logo ? (
-              <img src={item.logo} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={apiImage(item.logo)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <StoreIcon size={20} color="var(--primary)" />
             )}

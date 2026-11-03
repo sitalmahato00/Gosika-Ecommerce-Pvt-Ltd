@@ -230,6 +230,7 @@ class VendorOnboardingService
 
         $store->update([
             'name' => $dto->name,
+            'slug' => $dto->slug !== null ? $this->uniqueSlug($dto->slug, $store->id) : $store->slug,
             'description' => $dto->description,
             'contact_email' => $dto->contact_email,
             'contact_phone' => $dto->contact_phone,
@@ -337,13 +338,16 @@ class VendorOnboardingService
         return $store;
     }
 
-    private function uniqueSlug(string $name): string
+    private function uniqueSlug(string $name, ?int $ignoreStoreId = null): string
     {
         $base = Str::slug($name);
         $slug = $base;
         $i = 2;
 
-        while (Store::query()->where('slug', $slug)->exists()) {
+        while (Store::query()
+            ->where('slug', $slug)
+            ->when($ignoreStoreId, fn ($query) => $query->where('id', '!=', $ignoreStoreId))
+            ->exists()) {
             $slug = $base.'-'.$i++;
         }
 

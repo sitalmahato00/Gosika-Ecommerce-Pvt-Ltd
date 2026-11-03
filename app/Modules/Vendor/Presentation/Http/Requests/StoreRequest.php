@@ -2,7 +2,9 @@
 
 namespace App\Modules\Vendor\Presentation\Http\Requests;
 
+use App\Modules\Vendor\Infrastructure\Models\Store;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreRequest extends FormRequest
 {
@@ -13,9 +15,26 @@ class StoreRequest extends FormRequest
 
     public function rules(): array
     {
+        $slugRule = Rule::unique('stores', 'slug');
+        $storeIdentifier = $this->route('store') ?? $this->route('storeId');
+        $vendorId = $this->user()?->vendor?->id;
+
+        if ($storeIdentifier && $vendorId) {
+            $ownedStoreId = Store::query()
+                ->where('vendor_id', $vendorId)
+                ->where(fn ($query) => $query
+                    ->where('uuid', $storeIdentifier)
+                    ->orWhere('id', $storeIdentifier))
+                ->value('id');
+
+            if ($ownedStoreId) {
+                $slugRule->ignore($ownedStoreId);
+            }
+        }
+
         return [
             'name' => ['required', 'string', 'max:180'],
-            'slug' => ['nullable', 'string', 'max:200', 'regex:/^[a-z0-9-]+$/', 'unique:stores,slug'],
+            'slug' => ['nullable', 'string', 'max:200', 'regex:/^[a-z0-9-]+$/', $slugRule],
             'description' => ['nullable', 'string', 'max:5000'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:20'],
