@@ -318,6 +318,13 @@ export default function VendorProductForm() {
         {formError && (
           <div className="alert alert-error mb-3" role="alert">
             {formError}
+            {fieldErrors.store && (
+              <div className="mt-2">
+                <Link to="/vendor/stores/new" className="btn btn-primary btn-sm">
+                  Create Store
+                </Link>
+              </div>
+            )}
           </div>
         )}
         {/* Basic Information */}

@@ -28,14 +28,20 @@ class CatalogService
     public function createProduct(User $user, ProductDTO $dto): Product
     {
         $vendor = $this->vendorFor($user);
+        $store = $vendor->stores()->first();
 
-        return DB::transaction(function () use ($vendor, $dto) {
+        if (! $store) {
+            $message = 'Create a store profile before listing products.';
+            throw new DomainException($message, 422, ['store' => [$message]]);
+        }
+
+        return DB::transaction(function () use ($vendor, $store, $dto) {
             $categoryId = $this->resolveId(Category::class, $dto->category_id);
             $taxRate = $dto->tax_rate ?? (Category::query()->find($categoryId)?->tax_rate ?? 0);
 
             $product = Product::query()->create([
                 'vendor_id' => $vendor->id,
-                'store_id' => $vendor->stores()->value('id'),
+                'store_id' => $store->id,
                 'category_id' => $categoryId,
                 'brand_id' => $this->resolveId(Brand::class, $dto->brand_id),
                 'name' => $dto->name,

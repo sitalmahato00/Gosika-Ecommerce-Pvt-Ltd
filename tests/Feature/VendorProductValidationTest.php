@@ -21,6 +21,36 @@ class VendorProductValidationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_product_creation_requires_a_store_and_returns_an_actionable_error(): void
+    {
+        Storage::fake('public');
+
+        Role::findOrCreate(Roles::VENDOR_ADMIN, 'web');
+        $vendor = User::factory()->create();
+        $vendor->assignRole(Roles::VENDOR_ADMIN);
+        Vendor::query()->create([
+            'user_id' => $vendor->id,
+            'company_name' => 'Storeless Vendor',
+            'business_email' => 'storeless-vendor@example.test',
+            'status' => VendorStatus::APPROVED,
+        ]);
+
+        $this->actingAs($vendor)
+            ->postJson('/api/v1/vendor/products', [
+                'name' => 'Product without a store',
+                'sku' => 'TEST-NO-STORE-001',
+                'price' => '100',
+                'image_urls' => ['https://example.test/no-store.jpg'],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Create a store profile before listing products.')
+            ->assertJsonPath('errors.store.0', 'Create a store profile before listing products.');
+
+        $this->assertDatabaseMissing('products', [
+            'sku' => 'TEST-NO-STORE-001',
+        ]);
+    }
+
     public function test_vendor_product_unique_conflicts_are_reported_as_conflicts(): void
     {
         DB::table('categories')->insert([
