@@ -155,41 +155,20 @@ export default function VendorPayouts() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between wrap gap-2">
-        <div>
-          <h2 style={{ fontSize: 20, marginBottom: 2 }}>Payouts</h2>
-          <p className="muted text-sm m-0">Request payout for an eligible settlement to your bank account.</p>
-        </div>
-        <div className="flex items-center justify-between wrap gap-2">
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>Payouts</h1>
+          <p>Request payout for an eligible settlement to your bank account.</p>
           <ExportScopeNote>Exports matching payout requests in the branded Excel report format.</ExportScopeNote>
+        </div>
+        <div className="flex items-center gap-2 wrap">
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportPayouts} disabled={!filteredPayouts.length}>
             <Download size={14} /> Export filtered report
           </button>
+          <Button variant="primary" icon={Plus} onClick={() => { setForm({ settlement_id: '', bank_account_id: '' }); setModalOpen(true) }} disabled={!requestable.length}>
+            Request payout
+          </Button>
         </div>
-        <FilterBar
-          search={search}
-          onSearchChange={setSearch}
-          debounceMs={300}
-          searchPlaceholder="Search payout, settlement or bank..."
-          statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
-          statusOptions={PAYOUT_STATUSES}
-          fromDate={fromDate}
-          toDate={toDate}
-          onFromDateChange={setFromDate}
-          onToDateChange={setToDate}
-          onApplyFilters={() => setAppliedDates({ from: fromDate, to: toDate })}
-          onReset={() => {
-            setSearch('')
-            setStatusFilter('all')
-            setFromDate('')
-            setToDate('')
-            setAppliedDates({ from: '', to: '' })
-          }}
-        />
-        <Button variant="primary" icon={Plus} onClick={() => { setForm({ settlement_id: '', bank_account_id: '' }); setModalOpen(true) }} disabled={!requestable.length}>
-          Request payout
-        </Button>
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
@@ -212,33 +191,56 @@ export default function VendorPayouts() {
         </div>
       )}
 
-      {filteredPayouts.length ? (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr><th>Payout #</th><th>Settlement</th><th>Bank</th><th>Amount</th><th>Status</th><th>Requested</th><th>Paid</th></tr>
-            </thead>
-            <tbody>
-              {filteredPayouts.map((p) => (
-                <tr key={p.id}>
-                  <td className="font-medium">{p.payout_number || `#${p.id}`}</td>
-                  <td className="muted text-sm">{p.settlement?.settlement_number || '—'}</td>
-                  <td>{p.bank_account?.bank_name ? `${p.bank_account.bank_name} ••••${p.bank_account.account_number}` : '—'}</td>
-                  <td className="font-semibold">{money(p.amount)}</td>
-                  <td>
-                    <StatusBadge status={p.status} />
-                    {p.rejection_reason && <div className="muted text-xs">{p.rejection_reason}</div>}
-                  </td>
-                  <td className="muted text-sm">{formatDateTime(p.requested_at)}</td>
-                  <td className="muted text-sm">{formatDateTime(p.paid_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <EmptyState icon={ArrowLeftRight} title={payouts.length ? 'No matching payouts' : 'No payouts yet'} message={payouts.length ? 'Try adjusting the filters to find payout requests.' : 'Request a payout for an eligible settlement once your payout cycle is completed.'} action={payouts.length ? undefined : <Button icon={Plus} onClick={() => setModalOpen(true)}>Request payout</Button>} />
-      )}
+      <div className="card">
+        <FilterBar
+          search={search}
+          onSearchChange={setSearch}
+          debounceMs={300}
+          searchPlaceholder="Search payout, settlement or bank..."
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+          statusOptions={PAYOUT_STATUSES}
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromDateChange={setFromDate}
+          onToDateChange={setToDate}
+          onApplyFilters={() => setAppliedDates({ from: fromDate, to: toDate })}
+          onReset={() => {
+            setSearch('')
+            setStatusFilter('all')
+            setFromDate('')
+            setToDate('')
+            setAppliedDates({ from: '', to: '' })
+          }}
+        />
+        {filteredPayouts.length ? (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr><th>Payout #</th><th>Settlement</th><th>Bank</th><th>Amount</th><th>Status</th><th>Requested</th><th>Paid</th></tr>
+              </thead>
+              <tbody>
+                {filteredPayouts.map((p) => (
+                  <tr key={p.id}>
+                    <td className="font-medium">{p.payout_number || `#${p.id}`}</td>
+                    <td className="muted text-sm">{p.settlement?.settlement_number || '—'}</td>
+                    <td>{p.bank_account?.bank_name ? `${p.bank_account.bank_name} ••••${p.bank_account.account_number}` : '—'}</td>
+                    <td className="font-semibold">{money(p.amount)}</td>
+                    <td>
+                      <StatusBadge status={p.status} />
+                      {p.rejection_reason && <div className="muted text-xs">{p.rejection_reason}</div>}
+                    </td>
+                    <td className="muted text-sm">{formatDateTime(p.requested_at)}</td>
+                    <td className="muted text-sm">{formatDateTime(p.paid_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState icon={ArrowLeftRight} title={payouts.length ? 'No matching payouts' : 'No payouts yet'} message={payouts.length ? 'Try adjusting your filters to find payout requests.' : 'Request a payout for an eligible settlement once your payout cycle is completed.'} action={payouts.length ? undefined : <Button icon={Plus} onClick={() => setModalOpen(true)}>Request payout</Button>} />
+        )}
+      </div>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Request a payout">
         <form onSubmit={request}>
