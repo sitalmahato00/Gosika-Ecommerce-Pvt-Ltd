@@ -46,14 +46,20 @@ export function makeHtmlTooltip(labelFn, valueFn) {
       <div style="font-size:14px;font-weight:700">${body}</div>
     `
 
-    const pos = tooltip.caretX ?? chart.chartArea?.left ?? 0
-    const topY = tooltip.caretY ?? chart.chartArea?.top ?? 0
+    const canvasRect = chart.canvas.getBoundingClientRect()
+    const pos = canvasRect.left + (tooltip.caretX ?? chart.chartArea?.left ?? 0)
+    const topY = canvasRect.top + (tooltip.caretY ?? chart.chartArea?.top ?? 0)
     const box = { width: el.offsetWidth, height: el.offsetHeight }
     tipEl.style.opacity = '1'
     tipEl.style.transform = 'translateY(0)'
 
     const pad = 12
-    el.style.left = `${Math.min(pos + pad, window.innerWidth - box.width - pad)}px`
-    el.style.top = `${Math.max(topY - box.height - 10, 8)}px`
+    const left = pos + box.width + pad <= window.innerWidth
+      ? pos + pad
+      : pos - box.width - pad
+    const above = topY - box.height - 10
+    const top = above >= pad ? above : topY + pad
+    el.style.left = `${Math.max(pad, Math.min(left, window.innerWidth - box.width - pad))}px`
+    el.style.top = `${Math.max(pad, Math.min(top, window.innerHeight - box.height - pad))}px`
   }
 }
