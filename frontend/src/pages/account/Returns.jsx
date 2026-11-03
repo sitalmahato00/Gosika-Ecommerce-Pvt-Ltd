@@ -80,9 +80,12 @@ export default function Returns() {
   const openRequestModal = () => {
     setReturnForm(EMPTY_RETURN_FORM)
     setOrdersLoading(true)
-    api.get('/orders', { params: { per_page: 50 } })
-      .then((r) => setOrders(r.data?.data?.data || []))
-      .catch(() => setOrders([]))
+    api.get('/orders', { params: { per_page: 50 }, skipCache: true })
+      .then((r) => setOrders(api.unwrapList(r.data)))
+      .catch((err) => {
+        setOrders([])
+        toast.error(errorMessage(err))
+      })
       .finally(() => setOrdersLoading(false))
     setRequestOpen(true)
   }
