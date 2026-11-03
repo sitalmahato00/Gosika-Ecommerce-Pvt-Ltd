@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react'
-import { FileSpreadsheet, Banknote } from 'lucide-react'
+import { Download, FileSpreadsheet, Banknote } from 'lucide-react'
 import api from '../../api/client'
 import { useApi, useList } from '../../hooks/useApi'
 import StatusBadge from '../../components/commerce/StatusBadge'
@@ -13,6 +13,11 @@ import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDate, formatDateTime, errorMessage } from '../../utils/format'
+import FilterBar from '../../components/admin/FilterBar'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
 
 const OPEN_PAYOUT_STATUSES = ['pending', 'approved', 'processing']
 
@@ -25,7 +30,13 @@ const isRequestable = (s) =>
 
 export default function VendorSettlements() {
   const toast = useToast()
+  const { user } = useAuth()
+  const branding = useBranding()
   const [status, setStatus] = useState('all')
+  const [search, setSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
   const [payoutOpen, setPayoutOpen] = useState(false)
   const [requestable, setRequestable] = useState([])
   const [settlementId, setSettlementId] = useState('')
@@ -37,19 +48,86 @@ export default function VendorSettlements() {
         page,
         per_page: pageSize,
         status: status === 'all' ? undefined : status,
+        search: search.trim() || undefined,
+        date_from: appliedDates.from || undefined,
+        date_to: appliedDates.to || undefined,
       },
     }),
-    [status],
+    [status, search, appliedDates],
   )
 
   const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
-    deps: [status],
+    deps: [status, search, appliedDates],
     pageSize: 15,
   })
 
   const netPayable = items.reduce((s, p) => s + Number(p.net_payable || 0), 0)
   const requestableOnPage = items.filter(isRequestable)
   const requestableTotal = requestableOnPage.reduce((s, p) => s + Number(p.net_payable || 0), 0)
+
+  const exportSettlements = async () => {
+    try {
+      const rows = []
+      let exportPage = 1
+      let lastPage = 1
+      do {
+        const response = await api.get('/vendor/wallet/settlements', {
+          params: {
+            page: exportPage,
+            per_page: 100,
+            status: status === 'all' ? undefined : status,
+            search: search.trim() || undefined,
+            date_from: appliedDates.from || undefined,
+            date_to: appliedDates.to || undefined,
+          },
+        })
+        rows.push(...api.unwrapList(response.data))
+        lastPage = response.data?.meta?.pagination?.last_page || 1
+        exportPage += 1
+      } while (exportPage <= lastPage)
+
+      exportReportFromRows({
+        columns: [
+          { label: 'Settlement #' },
+          { label: 'Period Start' },
+          { label: 'Period End' },
+          { label: 'Gross Sales', align: 'right' },
+          { label: 'Commission', align: 'right' },
+          { label: 'Refunds', align: 'right' },
+          { label: 'Adjustments', align: 'right' },
+          { label: 'Net Payable', align: 'right' },
+          { label: 'Status' },
+          { label: 'Generated At' },
+          { label: 'Paid At' },
+        ],
+        rows: rows.map((settlement) => [
+          settlement.settlement_number || '',
+          settlement.period_start || '',
+          settlement.period_end || '',
+          money(settlement.gross_sales),
+          money(settlement.commission_total),
+          money(settlement.refunds_total),
+          money(settlement.adjustments_total),
+          money(settlement.net_payable),
+          settlement.status || '',
+          formatDateTime(settlement.generated_at),
+          formatDateTime(settlement.paid_at),
+        ]),
+        title: 'Vendor Settlement Report',
+        subtitle: 'Settlement periods and payout calculations matching the selected filters.',
+        sectionLabel: 'Filtered Settlements',
+        fileName: `gosika_vendor_settlements_${new Date().toISOString().slice(0, 10)}`,
+        rangeLabel: appliedDates.from || appliedDates.to
+          ? `${appliedDates.from || 'Beginning'} – ${appliedDates.to || 'Present'}`
+          : 'All time',
+        preparedBy: personLabel(user),
+        company: companyFromBranding(branding),
+      })
+      toast.success(`${rows.length} filtered settlement${rows.length === 1 ? '' : 's'} exported.`)
+    } catch (exportError) {
+      toast.error(errorMessage(exportError))
+    }
+  }
 
   const openPayoutModal = async () => {
     setPayoutOpen(true)
@@ -100,8 +178,14 @@ export default function VendorSettlements() {
         <div className="page-header-left">
           <h1>Settlements</h1>
           <p>Your payout cycles — every amount is tracked and transparent</p>
+          <ExportScopeNote>Exports all matching settlements across pages in the branded Excel report format.</ExportScopeNote>
         </div>
-        <Button variant="primary" icon={Banknote} onClick={openPayoutModal}>Request payout</Button>
+        <div className="flex items-center gap-2">
+          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportSettlements} disabled={!meta.total || loading}>
+            <Download size={14} /> Export filtered report
+          </button>
+          <Button variant="primary" icon={Banknote} onClick={openPayoutModal}>Request payout</Button>
+        </div>
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
@@ -123,13 +207,34 @@ export default function VendorSettlements() {
       </div>
 
       <div className="card">
-        <div className="tabs" style={{ marginBottom: 12 }}>
-          {STATUSES.map((s) => (
-            <button key={s} className={`tab ${status === s ? 'active' : ''}`} onClick={() => { setStatus(s); setPage(1) }}>
-              {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
-            </button>
-          ))}
-        </div>
+        <FilterBar
+          search={search}
+          onSearchChange={(value) => { setPage(1); setSearch(value) }}
+          debounceMs={300}
+          searchPlaceholder="Search settlement number..."
+          statusFilter={status}
+          onStatusChange={(value) => { setPage(1); setStatus(value) }}
+          statusOptions={STATUSES.filter((value) => value !== 'all').map((value) => ({
+            value,
+            label: value.charAt(0).toUpperCase() + value.slice(1),
+          }))}
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromDateChange={setFromDate}
+          onToDateChange={setToDate}
+          onApplyFilters={() => {
+            setPage(1)
+            setAppliedDates({ from: fromDate, to: toDate })
+          }}
+          onReset={() => {
+            setSearch('')
+            setStatus('all')
+            setFromDate('')
+            setToDate('')
+            setAppliedDates({ from: '', to: '' })
+            setPage(1)
+          }}
+        />
 
         {items.length ? (
           <>

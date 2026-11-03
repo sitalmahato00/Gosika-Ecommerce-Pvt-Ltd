@@ -3,44 +3,47 @@ import { FileSpreadsheet, Wallet, TrendingUp, ArrowUpRight, Download, Info } fro
 import api from '../../api/client'
 import { useApi } from '../../hooks/useApi'
 import { money, formatDateTime, errorMessage } from '../../utils/format'
-import { isSameDay, isThisWeek, isThisMonth } from '../../utils/delivery'
 import ErrorState from '../../components/ui/ErrorState'
 import EmptyState from '../../components/ui/EmptyState'
 import { Skeleton } from '../../components/ui/Skeleton'
 import ExportScopeNote from '../../components/admin/ExportScopeNote'
-
-const PERIODS = [
-  { key: 'all', label: 'All Time' },
-  { key: 'today', label: 'Today' },
-  { key: 'week', label: 'This Week' },
-  { key: 'month', label: 'This Month' },
-]
-
-const periodPredicate = {
-  all: () => true,
-  today: (iso) => isSameDay(iso),
-  week: (iso) => isThisWeek(iso),
-  month: (iso) => isThisMonth(iso),
-}
+import FilterBar from '../../components/admin/FilterBar'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
 
 export default function DeliveryCodSettlement() {
-  const [period, setPeriod] = useState('all')
+  const { user } = useAuth()
+  const branding = useBranding()
+  const toast = useToast()
+  const [search, setSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
 
   const history = useApi(async () => {
-    const page1 = await api.get('/delivery-partner/history', { params: { per_page: 100 } })
+    const params = {
+      per_page: 100,
+      status: 'delivered',
+      search: search.trim() || undefined,
+      date_from: appliedDates.from || undefined,
+      date_to: appliedDates.to || undefined,
+    }
+    const page1 = await api.get('/delivery-partner/history', { params })
     let list = page1.data?.data ?? []
     const pag = page1.data?.meta?.pagination ?? {}
     for (let p = 2; p <= (pag.last_page || 1); p++) {
-      const res = await api.get('/delivery-partner/history', { params: { per_page: 100, page: p } })
+      const res = await api.get('/delivery-partner/history', { params: { ...params, page: p } })
       list = list.concat(res.data?.data ?? [])
     }
     return list
-  })
+  }, { deps: [search, appliedDates] })
 
   const delivered = useMemo(
     () =>
       (history.data ?? [])
-        .filter((a) => a.status === 'delivered')
+        .filter((a) => Number(a.cod_amount || 0) > 0)
         .sort((a, b) => new Date(b.delivered_at || 0) - new Date(a.delivered_at || 0)),
     [history.data],
   )
@@ -58,7 +61,7 @@ export default function DeliveryCodSettlement() {
     [delivered],
   )
 
-  const inPeriod = useMemo(() => rows.filter((r) => periodPredicate[period](r.at)), [rows, period])
+  const inPeriod = rows
 
   const totals = useMemo(() => {
     const rows = inPeriod.length ? inPeriod : []
@@ -68,18 +71,33 @@ export default function DeliveryCodSettlement() {
     return { cod, fees, net: fees, count, avg: count ? fees / count : 0 }
   }, [inPeriod])
 
-  const exportCsv = () => {
-    const head = 'Order,Recipient,Delivered At,COD Amount,Delivery Fee'
-    const lines = inPeriod.map((r) =>
-      [r.vendor_order_number || r.id, `"${(r.recipient_name || '').replace(/"/g, '""')}"`, r.at ? formatDateTime(r.at) : '', r.cod, r.fee].join(','),
-    )
-    const blob = new Blob([[head, ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `gosika-delivery-settlement-${period}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+  const exportReport = () => {
+    exportReportFromRows({
+      columns: [
+        { label: 'Vendor Order #' },
+        { label: 'Recipient' },
+        { label: 'Delivered At' },
+        { label: 'COD Collected', align: 'right' },
+        { label: 'Delivery Fee', align: 'right' },
+      ],
+      rows: inPeriod.map((row) => [
+        row.vendor_order_number || row.id,
+        row.recipient_name || '',
+        row.at ? formatDateTime(row.at) : '',
+        money(row.cod),
+        money(row.fee),
+      ]),
+      title: 'Delivery COD Settlement Report',
+      subtitle: 'COD collected and delivery fees for delivered orders matching the selected filters.',
+      sectionLabel: 'Filtered COD Settlement',
+      fileName: `gosika_delivery_cod_settlement_${new Date().toISOString().slice(0, 10)}`,
+      rangeLabel: appliedDates.from || appliedDates.to
+        ? `${appliedDates.from || 'Beginning'} – ${appliedDates.to || 'Present'}`
+        : 'All time',
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success(`${inPeriod.length} filtered COD record${inPeriod.length === 1 ? '' : 's'} exported.`)
   }
 
   if (history.loading) {
@@ -107,33 +125,29 @@ export default function DeliveryCodSettlement() {
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
             Your settlement breakdown — COD remitted to the hub, delivery fees you keep.
           </p>
-          <ExportScopeNote>Export includes deliveries in the selected settlement period.</ExportScopeNote>
+          <ExportScopeNote>Exports all matching delivered COD orders in the branded Excel report format.</ExportScopeNote>
         </div>
-        <div className="flex items-center gap-2" style={{ overflowX: 'auto', paddingBottom: 2 }}>
-          {PERIODS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => setPeriod(p.key)}
-              className="chip"
-              style={{
-                whiteSpace: 'nowrap',
-                fontWeight: 800,
-                fontSize: 11,
-                cursor: 'pointer',
-                border: period === p.key ? '1px solid var(--primary)' : '1px solid var(--border)',
-                background: period === p.key ? 'var(--primary-50)' : '#fff',
-                color: period === p.key ? 'var(--primary)' : 'var(--muted)',
-              }}
-            >
-              {p.label}
-            </button>
-          ))}
-          <button type="button" className="btn btn-outline btn-xs flex items-center gap-1" onClick={exportCsv} disabled={inPeriod.length === 0}>
-            <Download size={13} /> Export CSV
-          </button>
-        </div>
+        <button type="button" className="btn btn-outline btn-xs flex items-center gap-1" onClick={exportReport} disabled={inPeriod.length === 0}>
+          <Download size={13} /> Export filtered report
+        </button>
       </div>
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        debounceMs={300}
+        searchPlaceholder="Search order number or recipient..."
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onApplyFilters={() => setAppliedDates({ from: fromDate, to: toDate })}
+        onReset={() => {
+          setSearch('')
+          setFromDate('')
+          setToDate('')
+          setAppliedDates({ from: '', to: '' })
+        }}
+      />
 
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>

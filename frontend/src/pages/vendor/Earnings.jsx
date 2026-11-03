@@ -12,6 +12,9 @@ import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDate } from '../../utils/format'
 import ExportScopeNote from '../../components/admin/ExportScopeNote'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
 
 const RANGES = [
   { value: '7d', label: '7 Days' },
@@ -22,6 +25,8 @@ const RANGES = [
 
 export default function VendorEarnings() {
   const toast = useToast()
+  const { user } = useAuth()
+  const branding = useBranding()
   const [range, setRange] = useState('30d')
 
   const summaryApi = useApi(() => api.get('/vendor/analytics/summary', { params: { range } }), { deps: [range] })
@@ -41,25 +46,29 @@ export default function VendorEarnings() {
     .reduce((s, p) => s + Number(p.amount || 0), 0)
 
   const exportCSV = () => {
-    const headers = ['Metric', 'Value']
-    const rows = [
-      ['Revenue', summary.revenue],
-      ['Orders', summary.orders_count],
-      ['Avg Order Value', summary.avg_order_value],
-      ['Products Sold', summary.products_sold],
-      ['Commission', summary.commission_total],
-      ['Delivery Fees', summary.delivery_fees],
-      ['Refunds', summary.refunds_total],
-      ['Net Earnings', summary.net_earnings],
+    const metrics = [
+      ['Summary', 'Revenue', money(summary.revenue)],
+      ['Summary', 'Orders', summary.orders_count],
+      ['Summary', 'Average Order Value', money(summary.avg_order_value)],
+      ['Summary', 'Products Sold', summary.products_sold],
+      ['Summary', 'Commission', money(summary.commission_total)],
+      ['Summary', 'Delivery Fees', money(summary.delivery_fees)],
+      ['Summary', 'Refunds', money(summary.refunds_total)],
+      ['Summary', 'Net Earnings', money(summary.net_earnings)],
+      ...trend.map((item) => ['Revenue Trend', item.label, money(item.value)]),
     ]
-    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `gosika-vendor-earnings-${range}.csv`
-    a.click()
-    toast.success('Earnings statement exported')
+    exportReportFromRows({
+      columns: [{ label: 'Section' }, { label: 'Metric' }, { label: 'Value', align: 'right' }],
+      rows: metrics,
+      title: 'Vendor Earnings & Revenue Report',
+      subtitle: 'Earnings summary and revenue trend for the selected range.',
+      sectionLabel: 'Earnings Summary and Trend',
+      fileName: `gosika_vendor_earnings_${range}_${new Date().toISOString().slice(0, 10)}`,
+      rangeLabel: RANGES.find((item) => item.value === range)?.label || range,
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success('Earnings statement exported in the branded report format.')
   }
 
   if (summaryApi.loading || trendApi.loading) {
@@ -85,7 +94,7 @@ export default function VendorEarnings() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Track sales revenue, platform commissions, settled payouts, and withdrawable wallet balances.
           </p>
-          <ExportScopeNote>Export reflects the currently selected earnings range.</ExportScopeNote>
+          <ExportScopeNote>Export includes the earnings summary and revenue trend for the selected range in the branded Excel report format.</ExportScopeNote>
         </div>
         <div className="flex items-center gap-2 wrap">
           <div className="date-filter-group">

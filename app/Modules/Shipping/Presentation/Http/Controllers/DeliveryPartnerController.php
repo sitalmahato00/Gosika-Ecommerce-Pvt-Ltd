@@ -5,6 +5,7 @@ namespace App\Modules\Shipping\Presentation\Http\Controllers;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Shipping\Application\DataTransferObjects\ApplyDeliveryPartnerDTO;
 use App\Modules\Shipping\Application\DataTransferObjects\UpdateDeliveryPartnerProfileDTO;
@@ -236,15 +237,25 @@ class DeliveryPartnerController extends Controller
         $partner = $this->partnerFor($request->user());
         $filters = $request->validate([
             'status' => ['nullable', 'in:delivered,failed,returned_to_vendor'],
+            'search' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $history = $partner->assignments()
+        $query = $partner->assignments()
             ->with(['tracking', 'vendorOrder'])
             ->whereIn('status', ['delivered', 'failed', 'returned_to_vendor'])
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
-            ->latest()
-            ->paginate(min(max($request->integer('per_page', 15), 1), 100))
-            ->withQueryString();
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $term = '%'.$search.'%';
+                $query->where(function ($inner) use ($term) {
+                    $inner->where('recipient_name', 'like', $term)
+                        ->orWhere('recipient_phone', 'like', $term)
+                        ->orWhereHas('vendorOrder', fn ($order) => $order->where('vendor_order_number', 'like', $term));
+                });
+            })
+            ->orderByDesc('delivered_at');
+
+        ListingDateRange::apply($query, $request, 'delivered_at');
+        $history = $query->paginate(min(max($request->integer('per_page', 15), 1), 100))->withQueryString();
 
         return Response::success(
             DeliveryAssignmentResource::collection($history),

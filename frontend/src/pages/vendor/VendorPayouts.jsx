@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { ArrowLeftRight, Plus, Banknote } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { ArrowLeftRight, Plus, Banknote, Download } from 'lucide-react'
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import Modal from '../../components/ui/Modal'
@@ -11,11 +11,26 @@ import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDateTime, formatDate, errorMessage } from '../../utils/format'
+import FilterBar from '../../components/admin/FilterBar'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
 
 const OPEN_PAYOUT_STATUSES = ['pending', 'approved', 'processing']
+const PAYOUT_STATUSES = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'paid', label: 'Paid' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
 
 export default function VendorPayouts() {
   const toast = useToast()
+  const { user } = useAuth()
+  const branding = useBranding()
   const [payouts, setPayouts] = useState([])
   const [settlements, setSettlements] = useState([])
   const [bankAccounts, setBankAccounts] = useState([])
@@ -24,6 +39,11 @@ export default function VendorPayouts() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState({ settlement_id: '', bank_account_id: '' })
   const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
 
   const load = () => {
     setLoading(true)
@@ -47,6 +67,55 @@ export default function VendorPayouts() {
     Number(s.net_payable || 0) > 0 &&
     !(s.payout_requests || []).some(p => OPEN_PAYOUT_STATUSES.includes(p.status)),
   )
+  const filteredPayouts = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return payouts.filter((payout) => {
+      const requestedDate = String(payout.requested_at || payout.created_at || '').slice(0, 10)
+      const matchesSearch = !term || [
+        payout.payout_number,
+        payout.settlement?.settlement_number,
+        payout.bank_account?.bank_name,
+        payout.status,
+      ].some((value) => String(value || '').toLowerCase().includes(term))
+      return matchesSearch &&
+        (statusFilter === 'all' || payout.status === statusFilter) &&
+        (!appliedDates.from || requestedDate >= appliedDates.from) &&
+        (!appliedDates.to || requestedDate <= appliedDates.to)
+    })
+  }, [payouts, search, statusFilter, appliedDates])
+
+  const exportPayouts = () => {
+    exportReportFromRows({
+      columns: [
+        { label: 'Payout #' },
+        { label: 'Settlement' },
+        { label: 'Bank' },
+        { label: 'Amount', align: 'right' },
+        { label: 'Status' },
+        { label: 'Requested At' },
+        { label: 'Paid At' },
+      ],
+      rows: filteredPayouts.map((payout) => [
+        payout.payout_number || `#${payout.id}`,
+        payout.settlement?.settlement_number || '',
+        payout.bank_account?.bank_name || '',
+        money(payout.amount),
+        payout.status || '',
+        formatDateTime(payout.requested_at),
+        formatDateTime(payout.paid_at),
+      ]),
+      title: 'Vendor Payout Requests Report',
+      subtitle: 'Payout requests matching the selected search, status and date filters.',
+      sectionLabel: 'Filtered Payout Requests',
+      fileName: `gosika_vendor_payouts_${new Date().toISOString().slice(0, 10)}`,
+      rangeLabel: appliedDates.from || appliedDates.to
+        ? `${appliedDates.from || 'Beginning'} – ${appliedDates.to || 'Present'}`
+        : 'All time',
+      preparedBy: personLabel(user),
+      company: companyFromBranding(branding),
+    })
+    toast.success(`${filteredPayouts.length} filtered payout${filteredPayouts.length === 1 ? '' : 's'} exported.`)
+  }
 
   const request = async (e) => {
     e.preventDefault()
@@ -91,6 +160,33 @@ export default function VendorPayouts() {
           <h2 style={{ fontSize: 20, marginBottom: 2 }}>Payouts</h2>
           <p className="muted text-sm m-0">Request payout for an eligible settlement to your bank account.</p>
         </div>
+        <div className="flex items-center justify-between wrap gap-2">
+          <ExportScopeNote>Exports matching payout requests in the branded Excel report format.</ExportScopeNote>
+          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportPayouts} disabled={!filteredPayouts.length}>
+            <Download size={14} /> Export filtered report
+          </button>
+        </div>
+        <FilterBar
+          search={search}
+          onSearchChange={setSearch}
+          debounceMs={300}
+          searchPlaceholder="Search payout, settlement or bank..."
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+          statusOptions={PAYOUT_STATUSES}
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromDateChange={setFromDate}
+          onToDateChange={setToDate}
+          onApplyFilters={() => setAppliedDates({ from: fromDate, to: toDate })}
+          onReset={() => {
+            setSearch('')
+            setStatusFilter('all')
+            setFromDate('')
+            setToDate('')
+            setAppliedDates({ from: '', to: '' })
+          }}
+        />
         <Button variant="primary" icon={Plus} onClick={() => { setForm({ settlement_id: '', bank_account_id: '' }); setModalOpen(true) }} disabled={!requestable.length}>
           Request payout
         </Button>
@@ -116,14 +212,14 @@ export default function VendorPayouts() {
         </div>
       )}
 
-      {payouts.length ? (
+      {filteredPayouts.length ? (
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr><th>Payout #</th><th>Settlement</th><th>Bank</th><th>Amount</th><th>Status</th><th>Requested</th><th>Paid</th></tr>
             </thead>
             <tbody>
-              {payouts.map((p) => (
+              {filteredPayouts.map((p) => (
                 <tr key={p.id}>
                   <td className="font-medium">{p.payout_number || `#${p.id}`}</td>
                   <td className="muted text-sm">{p.settlement?.settlement_number || '—'}</td>
@@ -141,7 +237,7 @@ export default function VendorPayouts() {
           </table>
         </div>
       ) : (
-        <EmptyState icon={ArrowLeftRight} title="No payouts yet" message="Request a payout for an eligible settlement once your payout cycle is completed." action={<Button icon={Plus} onClick={() => setModalOpen(true)}>Request payout</Button>} />
+        <EmptyState icon={ArrowLeftRight} title={payouts.length ? 'No matching payouts' : 'No payouts yet'} message={payouts.length ? 'Try adjusting the filters to find payout requests.' : 'Request a payout for an eligible settlement once your payout cycle is completed.'} action={payouts.length ? undefined : <Button icon={Plus} onClick={() => setModalOpen(true)}>Request payout</Button>} />
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Request a payout">

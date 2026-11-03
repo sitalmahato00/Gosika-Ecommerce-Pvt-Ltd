@@ -1,37 +1,67 @@
-import React, { useEffect, useState } from 'react'
-import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, AlertCircle, Banknote } from 'lucide-react'
+import React, { useCallback, useEffect, useState } from 'react'
+import { Download, Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, AlertCircle, Banknote } from 'lucide-react'
 import api from '../../api/client'
+import { useList } from '../../hooks/useApi'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { Skeleton } from '../../components/ui/Skeleton'
+import Pagination from '../../components/ui/Pagination'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDateTime, errorMessage } from '../../utils/format'
+import FilterBar from '../../components/admin/FilterBar'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
 
 const MIN_PAYOUT = 1000
 
 export default function VendorWallet() {
   const toast = useToast()
+  const { user } = useAuth()
+  const branding = useBranding()
   const [wallet, setWallet] = useState(null)
-  const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [typeFilter, setTypeFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [search, setSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
   const [payoutOpen, setPayoutOpen] = useState(false)
   const [payoutAmount, setPayoutAmount] = useState('')
   const [requesting, setRequesting] = useState(false)
 
   const load = () => {
-    Promise.allSettled([api.get('/vendor/wallet'), api.get('/vendor/wallet/transactions')]).then(([w, t]) => {
-      if (w.status === 'fulfilled') setWallet(w.value.data.data)
-      if (t.status === 'fulfilled') setTransactions(t.value.data.data || [])
-      else setError('Could not load wallet data')
+    api.get('/vendor/wallet').then((response) => {
+      setWallet(response.data?.data ?? response.data)
+    }).catch(() => {
+      setError('Could not load wallet data')
+    }).finally(() => {
       setLoading(false)
     })
   }
   useEffect(load, [])
+
+  const fetchTransactions = useCallback((page, pageSize) => api.get('/vendor/wallet/transactions', {
+    params: {
+      page,
+      per_page: pageSize,
+      search: search.trim() || undefined,
+      type: typeFilter === 'all' ? undefined : typeFilter,
+      status: statusFilter === 'all' ? undefined : statusFilter,
+      date_from: appliedDates.from || undefined,
+      date_to: appliedDates.to || undefined,
+    },
+  }), [search, typeFilter, statusFilter, appliedDates])
+  const { items: transactions, meta, page, setPage, loading: transactionsLoading } = useList(fetchTransactions, {
+    deps: [search, typeFilter, statusFilter, appliedDates],
+    pageSize: 15,
+  })
 
   const requestPayout = async (e) => {
     e.preventDefault()
@@ -53,11 +83,63 @@ export default function VendorWallet() {
     }
   }
 
-  const filtered = typeFilter === 'all'
-    ? transactions
-    : typeFilter === 'credit'
-      ? transactions.filter((t) => String(t.transaction_type).startsWith('credit_') || Number(t.amount) > 0)
-      : transactions.filter((t) => !String(t.transaction_type).startsWith('credit_') && Number(t.amount) <= 0)
+  const exportTransactions = async () => {
+    try {
+      const rows = []
+      let exportPage = 1
+      let lastPage = 1
+      do {
+        const response = await api.get('/vendor/wallet/transactions', {
+          params: {
+            page: exportPage,
+            per_page: 100,
+            search: search.trim() || undefined,
+            type: typeFilter === 'all' ? undefined : typeFilter,
+            status: statusFilter === 'all' ? undefined : statusFilter,
+            date_from: appliedDates.from || undefined,
+            date_to: appliedDates.to || undefined,
+          },
+        })
+        rows.push(...api.unwrapList(response.data))
+        lastPage = response.data?.meta?.pagination?.last_page || 1
+        exportPage += 1
+      } while (exportPage <= lastPage)
+
+      exportReportFromRows({
+        columns: [
+          { label: 'Transaction Type' },
+          { label: 'Description' },
+          { label: 'Status' },
+          { label: 'Date' },
+          { label: 'Amount', align: 'right' },
+          { label: 'Balance After', align: 'right' },
+        ],
+        rows: rows.map((transaction) => {
+          const credit = String(transaction.transaction_type).startsWith('credit_') || Number(transaction.amount) > 0
+          return [
+            (transaction.transaction_type || '').replace(/_/g, ' '),
+            transaction.description || '',
+            transaction.status || '',
+            formatDateTime(transaction.created_at),
+            `${credit ? '+' : '-'}${money(Math.abs(Number(transaction.amount || 0)))}`,
+            money(transaction.balance_after),
+          ]
+        }),
+        title: 'Vendor Wallet Transaction Report',
+        subtitle: 'Filtered vendor wallet activity, balance movements and transaction statuses.',
+        sectionLabel: 'Wallet Transactions',
+        fileName: `gosika_vendor_wallet_${new Date().toISOString().slice(0, 10)}`,
+        rangeLabel: appliedDates.from || appliedDates.to
+          ? `${appliedDates.from || 'Beginning'} – ${appliedDates.to || 'Present'}`
+          : 'All time',
+        preparedBy: personLabel(user),
+        company: companyFromBranding(branding),
+      })
+      toast.success(`${rows.length} filtered transaction${rows.length === 1 ? '' : 's'} exported.`)
+    } catch (exportError) {
+      toast.error(errorMessage(exportError))
+    }
+  }
 
   if (loading) {
     return (
@@ -103,22 +185,61 @@ export default function VendorWallet() {
       <div className="card">
         <div className="flex items-center justify-between wrap mb-2">
           <h3 style={{ fontSize: 16 }}>Transactions</h3>
-          <div className="tabs" style={{ marginBottom: 0 }}>
-            {['all', 'credit', 'debit'].map((f) => (
-              <button key={f} className={`tab ${typeFilter === f ? 'active' : ''}`} onClick={() => setTypeFilter(f)}>
-                {f === 'all' ? 'All' : f === 'credit' ? 'Income' : 'Withdrawals'}
-              </button>
-            ))}
-          </div>
+          <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportTransactions} disabled={!meta.total || transactionsLoading}>
+            <Download size={14} /> Export filtered report
+          </button>
         </div>
-        {filtered.length ? (
+        <ExportScopeNote>Exports all matching wallet transactions across pages in the branded Excel report format.</ExportScopeNote>
+        <FilterBar
+          search={search}
+          onSearchChange={(value) => { setPage(1); setSearch(value) }}
+          debounceMs={300}
+          searchPlaceholder="Search transaction, reference, or description..."
+          statusFilter={statusFilter}
+          onStatusChange={(value) => { setPage(1); setStatusFilter(value) }}
+          statusOptions={[
+            { value: 'completed', label: 'Completed' },
+            { value: 'held', label: 'Held' },
+          ]}
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromDateChange={setFromDate}
+          onToDateChange={setToDate}
+          onApplyFilters={() => {
+            setPage(1)
+            setAppliedDates({ from: fromDate, to: toDate })
+          }}
+          onReset={() => {
+            setSearch('')
+            setTypeFilter('all')
+            setStatusFilter('all')
+            setFromDate('')
+            setToDate('')
+            setAppliedDates({ from: '', to: '' })
+            setPage(1)
+          }}
+          extraFilters={
+            <select
+              className="input"
+              aria-label="Filter by transaction type"
+              value={typeFilter}
+              onChange={(event) => { setPage(1); setTypeFilter(event.target.value) }}
+              style={{ height: 36, minWidth: 150, fontSize: 13, borderRadius: 8, fontWeight: 600 }}
+            >
+              <option value="all">All transaction types</option>
+              <option value="credit">Income</option>
+              <option value="debit">Withdrawals</option>
+            </select>
+          }
+        />
+        {transactionsLoading ? <Skeleton height={180} /> : transactions.length ? (
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr><th>Type</th><th>Description</th><th>Status</th><th>Date</th><th style={{ textAlign: 'right' }}>Amount</th><th style={{ textAlign: 'right' }}>Balance</th></tr>
               </thead>
               <tbody>
-                {filtered.map((t) => {
+                {transactions.map((t) => {
                   const isCredit = String(t.transaction_type).startsWith('credit_') || Number(t.amount) > 0
                   return (
                     <tr key={t.id}>
@@ -146,6 +267,9 @@ export default function VendorWallet() {
             <div className="es-icon"><WalletIcon size={32} /></div>
             <p className="muted">No transactions yet. Your earnings will appear here as orders are completed.</p>
           </div>
+        )}
+        {!transactionsLoading && meta.total > 0 && (
+          <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />
         )}
       </div>
 

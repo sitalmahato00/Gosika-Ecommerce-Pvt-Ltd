@@ -1,14 +1,19 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { Receipt, ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from 'lucide-react'
+import { Download, Receipt, ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from 'lucide-react'
 import api from '../../api/client'
 import { useList } from '../../hooks/useApi'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Pagination from '../../components/ui/Pagination'
-import Select from '../../components/ui/Select'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { money, formatDateTime, errorMessage } from '../../utils/format'
+import FilterBar from '../../components/admin/FilterBar'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
+import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
+import { useBranding } from '../../context/BrandingContext'
+import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
 
 const TYPE_FILTERS = [
   { value: '', label: 'All types' },
@@ -37,31 +42,99 @@ function isCreditTransaction(t) {
 }
 
 export default function VendorTransactions() {
+  const { user } = useAuth()
+  const branding = useBranding()
+  const toast = useToast()
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
 
   const fetcher = useCallback(
     async (page, pageSize) => api.get('/vendor/wallet/transactions', {
       params: {
         page,
         per_page: pageSize,
+        search: search.trim() || undefined,
+        type: typeFilter || undefined,
+        status: statusFilter || undefined,
+        date_from: appliedDates.from || undefined,
+        date_to: appliedDates.to || undefined,
       },
     }),
-    [],
+    [search, typeFilter, statusFilter, appliedDates],
   )
 
   const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
+    deps: [search, typeFilter, statusFilter, appliedDates],
     pageSize: 20,
   })
 
-  const filtered = useMemo(() => items.filter((t) => {
-    const credit = isCreditTransaction(t)
-    const typeOk =
-      !typeFilter ||
-      (typeFilter === 'credit' ? credit : typeFilter === 'debit' ? !credit : t.transaction_type === typeFilter)
-    const statusOk = !statusFilter || t.status === statusFilter
-    return typeOk && statusOk
-  }), [items, typeFilter, statusFilter])
+  const exportTransactions = async () => {
+    try {
+      const rows = []
+      let exportPage = 1
+      let lastPage = 1
+      do {
+        const response = await api.get('/vendor/wallet/transactions', {
+          params: {
+            page: exportPage,
+            per_page: 100,
+            search: search.trim() || undefined,
+            type: typeFilter || undefined,
+            status: statusFilter || undefined,
+            date_from: appliedDates.from || undefined,
+            date_to: appliedDates.to || undefined,
+          },
+        })
+        rows.push(...api.unwrapList(response.data))
+        lastPage = response.data?.meta?.pagination?.last_page || 1
+        exportPage += 1
+      } while (exportPage <= lastPage)
+
+      exportReportFromRows({
+        columns: [
+          { label: 'Transaction Type' },
+          { label: 'Reference' },
+          { label: 'Description' },
+          { label: 'Credit', align: 'right' },
+          { label: 'Debit', align: 'right' },
+          { label: 'Balance After', align: 'right' },
+          { label: 'Status' },
+          { label: 'Date' },
+        ],
+        rows: rows.map((transaction) => {
+          const credit = isCreditTransaction(transaction)
+          return [
+            (transaction.transaction_type || '').replace(/_/g, ' '),
+            transaction.reference_type
+              ? `${transaction.reference_type.replace(/_/g, ' ')} · ${transaction.reference_id || ''}`
+              : '',
+            transaction.description || '',
+            credit ? money(transaction.amount) : '',
+            credit ? '' : money(Math.abs(Number(transaction.amount || 0))),
+            money(transaction.balance_after),
+            transaction.status || '',
+            formatDateTime(transaction.created_at),
+          ]
+        }),
+        title: 'Vendor Wallet Transactions',
+        subtitle: 'Filtered vendor wallet credits, debits and balance history.',
+        sectionLabel: 'Wallet Transaction Ledger',
+        fileName: `gosika_vendor_transactions_${new Date().toISOString().slice(0, 10)}`,
+        rangeLabel: appliedDates.from || appliedDates.to
+          ? `${appliedDates.from || 'Beginning'} – ${appliedDates.to || 'Present'}`
+          : 'All time',
+        preparedBy: personLabel(user),
+        company: companyFromBranding(branding),
+      })
+      toast.success(`${rows.length} filtered transaction${rows.length === 1 ? '' : 's'} exported.`)
+    } catch (exportError) {
+      toast.error(errorMessage(exportError))
+    }
+  }
 
   return (
     <div>
@@ -70,22 +143,49 @@ export default function VendorTransactions() {
           <h1>Transactions</h1>
           <p>Complete financial ledger for your account</p>
         </div>
-        {items.length > 0 && <span className="muted text-sm">{items.length.toLocaleString()} records</span>}
+        <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportTransactions} disabled={!meta.total || loading}>
+          <Download size={14} /> Export filtered report
+        </button>
       </div>
+      <ExportScopeNote>Exports all matching transactions across pages in the branded Excel report format.</ExportScopeNote>
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-        <Select label="Type" style={{ minWidth: 200 }} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-          {TYPE_FILTERS.map((t) => (
-            <option key={t.value} value={t.value}>{t.label}</option>
-          ))}
-        </Select>
-        <Select label="Status" style={{ minWidth: 160 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">All statuses</option>
-          {STATUS_FILTERS.filter(Boolean).map((s) => (
-            <option key={s} value={s}>{s.toUpperCase()}</option>
-          ))}
-        </Select>
-      </div>
+      <FilterBar
+        search={search}
+        onSearchChange={(value) => { setPage(1); setSearch(value) }}
+        debounceMs={300}
+        searchPlaceholder="Search transaction, reference, or description..."
+        statusFilter={statusFilter || 'all'}
+        onStatusChange={(value) => { setPage(1); setStatusFilter(value === 'all' ? '' : value) }}
+        statusOptions={STATUS_FILTERS.filter(Boolean).map((status) => ({ value: status, label: status.toUpperCase() }))}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDates({ from: fromDate, to: toDate })
+        }}
+        onReset={() => {
+          setSearch('')
+          setTypeFilter('')
+          setStatusFilter('')
+          setFromDate('')
+          setToDate('')
+          setAppliedDates({ from: '', to: '' })
+          setPage(1)
+        }}
+        extraFilters={
+          <select
+            className="input"
+            aria-label="Filter by transaction type"
+            value={typeFilter}
+            onChange={(event) => { setPage(1); setTypeFilter(event.target.value) }}
+            style={{ height: 36, minWidth: 170, fontSize: 13, borderRadius: 8, fontWeight: 600 }}
+          >
+            {TYPE_FILTERS.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+          </select>
+        }
+      />
 
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -93,11 +193,11 @@ export default function VendorTransactions() {
         </div>
       ) : error ? (
         <ErrorState message={errorMessage(error)} onRetry={reload} />
-      ) : !filtered.length ? (
+      ) : !items.length ? (
         <EmptyState
           icon={Receipt}
           title="No transactions found"
-          message={typeFilter || statusFilter ? 'Try adjusting your filters.' : 'Your complete financial history will appear here.'}
+          message={typeFilter || statusFilter || search || appliedDates.from || appliedDates.to ? 'Try adjusting your filters.' : 'Your complete financial history will appear here.'}
         />
       ) : (
         <>
@@ -116,7 +216,7 @@ export default function VendorTransactions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((t) => {
+                  {items.map((t) => {
                     const amt = Number(t.amount || 0)
                     const isCredit = isCreditTransaction(t)
                     return (
