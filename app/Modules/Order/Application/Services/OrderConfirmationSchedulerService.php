@@ -104,9 +104,6 @@ class OrderConfirmationSchedulerService
                     'actor_user_id' => null,
                 ]);
 
-                // Restore stock for the items in this vendor order
-                $this->restoreVendorOrderStock($vo);
-
                 // Check parent order
                 if ($order) {
                     $order->load('vendorOrders');
@@ -302,21 +299,6 @@ class OrderConfirmationSchedulerService
         }
 
         return $confirmedCount;
-    }
-
-    protected function restoreVendorOrderStock(VendorOrder $vo): void
-    {
-        foreach ($vo->items as $item) {
-            if ($item->variant_id) {
-                $item->variant?->increment('quantity', $item->quantity);
-                $item->variant?->update(['stock_status' => 'in_stock']);
-            }
-
-            if ($item->product_id) {
-                $item->product?->increment('quantity', $item->quantity);
-                $item->product?->update(['stock_status' => 'in_stock']);
-            }
-        }
     }
 
     protected function handlePaymentCancellation(Order $order, string $reason): void

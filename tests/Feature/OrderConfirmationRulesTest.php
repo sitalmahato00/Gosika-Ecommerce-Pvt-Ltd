@@ -177,9 +177,6 @@ class OrderConfirmationRulesTest extends TestCase
             'line_total' => 2400.00,
         ]);
 
-        // Deduct initial stock for test realism
-        $this->product->decrement('quantity', $qty);
-
         return [$order, $vendorOrder, $customer];
     }
 
@@ -188,8 +185,6 @@ class OrderConfirmationRulesTest extends TestCase
     public function test_customer_cancellation_succeeds_during_allowed_window(): void
     {
         [$order, $vendorOrder, $customer] = $this->createOrder();
-
-        $initialProductQty = $this->product->fresh()->quantity; // 10 - 2 = 8
 
         // Cancel 5 minutes after placement (within 15-minute window)
         Carbon::setTestNow(Carbon::parse($order->placed_at)->addMinutes(5));
@@ -203,8 +198,7 @@ class OrderConfirmationRulesTest extends TestCase
         $this->assertEquals(OrderStatus::CANCELLED->value, $vendorOrder->fresh()->status->value);
         $this->assertEquals('Changed my mind', $order->fresh()->cancelled_reason);
 
-        // Stock restored exactly once (+2)
-        $this->assertEquals($initialProductQty + 2, $this->product->fresh()->quantity);
+        $this->assertSame(10, $this->product->fresh()->quantity);
     }
 
     public function test_cancelled_order_cannot_start_or_complete_payment(): void
@@ -330,7 +324,7 @@ class OrderConfirmationRulesTest extends TestCase
         Mail::assertNotSent(OrderStatusMail::class);
     }
 
-    public function test_verified_esewa_cancellation_cancels_order_and_restores_stock(): void
+    public function test_verified_esewa_cancellation_cancels_order_without_changing_stock(): void
     {
         [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::PAYMENT_PENDING, false);
         $order->update(['payment_status' => OrderPaymentStatus::PENDING]);
@@ -540,8 +534,6 @@ class OrderConfirmationRulesTest extends TestCase
         Setting::set('order.vendor_confirmation_deadline_hours', 24, 'orders', 'integer', true);
 
         [$order, $vendorOrder] = $this->createOrder();
-        $initialStock = $this->product->fresh()->quantity; // 8
-
         // Advance 25 hours (past 24h deadline)
         Carbon::setTestNow(Carbon::parse($order->placed_at)->addHours(25));
 
@@ -553,8 +545,7 @@ class OrderConfirmationRulesTest extends TestCase
         $this->assertEquals(OrderStatus::CANCELLED->value, $order->fresh()->status->value);
         $this->assertEquals('Vendor did not confirm within the allowed time', $order->fresh()->cancelled_reason);
 
-        // Stock restored back to 10
-        $this->assertEquals($initialStock + 2, $this->product->fresh()->quantity);
+        $this->assertSame(10, $this->product->fresh()->quantity);
     }
 
     // ── 11. Admin settings validation enforces precedence ───────────────

@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
 use App\Modules\Identity\Infrastructure\Models\User;
+use App\Modules\Catalog\Infrastructure\Models\Product;
+use App\Modules\Catalog\Infrastructure\Models\ProductVariant;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
@@ -689,6 +691,32 @@ class DeliveryAssignmentTest extends TestCase
     {
         [$order, $readyOrder] = $this->createTestOrder(OrderStatus::READY_FOR_PICKUP);
         $customer = $order->user;
+        $product = Product::query()->create([
+            'uuid' => (string) Str::uuid(),
+            'vendor_id' => $this->vendor->id,
+            'store_id' => $this->store->id,
+            'name' => 'Stock lifecycle product',
+            'slug' => 'stock-lifecycle-'.Str::random(6),
+            'sku' => 'STOCK-'.strtoupper(Str::random(8)),
+            'price' => 100,
+            'quantity' => 10,
+            'low_stock_threshold' => 2,
+            'stock_status' => 'in_stock',
+            'status' => 'published',
+            'is_variant' => true,
+        ]);
+        $variant = ProductVariant::query()->create([
+            'product_id' => $product->id,
+            'sku' => 'VARIANT-'.strtoupper(Str::random(8)),
+            'price' => 100,
+            'quantity' => 10,
+            'stock_status' => 'in_stock',
+            'options' => ['size' => 'M'],
+        ]);
+        $readyOrder->items()->firstOrFail()->update([
+            'product_id' => $product->id,
+            'variant_id' => $variant->id,
+        ]);
 
         // Claimed and picked up
         $this->actingAs($this->riderUser1)
@@ -716,6 +744,8 @@ class DeliveryAssignmentTest extends TestCase
         $outResponse->assertStatus(200);
         $this->assertNull($outResponse->json('meta.otp'));
         $this->assertArrayNotHasKey('delivery_otp', (array) $outResponse->json('data.meta'));
+        $this->assertSame(10, $product->fresh()->quantity);
+        $this->assertSame(10, $variant->fresh()->quantity);
 
         $assignmentResponse = $this->actingAs($this->riderUser1)
             ->getJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}");
@@ -729,6 +759,15 @@ class DeliveryAssignmentTest extends TestCase
             ]);
         $deliverResponse->assertStatus(200);
         $this->assertEquals(DeliveryStatus::DELIVERED, $assignment->fresh()->status);
+        $this->assertSame(8, $product->fresh()->quantity);
+        $this->assertSame(8, $variant->fresh()->quantity);
+
+        $this->actingAs($this->riderUser1)
+            ->postJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}/deliver", [
+                'otp' => $otp,
+            ])
+            ->assertUnprocessable();
+        $this->assertSame(8, $product->fresh()->quantity);
+        $this->assertSame(8, $variant->fresh()->quantity);
     }
 }
-

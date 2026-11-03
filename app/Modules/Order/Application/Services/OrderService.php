@@ -91,8 +91,6 @@ class OrderService
                 $vendorOrders[] = $this->createVendorOrder($order, (int) $vendorId, $group, $vendorDeliveryCharges);
             }
 
-            $this->decrementStock($items);
-
             OrderStatusHistory::create([
                 'trackable_type' => Order::class,
                 'trackable_id' => $order->id,
@@ -198,8 +196,6 @@ class OrderService
                 ]);
             }
 
-            $this->restoreStock($order);
-
             // Handle payment reversal/refund
             $this->handlePaymentCancellation($order, $user, $reason);
 
@@ -251,8 +247,6 @@ class OrderService
                     'actor_user_id' => null,
                 ]);
             }
-
-            $this->restoreStock($order);
 
             OrderStatusHistory::create([
                 'trackable_type' => Order::class,
@@ -450,9 +444,7 @@ class OrderService
     }
 
     /**
-     * Acquire pessimistic write locks on the product/variant rows being ordered.
-     * This serializes concurrent checkouts of the same SKU so assertStock() and
-     * decrementStock() operate on the latest committed quantities (prevents overselling).
+     * Lock inventory rows so stock validation sees the latest delivered-order adjustments.
      */
     protected function lockStockForItems($items): void
     {
@@ -478,47 +470,6 @@ class OrderService
                 $item->setRelation('variant', $lockedVariants[$item->variant_id]);
             }
         });
-    }
-
-    protected function decrementStock($items): void
-    {
-        foreach ($items as $item) {
-            $product = $item->product;
-            $variant = $item->variant;
-
-            if ($variant) {
-                $variant->decrement('quantity', $item->quantity);
-                $this->syncStockStatus($variant);
-            }
-
-            if ($product) {
-                $product->decrement('quantity', $item->quantity);
-                $this->syncStockStatus($product);
-            }
-        }
-    }
-
-    protected function restoreStock(Order $order): void
-    {
-        foreach ($order->items as $item) {
-            if ($item->variant_id) {
-                $item->variant?->increment('quantity', $item->quantity);
-                $item->variant?->update(['stock_status' => 'in_stock']);
-            }
-
-            if ($item->product_id) {
-                $item->product?->increment('quantity', $item->quantity);
-                $item->product?->update(['stock_status' => 'in_stock']);
-            }
-        }
-    }
-
-    protected function syncStockStatus($model): void
-    {
-        if ($model->quantity !== null && $model->quantity <= 0) {
-            $model->stock_status = 'out_of_stock';
-            $model->save();
-        }
     }
 
     protected function addressSnapshot($address): ?string

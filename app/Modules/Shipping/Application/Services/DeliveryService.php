@@ -26,6 +26,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Catalog\Infrastructure\Models\Product;
+use App\Modules\Catalog\Infrastructure\Models\ProductVariant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -532,20 +533,30 @@ class DeliveryService
 
     public function deliver(User $partnerUser, DeliveryAssignment $assignment, string $otp): DeliveryAssignment
     {
-        $this->assertPartnerOwns($partnerUser, $assignment);
-        $this->assertStatus($assignment, [DeliveryStatus::OUT_FOR_DELIVERY], 'Delivery must be out for delivery before confirmation.');
+        return DB::transaction(function () use ($partnerUser, $assignment, $otp) {
+            $assignment = DeliveryAssignment::query()
+                ->whereKey($assignment->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+            $this->assertPartnerOwns($partnerUser, $assignment);
+            $this->assertStatus($assignment, [DeliveryStatus::OUT_FOR_DELIVERY], 'Delivery must be out for delivery before confirmation.');
 
-        if (! $this->verifyOtp($assignment, $otp)) {
-            throw new DomainException('Invalid or expired delivery OTP.', 422);
-        }
+            if (! $this->verifyOtp($assignment, $otp)) {
+                throw new DomainException('Invalid or expired delivery OTP.', 422);
+            }
 
-        return DB::transaction(function () use ($partnerUser, $assignment) {
             $assignment->update([
                 'status' => DeliveryStatus::DELIVERED,
                 'delivered_at' => now(),
             ]);
 
-            $vendorOrder = $assignment->vendorOrder;
+            $vendorOrder = VendorOrder::query()
+                ->whereKey($assignment->vendor_order_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $vendorOrder->load(['items.product', 'items.variant']);
+            $this->decrementDeliveredStock($vendorOrder);
+
             $this->transitionVendorOrder($vendorOrder, OrderStatus::DELIVERED, $partnerUser);
             $this->transitionDelivery($vendorOrder, DeliveryStatus::DELIVERED, $partnerUser);
             $this->recordTracking($assignment, DeliveryStatus::DELIVERED, 'Order delivered and confirmed by customer OTP.', null);
@@ -607,7 +618,6 @@ class DeliveryService
         $this->transitionDelivery($assignment->vendorOrder, DeliveryStatus::RETURNED_TO_VENDOR, $partnerUser);
         $this->recordTracking($assignment, DeliveryStatus::RETURNED_TO_VENDOR, $reason ?: 'Order returned to vendor.', null);
 
-        $this->restoreStock($assignment->vendorOrder);
         $this->syncOrder($assignment->vendorOrder->order, $partnerUser);
 
         $this->dispatcher->deliveryReturned($assignment);
@@ -1129,7 +1139,6 @@ class DeliveryService
 
         DB::transaction(function () use ($vendorOrder, $actor, $reason) {
             $this->transitionVendorOrder($vendorOrder, OrderStatus::REJECTED, $actor);
-            $this->restoreStock($vendorOrder);
             $this->syncOrder($vendorOrder->order, $actor);
         });
 
@@ -1875,20 +1884,34 @@ class DeliveryService
             && $order->payment_status !== OrderPaymentStatus::PAID;
     }
 
-    protected function restoreStock(VendorOrder $vendorOrder): void
+    protected function decrementDeliveredStock(VendorOrder $vendorOrder): void
     {
         foreach ($vendorOrder->items as $item) {
-            $product = Product::query()->find($item->product_id);
-
-            if (! $product) {
-                continue;
+            if ($item->variant) {
+                $item->variant->decrement('quantity', $item->quantity);
+                $item->variant->refresh();
+                $this->syncStockStatus($item->variant, $item->product?->low_stock_threshold ?? 0);
             }
 
-            $product->increment('quantity', $item->quantity);
-
-            if ($product->quantity > 0 && $product->stock_status === StockStatus::OUT_OF_STOCK) {
-                $product->update(['stock_status' => StockStatus::IN_STOCK]);
+            if ($item->product) {
+                $item->product->decrement('quantity', $item->quantity);
+                $item->product->refresh();
+                $this->syncStockStatus($item->product, $item->product->low_stock_threshold);
             }
+        }
+    }
+
+    protected function syncStockStatus(Product|ProductVariant $model, int $lowStockThreshold): void
+    {
+        $quantity = (int) $model->quantity;
+        $status = $quantity <= 0
+            ? StockStatus::OUT_OF_STOCK
+            : ($quantity <= $lowStockThreshold ? StockStatus::LOW_STOCK : StockStatus::IN_STOCK);
+        $currentStatus = $model->stock_status;
+        $currentStatus = $currentStatus instanceof StockStatus ? $currentStatus : StockStatus::tryFrom((string) $currentStatus);
+
+        if ($currentStatus !== $status) {
+            $model->update(['stock_status' => $status]);
         }
     }
 
