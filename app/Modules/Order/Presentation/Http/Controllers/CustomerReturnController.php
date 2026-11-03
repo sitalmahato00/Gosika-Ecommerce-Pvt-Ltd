@@ -7,8 +7,11 @@ use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Order\Presentation\Resources\CustomerReturnResource;
+use App\Modules\Platform\Infrastructure\Models\Setting;
+use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Presentation\Http\Response;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -71,6 +74,24 @@ class CustomerReturnController extends Controller
             return Response::error('Order item not found for this order.', [], 404);
         }
 
+        $vendorOrder = $orderItem->vendorOrder;
+        if (! in_array($order->status, [OrderStatus::DELIVERED, OrderStatus::COMPLETED], true)
+            || ! $vendorOrder
+            || ! in_array($vendorOrder->status, [OrderStatus::DELIVERED, OrderStatus::COMPLETED], true)) {
+            return Response::error('Returns can only be requested after the order has been delivered.', [], 422);
+        }
+
+        $deliveredAt = $order->completed_at;
+        if (! $deliveredAt) {
+            return Response::error('The delivery date for this order is unavailable. Please contact support.', [], 422);
+        }
+
+        $windowDays = max(1, (int) Setting::get('return.window_days', 7));
+        $windowExpiresAt = Carbon::parse($deliveredAt)->addDays($windowDays);
+        if (now()->greaterThanOrEqualTo($windowExpiresAt)) {
+            return Response::error('The return and refund window for this order has expired.', [], 422);
+        }
+
         if ($data['quantity'] > $orderItem->quantity) {
             return Response::error('Quantity exceeds purchased quantity.', [], 422);
         }
@@ -89,8 +110,6 @@ class CustomerReturnController extends Controller
             return Response::error('A return request already exists for this item.', [], 422);
         }
 
-        $vendorOrder = $orderItem->vendor_order_id ? VendorOrder::find($orderItem->vendor_order_id) : null;
-
         $return = ReturnRequest::create([
             'return_number' => 'RTN-'.strtoupper(Str::random(8)),
             'user_id' => $request->user()->id,
@@ -103,7 +122,7 @@ class CustomerReturnController extends Controller
             'reason' => $data['reason'],
             'quantity' => $data['quantity'],
             'status' => ReturnStatus::REQUESTED,
-            'window_expires_at' => now()->addDays(7),
+            'window_expires_at' => $windowExpiresAt,
         ]);
 
         app(\App\Modules\Marketing\Application\Services\NotificationDispatcher::class)->returnRequested($return);

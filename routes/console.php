@@ -12,7 +12,7 @@ Artisan::command('inspire', function () {
 Artisan::command('orders:process-confirmations', function (OrderConfirmationSchedulerService $scheduler) {
     $this->info('Starting order confirmations and expirations check...');
     $results = $scheduler->run();
-    $this->info("Completed: {$results['auto_confirmed']} order(s) auto-confirmed, {$results['expired_cancelled']} expired order(s) cancelled.");
-})->purpose('Process automatic order confirmations and auto-cancel orders past the vendor confirmation deadline.');
+    $this->info("Completed: {$results['auto_confirmed']} order(s) auto-confirmed, {$results['expired_cancelled']} expired order(s) cancelled, {$results['completed']} return-window order(s) completed.");
+})->purpose('Process order confirmations, cancellations, and return-window expirations.');
 
 Schedule::command('orders:process-confirmations')->everyMinute();

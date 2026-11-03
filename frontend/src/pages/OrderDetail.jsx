@@ -8,7 +8,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Button from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
 import { money, formatDateTime, apiImage, errorMessage, handleImgError } from '../utils/format'
-import { ORDER_STATUS_FLOW, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../utils/constants'
+import { DELIVERY_STATUS_LABELS, ORDER_STATUS_FLOW, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../utils/constants'
 import { useToast } from '../context/ToastContext'
 
 const CANCEL_REASONS = [
@@ -176,6 +176,7 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
 
   const stepIdx = ORDER_STATUS_FLOW.indexOf(order.status)
   const addr = order.shipping_address || {}
+  const deliveryComplete = ['delivered', 'completed'].includes(order.status)
 
   return (
     <div className="page-shell container">
@@ -223,15 +224,55 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
         </div>
       )}
 
+      {deliveryComplete && (
+        <div className="alert mb-3 flex items-center gap-2" role="status" style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46' }}>
+          <CheckCircle2 size={18} />
+          <div className="text-sm">
+            <strong>Order delivered successfully.</strong>
+            {order.status === 'completed'
+              ? ' The return and refund period has expired, and this order is complete.'
+              : order.can_request_return
+                ? ` You can request a return until ${formatDateTime(order.return_window_expires_at)}.`
+                : ' The return and refund period has expired; this order will be marked complete shortly.'}
+          </div>
+        </div>
+      )}
+
       <style>{`
         @media (min-width: 900px) {
           #order-detail-layout { grid-template-columns: 1fr 340px !important; }
         }
       `}</style>
+      {/* Items */}
+      <div className="card mb-4">
+        <h2 style={{ fontSize: 16 }} className="mb-2">Items ({order.items?.length})</h2>
+        <div className="flex flex-col">
+          {(order.items || []).map((it) => (
+            <div key={it.id} className="flex items-center gap-3" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+              <Link to={`/product/${it.product_id}`} className="thumb" style={{ width: 56, height: 56 }}>
+                <img
+                  src={it.image ? apiImage(it.image) : getProductImage(it, 0, true)}
+                  alt={it.product_name || ''}
+                  className="thumb-img"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={handleImgError}
+                />
+              </Link>
+              <div className="flex-1 min-w-0">
+                <Link to={`/product/${it.product_id}`} className="font-medium text-sm">{it.product_name}</Link>
+                {it.variant_name && <div className="muted text-xs">{it.variant_name}</div>}
+                <div className="muted text-xs">× {it.quantity}</div>
+              </div>
+              <div className="text-sm font-semibold">{money(it.line_total)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div id="order-detail-layout" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, alignItems: 'start' }}>
         <div className="flex flex-col gap-4">
           {/* Delivery Confirmation OTP Card */}
-          {order.delivery_otp && order.status !== 'cancelled' && (
+          {order.delivery_otp && !deliveryComplete && order.status !== 'cancelled' && (
             <div
               className="card"
               style={{
@@ -267,15 +308,9 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
                   </div>
                 </div>
 
-                {order.status === 'delivered' ? (
-                  <span className="chip chip-success chip-sm flex items-center gap-1">
-                    <CheckCircle2 size={12} /> Delivery Verified
-                  </span>
-                ) : (
-                  <span className="chip chip-sm" style={{ background: '#ffedd5', color: '#c2410c', fontWeight: 700 }}>
-                    Required on Handover
-                  </span>
-                )}
+                <span className="chip chip-sm" style={{ background: '#ffedd5', color: '#c2410c', fontWeight: 700 }}>
+                  Required on Handover
+                </span>
               </div>
 
               <div
@@ -349,47 +384,28 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
             </div>
           </div>
 
-          {/* Items */}
-          <div className="card">
-            <h2 style={{ fontSize: 16 }} className="mb-2">Items ({order.items?.length})</h2>
-            <div className="flex flex-col">
-              {(order.items || []).map((it) => (
-                <div key={it.id} className="flex items-center gap-3" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-                  <Link to={`/product/${it.product_id}`} className="thumb" style={{ width: 56, height: 56 }}>
-                    <img
-                      src={it.image ? apiImage(it.image) : getProductImage(it, 0, true)}
-                      alt={it.product_name || ''}
-                      className="thumb-img"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={handleImgError}
-                    />
-                  </Link>
-                  <div className="flex-1 min-w-0">
-                    <Link to={`/product/${it.product_id}`} className="font-medium text-sm">{it.product_name}</Link>
-                    {it.variant_name && <div className="muted text-xs">{it.variant_name}</div>}
-                    <div className="muted text-xs">× {it.quantity}</div>
-                  </div>
-                  <div className="text-sm font-semibold">{money(it.line_total)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Tracking */}
-          {tracking.length > 0 && (
-            <div className="card">
-              <h2 style={{ fontSize: 16 }} className="mb-3">Delivery Tracking</h2>
+          <div className="card">
+            <h2 style={{ fontSize: 16 }} className="flex items-center gap-2 mb-3"><Truck size={16} color="var(--primary)" /> Delivery Tracking</h2>
+            {tracking.length > 0 ? (
               <div className="timeline">
-                {tracking.map((t) => (
-                  <div key={t.id} className={`timeline-item ${t.status === 'delivered' ? 'done' : 'active'}`}>
-                    <div className="font-medium text-sm">{t.title}</div>
-                    {t.description && <div className="muted text-xs">{t.description}</div>}
-                    <div className="muted text-xs mt-1">{formatDateTime(t.created_at)}</div>
+                {tracking.map((t, index) => (
+                  <div key={t.id} className={`timeline-item ${index === 0 ? 'active' : 'done'}`}>
+                    <div className="font-medium text-sm">{t.title || DELIVERY_STATUS_LABELS[t.status] || t.status}</div>
+                    {(t.description || t.note) && <div className="muted text-xs">{t.description || t.note}</div>}
+                    {t.location_zone && (
+                      <div className="muted text-xs flex items-center gap-1 mt-1">
+                        <MapPin size={12} /> Delivery zone: {t.location_zone}
+                      </div>
+                    )}
+                    <div className="muted text-xs mt-1">{formatDateTime(t.tracked_at || t.created_at)}</div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="muted text-sm" style={{ margin: 0 }}>Tracking updates will appear once your order is assigned for delivery.</p>
+            )}
+          </div>
         </div>
 
         {/* Summary sidebar */}
@@ -417,7 +433,7 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
             </div>
           </div>
 
-          {order.delivery_otp && order.status !== 'cancelled' && (
+          {order.delivery_otp && !deliveryComplete && order.status !== 'cancelled' && (
             <div className="card" style={{ padding: 16, background: '#fff7ed', border: '1px solid #fed7aa' }}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold uppercase" style={{ color: '#c2410c', letterSpacing: '0.04em' }}>Delivery OTP</span>

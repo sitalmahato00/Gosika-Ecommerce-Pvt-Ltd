@@ -1047,10 +1047,14 @@ class DeliveryService
     public function trackingForOrder(Order $order): Collection
     {
         return $order->vendorOrders()
-            ->with('assignments.tracking')
+            ->with('assignments.tracking.vendorOrder.order')
             ->get()
             ->flatMap(fn (VendorOrder $vendorOrder) => $vendorOrder->assignments->flatMap(fn ($assignment) => $assignment->tracking))
-            ->sortByDesc('tracked_at')
+            ->sort(function (DeliveryTracking $a, DeliveryTracking $b): int {
+                $byTime = ($b->tracked_at?->getTimestamp() ?? 0) <=> ($a->tracked_at?->getTimestamp() ?? 0);
+
+                return $byTime !== 0 ? $byTime : ($b->id <=> $a->id);
+            })
             ->values();
     }
 

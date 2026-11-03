@@ -46,9 +46,17 @@ class OrderResource extends JsonResource
         }
 
         $secondsRemaining = $isWithinWindow ? max(0, $now->diffInSeconds($cancellationDeadline, false)) : 0;
+        $returnWindowDays = max(1, (int) Setting::get('return.window_days', 7));
+        $returnWindowExpiresAt = $this->completed_at?->copy()->addDays($returnWindowDays);
+        $canRequestReturn = in_array($this->status, [OrderStatus::DELIVERED, OrderStatus::COMPLETED], true)
+            && $returnWindowExpiresAt !== null
+            && $now->lessThan($returnWindowExpiresAt);
 
-        $otpAvailable = $this->payment_status->value === \App\Modules\Shared\Domain\Enums\OrderPaymentStatus::PAID->value
-            || $this->payment_method === 'cod';
+        $otpAvailable = ! in_array($this->status, [OrderStatus::DELIVERED, OrderStatus::COMPLETED], true)
+            && (
+                $this->payment_status->value === \App\Modules\Shared\Domain\Enums\OrderPaymentStatus::PAID->value
+                || $this->payment_method === 'cod'
+            );
         $deliveryOtp = $otpAvailable ? ($this->meta['delivery_otp'] ?? null) : null;
         if ($otpAvailable && ! $deliveryOtp && $this->relationLoaded('vendorOrders')) {
             foreach ($this->vendorOrders as $vo) {
@@ -85,6 +93,8 @@ class OrderResource extends JsonResource
             'placed_at' => $this->placed_at?->toISOString() ?? $this->created_at?->toISOString(),
             'confirmed_at' => $this->confirmed_at?->toISOString(),
             'completed_at' => $this->completed_at?->toISOString(),
+            'return_window_expires_at' => $returnWindowExpiresAt?->toISOString(),
+            'can_request_return' => $canRequestReturn,
             'cancelled_at' => $this->cancelled_at?->toISOString(),
             'cancelled_reason' => $this->cancelled_reason,
             'created_at' => $this->created_at?->toISOString(),

@@ -87,7 +87,8 @@ export default function Returns() {
     setRequestOpen(true)
   }
 
-  const selectedOrder = orders.find((o) => o.id === returnForm.order_id)
+  const eligibleOrders = orders.filter((order) => order.can_request_return)
+  const selectedOrder = eligibleOrders.find((o) => o.id === returnForm.order_id)
   const selectedItem = selectedOrder?.items?.find((i) => i.id === returnForm.order_item_id)
 
   const submitReturn = async (e) => {
@@ -318,13 +319,13 @@ export default function Returns() {
           <form onSubmit={submitReturn} className="flex flex-col gap-3">
             {ordersLoading ? (
               <div className="flex flex-col gap-2"><Skeleton height={40} /><Skeleton height={40} /></div>
-            ) : orders.length === 0 ? (
-              <p className="muted text-sm">No orders yet to return.</p>
+            ) : eligibleOrders.length === 0 ? (
+              <p className="muted text-sm">No delivered orders are currently within the return and refund window.</p>
             ) : (
               <>
                 <Select label="Order" required value={returnForm.order_id} onChange={(e) => setReturnForm({ ...returnForm, order_id: e.target.value, order_item_id: '', quantity: 1 })}>
                   <option value="">Select an order</option>
-                  {orders.map((o) => (
+                  {eligibleOrders.map((o) => (
                     <option key={o.id} value={o.id}>#{o.order_number} · {formatDate(o.placed_at || o.created_at)}</option>
                   ))}
                 </Select>

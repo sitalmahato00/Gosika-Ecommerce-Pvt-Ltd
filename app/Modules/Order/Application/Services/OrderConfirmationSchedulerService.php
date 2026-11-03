@@ -32,19 +32,68 @@ class OrderConfirmationSchedulerService
     }
 
     /**
-     * Process all scheduled confirmation tasks:
+     * Process all scheduled order lifecycle tasks:
      * 1. Auto-cancel expired unconfirmed orders (> vendor confirmation deadline).
      * 2. Auto-confirm eligible orders (when auto-confirmation enabled & cancellation window passed).
+     * 3. Complete delivered orders after their return and refund window expires.
      */
     public function run(): array
     {
         $expiredCount = $this->processExpiredVendorConfirmations();
         $autoConfirmedCount = $this->processAutoConfirmations();
+        $completedCount = $this->processExpiredReturnWindows();
 
         return [
             'expired_cancelled' => $expiredCount,
             'auto_confirmed' => $autoConfirmedCount,
+            'completed' => $completedCount,
         ];
+    }
+
+    public function processExpiredReturnWindows(): int
+    {
+        $days = max(1, (int) Setting::get('return.window_days', 7));
+        $cutoff = now()->subDays($days);
+
+        $orders = Order::query()
+            ->where('status', OrderStatus::DELIVERED)
+            ->whereNotNull('completed_at')
+            ->where('completed_at', '<=', $cutoff)
+            ->orderBy('id')
+            ->get();
+
+        $completedCount = 0;
+
+        foreach ($orders as $candidate) {
+            $completed = DB::transaction(function () use ($candidate, $days): bool {
+                $order = Order::query()->whereKey($candidate->id)->lockForUpdate()->first();
+                if (! $order || $order->status !== OrderStatus::DELIVERED || ! $order->completed_at) {
+                    return false;
+                }
+
+                if ($order->completed_at->copy()->addDays($days)->isFuture()) {
+                    return false;
+                }
+
+                $order->update(['status' => OrderStatus::COMPLETED]);
+                OrderStatusHistory::query()->create([
+                    'trackable_type' => Order::class,
+                    'trackable_id' => $order->id,
+                    'from_status' => OrderStatus::DELIVERED->value,
+                    'to_status' => OrderStatus::COMPLETED->value,
+                    'reason' => 'The return and refund window has expired.',
+                    'actor_user_id' => null,
+                ]);
+
+                return true;
+            });
+
+            if ($completed) {
+                $completedCount++;
+            }
+        }
+
+        return $completedCount;
     }
 
     /**

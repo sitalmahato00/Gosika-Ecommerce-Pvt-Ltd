@@ -761,6 +761,16 @@ class DeliveryAssignmentTest extends TestCase
         $this->assertEquals(DeliveryStatus::DELIVERED, $assignment->fresh()->status);
         $this->assertSame(8, $product->fresh()->quantity);
         $this->assertSame(8, $variant->fresh()->quantity);
+        $this->actingAs($customer)
+            ->getJson("/api/v1/orders/{$order->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.delivery_otp', null);
+
+        $this->actingAs($customer)
+            ->getJson("/api/v1/orders/{$order->uuid}/tracking")
+            ->assertOk()
+            ->assertJsonPath('data.0.title', 'Delivered successfully')
+            ->assertJsonPath('data.0.location_zone', 'Kathmandu Metropolitan, Kathmandu, Bagmati');
 
         $this->actingAs($this->riderUser1)
             ->postJson("/api/v1/delivery-partner/assignments/{$assignment->uuid}/deliver", [

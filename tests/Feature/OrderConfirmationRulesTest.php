@@ -548,6 +548,74 @@ class OrderConfirmationRulesTest extends TestCase
         $this->assertSame(10, $this->product->fresh()->quantity);
     }
 
+    public function test_delivered_order_becomes_completed_after_return_window_expires(): void
+    {
+        [$order] = $this->createOrder(OrderStatus::DELIVERED);
+        $order->update(['completed_at' => now()->subDays(8)]);
+        Setting::set('return.window_days', 7, 'return', 'integer', true);
+
+        $scheduler = app(OrderConfirmationSchedulerService::class);
+        $this->assertSame(1, $scheduler->processExpiredReturnWindows());
+
+        $this->assertSame(OrderStatus::COMPLETED, $order->fresh()->status);
+        $this->assertDatabaseHas('order_status_history', [
+            'trackable_type' => Order::class,
+            'trackable_id' => $order->id,
+            'from_status' => OrderStatus::DELIVERED->value,
+            'to_status' => OrderStatus::COMPLETED->value,
+            'reason' => 'The return and refund window has expired.',
+        ]);
+        $this->assertSame(0, $scheduler->processExpiredReturnWindows());
+    }
+
+    public function test_return_request_window_starts_at_delivery_and_expires_after_configured_days(): void
+    {
+        Setting::set('return.window_days', 7, 'return', 'integer', true);
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED);
+        $deliveredAt = now()->subDays(2)->startOfSecond();
+        $order->update(['completed_at' => $deliveredAt]);
+        $vendorOrder->update(['status' => OrderStatus::DELIVERED]);
+        $item = $order->items()->firstOrFail();
+
+        $this->actingAs($customer)
+            ->getJson('/api/v1/orders/'.$order->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.can_request_return', true)
+            ->assertJsonPath('data.return_window_expires_at', $deliveredAt->copy()->addDays(7)->toISOString());
+
+        $this->actingAs($customer)
+            ->postJson('/api/v1/customer/returns', [
+                'order_id' => $order->uuid,
+                'order_item_id' => $item->uuid,
+                'reason_type' => 'damaged',
+                'reason' => 'The item arrived damaged.',
+                'quantity' => 1,
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('return_requests', [
+            'order_id' => $order->id,
+            'order_item_id' => $item->id,
+            'window_expires_at' => $deliveredAt->copy()->addDays(7)->toDateTimeString(),
+        ]);
+
+        [$expiredOrder, $expiredVendorOrder, $expiredCustomer] = $this->createOrder(OrderStatus::COMPLETED);
+        $expiredOrder->update(['completed_at' => now()->subDays(8)]);
+        $expiredVendorOrder->update(['status' => OrderStatus::DELIVERED]);
+        $expiredItem = $expiredOrder->items()->firstOrFail();
+
+        $this->actingAs($expiredCustomer)
+            ->postJson('/api/v1/customer/returns', [
+                'order_id' => $expiredOrder->uuid,
+                'order_item_id' => $expiredItem->uuid,
+                'reason_type' => 'damaged',
+                'reason' => 'The item arrived damaged.',
+                'quantity' => 1,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'The return and refund window for this order has expired.');
+    }
+
     // ── 11. Admin settings validation enforces precedence ───────────────
 
     public function test_admin_settings_validation_enforces_precedence_rules(): void
