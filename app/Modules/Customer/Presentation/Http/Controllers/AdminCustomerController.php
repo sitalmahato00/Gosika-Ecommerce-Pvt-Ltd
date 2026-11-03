@@ -13,10 +13,12 @@ use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Enums\UserStatus;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Validation\Rule;
 
 class AdminCustomerController extends Controller
 {
@@ -42,8 +44,14 @@ class AdminCustomerController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $customers = $this->customerBaseQuery()
-            ->when($request->input('search'), function ($q, $search) {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', Rule::enum(UserStatus::class)],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $query = $this->customerBaseQuery()
+            ->when($filters['search'] ?? null, function ($q, $search) {
                 $q->where(function ($inner) use ($search) {
                     $inner->where('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%")
@@ -51,9 +59,12 @@ class AdminCustomerController extends Controller
                         ->orWhere('phone', 'like', "%{$search}%");
                 });
             })
-            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
-            ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $customers = $query->paginate((int) ($filters['per_page'] ?? 15))->withQueryString();
 
         return Response::success(
             AdminCustomerResource::collection($customers),

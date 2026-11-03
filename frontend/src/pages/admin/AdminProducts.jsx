@@ -29,6 +29,9 @@ export default function AdminProducts({ initialStatus = 'all', title, descriptio
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState(initialStatus)
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [appliedDateRange, setAppliedDateRange] = useState({ from: '', to: '' })
   const [categories, setCategories] = useState([])
 
   const [dialogState, setDialogState] = useState({
@@ -57,6 +60,8 @@ export default function AdminProducts({ initialStatus = 'all', title, descriptio
       if (search.trim()) {
         params.search = search.trim()
       }
+      if (appliedDateRange.from) params.date_from = appliedDateRange.from
+      if (appliedDateRange.to) params.date_to = appliedDateRange.to
 
       const res = await api.get('/admin/products', { params })
       const data = api.unwrapList(res.data)
@@ -80,7 +85,17 @@ export default function AdminProducts({ initialStatus = 'all', title, descriptio
 
   useEffect(() => {
     loadProducts()
-  }, [page, statusFilter, categoryFilter])
+  }, [page, statusFilter, categoryFilter, search, appliedDateRange])
+
+  const resetFilters = () => {
+    setPage(1)
+    setSearch('')
+    setStatusFilter(initialStatus)
+    setCategoryFilter('')
+    setDateFrom('')
+    setDateTo('')
+    setAppliedDateRange({ from: '', to: '' })
+  }
 
   const handleAction = (action, product) => {
     setDialogState({
@@ -324,6 +339,7 @@ export default function AdminProducts({ initialStatus = 'all', title, descriptio
       <PageHeader
         title={title || 'Product Moderation & Catalog'}
         description={description || 'Review seller listings, verify product quality and specifications, manage status, and monitor inventory.'}
+        exportInfo="Export includes only the products currently shown after applied filters."
         breadcrumbs={[
           { label: 'Marketplace', to: '/admin/marketplace/vendors' },
           { label: title || 'Products' }
@@ -354,10 +370,11 @@ export default function AdminProducts({ initialStatus = 'all', title, descriptio
 
       <FilterBar
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={value => { setPage(1); setSearch(value) }}
         searchPlaceholder="Search product by title, SKU..."
+        debounceMs={350}
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={value => { setPage(1); setStatusFilter(value) }}
         statusOptions={[
           { value: 'pending_review', label: 'Pending Moderation' },
           { value: 'published', label: 'Approved / Live' },
@@ -372,7 +389,7 @@ export default function AdminProducts({ initialStatus = 'all', title, descriptio
               <select
                 className="input"
                 value={categoryFilter}
-                onChange={e => setCategoryFilter(e.target.value)}
+                onChange={e => { setPage(1); setCategoryFilter(e.target.value) }}
                 style={{ height: 36, fontSize: 13, borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
               >
                 <option value="">All Categories</option>
@@ -385,7 +402,16 @@ export default function AdminProducts({ initialStatus = 'all', title, descriptio
             </div>
           )
         }
-        onReset={() => { setSearch(''); setStatusFilter('all'); setCategoryFilter('') }}
+        fromDate={dateFrom}
+        toDate={dateTo}
+        onFromDateChange={setDateFrom}
+        onToDateChange={setDateTo}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDateRange({ from: dateFrom, to: dateTo })
+        }}
+        hasActiveFilters={Boolean(search || statusFilter !== initialStatus || categoryFilter || dateFrom || dateTo)}
+        onReset={resetFilters}
       />
 
       <DataTable

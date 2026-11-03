@@ -41,6 +41,9 @@ export default function AdminKyc() {
   const [pagination, setPagination] = useState(null)
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
   const [selectedKyc, setSelectedKyc] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
@@ -59,6 +62,8 @@ export default function AdminKyc() {
       if (statusFilter && statusFilter !== 'all') {
         params.status = statusFilter
       }
+      if (appliedDates.from) params.date_from = appliedDates.from
+      if (appliedDates.to) params.date_to = appliedDates.to
 
       const res = await api.get('/admin/vendors/kyc', { params })
       const data = api.unwrapList(res.data)
@@ -82,7 +87,7 @@ export default function AdminKyc() {
 
   useEffect(() => {
     loadKycList()
-  }, [page, statusFilter])
+  }, [page, statusFilter, appliedDates])
 
   const handleAction = (action, kyc) => {
     setDialogState({
@@ -289,7 +294,22 @@ export default function AdminKyc() {
 
       <FilterBar
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={(value) => { setPage(1); setStatusFilter(value) }}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDates({ from: fromDate, to: toDate })
+        }}
+        onReset={() => {
+          setStatusFilter('all')
+          setFromDate('')
+          setToDate('')
+          setAppliedDates({ from: '', to: '' })
+          setPage(1)
+        }}
         statusOptions={[
           { value: 'submitted', label: 'Submitted (Pending Review)' },
           { value: 'under_review', label: 'Under Review' },
@@ -297,7 +317,6 @@ export default function AdminKyc() {
           { value: 'resubmission_required', label: 'Changes Requested' },
           { value: 'rejected', label: 'Rejected' },
         ]}
-        onReset={() => setStatusFilter('all')}
       />
 
       {/* KYC Table */}

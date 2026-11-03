@@ -10,6 +10,7 @@ import Pagination from '../../components/ui/Pagination'
 import { Skeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 import { formatDateTime, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useBranding } from '../../context/BrandingContext'
@@ -134,6 +135,7 @@ export default function AdminNotifications() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Send instant announcements, SMS push alerts, and monitor automatic system broadcasts to customers, vendors, and couriers.
           </p>
+          <ExportScopeNote />
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>

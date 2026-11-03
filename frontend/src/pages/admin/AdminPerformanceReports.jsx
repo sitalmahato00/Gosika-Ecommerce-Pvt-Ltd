@@ -6,6 +6,7 @@ import {
 import api from '../../api/client'
 import { useApi } from '../../hooks/useApi'
 import PortalHeader from '../../components/admin/PortalHeader'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 import FluidLineChart from '../../components/admin/charts/fx/FluidLineChart'
 import { money, humanizeEnum, errorMessage } from '../../utils/format'
 import { exportReport, companyFromBranding, personLabel } from '../../utils/reportExport'
@@ -253,6 +254,7 @@ export default function AdminPerformanceReports() {
           </div>
         }
       />
+      <ExportScopeNote>Report includes only the selected sections and date range.</ExportScopeNote>
 
       {/* KPI strip */}
       <div className="pr-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0,1fr))', gap: 12 }}>

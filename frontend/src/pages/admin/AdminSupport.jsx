@@ -16,6 +16,7 @@ import { useToast } from '../../context/ToastContext'
 import { useBranding } from '../../context/BrandingContext'
 import { useAuth } from '../../context/AuthContext'
 import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 
 const STATUS_TABS = [
   { value: '', label: 'All' },
@@ -176,6 +177,7 @@ export default function AdminSupport() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Manage incoming customer and artisan vendor inquiries, dispute mediations, and resolution escalations.
           </p>
+          <ExportScopeNote />
         </div>
         <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>
           <Download size={14} /> Export CSV

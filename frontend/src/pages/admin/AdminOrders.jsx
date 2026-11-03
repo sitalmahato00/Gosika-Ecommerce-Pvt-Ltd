@@ -30,7 +30,9 @@ export default function AdminOrders() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [paymentFilter, setPaymentFilter] = useState('')
-  const [dateRange, setDateRange] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [appliedDateRange, setAppliedDateRange] = useState({ from: '', to: '' })
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -45,20 +47,8 @@ export default function AdminOrders() {
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter
       if (paymentFilter) params.payment_method = paymentFilter
       if (search.trim()) params.search = search.trim()
-
-      const today = new Date()
-      if (dateRange === 'today') {
-        params.date_from = today.toISOString().slice(0, 10)
-        params.date_to = today.toISOString().slice(0, 10)
-      } else if (dateRange === '7d') {
-        const from = new Date(today.getTime() - 6 * 86400000)
-        params.date_from = from.toISOString().slice(0, 10)
-        params.date_to = today.toISOString().slice(0, 10)
-      } else if (dateRange === '30d') {
-        const from = new Date(today.getTime() - 29 * 86400000)
-        params.date_from = from.toISOString().slice(0, 10)
-        params.date_to = today.toISOString().slice(0, 10)
-      }
+      if (appliedDateRange.from) params.date_from = appliedDateRange.from
+      if (appliedDateRange.to) params.date_to = appliedDateRange.to
 
       const res = await api.get('/admin/orders', { params })
       const data = api.unwrapList(res.data)
@@ -82,7 +72,17 @@ export default function AdminOrders() {
 
   useEffect(() => {
     loadOrders()
-  }, [page, statusFilter, paymentFilter, dateRange])
+  }, [page, statusFilter, paymentFilter, search, appliedDateRange])
+
+  const resetFilters = () => {
+    setPage(1)
+    setSearch('')
+    setStatusFilter('all')
+    setPaymentFilter('')
+    setDateFrom('')
+    setDateTo('')
+    setAppliedDateRange({ from: '', to: '' })
+  }
 
   const handleConfirmCancel = async (reason) => {
     const { order } = dialogState
@@ -103,6 +103,9 @@ export default function AdminOrders() {
   }
 
   const exportCSV = () => {
+    const rangeLabel = appliedDateRange.from || appliedDateRange.to
+      ? `${appliedDateRange.from || 'Beginning'} – ${appliedDateRange.to || 'Present'}`
+      : 'All time'
     const columns = [
       { label: 'Order #' },
       { label: 'Customer' },
@@ -130,10 +133,10 @@ export default function AdminOrders() {
       columns,
       rows,
       title: 'Marketplace Orders Report',
-      subtitle: 'All multi-vendor checkout transactions, fulfilment routing and payment lifecycles.',
-      sectionLabel: 'All Orders',
+      subtitle: 'Filtered multi-vendor checkout transactions, fulfilment routing and payment lifecycles.',
+      sectionLabel: 'Filtered Orders',
       fileName: `gosika_orders_${new Date().toISOString().slice(0, 10)}`,
-      rangeLabel: 'All time',
+      rangeLabel,
       preparedBy: personLabel(user),
       company: companyFromBranding(branding),
     })
@@ -249,6 +252,7 @@ export default function AdminOrders() {
       <PageHeader
         title="Marketplace Orders"
         description="Monitor multi-vendor checkout transactions, fulfillment routing, and order lifecycles."
+        exportInfo="Export includes only the orders currently shown after applied filters."
         breadcrumbs={[
           { label: 'Orders', to: '/admin/orders' },
           { label: 'All Orders' }
@@ -278,10 +282,11 @@ export default function AdminOrders() {
 
       <FilterBar
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={value => { setPage(1); setSearch(value) }}
         searchPlaceholder="Search order #, customer name, phone..."
+        debounceMs={350}
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={value => { setPage(1); setStatusFilter(value) }}
         statusOptions={[
           { value: 'pending', label: 'Pending Payment / Confirmation' },
           { value: 'confirmed', label: 'Confirmed' },
@@ -298,7 +303,7 @@ export default function AdminOrders() {
               <select
                 className="input"
                 value={paymentFilter}
-                onChange={e => setPaymentFilter(e.target.value)}
+                onChange={e => { setPage(1); setPaymentFilter(e.target.value) }}
                 style={{ height: 36, fontSize: 13, borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
               >
                 <option value="">All Payments</option>
@@ -307,23 +312,18 @@ export default function AdminOrders() {
                 <option value="cod">Cash on Delivery</option>
               </select>
             </div>
-
-            <div style={{ minWidth: 120 }}>
-              <select
-                className="input"
-                value={dateRange}
-                onChange={e => setDateRange(e.target.value)}
-                style={{ height: 36, fontSize: 13, borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
-              >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-              </select>
-            </div>
           </>
         }
-        onReset={() => { setSearch(''); setStatusFilter('all'); setPaymentFilter(''); setDateRange('all') }}
+        fromDate={dateFrom}
+        toDate={dateTo}
+        onFromDateChange={setDateFrom}
+        onToDateChange={setDateTo}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDateRange({ from: dateFrom, to: dateTo })
+        }}
+        hasActiveFilters={Boolean(search || (statusFilter && statusFilter !== 'all') || paymentFilter || dateFrom || dateTo)}
+        onReset={resetFilters}
       />
 
       <DataTable

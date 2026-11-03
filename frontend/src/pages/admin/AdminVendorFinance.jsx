@@ -349,6 +349,7 @@ export default function AdminVendorFinance() {
       <PageHeader
         title={vendor.company_name || 'Vendor Finance'}
         description={`Full financial ledger for ${vendor.company_name || 'vendor'} — wallet balance, orders, settlements you can hold/release/distribute, payouts and every transaction.`}
+        exportInfo="Export includes the records shown in the selected finance tab; order exports also respect the search filter."
         breadcrumbs={[
           { label: 'Finance', to: '/admin/finance/payments' },
           { label: 'Settlements', to: '/admin/finance/settlements' },

@@ -11,6 +11,7 @@ use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Payment\Presentation\Resources\AdminRefundResource;
 use App\Modules\Shared\Domain\Enums\RefundStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class AdminRefundController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $refunds = Refund::query()
+        $query = Refund::query()
             ->with(['payment', 'order.user', 'orderItem'])
             ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->input('search'), function ($q, $search) {
@@ -37,8 +38,11 @@ class AdminRefundController extends Controller
                         ->orWhereHas('order', fn ($o) => $o->where('order_number', 'like', "%{$search}%"));
                 });
             })
-            ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $refunds = $query->paginate(min(max($request->integer('per_page', 15), 1), 100))->withQueryString();
 
         return Response::success(
             AdminRefundResource::collection($refunds),

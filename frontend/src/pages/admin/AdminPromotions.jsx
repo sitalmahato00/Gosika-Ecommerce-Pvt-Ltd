@@ -12,6 +12,7 @@ import { Skeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import ImageUpload from '../../components/ui/ImageUpload'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 import { formatDate, apiImage, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useBranding } from '../../context/BrandingContext'
@@ -182,6 +183,7 @@ export default function AdminPromotions() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Manage marketplace featured marketing banners, seasonal festival promotions, and deal slots across Nepal.
           </p>
+          <ExportScopeNote />
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>

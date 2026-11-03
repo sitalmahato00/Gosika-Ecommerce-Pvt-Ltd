@@ -8,30 +8,46 @@ use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Presentation\Http\Requests\CancelOrderRequest;
 use App\Modules\Order\Presentation\Http\Requests\PlaceOrderRequest;
 use App\Modules\Order\Presentation\Resources\OrderResource;
+use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
 {
     public function __construct(
         protected OrderService $orderService,
         protected CheckoutService $checkoutService
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
-        $perPage = min(max($request->integer('per_page', 15), 1), 50);
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::enum(OrderStatus::class)],
+            'search' => ['nullable', 'string', 'max:120'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
 
-        $orders = Order::query()
+        $query = Order::query()
             ->where('user_id', $request->user()->id)
             ->with(['items.product', 'items.variant'])
-            ->when($request->filled('status'), fn ($query, $status) => $query->where('status', $status))
-            ->latest()
-            ->paginate($perPage);
+            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('order_number', 'like', '%'.$search.'%')
+                        ->orWhereHas('items', fn ($items) => $items->where('product_name', 'like', '%'.$search.'%'));
+                });
+            })
+            ->orderByDesc('placed_at')
+            ->orderByDesc('id');
+
+        ListingDateRange::apply($query, $request, 'placed_at');
+
+        $orders = $query->paginate((int) ($filters['per_page'] ?? 15))->withQueryString();
 
         return Response::success(
             OrderResource::collection($orders),

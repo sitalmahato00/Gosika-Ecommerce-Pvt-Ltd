@@ -1,7 +1,7 @@
-import React, { useCallback, useState, useMemo } from 'react'
+import React, { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ShoppingBag, ChevronRight, Search, Download, CheckCircle2,
+  ShoppingBag, ChevronRight, Download, CheckCircle2,
   Clock, Truck, Check, PackageCheck, XCircle, Lock,
 } from 'lucide-react'
 import api from '../../api/client'
@@ -12,6 +12,8 @@ import ErrorState from '../../components/ui/ErrorState'
 import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import Input from '../../components/ui/Input'
+import FilterBar from '../../components/admin/FilterBar'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDateTime, errorMessage } from '../../utils/format'
@@ -59,6 +61,9 @@ export default function VendorOrders({ view = 'all' }) {
   const toast = useToast()
   const [status, setStatus] = useState(viewMeta.status)
   const [search, setSearch] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [appliedDateRange, setAppliedDateRange] = useState({ from: '', to: '' })
   const [busy, setBusy] = useState(null)
   const [rejectTarget, setRejectTarget] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
@@ -69,25 +74,29 @@ export default function VendorOrders({ view = 'all' }) {
         page,
         per_page: pageSize,
         status: status || undefined,
+        search: search || undefined,
+        date_from: appliedDateRange.from || undefined,
+        date_to: appliedDateRange.to || undefined,
       },
     }),
-    [status],
+    [status, search, appliedDateRange],
   )
 
   const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
-    deps: [status],
+    deps: [status, search, appliedDateRange],
     pageSize: 15,
   })
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return items
-    return items.filter((o) =>
-      String(o.vendor_order_number || '').toLowerCase().includes(q) ||
-      String(o.store_name || '').toLowerCase().includes(q) ||
-      String(o.items?.[0]?.product_name || '').toLowerCase().includes(q),
-    )
-  }, [items, search])
+  const filtered = items
+
+  const resetFilters = () => {
+    setPage(1)
+    setStatus(viewMeta.status)
+    setSearch('')
+    setDateFrom('')
+    setDateTo('')
+    setAppliedDateRange({ from: '', to: '' })
+  }
 
   const doAction = async (order, action, successMsg) => {
     setBusy(`${order.id}:${action}`)
@@ -169,6 +178,7 @@ export default function VendorOrders({ view = 'all' }) {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             {viewMeta.subtitle}
           </p>
+          <ExportScopeNote />
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>
@@ -219,35 +229,25 @@ export default function VendorOrders({ view = 'all' }) {
         </div>
       </div>
 
-      <div className="card" style={{ padding: '14px 18px', marginBottom: 16 }}>
-        <div className="flex items-center justify-between wrap gap-3">
-          <div className="flex gap-1 wrap">
-            {STATUS_TABS.map((t) => (
-              <button
-                key={t.value}
-                type="button"
-                className={`btn btn-xs ${status === t.value ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ borderRadius: 'var(--radius-sm)' }}
-                onClick={() => { setStatus(t.value); setPage(1) }}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ position: 'relative', width: 230 }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-            <input
-              type="text"
-              className="input"
-              style={{ paddingLeft: 30, height: 32, fontSize: 13 }}
-              placeholder="Search order #, store, item…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
+      <FilterBar
+        search={search}
+        onSearchChange={value => { setPage(1); setSearch(value) }}
+        searchPlaceholder="Search order #, store, item…"
+        debounceMs={350}
+        statusFilter={status || 'all'}
+        onStatusChange={value => { setPage(1); setStatus(value === 'all' ? '' : value) }}
+        statusOptions={STATUS_TABS.filter(tab => tab.value).map(tab => ({ value: tab.value, label: tab.label }))}
+        fromDate={dateFrom}
+        toDate={dateTo}
+        onFromDateChange={setDateFrom}
+        onToDateChange={setDateTo}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDateRange({ from: dateFrom, to: dateTo })
+        }}
+        hasActiveFilters={Boolean(search || (status && status !== viewMeta.status) || dateFrom || dateTo)}
+        onReset={resetFilters}
+      />
 
       {filtered.length ? (
         <div className="card card-pad-none" style={{ overflow: 'hidden' }}>

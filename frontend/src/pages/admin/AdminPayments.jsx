@@ -27,6 +27,9 @@ export default function AdminPayments() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [providerFilter, setProviderFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [appliedDateRange, setAppliedDateRange] = useState({ from: '', to: '' })
   const [selectedTxn, setSelectedTxn] = useState(null)
 
   const [refundDialog, setRefundDialog] = useState({
@@ -42,6 +45,8 @@ export default function AdminPayments() {
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter
       if (providerFilter) params.provider = providerFilter
       if (search.trim()) params.search = search.trim()
+      if (appliedDateRange.from) params.date_from = appliedDateRange.from
+      if (appliedDateRange.to) params.date_to = appliedDateRange.to
 
       const res = await api.get('/admin/payments', { params })
       const data = api.unwrapList(res.data)
@@ -65,7 +70,17 @@ export default function AdminPayments() {
 
   useEffect(() => {
     loadPayments()
-  }, [page, statusFilter, providerFilter])
+  }, [page, statusFilter, providerFilter, search, appliedDateRange])
+
+  const resetFilters = () => {
+    setPage(1)
+    setSearch('')
+    setStatusFilter('all')
+    setProviderFilter('')
+    setDateFrom('')
+    setDateTo('')
+    setAppliedDateRange({ from: '', to: '' })
+  }
 
   const handleConfirmRefund = async (reason) => {
     const { payment } = refundDialog
@@ -109,7 +124,7 @@ export default function AdminPayments() {
         formatDateTime(p.created_at || p.initiated_at)
       ]),
       title: 'Payment Transactions Report',
-      subtitle: 'All captured payment transactions with gateway providers and settlement status.',
+      subtitle: 'Filtered captured payment transactions with gateway providers and settlement status.',
       sectionLabel: 'Payment Ledger',
       fileName: `gosika_payments_${new Date().toISOString().slice(0, 10)}`,
       preparedBy: personLabel(user),
@@ -219,6 +234,7 @@ export default function AdminPayments() {
       <PageHeader
         title="Payment Transactions"
         description="Monitor digital gateway payments (eSewa, Khalti), cash on delivery reconciliations, and transactions."
+        exportInfo="Export includes only the payment transactions currently shown after applied filters."
         breadcrumbs={[
           { label: 'Finance', to: '/admin/finance/payments' },
           { label: 'Payments' }
@@ -248,10 +264,11 @@ export default function AdminPayments() {
 
       <FilterBar
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={value => { setPage(1); setSearch(value) }}
         searchPlaceholder="Search payment #, order #, provider ref..."
+        debounceMs={350}
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={value => { setPage(1); setStatusFilter(value) }}
         statusOptions={[
           { value: 'paid', label: 'Paid / Captured' },
           { value: 'initiated', label: 'Initiated' },
@@ -264,7 +281,7 @@ export default function AdminPayments() {
             <select
               className="input"
               value={providerFilter}
-              onChange={e => setProviderFilter(e.target.value)}
+              onChange={e => { setPage(1); setProviderFilter(e.target.value) }}
               style={{ height: 36, fontSize: 13, borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
             >
               <option value="">All Providers</option>
@@ -274,7 +291,16 @@ export default function AdminPayments() {
             </select>
           </div>
         }
-        onReset={() => { setSearch(''); setStatusFilter('all'); setProviderFilter('') }}
+        fromDate={dateFrom}
+        toDate={dateTo}
+        onFromDateChange={setDateFrom}
+        onToDateChange={setDateTo}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDateRange({ from: dateFrom, to: dateTo })
+        }}
+        hasActiveFilters={Boolean(search || (statusFilter && statusFilter !== 'all') || providerFilter || dateFrom || dateTo)}
+        onReset={resetFilters}
       />
 
       <DataTable

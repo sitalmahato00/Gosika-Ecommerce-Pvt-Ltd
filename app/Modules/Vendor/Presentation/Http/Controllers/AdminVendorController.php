@@ -11,6 +11,7 @@ use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Domain\Enums\UserStatus;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Application\Services\VendorOnboardingService;
 use App\Modules\Vendor\Infrastructure\Models\Store;
@@ -39,11 +40,27 @@ class AdminVendorController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $vendors = Vendor::query()
+        $query = Vendor::query()
             ->with(['kyc', 'stores'])
             ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
-            ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $term = '%'.$request->string('search')->trim().'%';
+                $q->where(function ($inner) use ($term) {
+                    $inner->where('company_name', 'like', $term)
+                        ->orWhere('business_email', 'like', $term)
+                        ->orWhere('business_phone', 'like', $term)
+                        ->orWhereHas('user', fn ($user) => $user
+                            ->where('first_name', 'like', $term)
+                            ->orWhere('last_name', 'like', $term)
+                            ->orWhere('email', 'like', $term)
+                            ->orWhere('phone', 'like', $term));
+                });
+            })
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $vendors = $query->paginate(min(max($request->integer('per_page', 15), 1), 100))->withQueryString();
 
         return Response::success(
             VendorResource::collection($vendors),
@@ -118,15 +135,20 @@ class AdminVendorController extends Controller
 
     public function stores(Request $request): JsonResponse
     {
-        $stores = Store::query()
+        $query = Store::query()
             ->with(['vendor'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($request->filled('search'), function ($q) use ($request) {
-                $term = '%'.$request->search.'%';
-                $q->where('name', 'like', $term)->orWhere('slug', 'like', $term);
+                $term = '%'.$request->string('search')->trim().'%';
+                $q->where(fn ($inner) => $inner
+                    ->where('name', 'like', $term)
+                    ->orWhere('slug', 'like', $term));
             })
-            ->latest()
-            ->paginate($request->integer('per_page', 20));
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $stores = $query->paginate(min(max($request->integer('per_page', 20), 1), 100))->withQueryString();
 
         return Response::success(
             StoreResource::collection($stores),
@@ -142,11 +164,14 @@ class AdminVendorController extends Controller
 
     public function kycList(Request $request): JsonResponse
     {
-        $kycs = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::query()
+        $query = \App\Modules\Vendor\Infrastructure\Models\VendorKyc::query()
             ->with(['vendor', 'documents'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
-            ->latest()
-            ->paginate($request->integer('per_page', 20));
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $kycs = $query->paginate(min(max($request->integer('per_page', 20), 1), 100))->withQueryString();
 
         return Response::success(
             $kycs->items(),

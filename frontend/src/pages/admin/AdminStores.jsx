@@ -21,6 +21,9 @@ export default function AdminStores() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -39,6 +42,8 @@ export default function AdminStores() {
       if (search.trim()) {
         params.search = search.trim()
       }
+      if (appliedDates.from) params.date_from = appliedDates.from
+      if (appliedDates.to) params.date_to = appliedDates.to
 
       const res = await api.get('/admin/vendors/stores', { params })
       const data = api.unwrapList(res.data)
@@ -62,7 +67,7 @@ export default function AdminStores() {
 
   useEffect(() => {
     loadStores()
-  }, [page, statusFilter])
+  }, [page, statusFilter, search, appliedDates])
 
   const handleSearchSubmit = (e) => {
     if (e && e.preventDefault) e.preventDefault()
@@ -241,17 +246,33 @@ export default function AdminStores() {
 
       <FilterBar
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => { setPage(1); setSearch(value) }}
+        debounceMs={300}
         searchPlaceholder="Search stores by name or slug..."
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={(value) => { setPage(1); setStatusFilter(value) }}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDates({ from: fromDate, to: toDate })
+        }}
         statusOptions={[
           { value: 'active', label: 'Active / Published' },
           { value: 'pending_approval', label: 'Pending Review' },
           { value: 'draft', label: 'Draft' },
           { value: 'suspended', label: 'Suspended' },
         ]}
-        onReset={() => { setSearch(''); setStatusFilter('all') }}
+        onReset={() => {
+          setSearch('')
+          setStatusFilter('all')
+          setFromDate('')
+          setToDate('')
+          setAppliedDates({ from: '', to: '' })
+          setPage(1)
+        }}
       />
 
       <DataTable

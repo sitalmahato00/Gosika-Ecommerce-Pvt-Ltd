@@ -13,12 +13,13 @@ use App\Modules\Catalog\Presentation\Resources\BrandRequestResource;
 use App\Modules\Catalog\Presentation\Resources\BrandResource;
 use App\Modules\Catalog\Presentation\Resources\CategoryResource;
 use App\Modules\Catalog\Presentation\Resources\ProductResource;
-use App\Modules\Identity\Domain\Roles;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\ProductStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
+use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -36,14 +37,21 @@ class AdminCatalogController extends Controller
 
     public function products(Request $request): JsonResponse
     {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::enum(ProductStatus::class)],
+            'vendor_id' => ['nullable', 'string', 'max:64'],
+            'category_id' => ['nullable', 'integer', 'min:1'],
+            'search' => ['nullable', 'string', 'max:120'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
         $query = Product::query()
             ->with(['vendor', 'store', 'category', 'brand', 'variants', 'images'])
-            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
-            ->when($request->filled('vendor_id'), function ($q) use ($request) {
-                $vendorId = $request->vendor_id;
+            ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
+            ->when($filters['vendor_id'] ?? null, function ($q, $vendorId) {
 
                 if (! ctype_digit((string) $vendorId)) {
-                    $vendorId = \App\Modules\Vendor\Infrastructure\Models\Vendor::query()
+                    $vendorId = Vendor::query()
                         ->where('uuid', $vendorId)
                         ->value('id');
                 }
@@ -52,9 +60,9 @@ class AdminCatalogController extends Controller
                     $q->where('vendor_id', $vendorId);
                 }
             })
-            ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->category_id))
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $term = '%'.$request->search.'%';
+            ->when($filters['category_id'] ?? null, fn ($q, $categoryId) => $q->where('category_id', $categoryId))
+            ->when($filters['search'] ?? null, function ($q, $search) {
+                $term = '%'.$search.'%';
                 $q->where(function ($sub) use ($term) {
                     $sub->where('name', 'like', $term)
                         ->orWhere('sku', 'like', $term);
@@ -62,7 +70,9 @@ class AdminCatalogController extends Controller
             })
             ->orderByDesc('created_at');
 
-        $products = $query->paginate((int) $request->integer('per_page', 20));
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $products = $query->paginate((int) ($filters['per_page'] ?? 20))->withQueryString();
 
         return Response::success(ProductResource::collection($products), 'Products retrieved.', [
             'current_page' => $products->currentPage(),

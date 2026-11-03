@@ -26,6 +26,9 @@ export default function AdminPayouts() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('pending')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -40,6 +43,8 @@ export default function AdminPayouts() {
       const params = { page, per_page: 15 }
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter
       if (search.trim()) params.search = search.trim()
+      if (appliedDates.from) params.date_from = appliedDates.from
+      if (appliedDates.to) params.date_to = appliedDates.to
 
       const res = await api.get('/admin/wallet/payouts', { params })
       const data = api.unwrapList(res.data)
@@ -63,7 +68,7 @@ export default function AdminPayouts() {
 
   useEffect(() => {
     loadPayouts()
-  }, [page, statusFilter])
+  }, [page, statusFilter, search, appliedDates])
 
   const handleAction = (action, payout) => {
     setDialogState({
@@ -242,6 +247,7 @@ export default function AdminPayouts() {
       <PageHeader
         title="Vendor Payout Requests"
         description="Verify vendor earnings withdrawals, check bank transfer details, approve payments, and confirm disbursements."
+        exportInfo="Export includes only the payout requests currently shown after applied filters."
         breadcrumbs={[
           { label: 'Finance', to: '/admin/finance/payments' },
           { label: 'Payouts' }
@@ -271,17 +277,33 @@ export default function AdminPayouts() {
 
       <FilterBar
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => { setPage(1); setSearch(value) }}
+        debounceMs={300}
         searchPlaceholder="Search payout # or vendor..."
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={(value) => { setPage(1); setStatusFilter(value) }}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDates({ from: fromDate, to: toDate })
+        }}
         statusOptions={[
           { value: 'pending', label: 'Pending Verification' },
           { value: 'approved', label: 'Approved (Pending Bank Transfer)' },
           { value: 'paid', label: 'Disbursed / Paid' },
           { value: 'rejected', label: 'Rejected' },
         ]}
-        onReset={() => { setSearch(''); setStatusFilter('pending') }}
+        onReset={() => {
+          setSearch('')
+          setStatusFilter('pending')
+          setFromDate('')
+          setToDate('')
+          setAppliedDates({ from: '', to: '' })
+          setPage(1)
+        }}
       />
 
       <DataTable

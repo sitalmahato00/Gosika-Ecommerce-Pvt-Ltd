@@ -11,6 +11,7 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { money, apiImage, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 
 const RANGES = [
   { value: '7d', label: '7 days' },
@@ -121,6 +122,7 @@ export default function VendorAnalytics() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Monitor real-time revenue velocity, top converting catalog products, and regional sales distribution.
           </p>
+          <ExportScopeNote>Export reflects the currently selected reporting range.</ExportScopeNote>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportReport}>

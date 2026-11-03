@@ -19,6 +19,9 @@ export default function AdminDeliveryPartners() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
 
@@ -44,6 +47,8 @@ export default function AdminDeliveryPartners() {
       const params = {}
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter
       if (search.trim()) params.search = search.trim()
+      if (appliedDates.from) params.date_from = appliedDates.from
+      if (appliedDates.to) params.date_to = appliedDates.to
 
       const res = await api.get('/admin/delivery-partners', { params })
       setPartners(api.unwrapList(res.data))
@@ -56,7 +61,7 @@ export default function AdminDeliveryPartners() {
 
   useEffect(() => {
     loadPartners()
-  }, [statusFilter])
+  }, [statusFilter, search, appliedDates])
 
   const handleAction = (action, partner) => {
     setDialogState({
@@ -299,15 +304,27 @@ export default function AdminDeliveryPartners() {
       <FilterBar
         search={search}
         onSearchChange={setSearch}
+        debounceMs={300}
         searchPlaceholder="Search by rider name, phone, plate #..."
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onApplyFilters={() => setAppliedDates({ from: fromDate, to: toDate })}
         statusOptions={[
           { value: 'active', label: 'Active & Verified' },
           { value: 'pending', label: 'Pending Approval' },
           { value: 'suspended', label: 'Suspended' },
         ]}
-        onReset={() => { setSearch(''); setStatusFilter('all') }}
+        onReset={() => {
+          setSearch('')
+          setStatusFilter('all')
+          setFromDate('')
+          setToDate('')
+          setAppliedDates({ from: '', to: '' })
+        }}
       />
 
       <DataTable

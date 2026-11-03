@@ -3,11 +3,11 @@
 namespace App\Modules\Payment\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
-use App\Modules\Identity\Domain\Roles;
 use App\Modules\Payment\Application\Services\RefundService;
 use App\Modules\Payment\Infrastructure\Models\Payment;
 use App\Modules\Payment\Presentation\Resources\AdminPaymentResource;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,19 +25,22 @@ class AdminPaymentController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $payments = Payment::query()
+        $query = Payment::query()
             ->with(['user', 'order', 'refunds'])
             ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->input('method'), fn ($q, $s) => $q->where('method', $s))
             ->when($request->input('provider'), fn ($q, $s) => $q->where('provider', $s))
             ->when($request->input('search'), function ($q, $search) {
-                $q->where('payment_number', 'like', "%{$search}%")
-                    ->orWhere('provider_transaction_id', 'like', "%{$search}%");
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('payment_number', 'like', "%{$search}%")
+                        ->orWhere('provider_transaction_id', 'like', "%{$search}%");
+                });
             })
-            ->when($request->input('date_from'), fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
-            ->when($request->input('date_to'), fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
-            ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $payments = $query->paginate(min(max($request->integer('per_page', 15), 1), 100))->withQueryString();
 
         return Response::success(
             AdminPaymentResource::collection($payments),

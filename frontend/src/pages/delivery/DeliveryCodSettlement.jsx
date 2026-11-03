@@ -7,6 +7,7 @@ import { isSameDay, isThisWeek, isThisMonth } from '../../utils/delivery'
 import ErrorState from '../../components/ui/ErrorState'
 import EmptyState from '../../components/ui/EmptyState'
 import { Skeleton } from '../../components/ui/Skeleton'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 
 const PERIODS = [
   { key: 'all', label: 'All Time' },
@@ -106,6 +107,7 @@ export default function DeliveryCodSettlement() {
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
             Your settlement breakdown — COD remitted to the hub, delivery fees you keep.
           </p>
+          <ExportScopeNote>Export includes deliveries in the selected settlement period.</ExportScopeNote>
         </div>
         <div className="flex items-center gap-2" style={{ overflowX: 'auto', paddingBottom: 2 }}>
           {PERIODS.map((p) => (

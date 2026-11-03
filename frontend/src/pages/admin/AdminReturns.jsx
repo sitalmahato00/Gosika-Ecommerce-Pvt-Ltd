@@ -31,7 +31,11 @@ export default function AdminReturns() {
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState(null)
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -49,6 +53,9 @@ export default function AdminReturns() {
       if (statusFilter && statusFilter !== 'all') {
         params.status = statusFilter
       }
+      if (search.trim()) params.search = search.trim()
+      if (appliedDates.from) params.date_from = appliedDates.from
+      if (appliedDates.to) params.date_to = appliedDates.to
 
       const res = await api.get('/admin/orders/returns', { params })
       const data = api.unwrapList(res.data)
@@ -72,7 +79,7 @@ export default function AdminReturns() {
 
   useEffect(() => {
     loadReturns()
-  }, [page, statusFilter])
+  }, [page, statusFilter, search, appliedDates])
 
   const handleAction = (action, item) => {
     setDialogState({
@@ -330,8 +337,20 @@ export default function AdminReturns() {
       />
 
       <FilterBar
+        search={search}
+        onSearchChange={(value) => { setPage(1); setSearch(value) }}
+        debounceMs={300}
+        searchPlaceholder="Search return, order, customer, or store..."
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={(value) => { setPage(1); setStatusFilter(value) }}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDates({ from: fromDate, to: toDate })
+        }}
         statusOptions={[
           { value: 'requested', label: 'Requested' },
           { value: 'under_review', label: 'Under Review' },
@@ -344,7 +363,14 @@ export default function AdminReturns() {
           { value: 'completed', label: 'Completed' },
           { value: 'cancelled', label: 'Cancelled' },
         ]}
-        onReset={() => setStatusFilter('all')}
+        onReset={() => {
+          setSearch('')
+          setStatusFilter('all')
+          setFromDate('')
+          setToDate('')
+          setAppliedDates({ from: '', to: '' })
+          setPage(1)
+        }}
       />
 
       <DataTable

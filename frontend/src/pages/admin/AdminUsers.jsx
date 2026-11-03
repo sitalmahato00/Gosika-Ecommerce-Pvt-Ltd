@@ -16,6 +16,7 @@ import { useToast } from '../../context/ToastContext'
 import { useBranding } from '../../context/BrandingContext'
 import { useAuth } from '../../context/AuthContext'
 import { exportReportFromRows, companyFromBranding, personLabel } from '../../utils/reportExport'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 
 const ROLE_FILTERS = [
   { value: '', label: 'All Users' },
@@ -217,6 +218,7 @@ export default function AdminUsers() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Manage internal operational roles, administrative users, and account permissions.
           </p>
+          <ExportScopeNote />
         </div>
         <div className="flex items-center gap-2">
           <button className="btn btn-outline btn-sm" onClick={exportCSV}>

@@ -11,6 +11,7 @@ import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
 import { money, formatDate } from '../../utils/format'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 
 const RANGES = [
   { value: '7d', label: '7 Days' },
@@ -84,6 +85,7 @@ export default function VendorEarnings() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Track sales revenue, platform commissions, settled payouts, and withdrawable wallet balances.
           </p>
+          <ExportScopeNote>Export reflects the currently selected earnings range.</ExportScopeNote>
         </div>
         <div className="flex items-center gap-2 wrap">
           <div className="date-filter-group">

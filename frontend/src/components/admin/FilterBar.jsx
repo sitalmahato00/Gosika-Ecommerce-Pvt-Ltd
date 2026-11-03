@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Search, RotateCcw, Filter } from 'lucide-react'
+import { Search, RotateCcw, X } from 'lucide-react'
 import { useDebouncedValue } from '../../utils/useDebounce'
 
 export default function FilterBar({
@@ -14,15 +14,27 @@ export default function FilterBar({
   extraFilters,
   onReset,
   showReset = true,
+  fromDate,
+  toDate,
+  onFromDateChange,
+  onToDateChange,
+  onApplyFilters,
+  applying = false,
+  hasActiveFilters: hasActiveFiltersOverride,
   children
 }) {
-  const hasActiveFilters = Boolean(search || (statusFilter && statusFilter !== 'all'))
+  const hasDateFilters = typeof onFromDateChange === 'function' || typeof onToDateChange === 'function'
+  const hasActiveFilters = hasActiveFiltersOverride ?? Boolean(
+    search ||
+    (statusFilter && statusFilter !== 'all') ||
+    fromDate ||
+    toDate
+  )
 
-  // Opt-in debounce: local input value drives the visible box; onSearchChange
-  // fires `debounceMs` later. When debounceMs is 0, behavior is unchanged.
   const [local, setLocal] = useState(search || '')
   const debounced = useDebouncedValue(local, debounceMs || 400)
   const [raf, setRaf] = useState(false)
+  const dateRangeValid = !fromDate || !toDate || fromDate <= toDate
 
   useEffect(() => {
     setLocal(search || '')
@@ -43,30 +55,33 @@ export default function FilterBar({
     }
   }
 
+  const submitFilters = () => {
+      if (!dateRangeValid || applying) return
+      if (debounceMs && onSearchChange) onSearchChange(local.trim())
+      onApplyFilters?.()
+  }
+
   return (
-    <div
-      className="card"
-      style={{
-        padding: '14px 18px',
-        borderRadius: 12,
-        marginBottom: 16,
-        background: '#fff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: 12
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, flex: 1, minWidth: 260 }}>
-        {/* Search Input */}
+      <div
+        className="card"
+        style={{
+          padding: 16,
+          borderRadius: 12,
+          marginBottom: 16,
+          background: '#fff',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          minWidth: 0
+        }}
+      >
         {onSearchChange && (
-          <div style={{ position: 'relative', minWidth: 220, maxWidth: 360, flex: 1 }}>
+          <div style={{ position: 'relative', width: '100%' }}>
             <Search
-              size={15}
+              size={16}
               style={{
                 position: 'absolute',
-                left: 11,
+                left: 12,
                 top: '50%',
                 transform: 'translateY(-50%)',
                 color: '#94a3b8',
@@ -74,49 +89,82 @@ export default function FilterBar({
               }}
             />
             <input
-              type="text"
+              type="search"
               className="input"
               value={local}
               onChange={e => handleInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  submitFilters()
+                }
+              }}
               placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
               style={{
-                paddingLeft: 34,
-                height: 36,
+                paddingLeft: 38,
+                paddingRight: local ? 38 : 12,
+                height: 42,
                 fontSize: 13,
-                borderRadius: 8,
+                borderRadius: 9,
                 width: '100%',
                 transition: 'box-shadow 0.15s ease, border-color 0.15s ease'
               }}
             />
+            {local && (
+              <button
+                type="button"
+                onClick={() => handleInput('')}
+                aria-label="Clear search"
+                title="Clear search"
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 28,
+                  height: 28,
+                  border: 0,
+                  borderRadius: 6,
+                  background: 'transparent',
+                  color: '#64748b',
+                  display: 'grid',
+                  placeItems: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={15} />
+              </button>
+            )}
           </div>
         )}
 
-        {/* Status Dropdown */}
-        {(statusOptions.length > 0 && !segmented) && (
-          <div style={{ minWidth: 140 }}>
-            <select
-              className="input"
-              value={statusFilter || 'all'}
-              onChange={e => onStatusChange(e.target.value)}
-              style={{
-                height: 36,
-                fontSize: 13,
-                borderRadius: 8,
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-            >
-              <option value="all">All Statuses</option>
-              {statusOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: hasDateFilters ? 'flex-end' : 'center', flexWrap: 'wrap', gap: 8, width: '100%' }}>
+          {statusOptions.length > 0 && !segmented && (
+            <div style={{ flex: '1 1 150px', minWidth: 130, maxWidth: 220 }}>
+              <select
+                className="input"
+                value={statusFilter || 'all'}
+                onChange={e => onStatusChange(e.target.value)}
+                style={{
+                  height: 36,
+                  fontSize: 13,
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                aria-label="Filter by status"
+              >
+                <option value="all">All Statuses</option>
+                {statusOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-        {/* Segmented sliding filter pill */}
         {statusOptions.length > 0 && segmented && (
           <div
             style={{
@@ -161,32 +209,75 @@ export default function FilterBar({
 
         {extraFilters}
 
-        {/* Reset Filters */}
-        {showReset && hasActiveFilters && onReset && (
-          <button
-            type="button"
-            className="btn btn-ghost btn-xs btn-tactile"
-            onClick={onReset}
-            style={{
-              height: 36,
-              color: '#64748b',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              fontWeight: 600
-            }}
-          >
-            <RotateCcw size={13} />
-            Reset
-          </button>
+        {hasDateFilters && (
+          <>
+            <label style={{ display: 'flex', flex: '1 1 150px', flexDirection: 'column', gap: 4, minWidth: 135, maxWidth: 190 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.04em' }}>From date</span>
+              <input
+                type="date"
+                className="input"
+                value={fromDate || ''}
+                max={toDate || undefined}
+                onChange={e => onFromDateChange?.(e.target.value)}
+                style={{ height: 36, fontSize: 13, borderRadius: 8 }}
+              />
+            </label>
+            <label style={{ display: 'flex', flex: '1 1 150px', flexDirection: 'column', gap: 4, minWidth: 135, maxWidth: 190 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.04em' }}>To date</span>
+              <input
+                type="date"
+                className="input"
+                value={toDate || ''}
+                min={fromDate || undefined}
+                onChange={e => onToDateChange?.(e.target.value)}
+                style={{ height: 36, fontSize: 13, borderRadius: 8 }}
+              />
+            </label>
+            {!dateRangeValid && (
+              <span role="alert" style={{ flexBasis: '100%', color: '#b91c1c', fontSize: 12 }}>
+                From date must be on or before the to date.
+              </span>
+            )}
+          </>
         )}
-      </div>
 
-      {children && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {children}
-        </div>
-      )}
+        {(onApplyFilters || (showReset && hasActiveFilters && onReset)) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: onApplyFilters ? 'auto' : 0 }}>
+            {showReset && onReset && (onApplyFilters || hasActiveFilters) && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs btn-tactile"
+                onClick={onReset}
+                style={{
+                  height: 36,
+                  color: '#64748b',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <RotateCcw size={13} />
+                Reset
+              </button>
+            )}
+            {onApplyFilters && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={submitFilters}
+                disabled={!dateRangeValid || applying}
+                style={{ height: 36, whiteSpace: 'nowrap' }}
+              >
+                {applying ? 'Applying…' : 'Apply filters'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {children && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{children}</div>}
+      </div>
     </div>
   )
 }

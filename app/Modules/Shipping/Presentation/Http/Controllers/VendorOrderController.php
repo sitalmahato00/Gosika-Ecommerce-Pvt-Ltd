@@ -6,13 +6,17 @@ use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Order\Presentation\Resources\VendorOrderResource;
+use App\Modules\Shared\Domain\Enums\DeliveryStatus;
+use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Shipping\Application\Services\DeliveryService;
 use App\Modules\Shipping\Presentation\Http\Requests\VendorOrderDecisionRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Validation\Rule;
 
 class VendorOrderController extends Controller
 {
@@ -26,14 +30,30 @@ class VendorOrderController extends Controller
     public function index(Request $request): JsonResponse
     {
         $vendor = $this->vendorFor($request->user());
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::enum(OrderStatus::class)],
+            'delivery_status' => ['nullable', Rule::enum(DeliveryStatus::class)],
+            'search' => ['nullable', 'string', 'max:120'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
 
-        $vendorOrders = VendorOrder::query()
+        $query = VendorOrder::query()
             ->where('vendor_id', $vendor->id)
             ->with(['items', 'store'])
-            ->when($request->input('status'), fn ($query, $status) => $query->where('status', $status))
-            ->when($request->input('delivery_status'), fn ($query, $status) => $query->where('delivery_status', $status))
-            ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['delivery_status'] ?? null, fn ($query, $status) => $query->where('delivery_status', $status))
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('vendor_order_number', 'like', '%'.$search.'%')
+                        ->orWhereHas('store', fn ($store) => $store->where('name', 'like', '%'.$search.'%'))
+                        ->orWhereHas('items', fn ($items) => $items->where('product_name', 'like', '%'.$search.'%'));
+                });
+            })
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $vendorOrders = $query->paginate((int) ($filters['per_page'] ?? 15))->withQueryString();
 
         return Response::success(
             VendorOrderResource::collection($vendorOrders),

@@ -5,7 +5,7 @@ namespace App\Modules\Administration\Presentation\Http\Controllers;
 use App\Modules\Administration\Infrastructure\Models\AuditLog;
 use App\Modules\Administration\Presentation\Resources\AuditLogResource;
 use App\Modules\Identity\Domain\Permissions;
-use App\Modules\Identity\Domain\Roles;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +22,7 @@ class AdminAuditLogController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $logs = AuditLog::query()
+        $query = AuditLog::query()
             ->with('user')
             ->when($request->input('action'), fn ($q, $s) => $q->where('action', $s))
             ->when($request->input('resource_type'), fn ($q, $s) => $q->where('resource_type', $s))
@@ -33,10 +33,11 @@ class AdminAuditLogController extends Controller
                         ->orWhereHas('user', fn ($u) => $u->where('first_name', 'like', "%{$search}%")->orWhere('last_name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
                 });
             })
-            ->when($request->input('date_from'), fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
-            ->when($request->input('date_to'), fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
-            ->latest()
-            ->paginate($request->integer('per_page', 20));
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $logs = $query->paginate(min(max($request->integer('per_page', 20), 1), 100))->withQueryString();
 
         return Response::success(
             AuditLogResource::collection($logs),

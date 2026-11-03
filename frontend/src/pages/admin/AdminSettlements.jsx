@@ -151,6 +151,7 @@ export default function AdminSettlements() {
       <PageHeader
         title="Settlements & Vendor Wallets"
         description="One row per store showing gross sales, platform commission and net payable still open — track settlement cycles, and hold or release settlements from this page. Payouts are requested by the vendor and approved here."
+        exportInfo="Export includes only the settlement rows currently shown after applied filters."
         breadcrumbs={[
           { label: 'Finance', to: '/admin/finance/payments' },
           { label: 'Settlements' }

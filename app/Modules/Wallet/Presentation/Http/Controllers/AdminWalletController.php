@@ -4,11 +4,11 @@ namespace App\Modules\Wallet\Presentation\Http\Controllers;
 
 use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Identity\Domain\Permissions;
-use App\Modules\Identity\Domain\Roles;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
-use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Domain\Enums\PayoutStatus;
 use App\Modules\Shared\Domain\Enums\SettlementStatus;
+use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Infrastructure\Models\BankAccount;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
@@ -26,9 +26,11 @@ use App\Modules\Wallet\Presentation\Resources\CommissionResource;
 use App\Modules\Wallet\Presentation\Resources\PayoutRequestResource;
 use App\Modules\Wallet\Presentation\Resources\SettlementResource;
 use App\Modules\Wallet\Presentation\Resources\WalletResource;
+use App\Modules\Wallet\Presentation\Resources\WalletTransactionResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Carbon;
 
 class AdminWalletController extends Controller
 {
@@ -65,7 +67,7 @@ class AdminWalletController extends Controller
         $vendor = $this->vendor($vendorId);
 
         return Response::success(
-            \App\Modules\Wallet\Presentation\Resources\WalletTransactionResource::collection($this->service->transactionsFor($vendor)),
+            WalletTransactionResource::collection($this->service->transactionsFor($vendor)),
             'Wallet transactions retrieved.'
         );
     }
@@ -114,17 +116,20 @@ class AdminWalletController extends Controller
 
     public function allPayouts(Request $request): JsonResponse
     {
-        $payouts = PayoutRequest::query()
+        $query = PayoutRequest::query()
             ->with(['vendor', 'bankAccount', 'settlement'])
             ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->input('search'), function ($q, $s) {
-                $q->where('payout_number', 'like', "%{$s}%")
-                    ->orWhereHas('vendor', fn ($v) => $v->where('company_name', 'like', "%{$s}%"));
+                $q->where(function ($inner) use ($s) {
+                    $inner->where('payout_number', 'like', "%{$s}%")
+                        ->orWhereHas('vendor', fn ($v) => $v->where('company_name', 'like', "%{$s}%"));
+                });
             })
-            ->when($request->input('date_from'), fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
-            ->when($request->input('date_to'), fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
-            ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $payouts = $query->paginate(min(max($request->integer('per_page', 15), 1), 100))->withQueryString();
 
         return Response::success(
             PayoutRequestResource::collection($payouts),
@@ -308,7 +313,7 @@ class AdminWalletController extends Controller
             ->paginate($request->integer('txn_per_page', 15), ['*'], 'txn_page');
 
         $transactions = $txnPaginator->getCollection()
-            ->map(fn ($t) => (new \App\Modules\Wallet\Presentation\Resources\WalletTransactionResource($t))->resolve($request))
+            ->map(fn ($t) => (new WalletTransactionResource($t))->resolve($request))
             ->values();
 
         $settlementsPaginator = Settlement::query()
@@ -377,8 +382,8 @@ class AdminWalletController extends Controller
 
         $settlement = $this->service->settleVendor(
             $vendor,
-            \Illuminate\Support\Carbon::parse($request->input('period_start')),
-            \Illuminate\Support\Carbon::parse($request->input('period_end'))->endOfDay()
+            Carbon::parse($request->input('period_start')),
+            Carbon::parse($request->input('period_end'))->endOfDay()
         );
 
         app(AuditLogService::class)->record(request()->user(), 'settlement.generated', 'settlement', $settlement->uuid, null, ['vendor' => $vendor->uuid]);

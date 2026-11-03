@@ -35,6 +35,9 @@ export default function AdminRefunds() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
   const [selectedRefund, setSelectedRefund] = useState(null)
   const [refundDetailRef, setRefundDetailRef] = useState('')
 
@@ -51,6 +54,8 @@ export default function AdminRefunds() {
       const params = { page, per_page: 15 }
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter
       if (search.trim()) params.search = search.trim()
+      if (appliedDates.from) params.date_from = appliedDates.from
+      if (appliedDates.to) params.date_to = appliedDates.to
 
       const res = await api.get('/admin/refunds', { params })
       const data = api.unwrapList(res.data)
@@ -74,7 +79,7 @@ export default function AdminRefunds() {
 
   useEffect(() => {
     loadRefunds()
-  }, [page, statusFilter])
+  }, [page, statusFilter, search, appliedDates])
 
   useEffect(() => {
     setRefundDetailRef(selectedRefund?.provider_refund_id || '')
@@ -308,6 +313,7 @@ export default function AdminRefunds() {
       <PageHeader
         title="Refunds & Reversals"
         description="Verify buyer return claims, gateway refund disbursements, and payment ledger adjustments."
+        exportInfo="Export includes only the refunds currently shown after applied filters."
         breadcrumbs={[
           { label: 'Orders', to: '/admin/orders' },
           { label: 'Refunds' }
@@ -337,10 +343,19 @@ export default function AdminRefunds() {
 
       <FilterBar
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => { setPage(1); setSearch(value) }}
+        debounceMs={300}
         searchPlaceholder="Search by refund # or order #..."
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={(value) => { setPage(1); setStatusFilter(value) }}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDates({ from: fromDate, to: toDate })
+        }}
         statusOptions={[
           { value: 'requested', label: 'Requested (Pending Review)' },
           { value: 'approved', label: 'Approved' },
@@ -349,7 +364,14 @@ export default function AdminRefunds() {
           { value: 'failed', label: 'Failed' },
           { value: 'cancelled', label: 'Cancelled' },
         ]}
-        onReset={() => { setSearch(''); setStatusFilter('all') }}
+        onReset={() => {
+          setSearch('')
+          setStatusFilter('all')
+          setFromDate('')
+          setToDate('')
+          setAppliedDates({ from: '', to: '' })
+          setPage(1)
+        }}
       />
 
       <DataTable

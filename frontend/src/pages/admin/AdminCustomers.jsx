@@ -29,6 +29,9 @@ export default function AdminCustomers() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [appliedDateRange, setAppliedDateRange] = useState({ from: '', to: '' })
   const [selectedCustomer, setSelectedCustomer] = useState(null)
 
   const [dialogState, setDialogState] = useState({
@@ -44,6 +47,8 @@ export default function AdminCustomers() {
       const params = { page, per_page: 15 }
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter
       if (search.trim()) params.search = search.trim()
+      if (appliedDateRange.from) params.date_from = appliedDateRange.from
+      if (appliedDateRange.to) params.date_to = appliedDateRange.to
 
       const res = await api.get('/admin/customers', { params })
       const data = api.unwrapList(res.data)
@@ -72,7 +77,16 @@ export default function AdminCustomers() {
 
   useEffect(() => {
     loadCustomers()
-  }, [page, statusFilter])
+  }, [page, statusFilter, search, appliedDateRange])
+
+  const resetFilters = () => {
+    setPage(1)
+    setSearch('')
+    setStatusFilter('all')
+    setDateFrom('')
+    setDateTo('')
+    setAppliedDateRange({ from: '', to: '' })
+  }
 
   useEffect(() => {
     loadStats()
@@ -143,7 +157,7 @@ export default function AdminCustomers() {
       ]),
       title: 'Customer Register Report',
       subtitle: 'Registered consumer accounts, contact details and account status across the marketplace.',
-      sectionLabel: 'All Customers',
+      sectionLabel: 'Filtered Customers',
       fileName: `gosika_customers_${new Date().toISOString().slice(0, 10)}`,
       preparedBy: personLabel(user),
       company: companyFromBranding(branding),
@@ -277,6 +291,7 @@ export default function AdminCustomers() {
       <PageHeader
         title="Customer Accounts & Profiles"
         description="Monitor marketplace consumer profiles, order histories, contact records, and account governance."
+        exportInfo="Export includes only the customers currently shown after applied filters."
         breadcrumbs={[
           { label: 'Customers', to: '/admin/customers' },
           { label: 'All Customers' }
@@ -313,15 +328,24 @@ export default function AdminCustomers() {
 
       <FilterBar
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={value => { setPage(1); setSearch(value) }}
         searchPlaceholder="Search customer by name, email, phone..."
+        debounceMs={350}
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={value => { setPage(1); setStatusFilter(value) }}
         statusOptions={[
           { value: 'active', label: 'Active Consumers' },
           { value: 'suspended', label: 'Suspended Accounts' },
         ]}
-        onReset={() => { setSearch(''); setStatusFilter('all') }}
+        fromDate={dateFrom}
+        toDate={dateTo}
+        onFromDateChange={setDateFrom}
+        onToDateChange={setDateTo}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDateRange({ from: dateFrom, to: dateTo })
+        }}
+        onReset={resetFilters}
       />
 
       <DataTable

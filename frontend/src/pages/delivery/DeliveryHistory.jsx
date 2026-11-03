@@ -1,9 +1,10 @@
-﻿import React, { useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import { RefreshCw, Clock, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import api from '../../api/client'
 import { useList } from '../../hooks/useApi'
 import { money, formatDateTime, errorMessage } from '../../utils/format'
-import { listFetcher, completionDate } from '../../utils/delivery'
+import { completionDate } from '../../utils/delivery'
 import DeliveryAssignmentCard from '../../components/delivery/DeliveryAssignmentCard'
 import Pagination from '../../components/ui/Pagination'
 import EmptyState from '../../components/ui/EmptyState'
@@ -20,11 +21,11 @@ const TABS = [
 export default function DeliveryHistory() {
   const [tab, setTab] = useState('all')
   const { items, meta, page, setPage, loading, error, reload } = useList(
-    (p, size) => listFetcher('/delivery-partner/history')(p, size),
-    { deps: [], pageSize: 12 },
+    (p, size) => api.get('/delivery-partner/history', {
+      params: { page: p, per_page: size, status: tab === 'all' ? undefined : tab },
+    }),
+    { deps: [tab], pageSize: 12 },
   )
-
-  const filtered = useMemo(() => (tab === 'all' ? items : items.filter((a) => a.status === tab)), [items, tab])
 
   return (
     <div className="w-full flex flex-col gap-4 pb-8">
@@ -45,7 +46,10 @@ export default function DeliveryHistory() {
           <button
             key={t.key}
             type="button"
-            onClick={() => setTab(t.key)}
+            onClick={() => {
+              setTab(t.key)
+              setPage(1)
+            }}
             className="chip"
             style={{
               whiteSpace: 'nowrap',
@@ -73,7 +77,7 @@ export default function DeliveryHistory() {
         </div>
       ) : error ? (
         <ErrorState message={errorMessage(error)} onRetry={() => reload()} />
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
           icon={Clock}
           title="No completed deliveries yet"
@@ -82,7 +86,7 @@ export default function DeliveryHistory() {
         />
       ) : (
         <div className="flex flex-col gap-3">
-          {filtered.map((a) => (
+          {items.map((a) => (
             <DeliveryAssignmentCard
               key={a.id}
               assignment={a}

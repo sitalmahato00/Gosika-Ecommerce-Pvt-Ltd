@@ -6,11 +6,11 @@ use App\Modules\Catalog\Presentation\Resources\VendorCustomerResource;
 use App\Modules\Identity\Domain\Roles;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 
@@ -26,9 +26,19 @@ class VendorCustomerController extends Controller
     {
         $vendor = $this->vendorFor($request);
 
-        $rows = DB::table('order_items')
+        $query = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->join('users', 'users.id', '=', 'orders.user_id')
             ->where('order_items.vendor_id', $vendor->id)
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $term = '%'.$request->string('search')->trim().'%';
+                $query->where(function ($inner) use ($term) {
+                    $inner->where('users.first_name', 'like', $term)
+                        ->orWhere('users.last_name', 'like', $term)
+                        ->orWhere('users.email', 'like', $term)
+                        ->orWhere('users.phone', 'like', $term);
+                });
+            })
             ->select(
                 'orders.user_id',
                 DB::raw('count(distinct orders.id) as orders_count'),
@@ -36,13 +46,14 @@ class VendorCustomerController extends Controller
                 DB::raw('max(orders.placed_at) as last_order_at')
             )
             ->groupBy('orders.user_id')
-            ->orderByDesc('total_spent')
-            ->limit(500)
-            ->get();
+            ->orderByDesc('total_spent');
 
-        $users = User::query()->whereIn('id', $rows->pluck('user_id'))->get()->keyBy('id');
+        ListingDateRange::apply($query, $request, 'orders.placed_at');
 
-        $customers = $rows
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
+        $rows = $query->paginate($perPage)->withQueryString();
+        $users = User::query()->whereIn('id', $rows->getCollection()->pluck('user_id'))->get()->keyBy('id');
+        $customers = $rows->getCollection()
             ->filter(fn ($row) => $users->has($row->user_id))
             ->map(fn ($row) => (object) [
                 'user' => $users->get($row->user_id),
@@ -52,25 +63,16 @@ class VendorCustomerController extends Controller
             ])
             ->values();
 
-        $perPage = $request->integer('per_page', 15);
-        $page = $request->integer('page', 1);
-
-        $paginator = new LengthAwarePaginator(
-            $customers->forPage($page, $perPage),
-            $customers->count(),
-            $perPage,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
+        $rows->setCollection($customers);
 
         return Response::success(
-            VendorCustomerResource::collection($paginator->getCollection()),
+            VendorCustomerResource::collection($rows),
             'Customers retrieved.',
             ['pagination' => [
-                'total' => $paginator->total(),
-                'per_page' => $paginator->perPage(),
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
+                'total' => $rows->total(),
+                'per_page' => $rows->perPage(),
+                'current_page' => $rows->currentPage(),
+                'last_page' => $rows->lastPage(),
             ]]
         );
     }

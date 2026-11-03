@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import { Users, Mail, Phone, ShoppingBag, Clock } from 'lucide-react'
 import api from '../../api/client'
 import { useList } from '../../hooks/useApi'
@@ -7,14 +7,30 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Pagination from '../../components/ui/Pagination'
 import { Skeleton } from '../../components/ui/Skeleton'
+import FilterBar from '../../components/admin/FilterBar'
 
 export default function VendorCustomers() {
+  const [search, setSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
   const fetcher = useCallback(
-    async (page) => api.get('/vendor/customers', { params: { page, per_page: 15 } }),
-    [],
+    async (page, perPage) => api.get('/vendor/customers', {
+      params: {
+        page,
+        per_page: perPage,
+        search: search.trim() || undefined,
+        date_from: appliedDates.from || undefined,
+        date_to: appliedDates.to || undefined,
+      },
+    }),
+    [search, appliedDates],
   )
 
-  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { pageSize: 15 })
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
+    pageSize: 15,
+    deps: [search, appliedDates],
+  })
 
   if (loading) {
     return (
@@ -39,6 +55,28 @@ export default function VendorCustomers() {
             <p>People who have purchased from your store</p>
           </div>
         </div>
+
+        <FilterBar
+          search={search}
+          onSearchChange={(value) => { setPage(1); setSearch(value) }}
+          debounceMs={300}
+          searchPlaceholder="Search customers by name, email, or phone..."
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromDateChange={setFromDate}
+          onToDateChange={setToDate}
+          onApplyFilters={() => {
+            setPage(1)
+            setAppliedDates({ from: fromDate, to: toDate })
+          }}
+          onReset={() => {
+            setSearch('')
+            setFromDate('')
+            setToDate('')
+            setAppliedDates({ from: '', to: '' })
+            setPage(1)
+          }}
+        />
 
         {items.length ? (
           <>

@@ -4,7 +4,6 @@ namespace App\Modules\Order\Presentation\Http\Controllers;
 
 use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Identity\Domain\Permissions;
-use App\Modules\Identity\Domain\Roles;
 use App\Modules\Order\Application\Services\OrderService;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
@@ -13,9 +12,13 @@ use App\Modules\Payment\Application\Services\PaymentService;
 use App\Modules\Payment\Application\Services\RefundService;
 use App\Modules\Payment\Infrastructure\Models\Payment;
 use App\Modules\Payment\Presentation\Resources\AdminRefundResource;
+use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
+use App\Modules\Shared\Domain\Enums\OrderStatus;
+use App\Modules\Shared\Domain\Enums\PaymentMethod;
 use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Infrastructure\Services\ReferenceNumber;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,20 +39,35 @@ class AdminOrderController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $orders = Order::query()
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::enum(OrderStatus::class)],
+            'payment_status' => ['nullable', Rule::enum(OrderPaymentStatus::class)],
+            'payment_method' => ['nullable', Rule::enum(PaymentMethod::class)],
+            'search' => ['nullable', 'string', 'max:120'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $query = Order::query()
             ->with(['user', 'items', 'vendorOrders'])
-            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
-            ->when($request->input('payment_status'), fn ($q, $s) => $q->where('payment_status', $s))
-            ->when($request->input('payment_method'), fn ($q, $s) => $q->where('payment_method', $s))
-            ->when($request->input('search'), function ($q, $search) {
+            ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
+            ->when($filters['payment_status'] ?? null, fn ($q, $s) => $q->where('payment_status', $s))
+            ->when($filters['payment_method'] ?? null, fn ($q, $s) => $q->where('payment_method', $s))
+            ->when($filters['search'] ?? null, function ($q, $search) {
                 $q->where(function ($inner) use ($search) {
-                    $inner->where('order_number', 'like', "%{$search}%");
+                    $inner->where('order_number', 'like', "%{$search}%")
+                        ->orWhereHas('user', fn ($user) => $user
+                            ->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%"));
                 });
             })
-            ->when($request->input('date_from'), fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
-            ->when($request->input('date_to'), fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
-            ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->orderByDesc('placed_at')
+            ->orderByDesc('id');
+
+        ListingDateRange::apply($query, $request, 'placed_at');
+
+        $orders = $query->paginate((int) ($filters['per_page'] ?? 15))->withQueryString();
 
         return Response::success(
             AdminOrderResource::collection($orders),
@@ -69,7 +87,7 @@ class AdminOrderController extends Controller
             ->with(['user', 'items', 'vendorOrders.items', 'vendorOrders.store', 'vendorOrders.assignments.deliveryPartner', 'payments', 'shippingAddress'])
             ->where(function ($q) use ($orderId) {
                 $q->where('uuid', $orderId)
-                  ->orWhere('order_number', $orderId);
+                    ->orWhere('order_number', $orderId);
                 if (ctype_digit($orderId)) {
                     $q->orWhere('id', (int) $orderId);
                 }
@@ -81,11 +99,27 @@ class AdminOrderController extends Controller
 
     public function returns(Request $request): JsonResponse
     {
-        $returns = ReturnRequest::query()
+        $query = ReturnRequest::query()
             ->with(['user', 'order', 'vendorOrder', 'orderItem', 'store'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
-            ->latest()
-            ->paginate($request->integer('per_page', 20));
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $term = '%'.$request->string('search')->trim().'%';
+                $q->where(function ($inner) use ($term) {
+                    $inner->where('return_number', 'like', $term)
+                        ->orWhere('reason', 'like', $term)
+                        ->orWhereHas('order', fn ($order) => $order->where('order_number', 'like', $term))
+                        ->orWhereHas('user', fn ($user) => $user
+                            ->where('first_name', 'like', $term)
+                            ->orWhere('last_name', 'like', $term)
+                            ->orWhere('email', 'like', $term))
+                        ->orWhereHas('store', fn ($store) => $store->where('name', 'like', $term));
+                });
+            })
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $returns = $query->paginate(min(max($request->integer('per_page', 20), 1), 100))->withQueryString();
 
         return Response::success(
             $returns->items(),

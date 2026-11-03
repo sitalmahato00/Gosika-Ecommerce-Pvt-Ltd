@@ -16,7 +16,11 @@ export default function AdminCustomerSupport() {
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState(null)
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -29,6 +33,9 @@ export default function AdminCustomerSupport() {
     try {
       const params = { channel: 'customer', page, per_page: 15 }
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter
+      if (search.trim()) params.search = search.trim()
+      if (appliedDates.from) params.date_from = appliedDates.from
+      if (appliedDates.to) params.date_to = appliedDates.to
 
       const res = await api.get('/admin/support/tickets', { params })
       const data = api.unwrapList(res.data)
@@ -48,7 +55,7 @@ export default function AdminCustomerSupport() {
 
   useEffect(() => {
     loadTickets()
-  }, [page, statusFilter])
+  }, [page, statusFilter, search, appliedDates])
 
   const openTicket = async (ticket) => {
     setSelectedTicket(ticket)
@@ -199,15 +206,34 @@ export default function AdminCustomerSupport() {
       />
 
       <FilterBar
+        search={search}
+        onSearchChange={(value) => { setPage(1); setSearch(value) }}
+        debounceMs={300}
+        searchPlaceholder="Search tickets by number, subject, or customer..."
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={(value) => { setPage(1); setStatusFilter(value) }}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDates({ from: fromDate, to: toDate })
+        }}
         statusOptions={[
           { value: 'open', label: 'Open Inquiries' },
           { value: 'pending', label: 'Pending Reply' },
           { value: 'resolved', label: 'Resolved' },
           { value: 'closed', label: 'Closed' },
         ]}
-        onReset={() => setStatusFilter('all')}
+        onReset={() => {
+          setSearch('')
+          setStatusFilter('all')
+          setFromDate('')
+          setToDate('')
+          setAppliedDates({ from: '', to: '' })
+          setPage(1)
+        }}
       />
 
       <DataTable

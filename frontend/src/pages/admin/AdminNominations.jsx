@@ -10,6 +10,7 @@ import Pagination from '../../components/ui/Pagination'
 import { Skeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 import { formatDate, apiImage, humanizeEnum, errorMessage } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useBranding } from '../../context/BrandingContext'
@@ -154,6 +155,7 @@ export default function AdminNominations() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             Platform-wide oversight of store promotions — review, pause or end vendor offers from one place.
           </p>
+          <ExportScopeNote />
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className="btn btn-outline btn-sm flex items-center gap-1" onClick={exportCSV}>

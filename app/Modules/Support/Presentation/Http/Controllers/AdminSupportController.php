@@ -6,6 +6,7 @@ use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Identity\Domain\Roles;
 use App\Modules\Shared\Domain\Enums\TicketStatus;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Support\Infrastructure\Models\SupportTicket;
 use App\Modules\Support\Infrastructure\Models\TicketMessage;
@@ -26,7 +27,7 @@ class AdminSupportController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $tickets = SupportTicket::query()
+        $query = SupportTicket::query()
             ->with(['user', 'assignee', 'vendor'])
             ->when($request->input('channel') === 'vendor', fn ($q) => $q->whereNotNull('vendor_id'))
             ->when($request->input('channel') === 'customer', fn ($q) => $q->whereNull('vendor_id'))
@@ -39,8 +40,11 @@ class AdminSupportController extends Controller
                         ->orWhereHas('user', fn ($u) => $u->where('first_name', 'like', "%{$search}%")->orWhere('last_name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
                 });
             })
-            ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $tickets = $query->paginate(min(max($request->integer('per_page', 15), 1), 100))->withQueryString();
 
         return Response::success(
             TicketResource::collection($tickets),

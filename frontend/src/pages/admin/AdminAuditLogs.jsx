@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react'
-import { Search, Shield, Download } from 'lucide-react'
+import { Shield, Download } from 'lucide-react'
 import api from '../../api/client'
 import { useList } from '../../hooks/useApi'
+import FilterBar from '../../components/admin/FilterBar'
+import ExportScopeNote from '../../components/admin/ExportScopeNote'
 import { Skeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
@@ -30,6 +32,7 @@ export default function AdminAuditLogs() {
   const [actionFilter, setActionFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [appliedDateRange, setAppliedDateRange] = useState({ from: '', to: '' })
 
   const fetcher = async (page) => api.get('/admin/audit-logs', {
     params: {
@@ -37,13 +40,13 @@ export default function AdminAuditLogs() {
       per_page: 20,
       action: actionFilter || undefined,
       search: search || undefined,
-      date_from: dateFrom || undefined,
-      date_to: dateTo || undefined,
+      date_from: appliedDateRange.from || undefined,
+      date_to: appliedDateRange.to || undefined,
     },
   })
 
   const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
-    deps: [actionFilter, search, dateFrom, dateTo],
+    deps: [actionFilter, search, appliedDateRange],
     pageSize: 20,
   })
 
@@ -101,53 +104,38 @@ export default function AdminAuditLogs() {
         <div className="page-header-left">
           <h1>Security Audit & Activity Logs</h1>
           <p>Immutable forensic record of all administrative modifications, approvals, payments, and system accesses</p>
+          <ExportScopeNote />
         </div>
         <button className="btn btn-outline btn-sm" onClick={exportLogs}>
           <Download size={14} /> Export Audit Log
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
-          <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-          <input
-            className="input"
-            style={{ paddingLeft: 32 }}
-            placeholder="Search by user, action, resource, IP…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <select
-          className="select"
-          style={{ width: 'auto', minWidth: 200 }}
-          value={actionFilter}
-          onChange={(e) => setActionFilter(e.target.value)}
-        >
-          <option value="">All Action Types</option>
-          {actionOptions.map((a) => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </select>
-
-        <input
-          type="date"
-          className="input"
-          style={{ width: 'auto' }}
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          title="From date"
-        />
-        <input
-          type="date"
-          className="input"
-          style={{ width: 'auto' }}
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          title="To date"
-        />
-      </div>
+      <FilterBar
+        search={search}
+        onSearchChange={value => { setPage(1); setSearch(value) }}
+        searchPlaceholder="Search by user, action, resource, IP…"
+        debounceMs={350}
+        statusFilter={actionFilter || 'all'}
+        onStatusChange={value => { setPage(1); setActionFilter(value === 'all' ? '' : value) }}
+        statusOptions={actionOptions.map(action => ({ value: action, label: action }))}
+        fromDate={dateFrom}
+        toDate={dateTo}
+        onFromDateChange={setDateFrom}
+        onToDateChange={setDateTo}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDateRange({ from: dateFrom, to: dateTo })
+        }}
+        onReset={() => {
+          setPage(1)
+          setSearch('')
+          setActionFilter('')
+          setDateFrom('')
+          setDateTo('')
+          setAppliedDateRange({ from: '', to: '' })
+        }}
+      />
 
       <div className="table-wrap">
         <table className="table">

@@ -257,6 +257,9 @@ export default function AdminVendors() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -273,6 +276,8 @@ export default function AdminVendors() {
       const params = { page, per_page: 15 }
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter
       if (search.trim()) params.search = search.trim()
+      if (appliedDates.from) params.date_from = appliedDates.from
+      if (appliedDates.to) params.date_to = appliedDates.to
 
       const res = await api.get('/admin/vendors', { params })
       const data = api.unwrapList(res.data)
@@ -296,7 +301,7 @@ export default function AdminVendors() {
 
   useEffect(() => {
     loadVendors()
-  }, [page, statusFilter])
+  }, [page, statusFilter, search, appliedDates])
 
   const handleAction = (action, vendor) => {
     setDialogState({
@@ -522,6 +527,7 @@ export default function AdminVendors() {
       <PageHeader
         title="Vendor Management"
         description="Monitor merchant applications, verify KYC, regulate commission agreements, and control selling status."
+        exportInfo="Export includes only the vendors currently shown after applied filters."
         breadcrumbs={[
           { label: 'Marketplace', to: '/admin/marketplace/vendors' },
           { label: 'Vendors' }
@@ -563,10 +569,19 @@ export default function AdminVendors() {
 
       <FilterBar
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => { setPage(1); setSearch(value) }}
+        debounceMs={300}
         searchPlaceholder="Search by vendor name, email, phone..."
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={(value) => { setPage(1); setStatusFilter(value) }}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onApplyFilters={() => {
+          setPage(1)
+          setAppliedDates({ from: fromDate, to: toDate })
+        }}
         statusOptions={[
           { value: 'approved', label: 'Approved & Active' },
           { value: 'pending', label: 'Pending Review' },
@@ -574,7 +589,14 @@ export default function AdminVendors() {
           { value: 'suspended', label: 'Suspended' },
           { value: 'rejected', label: 'Rejected' },
         ]}
-        onReset={() => { setSearch(''); setStatusFilter('all') }}
+        onReset={() => {
+          setSearch('')
+          setStatusFilter('all')
+          setFromDate('')
+          setToDate('')
+          setAppliedDates({ from: '', to: '' })
+          setPage(1)
+        }}
       />
 
       <DataTable

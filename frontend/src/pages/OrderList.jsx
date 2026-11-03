@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { PackageOpen } from 'lucide-react'
 import api from '../api/client'
@@ -7,6 +7,7 @@ import StatusBadge from '../components/commerce/StatusBadge'
 import EmptyState from '../components/ui/EmptyState'
 import ErrorState from '../components/ui/ErrorState'
 import Pagination from '../components/ui/Pagination'
+import FilterBar from '../components/admin/FilterBar'
 import { ProductCardSkeletonMini } from '../components/ui/Skeleton'
 import { money, formatDateTime, apiImage, getProductImage } from '../utils/format'
 import { PAYMENT_METHOD_LABELS, PAYMENT_BRAND_LOGOS } from '../utils/constants'
@@ -30,10 +31,29 @@ export default function OrderList({ basePath = '/orders' }) {
   const toast = useToast()
   const [reorderingId, setReorderingId] = React.useState(null)
   const status = searchParams.get('status') || ''
+  const search = searchParams.get('search') || ''
+  const appliedDateFrom = searchParams.get('date_from') || ''
+  const appliedDateTo = searchParams.get('date_to') || ''
+  const [dateFrom, setDateFrom] = React.useState(appliedDateFrom)
+  const [dateTo, setDateTo] = React.useState(appliedDateTo)
+
+  useEffect(() => {
+    setDateFrom(appliedDateFrom)
+    setDateTo(appliedDateTo)
+  }, [appliedDateFrom, appliedDateTo])
 
   const fetcher = useCallback(
     async (page) => {
-      const res = await api.get('/orders', { params: { page, per_page: 10, ...(status ? { status } : {}) } })
+      const res = await api.get('/orders', {
+        params: {
+          page,
+          per_page: 10,
+          ...(status ? { status } : {}),
+          ...(search ? { search } : {}),
+          ...(appliedDateFrom ? { date_from: appliedDateFrom } : {}),
+          ...(appliedDateTo ? { date_to: appliedDateTo } : {}),
+        },
+      })
       const payload = res.data
       const raw = payload?.data?.data ?? payload?.data ?? payload
       const pag = payload?.meta?.pagination ?? payload?.data?.meta?.pagination ?? payload?.meta ?? {}
@@ -49,13 +69,32 @@ export default function OrderList({ basePath = '/orders' }) {
         },
       }
     },
-    [status],
+    [status, search, appliedDateFrom, appliedDateTo],
   )
 
-  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, { pageSize: 10, deps: [status] })
+  const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
+    pageSize: 10,
+    deps: [status, search, appliedDateFrom, appliedDateTo],
+  })
+
+  const updateQuery = (updates) => {
+    const next = Object.fromEntries(searchParams.entries())
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) next[key] = value
+      else delete next[key]
+    })
+    setSearchParams(next, { replace: true })
+    setPage(1)
+  }
 
   const changeStatus = (value) => {
-    setSearchParams(value ? { status: value } : {}, { replace: true })
+    updateQuery({ status: value })
+  }
+
+  const resetFilters = () => {
+    setDateFrom('')
+    setDateTo('')
+    setSearchParams({}, { replace: true })
     setPage(1)
   }
 
@@ -113,18 +152,21 @@ export default function OrderList({ basePath = '/orders' }) {
     return (
       <div className="page-shell container">
         <h1 style={{ fontSize: 24 }}>My Orders</h1>
-        <div className="tabs" style={{ marginBottom: 8 }}>
-          {STATUS_TABS.map((t) => (
-            <button
-              key={t.value}
-              type="button"
-              className={`tab ${status === t.value ? 'active' : ''}`}
-              onClick={() => changeStatus(t.value)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <FilterBar
+          search={search}
+          onSearchChange={value => updateQuery({ search: value.trim() })}
+          searchPlaceholder="Search order number or product..."
+          debounceMs={350}
+          statusFilter={status || 'all'}
+          onStatusChange={value => changeStatus(value === 'all' ? '' : value)}
+          statusOptions={STATUS_TABS.filter(tab => tab.value).map(tab => ({ value: tab.value, label: tab.label }))}
+          fromDate={dateFrom}
+          toDate={dateTo}
+          onFromDateChange={setDateFrom}
+          onToDateChange={setDateTo}
+          onApplyFilters={() => updateQuery({ date_from: dateFrom, date_to: dateTo })}
+          onReset={resetFilters}
+        />
         <EmptyState
           icon={PackageOpen}
           title={status ? 'No orders with this status' : 'No orders yet'}
@@ -140,18 +182,21 @@ export default function OrderList({ basePath = '/orders' }) {
       <div className="flex items-center justify-between wrap gap-2">
         <h1 style={{ fontSize: 24 }}>My Orders</h1>
       </div>
-      <div className="tabs" style={{ marginBottom: 8 }}>
-        {STATUS_TABS.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            className={`tab ${status === t.value ? 'active' : ''}`}
-            onClick={() => changeStatus(t.value)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <FilterBar
+        search={search}
+        onSearchChange={value => updateQuery({ search: value.trim() })}
+        searchPlaceholder="Search order number or product..."
+        debounceMs={350}
+        statusFilter={status || 'all'}
+        onStatusChange={value => changeStatus(value === 'all' ? '' : value)}
+        statusOptions={STATUS_TABS.filter(tab => tab.value).map(tab => ({ value: tab.value, label: tab.label }))}
+        fromDate={dateFrom}
+        toDate={dateTo}
+        onFromDateChange={setDateFrom}
+        onToDateChange={setDateTo}
+        onApplyFilters={() => updateQuery({ date_from: dateFrom, date_to: dateTo })}
+        onReset={resetFilters}
+      />
       <div className="flex flex-col gap-3 mt-2">
         {items.map((o) => (
           <Link key={o.id} to={`${basePath}/${o.id}`} className="card card-hover" style={{ display: 'block' }}>

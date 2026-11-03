@@ -9,6 +9,7 @@ use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Enums\DeliveryPartnerStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
+use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Shipping\Application\Services\DeliveryService;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment;
@@ -87,12 +88,27 @@ class AdminDeliveryController extends Controller
 
     public function partners(Request $request): JsonResponse
     {
-        $partners = DeliveryPartner::query()
+        $query = DeliveryPartner::query()
             ->with('user')
             ->when($request->input('status'), fn ($query, $status) => $query->where('status', $status))
             ->when($request->input('online'), fn ($query, $online) => $query->where('is_online', (bool) $online))
-            ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $term = '%'.$request->string('search')->trim().'%';
+                $query->where(function ($inner) use ($term) {
+                    $inner->where('name', 'like', $term)
+                        ->orWhere('phone', 'like', $term)
+                        ->orWhere('vehicle_number', 'like', $term)
+                        ->orWhereHas('user', fn ($user) => $user
+                            ->where('first_name', 'like', $term)
+                            ->orWhere('last_name', 'like', $term)
+                            ->orWhere('email', 'like', $term));
+                });
+            })
+            ->orderByDesc('created_at');
+
+        ListingDateRange::apply($query, $request, 'created_at');
+
+        $partners = $query->paginate(min(max($request->integer('per_page', 15), 1), 100))->withQueryString();
 
         return Response::success(
             DeliveryPartnerResource::collection($partners),

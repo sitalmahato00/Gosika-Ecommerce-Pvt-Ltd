@@ -579,6 +579,7 @@ export default function AdminDeliveries() {
       <PageHeader
         title="Order Dispatch"
         description="Assign and manage orders for delivery."
+        exportInfo="Export includes only the dispatch rows currently shown after applied filters."
         breadcrumbs={[
           { label: 'Fulfillment', to: '/admin/fulfillment/dashboard' },
           { label: 'Order Dispatch' }

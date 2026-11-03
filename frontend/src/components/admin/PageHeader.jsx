@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
+import ExportScopeNote from './ExportScopeNote'
 
 export default function PageHeader({
   title,
@@ -9,6 +10,7 @@ export default function PageHeader({
   badge,
   badgeColor = 'blue',
   actions,
+  exportInfo,
   children
 }) {
   return (
@@ -64,6 +66,12 @@ export default function PageHeader({
           </div>
         )}
       </div>
+
+      {exportInfo && (
+        <div style={{ marginTop: 8 }}>
+          <ExportScopeNote>{exportInfo}</ExportScopeNote>
+        </div>
+      )}
 
       {children && (
         <div style={{ marginTop: 16 }}>

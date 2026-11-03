@@ -234,12 +234,17 @@ class DeliveryPartnerController extends Controller
     public function history(Request $request): JsonResponse
     {
         $partner = $this->partnerFor($request->user());
+        $filters = $request->validate([
+            'status' => ['nullable', 'in:delivered,failed,returned_to_vendor'],
+        ]);
 
         $history = $partner->assignments()
             ->with(['tracking', 'vendorOrder'])
             ->whereIn('status', ['delivered', 'failed', 'returned_to_vendor'])
+            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->paginate(min(max($request->integer('per_page', 15), 1), 100))
+            ->withQueryString();
 
         return Response::success(
             DeliveryAssignmentResource::collection($history),
