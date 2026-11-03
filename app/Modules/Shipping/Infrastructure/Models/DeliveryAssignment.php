@@ -2,6 +2,7 @@
 
 namespace App\Modules\Shipping\Infrastructure\Models;
 
+use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Infrastructure\Models\BaseModel;
@@ -27,6 +28,8 @@ class DeliveryAssignment extends BaseModel
         'picked_up_at',
         'out_for_delivery_at',
         'delivered_at',
+        'cod_reconciled_at',
+        'cod_reconciled_by',
         'failed_at',
         'failure_reason',
         'proof_photo',
@@ -46,6 +49,8 @@ class DeliveryAssignment extends BaseModel
             'picked_up_at' => 'datetime',
             'out_for_delivery_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'cod_reconciled_at' => 'datetime',
+            'cod_reconciled_by' => 'integer',
             'failed_at' => 'datetime',
             'meta' => 'array',
         ];
@@ -63,7 +68,12 @@ class DeliveryAssignment extends BaseModel
 
     public function assignedBy(): BelongsTo
     {
-        return $this->belongsTo(\App\Modules\Identity\Infrastructure\Models\User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function codReconciledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cod_reconciled_by');
     }
 
     public function tracking(): HasMany

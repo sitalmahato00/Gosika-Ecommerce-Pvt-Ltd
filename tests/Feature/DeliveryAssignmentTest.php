@@ -2,11 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Modules\Identity\Domain\Permissions;
-use App\Modules\Identity\Domain\Roles;
-use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Catalog\Infrastructure\Models\Product;
 use App\Modules\Catalog\Infrastructure\Models\ProductVariant;
+use App\Modules\Identity\Domain\Roles;
+use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
@@ -33,12 +32,19 @@ class DeliveryAssignmentTest extends TestCase
     use RefreshDatabase;
 
     protected User $adminUser;
+
     protected User $vendorUser;
+
     protected Vendor $vendor;
+
     protected Store $store;
+
     protected User $riderUser1;
+
     protected DeliveryPartner $rider1;
+
     protected User $riderUser2;
+
     protected DeliveryPartner $rider2;
 
     protected function setUp(): void
@@ -82,7 +88,7 @@ class DeliveryAssignmentTest extends TestCase
             'uuid' => (string) Str::uuid(),
             'vendor_id' => $this->vendor->id,
             'name' => 'Gosika Gadgets Store',
-            'slug' => 'gosika-gadgets-' . Str::random(6),
+            'slug' => 'gosika-gadgets-'.Str::random(6),
             'status' => StoreStatus::ACTIVE,
         ]);
 
@@ -147,15 +153,15 @@ class DeliveryAssignmentTest extends TestCase
             'uuid' => (string) Str::uuid(),
             'first_name' => 'Ram',
             'last_name' => 'Shrestha',
-            'email' => 'customer' . Str::random(8) . '@gosika.com',
-            'phone' => '98' . random_int(10000000, 99999999),
+            'email' => 'customer'.Str::random(8).'@gosika.com',
+            'phone' => '98'.random_int(10000000, 99999999),
             'password' => bcrypt('password'),
             'status' => UserStatus::ACTIVE,
         ]);
 
         $order = Order::create([
             'uuid' => (string) Str::uuid(),
-            'order_number' => 'ORD-' . strtoupper(Str::random(8)),
+            'order_number' => 'ORD-'.strtoupper(Str::random(8)),
             'user_id' => $customer->id,
             'payment_method' => $isCod ? PaymentMethod::COD->value : 'esewa',
             'payment_status' => $isCod ? OrderPaymentStatus::PENDING : OrderPaymentStatus::PAID,
@@ -176,7 +182,7 @@ class DeliveryAssignmentTest extends TestCase
 
         $vendorOrder = VendorOrder::create([
             'uuid' => (string) Str::uuid(),
-            'vendor_order_number' => 'VO-' . strtoupper(Str::random(8)),
+            'vendor_order_number' => 'VO-'.strtoupper(Str::random(8)),
             'order_id' => $order->id,
             'vendor_id' => $this->vendor->id,
             'store_id' => $this->store->id,
@@ -508,15 +514,15 @@ class DeliveryAssignmentTest extends TestCase
             'uuid' => (string) Str::uuid(),
             'first_name' => 'Hari',
             'last_name' => 'Gurung',
-            'email' => 'pokhara' . Str::random(8) . '@gosika.com',
-            'phone' => '98' . random_int(10000000, 99999999),
+            'email' => 'pokhara'.Str::random(8).'@gosika.com',
+            'phone' => '98'.random_int(10000000, 99999999),
             'password' => bcrypt('password'),
             'status' => UserStatus::ACTIVE,
         ]);
 
         $order = Order::create([
             'uuid' => (string) Str::uuid(),
-            'order_number' => 'ORD-' . strtoupper(Str::random(8)),
+            'order_number' => 'ORD-'.strtoupper(Str::random(8)),
             'user_id' => $customer->id,
             'payment_method' => 'esewa',
             'payment_status' => OrderPaymentStatus::PAID,
@@ -537,7 +543,7 @@ class DeliveryAssignmentTest extends TestCase
 
         $vendorOrder = VendorOrder::create([
             'uuid' => (string) Str::uuid(),
-            'vendor_order_number' => 'VO-' . strtoupper(Str::random(8)),
+            'vendor_order_number' => 'VO-'.strtoupper(Str::random(8)),
             'order_id' => $order->id,
             'vendor_id' => $this->vendor->id,
             'store_id' => $this->store->id,
@@ -604,6 +610,37 @@ class DeliveryAssignmentTest extends TestCase
         $this->assertEquals(DeliveryStatus::DELIVERED, $assignment->fresh()->status);
         $this->assertEquals(OrderStatus::DELIVERED, $readyOrder->fresh()->status);
         $this->assertEquals(OrderPaymentStatus::PAID, $order->fresh()->payment_status);
+
+        $pendingResponse = $this->actingAs($this->adminUser)
+            ->getJson('/api/v1/admin/deliveries/cod-reconciliation?status=pending');
+
+        $pendingResponse->assertOk()
+            ->assertJsonPath('data.0.delivery_partner_name', $this->rider1->name)
+            ->assertJsonPath('data.0.cod_amount', 2650)
+            ->assertJsonPath('data.0.status', 'pending')
+            ->assertJsonPath('meta.summary.pending_amount', 2650)
+            ->assertJsonPath('meta.summary.pending_count', 1);
+
+        $this->actingAs($this->adminUser)
+            ->postJson("/api/v1/admin/deliveries/cod-reconciliation/{$assignment->uuid}/collect")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'collected')
+            ->assertJsonPath('data.cod_reconciled_by', 'Super Admin');
+
+        $this->assertNotNull($assignment->fresh()->cod_reconciled_at);
+        $this->assertSame($this->adminUser->id, $assignment->fresh()->cod_reconciled_by);
+
+        $this->actingAs($this->adminUser)
+            ->getJson('/api/v1/admin/deliveries/cod-reconciliation?status=collected')
+            ->assertOk()
+            ->assertJsonPath('data.0.status', 'collected')
+            ->assertJsonPath('meta.summary.pending_amount', 0)
+            ->assertJsonPath('meta.summary.collected_amount', 2650);
+
+        $this->actingAs($this->adminUser)
+            ->postJson("/api/v1/admin/deliveries/cod-reconciliation/{$assignment->uuid}/collect")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'This COD amount has already been recorded as received.');
     }
 
     // ── 16. Super Admin assignment history endpoint ───────────────────────

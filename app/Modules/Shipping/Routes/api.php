@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\Identity\Presentation\Http\Controllers\UserProfileController;
+use App\Modules\Shipping\Presentation\Http\Controllers\AdminCodReconciliationController;
 use App\Modules\Shipping\Presentation\Http\Controllers\AdminDeliveryController;
 use App\Modules\Shipping\Presentation\Http\Controllers\AdminShippingController;
 use App\Modules\Shipping\Presentation\Http\Controllers\DeliveryNotificationController;
@@ -17,12 +19,12 @@ Route::prefix('v1/delivery-partner')->middleware(['auth:sanctum', 'ensure:delive
     Route::post('documents', [DeliveryPartnerController::class, 'uploadDocument']);
     Route::delete('documents/{document}', [DeliveryPartnerController::class, 'deleteDocument']);
 
-    Route::get('profile', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'show']);
-    Route::put('profile', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'update']);
-    Route::post('profile/avatar', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'uploadAvatar']);
-    Route::put('profile/password', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updatePassword']);
-    Route::put('profile/notifications', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updateNotifications']);
-    Route::put('profile/preferences', [\App\Modules\Identity\Presentation\Http\Controllers\UserProfileController::class, 'updatePreferences']);
+    Route::get('profile', [UserProfileController::class, 'show']);
+    Route::put('profile', [UserProfileController::class, 'update']);
+    Route::post('profile/avatar', [UserProfileController::class, 'uploadAvatar']);
+    Route::put('profile/password', [UserProfileController::class, 'updatePassword']);
+    Route::put('profile/notifications', [UserProfileController::class, 'updateNotifications']);
+    Route::put('profile/preferences', [UserProfileController::class, 'updatePreferences']);
 
     Route::get('dashboard-stats', [DeliveryPartnerController::class, 'dashboardStats']);
     Route::get('available-jobs', [DeliveryPartnerController::class, 'availableJobs']);
@@ -57,6 +59,8 @@ Route::prefix('v1/admin/delivery-partners')->middleware(['auth:sanctum', 'ensure
 });
 
 Route::prefix('v1/admin/deliveries')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
+    Route::get('cod-reconciliation', [AdminCodReconciliationController::class, 'index']);
+    Route::post('cod-reconciliation/{assignment}/collect', [AdminCodReconciliationController::class, 'collect']);
     Route::get('dashboard', [AdminDeliveryController::class, 'dashboard']);
     Route::get('dispatch', [AdminDeliveryController::class, 'dispatch']);
     Route::get('dispatch/{vendorOrder}', [AdminDeliveryController::class, 'dispatchDetail']);
