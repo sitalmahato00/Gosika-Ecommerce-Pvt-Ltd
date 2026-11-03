@@ -83,11 +83,17 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (QueryException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                $isUniqueConflict = ($e->errorInfo[0] ?? null) === '23000'
-                    && (int) ($e->errorInfo[1] ?? 0) === 1062;
+                $sqlState = $e->errorInfo[0] ?? null;
+                $driverCode = (int) ($e->errorInfo[1] ?? 0);
+                $databaseMessage = strtolower($e->errorInfo[2] ?? $e->getMessage());
+                $isUniqueConflict = $sqlState === '23505'
+                    || ($sqlState === '23000' && $driverCode === 1062)
+                    || ($driverCode === 19 && str_contains($databaseMessage, 'unique constraint failed'))
+                    || str_contains($databaseMessage, 'duplicate key value violates unique constraint')
+                    || str_contains($databaseMessage, 'duplicate entry');
 
                 $message = $isUniqueConflict && $request->is('api/v1/vendor/products*')
-                    ? 'This product conflicts with an existing product. Check the SKU and slug, then try again.'
+                    ? 'This product conflicts with an existing product. Check the product and variant SKUs, then try again.'
                     : 'We could not save this information because it conflicts with existing data. Check the entered values and try again.';
 
                 return Response::error($message, [], $isUniqueConflict ? 409 : 500);

@@ -10,13 +10,116 @@ use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class VendorProductValidationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_vendor_product_unique_conflicts_are_reported_as_conflicts(): void
+    {
+        DB::table('categories')->insert([
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Conflict Test',
+            'slug' => 'conflict-test',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Route::post('/api/v1/vendor/products/test-unique-conflict', function () {
+            DB::table('categories')->insert([
+                'uuid' => (string) Str::uuid(),
+                'name' => 'Duplicate Conflict Test',
+                'slug' => 'conflict-test',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+
+        $this->postJson('/api/v1/vendor/products/test-unique-conflict')
+            ->assertConflict()
+            ->assertJsonPath(
+                'message',
+                'This product conflicts with an existing product. Check the product and variant SKUs, then try again.'
+            );
+    }
+
+    public function test_removed_variant_sku_can_be_reused_when_editing_a_product(): void
+    {
+        Storage::fake('public');
+
+        Role::findOrCreate(Roles::VENDOR_ADMIN, 'web');
+        $vendor = User::factory()->create();
+        $vendor->assignRole(Roles::VENDOR_ADMIN);
+        $vendorProfile = Vendor::query()->create([
+            'user_id' => $vendor->id,
+            'company_name' => 'Variant Vendor',
+            'business_email' => 'variant-vendor@example.test',
+            'status' => VendorStatus::APPROVED,
+        ]);
+        Store::query()->create([
+            'vendor_id' => $vendorProfile->id,
+            'name' => 'Variant Store',
+            'slug' => 'variant-store',
+            'status' => 'active',
+        ]);
+
+        $productId = $this->actingAs($vendor)
+            ->postJson('/api/v1/vendor/products', [
+                'name' => 'Variant SKU Reuse Product',
+                'sku' => 'TEST-VARIANT-REUSE-PARENT',
+                'price' => '100',
+                'image_urls' => ['https://example.test/variant-reuse.jpg'],
+                'variants' => [
+                    [
+                        'sku' => 'TEST-VARIANT-REUSE-001',
+                        'price' => '100',
+                        'quantity' => '1',
+                    ],
+                ],
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->actingAs($vendor)
+            ->post('/api/v1/vendor/products/'.$productId, [
+                '_method' => 'PUT',
+                'name' => 'Variant SKU Reuse Product',
+                'sku' => 'TEST-VARIANT-REUSE-PARENT',
+                'price' => '100',
+                'variants_present' => '1',
+            ])
+            ->assertOk();
+
+        $this->actingAs($vendor)
+            ->post('/api/v1/vendor/products/'.$productId, [
+                '_method' => 'PUT',
+                'name' => 'Variant SKU Reuse Product',
+                'sku' => 'TEST-VARIANT-REUSE-PARENT',
+                'price' => '100',
+                'variants_present' => '1',
+                'variants' => [
+                    [
+                        'sku' => 'TEST-VARIANT-REUSE-001',
+                        'price' => '100',
+                        'quantity' => '2',
+                    ],
+                ],
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseCount('product_variants', 1);
+        $this->assertDatabaseHas('product_variants', [
+            'sku' => 'TEST-VARIANT-REUSE-001',
+            'deleted_at' => null,
+            'quantity' => 2,
+        ]);
+    }
 
     public function test_product_creation_requires_a_price_instead_of_failing_at_database_insert(): void
     {

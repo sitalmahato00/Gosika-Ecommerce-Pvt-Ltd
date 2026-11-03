@@ -290,10 +290,13 @@ class CatalogService
             $options = $variantData['options'] ?? [];
             $retainedSkus[] = $variantData['sku'];
 
-            $variant = ProductVariant::query()->firstOrNew([
+            $variant = ProductVariant::withTrashed()->firstOrNew([
                 'product_id' => $product->id,
                 'sku' => $variantData['sku'],
             ]);
+            if ($variant->trashed()) {
+                $variant->restore();
+            }
             $variant->fill([
                 'name' => $variantData['name'] ?? null,
                 'combination_hash' => empty($options) ? null : md5(json_encode($options)),
