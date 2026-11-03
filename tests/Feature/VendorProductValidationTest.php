@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Modules\Catalog\Infrastructure\Models\Product;
 use App\Modules\Identity\Domain\Roles;
 use App\Modules\Identity\Infrastructure\Models\User;
+use App\Modules\Shared\Domain\Enums\ProductStatus;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
@@ -226,6 +227,74 @@ class VendorProductValidationTest extends TestCase
             'deleted_at' => null,
             'quantity' => 2,
         ]);
+    }
+
+    public function test_vendor_can_edit_pending_and_published_products_without_changing_their_status(): void
+    {
+        Storage::fake('public');
+
+        Role::findOrCreate(Roles::VENDOR_ADMIN, 'web');
+        $vendor = User::factory()->create();
+        $vendor->assignRole(Roles::VENDOR_ADMIN);
+        $vendorProfile = Vendor::query()->create([
+            'user_id' => $vendor->id,
+            'company_name' => 'Product Editing Vendor',
+            'business_email' => 'product-editing-vendor@example.test',
+            'status' => VendorStatus::APPROVED,
+        ]);
+        Store::query()->create([
+            'vendor_id' => $vendorProfile->id,
+            'name' => 'Product Editing Store',
+            'slug' => 'product-editing-store',
+            'status' => 'active',
+        ]);
+
+        $productId = $this->actingAs($vendor)
+            ->postJson('/api/v1/vendor/products', [
+                'name' => 'Product to edit',
+                'sku' => 'TEST-EDITABLE-PRODUCT',
+                'price' => '100',
+                'image_urls' => ['https://example.test/editable-product.jpg'],
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $product = Product::query()->where('uuid', $productId)->firstOrFail();
+
+        foreach ([ProductStatus::PENDING_REVIEW, ProductStatus::PUBLISHED] as $status) {
+            $product->update(['status' => $status]);
+            $name = 'Product updated while '.$status->value;
+
+            $this->post('/api/v1/vendor/products/'.$productId, [
+                '_method' => 'PUT',
+                'name' => $name,
+                'sku' => 'TEST-EDITABLE-PRODUCT',
+                'price' => '125',
+            ])
+                ->assertOk()
+                ->assertJsonPath('data.name', $name)
+                ->assertJsonPath('data.status', $status->value);
+
+            $this->assertDatabaseHas('products', [
+                'uuid' => $productId,
+                'name' => $name,
+                'status' => $status->value,
+            ]);
+
+            $this->postJson('/api/v1/vendor/products/'.$productId.'/submit')
+                ->assertUnprocessable()
+                ->assertJsonPath('message', 'Only draft or hidden products can be submitted for review.');
+        }
+
+        $product->update(['status' => ProductStatus::ARCHIVED]);
+        $this->post('/api/v1/vendor/products/'.$productId, [
+            '_method' => 'PUT',
+            'name' => 'Archived product update',
+            'sku' => 'TEST-EDITABLE-PRODUCT',
+            'price' => '125',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Product cannot be edited in its current state.');
     }
 
     public function test_product_creation_requires_a_price_instead_of_failing_at_database_insert(): void

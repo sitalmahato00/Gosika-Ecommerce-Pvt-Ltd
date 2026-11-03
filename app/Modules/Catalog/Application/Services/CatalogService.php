@@ -147,6 +147,7 @@ class CatalogService
         $vendor = $this->vendorFor($user);
         $this->assertOwns($vendor, $product);
         $this->assertEditable($product);
+        $this->assertCanSubmitForReview($product);
         $this->storeForProductListing($vendor);
 
         if (! $product->price && ! $product->is_variant) {
@@ -280,8 +281,15 @@ class CatalogService
 
     protected function assertEditable(Product $product): void
     {
-        if (! in_array($product->status, [ProductStatus::DRAFT, ProductStatus::HIDDEN], true)) {
+        if ($product->status === ProductStatus::ARCHIVED) {
             throw new DomainException('Product cannot be edited in its current state.');
+        }
+    }
+
+    protected function assertCanSubmitForReview(Product $product): void
+    {
+        if (! in_array($product->status, [ProductStatus::DRAFT, ProductStatus::HIDDEN], true)) {
+            throw new DomainException('Only draft or hidden products can be submitted for review.');
         }
     }
 

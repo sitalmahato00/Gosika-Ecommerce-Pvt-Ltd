@@ -50,6 +50,7 @@ export default function VendorProductForm() {
   const [loading, setLoading] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [productStatus, setProductStatus] = useState('')
   const [customImageUrl, setCustomImageUrl] = useState('')
   const [existingImageUrls, setExistingImageUrls] = useState([])
 
@@ -63,6 +64,7 @@ export default function VendorProductForm() {
         .get(`/vendor/products/${id}`)
         .then((r) => {
           const p = r.data.data
+          setProductStatus(p.status)
           const images = (p.images || []).map((img) => ({ url: img.url || img, file: null }))
           setExistingImageUrls(images.map((img) => img.url))
           setForm({
@@ -530,7 +532,7 @@ export default function VendorProductForm() {
           <Button type="submit" size="lg" disabled={saving}>
             {saving ? <Spinner size={16} color="#fff" /> : isEdit ? 'Update Product' : 'Save Product'}
           </Button>
-          {isEdit && (
+          {isEdit && ['draft', 'hidden'].includes(productStatus) && (
             <Button type="button" variant="soft" size="lg" onClick={submitForReview}>
               Submit for Admin Review
             </Button>
