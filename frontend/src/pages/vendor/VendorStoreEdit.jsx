@@ -10,7 +10,7 @@ import Spinner from '../../components/ui/Spinner'
 import { Skeleton } from '../../components/ui/Skeleton'
 import ErrorState from '../../components/ui/ErrorState'
 import { useToast } from '../../context/ToastContext'
-import { errorMessage } from '../../utils/format'
+import { apiImage, errorMessage } from '../../utils/format'
 
 export default function VendorStoreEdit() {
   const navigate = useNavigate()
@@ -70,6 +70,12 @@ export default function VendorStoreEdit() {
     if (!file) return
     if (!file.type.startsWith('image/')) {
       toast.error('Please select a valid image file (PNG, JPG, WebP).')
+      e.target.value = ''
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size must be 10 MB or smaller.')
+      e.target.value = ''
       return
     }
     const fd = new FormData()
@@ -79,14 +85,16 @@ export default function VendorStoreEdit() {
     try {
       const res = await api.post('/upload/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       const url = res.data?.data?.url || res.data?.url
+      if (!url) {
+        throw new Error('The upload did not return an image URL.')
+      }
       setForm((prev) => ({ ...prev, logo: url }))
       toast.success('Logo uploaded!')
-    } catch {
-      const reader = new FileReader()
-      reader.onload = (evt) => setForm((prev) => ({ ...prev, logo: evt.target.result }))
-      reader.readAsDataURL(file)
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not upload the logo. Please try again.'))
     } finally {
       setUploadingLogo(false)
+      e.target.value = ''
     }
   }
 
@@ -95,6 +103,12 @@ export default function VendorStoreEdit() {
     if (!file) return
     if (!file.type.startsWith('image/')) {
       toast.error('Please select a valid image file (PNG, JPG, WebP).')
+      e.target.value = ''
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size must be 10 MB or smaller.')
+      e.target.value = ''
       return
     }
     const fd = new FormData()
@@ -104,14 +118,16 @@ export default function VendorStoreEdit() {
     try {
       const res = await api.post('/upload/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       const url = res.data?.data?.url || res.data?.url
+      if (!url) {
+        throw new Error('The upload did not return an image URL.')
+      }
       setForm((prev) => ({ ...prev, banner: url }))
       toast.success('Banner uploaded!')
-    } catch {
-      const reader = new FileReader()
-      reader.onload = (evt) => setForm((prev) => ({ ...prev, banner: evt.target.result }))
-      reader.readAsDataURL(file)
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not upload the banner. Please try again.'))
     } finally {
       setUploadingBanner(false)
+      e.target.value = ''
     }
   }
 
@@ -225,7 +241,7 @@ export default function VendorStoreEdit() {
               >
                 {form.banner ? (
                   <img
-                    src={form.banner}
+                    src={apiImage(form.banner)}
                     alt="Store Banner Preview"
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
@@ -252,8 +268,9 @@ export default function VendorStoreEdit() {
                   className="btn btn-primary btn-sm"
                   style={{ position: 'absolute', top: 12, right: 12, boxShadow: 'var(--shadow-md)' }}
                   onClick={() => bannerInputRef.current?.click()}
+                  disabled={uploadingBanner}
                 >
-                  <Upload size={14} /> Upload Banner Image
+                  <Upload size={14} /> {uploadingBanner ? 'Uploading…' : 'Upload Banner Image'}
                 </button>
               </div>
 
@@ -293,7 +310,7 @@ export default function VendorStoreEdit() {
                 >
                   {form.logo ? (
                     <img
-                      src={form.logo}
+                      src={apiImage(form.logo)}
                       alt="Store Logo Preview"
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
@@ -307,8 +324,9 @@ export default function VendorStoreEdit() {
                     type="button"
                     className="btn btn-outline btn-sm"
                     onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
                   >
-                    <Upload size={14} /> Upload Logo Image File
+                    <Upload size={14} /> {uploadingLogo ? 'Uploading…' : 'Upload Logo Image File'}
                   </button>
                   <div className="muted text-xs mt-1">Recommended 300x300px square (PNG, JPG, WebP)</div>
                 </div>
@@ -404,7 +422,12 @@ export default function VendorStoreEdit() {
               {submitting ? <Spinner size={16} color="#fff" /> : <><Send size={14} /> Submit for Approval</>}
             </button>
           )}
-          <button type="submit" className="btn btn-primary" style={{ minWidth: 160 }} disabled={saving}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ minWidth: 160 }}
+            disabled={saving || uploadingLogo || uploadingBanner}
+          >
             {saving ? <Spinner size={16} color="#fff" /> : 'Save Store Details'}
           </button>
         </div>
