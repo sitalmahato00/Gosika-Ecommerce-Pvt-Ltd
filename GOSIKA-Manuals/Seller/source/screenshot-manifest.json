@@ -1,0 +1,236 @@
+{
+  "generated": "2026-11-04T05:55:08.285Z",
+  "base_url": "http://localhost:8000",
+  "screenshots": [
+    {
+      "filename": "01-seller-login-page.png",
+      "caption": "Seller Login Page",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\01-seller-login-page.png"
+    },
+    {
+      "filename": "01b-login-form-filled.png",
+      "caption": "Seller Login – Credentials Entered",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\01b-login-form-filled.png"
+    },
+    {
+      "filename": "02-seller-dashboard.png",
+      "caption": "Seller Dashboard – Overview",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\02-seller-dashboard.png"
+    },
+    {
+      "filename": "03-sidebar-navigation.png",
+      "caption": "Sidebar Navigation Menu",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\03-sidebar-navigation.png"
+    },
+    {
+      "filename": "04-notifications.png",
+      "caption": "Notifications",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\04-notifications.png"
+    },
+    {
+      "filename": "05-store-profile.png",
+      "caption": "My Stores – Store List",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\05-store-profile.png"
+    },
+    {
+      "filename": "06-store-edit.png",
+      "caption": "Store Edit Page",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\06-store-edit.png"
+    },
+    {
+      "filename": "07-store-settings.png",
+      "caption": "Store Settings",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\07-store-settings.png"
+    },
+    {
+      "filename": "08-my-products.png",
+      "caption": "My Products – Product List",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\08-my-products.png"
+    },
+    {
+      "filename": "09-product-filters.png",
+      "caption": "Product Search and Filters (viewport)",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\09-product-filters.png"
+    },
+    {
+      "filename": "09b-product-approval.png",
+      "caption": "Product Approval Status View",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\09b-product-approval.png"
+    },
+    {
+      "filename": "10-add-product-form-top.png",
+      "caption": "Add Product – Form Top",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\10-add-product-form-top.png"
+    },
+    {
+      "filename": "11-add-product-form-mid.png",
+      "caption": "Add Product – Form Middle",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\11-add-product-form-mid.png"
+    },
+    {
+      "filename": "12-add-product-form-bottom.png",
+      "caption": "Add Product – Form Bottom / Save Controls",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\12-add-product-form-bottom.png"
+    },
+    {
+      "filename": "13-product-edit.png",
+      "caption": "Edit Product Page",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\13-product-edit.png"
+    },
+    {
+      "filename": "14-inventory.png",
+      "caption": "Inventory Management",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\14-inventory.png"
+    },
+    {
+      "filename": "15-low-stock.png",
+      "caption": "Inventory – Low Stock View",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\15-low-stock.png"
+    },
+    {
+      "filename": "16-all-orders.png",
+      "caption": "All Orders",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\16-all-orders.png"
+    },
+    {
+      "filename": "17-order-filters.png",
+      "caption": "Order Search and Filters (viewport)",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\17-order-filters.png"
+    },
+    {
+      "filename": "18-order-detail.png",
+      "caption": "Order Detail Page",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\18-order-detail.png"
+    },
+    {
+      "filename": "19-orders-pending.png",
+      "caption": "Pending Orders",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\19-orders-pending.png"
+    },
+    {
+      "filename": "20b-orders-to-ship.png",
+      "caption": "Orders – To Ship (URL)",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\20b-orders-to-ship.png"
+    },
+    {
+      "filename": "21b-orders-shipped.png",
+      "caption": "Orders – Shipped (URL)",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\21b-orders-shipped.png"
+    },
+    {
+      "filename": "22-returns-issues.png",
+      "caption": "Returns and Issues",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\22-returns-issues.png"
+    },
+    {
+      "filename": "23-reviews-qa.png",
+      "caption": "Reviews and Q&A",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\23-reviews-qa.png"
+    },
+    {
+      "filename": "24-discounts.png",
+      "caption": "Discounts",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\24-discounts.png"
+    },
+    {
+      "filename": "25-coupons-vouchers.png",
+      "caption": "Coupons and Vouchers",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\25-coupons-vouchers.png"
+    },
+    {
+      "filename": "26-promotions-campaigns.png",
+      "caption": "Promotions and Campaigns",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\26-promotions-campaigns.png"
+    },
+    {
+      "filename": "27-wallet.png",
+      "caption": "Wallet Overview",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\27-wallet.png"
+    },
+    {
+      "filename": "28-transactions.png",
+      "caption": "Transaction History",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\28-transactions.png"
+    },
+    {
+      "filename": "29-payouts.png",
+      "caption": "Payouts",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\29-payouts.png"
+    },
+    {
+      "filename": "30-settlements.png",
+      "caption": "Settlements",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\30-settlements.png"
+    },
+    {
+      "filename": "31-earnings.png",
+      "caption": "Earnings Overview",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\31-earnings.png"
+    },
+    {
+      "filename": "32-commission.png",
+      "caption": "Commission Information",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\32-commission.png"
+    },
+    {
+      "filename": "33-analytics.png",
+      "caption": "Analytics Dashboard",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\33-analytics.png"
+    },
+    {
+      "filename": "34-pickup-locations.png",
+      "caption": "Pickup Locations / Shipping Setup",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\34-pickup-locations.png"
+    },
+    {
+      "filename": "35-shipping-labels.png",
+      "caption": "Shipping Labels",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\35-shipping-labels.png"
+    },
+    {
+      "filename": "36-vendor-profile.png",
+      "caption": "Vendor Profile",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\36-vendor-profile.png"
+    },
+    {
+      "filename": "37-security.png",
+      "caption": "Security Settings",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\37-security.png"
+    },
+    {
+      "filename": "38-kyc-verification.png",
+      "caption": "KYC Verification",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\38-kyc-verification.png"
+    },
+    {
+      "filename": "39-bank-accounts.png",
+      "caption": "Bank Accounts",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\39-bank-accounts.png"
+    },
+    {
+      "filename": "40-notification-prefs.png",
+      "caption": "Notification Preferences",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\40-notification-prefs.png"
+    },
+    {
+      "filename": "41-support.png",
+      "caption": "Support Centre",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\41-support.png"
+    },
+    {
+      "filename": "42-new-support-ticket.png",
+      "caption": "New Support Ticket",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\42-new-support-ticket.png"
+    },
+    {
+      "filename": "43-brand-requests.png",
+      "caption": "Brand Requests",
+      "path": "D:\\Gosika Pvt. Ltd\\Gosika Ecommerce\\GOSIKA-Manuals\\Seller\\screenshots\\43-brand-requests.png"
+    }
+  ],
+  "inaccessible": [],
+  "notes": [
+    "Tab \"Pending\" not found on Orders page",
+    "Tab \"Ready\" not found on Orders page"
+  ]
+}

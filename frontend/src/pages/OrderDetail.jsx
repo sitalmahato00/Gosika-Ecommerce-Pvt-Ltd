@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ChevronRight, MapPin, Truck, ShieldCheck, Phone, Clock, AlertCircle, HelpCircle, KeyRound, Copy, CheckCircle2 } from 'lucide-react'
+import { ChevronRight, MapPin, Truck, ShieldCheck, Phone, Clock, AlertCircle, HelpCircle, KeyRound, Copy, CheckCircle2, RotateCcw } from 'lucide-react'
 import api from '../api/client'
 import StatusBadge from '../components/commerce/StatusBadge'
 import ErrorState from '../components/ui/ErrorState'
@@ -225,16 +225,27 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
       )}
 
       {deliveryComplete && (
-        <div className="alert mb-3 flex items-center gap-2" role="status" style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46' }}>
-          <CheckCircle2 size={18} />
-          <div className="text-sm">
-            <strong>Order delivered successfully.</strong>
-            {order.status === 'completed'
-              ? ' The return and refund period has expired, and this order is complete.'
-              : order.can_request_return
-                ? ` You can request a return until ${formatDateTime(order.return_window_expires_at)}.`
-                : ' The return and refund period has expired; this order will be marked complete shortly.'}
+        <div className="alert mb-3 flex items-center justify-between wrap gap-2" role="status" style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46' }}>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={18} />
+            <div className="text-sm">
+              <strong>Order delivered successfully.</strong>
+              {order.status === 'completed'
+                ? ' The return and refund period has expired, and this order is complete.'
+                : order.can_request_return
+                  ? ` You can request a return, exchange, or replacement until ${formatDateTime(order.return_window_expires_at)}.`
+                  : ' The return and refund period has expired; this order will be marked complete shortly.'}
+            </div>
           </div>
+          {order.can_request_return && (
+            <Link
+              to={`/account/returns?order_id=${order.id}`}
+              className="btn btn-sm"
+              style={{ background: '#059669', color: '#fff', border: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}
+            >
+              Return / Exchange / Refund
+            </Link>
+          )}
         </div>
       )}
 
@@ -263,7 +274,18 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
                 {it.variant_name && <div className="muted text-xs">{it.variant_name}</div>}
                 <div className="muted text-xs">× {it.quantity}</div>
               </div>
-              <div className="text-sm font-semibold">{money(it.line_total)}</div>
+              <div className="text-right flex flex-col items-end">
+                <div className="text-sm font-semibold">{money(it.line_total)}</div>
+                {deliveryComplete && order.can_request_return && (
+                  <Link
+                    to={`/account/returns?order_id=${order.id}&item_id=${it.id}`}
+                    className="btn btn-outline btn-xs mt-1 inline-flex items-center gap-1"
+                    style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6 }}
+                  >
+                    <RotateCcw size={11} /> Return / Exchange
+                  </Link>
+                )}
+              </div>
             </div>
           ))}
         </div>

@@ -3,36 +3,42 @@
 namespace App\Modules\Order\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Roles;
+use App\Modules\Order\Application\Services\ReturnService;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Presentation\Resources\VendorReturnResource;
+use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class VendorReturnController extends Controller
 {
-    public function __construct()
+    public function __construct(private readonly ReturnService $returnService)
     {
         $this->middleware('auth:sanctum');
         $this->middleware('role:'.Roles::VENDOR_ADMIN);
     }
+
+    // ─── List vendor's returns ────────────────────────────────────────────
 
     public function index(Request $request): JsonResponse
     {
         $vendor = $this->vendorFor($request);
 
         $returns = ReturnRequest::query()
-            ->with(['user', 'orderItem', 'order.user'])
+            ->with(['user', 'orderItem', 'order.user', 'media', 'statusHistory'])
             ->where('vendor_id', $vendor->id)
-            ->when($request->input('status'), fn ($query, $status) => $query->where('status', $status))
-            ->when($request->input('search'), fn ($query, $search) => $query
-                ->where(fn ($query) => $query
+            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
+            ->when($request->input('request_type'), fn ($q, $t) => $q->where('request_type', $t))
+            ->when($request->input('search'), fn ($q, $search) => $q
+                ->where(fn ($q) => $q
                     ->where('return_number', 'like', "%{$search}%")
-                    ->orWhereHas('orderItem', fn ($query) => $query->where('product_name', 'like', "%{$search}%")))
+                    ->orWhereHas('orderItem', fn ($q) => $q->where('product_name', 'like', "%{$search}%"))
+                )
             )
             ->latest()
             ->paginate($request->integer('per_page', 15));
@@ -41,38 +47,178 @@ class VendorReturnController extends Controller
             VendorReturnResource::collection($returns),
             'Returns retrieved.',
             ['pagination' => [
-                'total' => $returns->total(),
-                'per_page' => $returns->perPage(),
+                'total'        => $returns->total(),
+                'per_page'     => $returns->perPage(),
                 'current_page' => $returns->currentPage(),
-                'last_page' => $returns->lastPage(),
+                'last_page'    => $returns->lastPage(),
             ]]
         );
     }
 
+    // ─── Show single return ───────────────────────────────────────────────
+
+    public function show(Request $request, string $returnId): JsonResponse
+    {
+        $vendor = $this->vendorFor($request);
+
+        $return = ReturnRequest::query()
+            ->with(['user', 'orderItem.product', 'order', 'media', 'statusHistory.changedBy'])
+            ->where('uuid', $returnId)
+            ->where('vendor_id', $vendor->id)
+            ->first();
+
+        if (! $return) {
+            return Response::error('Return not found.', [], 404);
+        }
+
+        return Response::success(new VendorReturnResource($return), 'Return retrieved.');
+    }
+
+    // ─── STEP 5: Approve / reject ─────────────────────────────────────────
+
+    public function approve(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate([
+            'notes'               => ['nullable', 'string', 'max:1000'],
+            'return_method'       => ['nullable', Rule::in(['pickup', 'drop_off'])],
+            'pickup_instructions' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $return = $this->findForVendor($request, $returnId);
+
+        try {
+            $return = $this->returnService->approve(
+                $return,
+                $request->user(),
+                $request->input('notes', ''),
+                $request->input('return_method'),
+                $request->input('pickup_instructions')
+            );
+
+            return Response::success(new VendorReturnResource($return->load(['user', 'orderItem', 'statusHistory'])), 'Return approved.');
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    public function reject(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate(['reason' => ['required', 'string', 'max:1000']]);
+
+        $return = $this->findForVendor($request, $returnId);
+
+        try {
+            $return = $this->returnService->reject($return, $request->user(), $request->input('reason'));
+
+            return Response::success(new VendorReturnResource($return->load(['user', 'orderItem', 'statusHistory'])), 'Return rejected.');
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    // ─── STEP 6: Mark product collected ──────────────────────────────────
+
+    public function markCollected(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate(['notes' => ['nullable', 'string', 'max:500']]);
+
+        $return = $this->findForVendor($request, $returnId);
+
+        try {
+            $return = $this->returnService->markCollected($return, $request->user(), $request->input('notes', ''));
+
+            return Response::success(new VendorReturnResource($return->load(['user', 'orderItem', 'statusHistory'])), 'Product marked as collected.');
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    // ─── STEP 7: Inspect the returned product ────────────────────────────
+
+    public function inspect(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate([
+            'condition'           => ['required', Rule::in(['good', 'damaged', 'defective', 'missing_parts'])],
+            'notes'               => ['required', 'string', 'max:2000'],
+            'inspection_photos'   => ['nullable', 'array', 'max:8'],
+            'inspection_photos.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,webp'],
+        ]);
+
+        $return = $this->findForVendor($request, $returnId);
+
+        try {
+            $return = $this->returnService->recordInspection(
+                $return,
+                $request->user(),
+                $request->input('condition'),
+                $request->input('notes'),
+                $request->file('inspection_photos', [])
+            );
+
+            return Response::success(new VendorReturnResource($return->load(['user', 'orderItem', 'statusHistory'])), 'Inspection recorded.');
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    // ─── STEP 8: Dispatch replacement ────────────────────────────────────
+
+    public function dispatchReplacement(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate(['notes' => ['nullable', 'string', 'max:500']]);
+
+        $return = $this->findForVendor($request, $returnId);
+
+        try {
+            $return = $this->returnService->dispatchReplacement($return, $request->user(), $request->input('notes', ''));
+
+            return Response::success(new VendorReturnResource($return->load(['user', 'orderItem', 'statusHistory'])), 'Replacement dispatched.');
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    // ─── Generic status update (kept for backwards compat) ────────────────
+
     public function updateStatus(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate([
+            'status'   => ['required', Rule::enum(ReturnStatus::class)],
+            'response' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $return = $this->findForVendor($request, $returnId);
+
+        try {
+            $return = $this->returnService->updateStatus(
+                $return,
+                $request->user(),
+                ReturnStatus::from($request->input('status')),
+                $request->input('response', '')
+            );
+
+            return Response::success(new VendorReturnResource($return->load(['user', 'orderItem', 'statusHistory'])), 'Return status updated.');
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────
+
+    protected function findForVendor(Request $request, string $returnId): ReturnRequest
     {
         $vendor = $this->vendorFor($request);
 
         $return = ReturnRequest::query()
             ->where('uuid', $returnId)
             ->where('vendor_id', $vendor->id)
-            ->firstOrFail();
+            ->first();
 
-        Validator::make($request->all(), [
-            'status' => ['required', 'in:under_review,approved,rejected,collected,inspected,refund_pending,refunded,completed'],
-            'response' => ['nullable', 'string', 'max:1000'],
-        ])->validate();
+        if (! $return) {
+            throw new DomainException('Return not found.', [], 404);
+        }
 
-        $return->status = $request->input('status');
-        $return->review_notes = $request->input('response');
-        $return->reviewed_by = $request->user()->id;
-        $return->reviewed_at = now();
-        $return->save();
-
-        return Response::success(
-            new VendorReturnResource($return->load('user', 'orderItem', 'order.user')),
-            'Return status updated.'
-        );
+        return $return;
     }
 
     protected function vendorFor(Request $request): Vendor
@@ -80,7 +226,7 @@ class VendorReturnController extends Controller
         $vendor = $request->user()->vendor;
 
         if (! $vendor) {
-            throw new DomainException('You must have a vendor account to access returns.', 403);
+            throw new DomainException('You must have a vendor account to access returns.', [], 403);
         }
 
         return $vendor;

@@ -5,6 +5,7 @@ namespace App\Modules\Order\Presentation\Http\Controllers;
 use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Order\Application\Services\OrderService;
+use App\Modules\Order\Application\Services\ReturnService;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Presentation\Resources\AdminOrderResource;
@@ -30,7 +31,8 @@ class AdminOrderController extends Controller
     public function __construct(
         protected OrderService $orderService,
         protected RefundService $refundService,
-        protected PaymentService $paymentService
+        protected PaymentService $paymentService,
+        protected ReturnService $returnService,
     ) {
         $this->middleware('auth:sanctum');
         $this->middleware('admin');
@@ -192,44 +194,6 @@ class AdminOrderController extends Controller
         return Response::success($return, 'Return request rejected.');
     }
 
-    public function updateReturnStatus(Request $request, string $returnId): JsonResponse
-    {
-        $request->validate([
-            'status' => ['required', Rule::enum(ReturnStatus::class)],
-            'notes' => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        $return = ReturnRequest::where('uuid', $returnId)
-            ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
-            ->firstOrFail();
-        $return->status = ReturnStatus::from($request->input('status'));
-
-        if ($request->filled('notes')) {
-            $return->review_notes = $request->input('notes');
-        }
-
-        if (in_array($return->status->value, [
-            ReturnStatus::APPROVED->value,
-            ReturnStatus::REJECTED->value,
-            ReturnStatus::COLLECTED->value,
-            ReturnStatus::INSPECTED->value,
-            ReturnStatus::REFUND_PENDING->value,
-            ReturnStatus::REFUNDED->value,
-            ReturnStatus::COMPLETED->value,
-            ReturnStatus::CANCELLED->value,
-        ], true)) {
-            $return->reviewed_by = $return->reviewed_by ?? $request->user()->id;
-            $return->reviewed_at = $return->reviewed_at ?? now();
-        }
-
-        $return->save();
-
-        return Response::success(
-            $return->load(['user', 'order', 'vendorOrder', 'orderItem', 'store']),
-            'Return request status updated.'
-        );
-    }
-
     public function processReturnRefund(Request $request, string $returnId): JsonResponse
     {
         $request->validate([
@@ -329,6 +293,82 @@ class AdminOrderController extends Controller
             new AdminRefundResource($refund->load('payment', 'order', 'orderItem')),
             $message
         );
+    }
+
+    // ─── Admin: Dispatch exchange ──────────────────────────────────────────
+
+    public function dispatchExchange(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate([
+            'exchange_order_id' => ['nullable', 'integer', 'exists:orders,id'],
+            'notes'             => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $return = ReturnRequest::where('uuid', $returnId)
+            ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
+            ->firstOrFail();
+
+        try {
+            $return = $this->returnService->dispatchExchange(
+                $return,
+                $request->user(),
+                $request->input('exchange_order_id'),
+                $request->input('notes', '')
+            );
+
+            return Response::success($return->load(['user', 'order', 'orderItem', 'statusHistory']), 'Exchange dispatched.');
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    // ─── Admin: Close / complete a return request ─────────────────────────
+
+    public function closeReturn(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate(['notes' => ['nullable', 'string', 'max:500']]);
+
+        $return = ReturnRequest::where('uuid', $returnId)
+            ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
+            ->firstOrFail();
+
+        try {
+            $return = $this->returnService->close($return, $request->user(), $request->input('notes', ''));
+
+            return Response::success($return->load(['user', 'order', 'orderItem', 'statusHistory']), 'Request closed.');
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    // ─── Admin: Update return status (generic) ────────────────────────────
+
+    public function updateReturnStatus(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate([
+            'status' => ['required', Rule::enum(ReturnStatus::class)],
+            'notes'  => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $return = ReturnRequest::where('uuid', $returnId)
+            ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
+            ->firstOrFail();
+
+        try {
+            $return = $this->returnService->updateStatus(
+                $return,
+                $request->user(),
+                ReturnStatus::from($request->input('status')),
+                $request->input('notes', '')
+            );
+
+            return Response::success(
+                $return->load(['user', 'order', 'vendorOrder', 'orderItem', 'store', 'statusHistory']),
+                'Return request status updated.'
+            );
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
     }
 
     public function cancel(Request $request, string $orderId): JsonResponse

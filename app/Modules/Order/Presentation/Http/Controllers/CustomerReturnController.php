@@ -2,34 +2,44 @@
 
 namespace App\Modules\Order\Presentation\Http\Controllers;
 
-use App\Modules\Marketing\Application\Services\NotificationDispatcher;
-use App\Modules\Order\Application\Services\OrderReturnWindow;
-use App\Modules\Order\Infrastructure\Models\Order;
-use App\Modules\Order\Infrastructure\Models\OrderItem;
+use App\Modules\Order\Application\Services\ReturnService;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
+use App\Modules\Order\Presentation\Http\Requests\StoreReturnRequest;
 use App\Modules\Order\Presentation\Resources\CustomerReturnResource;
-use App\Modules\Shared\Domain\Enums\OrderStatus;
-use App\Modules\Shared\Domain\Enums\ReturnStatus;
+use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Str;
 
 class CustomerReturnController extends Controller
 {
-    public function __construct()
+    public function __construct(private readonly ReturnService $returnService)
     {
         $this->middleware('auth:sanctum');
     }
 
+    // ─── List my returns ──────────────────────────────────────────────────
+
     public function index(Request $request): JsonResponse
     {
         $returns = ReturnRequest::query()
-            ->with(['orderItem.product', 'order'])
+            ->with(['orderItem.product', 'order', 'media', 'statusHistory'])
             ->where('user_id', $request->user()->id)
-            ->when($request->filled('status'), fn ($query, $status) => $query->where('status', $status))
-            ->when($request->filled('order_id'), fn ($query) => $query->whereHas('order', fn ($query) => $query->where('uuid', $request->input('order_id'))))
+            ->when($request->filled('status'), fn ($q, $s) => $q->where('status', $s))
+            ->when($request->filled('request_type'), fn ($q) => $q->where('request_type', $request->input('request_type')))
+            ->when($request->filled('order_id'), fn ($q) => $q->whereHas(
+                'order', fn ($q) => $q->where('uuid', $request->input('order_id'))
+            ))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $term = '%'.$request->string('search')->trim().'%';
+                $q->where(function ($inner) use ($term) {
+                    $inner->where('return_number', 'like', $term)
+                        ->orWhere('reason', 'like', $term)
+                        ->orWhereHas('order', fn ($order) => $order->where('order_number', 'like', $term))
+                        ->orWhereHas('orderItem', fn ($item) => $item->where('product_name', 'like', $term));
+                });
+            })
             ->latest()
             ->paginate($request->integer('per_page', 15));
 
@@ -37,105 +47,60 @@ class CustomerReturnController extends Controller
             CustomerReturnResource::collection($returns),
             'Returns retrieved.',
             ['pagination' => [
-                'total' => $returns->total(),
-                'per_page' => $returns->perPage(),
+                'total'        => $returns->total(),
+                'per_page'     => $returns->perPage(),
                 'current_page' => $returns->currentPage(),
-                'last_page' => $returns->lastPage(),
+                'last_page'    => $returns->lastPage(),
             ]]
         );
     }
 
-    public function store(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'order_id' => ['required', 'uuid', 'exists:orders,uuid'],
-            'order_item_id' => ['required', 'uuid', 'exists:order_items,uuid'],
-            'reason_type' => ['required', 'in:damaged,wrong_item,not_as_described,quality_issue,other'],
-            'reason' => ['required', 'string', 'max:1000'],
-            'quantity' => ['required', 'integer', 'min:1'],
-        ]);
+    // ─── Show single return ───────────────────────────────────────────────
 
-        $order = Order::query()
-            ->where('uuid', $data['order_id'])
+    public function show(Request $request, string $returnId): JsonResponse
+    {
+        $return = ReturnRequest::query()
+            ->with(['orderItem.product', 'order', 'media', 'statusHistory.changedBy', 'refunds'])
+            ->where('uuid', $returnId)
             ->where('user_id', $request->user()->id)
             ->first();
 
-        if (! $order) {
-            return Response::error('Order not found.', [], 404);
+        if (! $return) {
+            return Response::error('Return not found.', [], 404);
         }
 
-        $orderItem = OrderItem::query()
-            ->where('uuid', $data['order_item_id'])
-            ->where('order_id', $order->id)
-            ->first();
-
-        if (! $orderItem) {
-            return Response::error('Order item not found for this order.', [], 404);
-        }
-
-        $vendorOrder = $orderItem->vendorOrder;
-        if (! in_array($order->status, [OrderStatus::DELIVERED, OrderStatus::COMPLETED], true)
-            || ! $vendorOrder
-            || ! in_array($vendorOrder->status, [OrderStatus::DELIVERED, OrderStatus::COMPLETED], true)) {
-            return Response::error('Returns can only be requested after the order has been delivered.', [], 422);
-        }
-
-        $windowExpiresAt = OrderReturnWindow::expiresAt($order);
-        if (! $windowExpiresAt) {
-            return Response::error('The delivery date for this order is unavailable. Please contact support.', [], 422);
-        }
-
-        if (now()->greaterThanOrEqualTo($windowExpiresAt)) {
-            return Response::error('The return and refund window for this order has expired.', [], 422);
-        }
-
-        if ($data['quantity'] > $orderItem->quantity) {
-            return Response::error('Quantity exceeds purchased quantity.', [], 422);
-        }
-
-        $openReturnExists = ReturnRequest::query()
-            ->where('order_item_id', $orderItem->id)
-            ->whereNotIn('status', [
-                ReturnStatus::CANCELLED,
-                ReturnStatus::REJECTED,
-                ReturnStatus::REFUNDED,
-                ReturnStatus::COMPLETED,
-            ])
-            ->exists();
-
-        if ($openReturnExists) {
-            return Response::error('A return request already exists for this item.', [], 422);
-        }
-
-        $return = ReturnRequest::create([
-            'return_number' => 'RTN-'.strtoupper(Str::random(8)),
-            'user_id' => $request->user()->id,
-            'order_id' => $order->id,
-            'order_item_id' => $orderItem->id,
-            'vendor_order_id' => $orderItem->vendor_order_id,
-            'store_id' => $vendorOrder?->store_id,
-            'vendor_id' => $orderItem->vendor_id,
-            'reason_type' => $data['reason_type'],
-            'reason' => $data['reason'],
-            'quantity' => $data['quantity'],
-            'refund_amount' => round(
-                ((float) $orderItem->line_total / max(1, (int) $orderItem->quantity)) * $data['quantity'],
-                2
-            ),
-            'status' => ReturnStatus::REQUESTED,
-            'window_expires_at' => $windowExpiresAt,
-        ]);
-
-        app(NotificationDispatcher::class)->returnRequested($return);
-
-        return Response::created(
-            new CustomerReturnResource($return->load('orderItem.product', 'order')),
-            'Return request submitted.'
-        );
+        return Response::success(new CustomerReturnResource($return), 'Return retrieved.');
     }
 
-    public function cancel(Request $request, string $returnId): JsonResponse
+    // ─── STEP 1–3: Submit return request + upload media ───────────────────
+
+    public function store(StoreReturnRequest $request): JsonResponse
     {
+        try {
+            $return = $this->returnService->createRequest(
+                $request->user(),
+                $request->validated(),
+                $request->file('media', [])
+            );
+
+            return Response::created(
+                new CustomerReturnResource($return),
+                'Return request submitted successfully.'
+            );
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    // ─── Upload additional media to an existing request ───────────────────
+
+    public function uploadMedia(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate([
+            'media'    => ['required', 'array', 'max:10'],
+            'media.*'  => ['file', 'max:51200', 'mimes:jpg,jpeg,png,webp,gif,mp4,mov,avi'],
+        ]);
+
         $return = ReturnRequest::query()
             ->where('uuid', $returnId)
             ->where('user_id', $request->user()->id)
@@ -145,16 +110,44 @@ class CustomerReturnController extends Controller
             return Response::error('Return not found.', [], 404);
         }
 
-        if (! in_array($return->status, [ReturnStatus::REQUESTED, ReturnStatus::UNDER_REVIEW], true)) {
-            return Response::error('This return cannot be cancelled anymore.', [], 422);
+        try {
+            $this->returnService->uploadMedia($return, $request->file('media', []), $request->user());
+
+            return Response::success(
+                new CustomerReturnResource($return->load(['orderItem', 'order', 'media'])),
+                'Media uploaded.'
+            );
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    // ─── Cancel ───────────────────────────────────────────────────────────
+
+    public function cancel(Request $request, string $returnId): JsonResponse
+    {
+        $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $return = ReturnRequest::query()
+            ->where('uuid', $returnId)
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        if (! $return) {
+            return Response::error('Return not found.', [], 404);
         }
 
-        $return->status = ReturnStatus::CANCELLED;
-        $return->save();
+        try {
+            $return = $this->returnService->cancel($return, $request->user(), $request->input('reason', ''));
 
-        return Response::success(
-            new CustomerReturnResource($return->load('orderItem.product', 'order')),
-            'Return cancelled.'
-        );
+            return Response::success(
+                new CustomerReturnResource($return->load(['orderItem', 'order', 'statusHistory'])),
+                'Return cancelled.'
+            );
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
     }
 }

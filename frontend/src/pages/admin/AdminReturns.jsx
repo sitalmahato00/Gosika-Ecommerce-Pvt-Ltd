@@ -19,9 +19,10 @@ const maxRefundAmount = item => {
 }
 
 const getReturnType = item => {
-  if (String(item?.review_notes || '').trim().toLowerCase().startsWith('approved as exchange:')) return 'exchange'
-  if (['refund_pending', 'refunded'].includes(item?.status) || item?.refunds?.length) return 'refund'
-  return 'return'
+  if (item?.request_type === 'exchange' || String(item?.review_notes || '').trim().toLowerCase().startsWith('approved as exchange:')) return 'exchange'
+  if (item?.request_type === 'replacement') return 'replacement'
+  if (['refund_pending', 'refunded'].includes(item?.status) || item?.refunds?.length || item?.request_type === 'return_refund') return 'refund'
+  return item?.request_type ? item.request_type.replace('_', ' ') : 'return'
 }
 
 const getStatusLabel = status => ({

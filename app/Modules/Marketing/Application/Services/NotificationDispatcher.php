@@ -213,6 +213,74 @@ class NotificationDispatcher
         );
     }
 
+    /**
+     * Notify customer (and optionally vendor) when a return request status changes.
+     * Called at every step transition after the initial submission.
+     */
+    public function returnStatusChanged(ReturnRequest $return, ?User $actor = null): void
+    {
+        $return->loadMissing(['user', 'orderItem', 'store.vendor']);
+
+        $status   = $return->status;
+        $rn       = $return->return_number;
+        $product  = $return->orderItem?->product_name ?? 'your item';
+
+        // ── Customer notification ─────────────────────────────────────────
+        if ($return->user) {
+            [$title, $body] = match ($status) {
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::UNDER_REVIEW  => ["Return {$rn} is under review", "Your return request is being reviewed. We will update you shortly."],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::APPROVED       => ["Return {$rn} approved", "Your return request for {$product} has been approved. Please follow the return instructions provided."],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::REJECTED       => ["Return {$rn} rejected", "Your return request for {$product} was not approved. Reason: ".($return->review_notes ?: 'See details in your account.')],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::PICKUP_ARRANGED => ["Return pickup arranged for {$rn}", "Return logistics for {$product} have been arranged. ".($return->pickup_instructions ?: 'Check your return details for instructions.')],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::COLLECTED      => ["Return {$rn} received by seller", "The seller has received your returned {$product}. Inspection is in progress."],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::INSPECTED      => ["Return {$rn} inspected", "Your returned {$product} has been inspected. We are now processing your resolution."],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::EXCHANGE_DISPATCHED   => ["Exchange dispatched for {$rn}", "Your replacement product for {$product} has been dispatched. You will receive it shortly."],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::REPLACEMENT_DISPATCHED => ["Replacement dispatched for {$rn}", "A replacement for {$product} has been dispatched. You will receive it shortly."],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::REFUND_PENDING  => ["Refund pending for {$rn}", "Your refund for {$product} is being processed. It will be credited soon."],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::REFUNDED        => ["Refund processed for {$rn}", "Your refund for {$product} has been processed. Please allow 3–5 business days for it to reflect."],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::COMPLETED       => ["Return {$rn} closed", "Your return request has been completed. Thank you for shopping with us."],
+                \App\Modules\Shared\Domain\Enums\ReturnStatus::CANCELLED       => ["Return {$rn} cancelled", "Your return request for {$product} has been cancelled."],
+                default => ["Return {$rn} updated", "Your return request status has been updated to: {$status->label()}."],
+            };
+
+            $this->customer($return->user, 'return', $title, $body, [
+                'link'          => 'account/returns/'.$return->uuid,
+                'event'         => 'return_status_changed',
+                'return_uuid'   => $return->uuid,
+                'return_number' => $rn,
+                'status'        => $status->value,
+            ]);
+        }
+
+        // ── Vendor notification (for relevant statuses) ───────────────────
+        $vendor = $return->store?->vendor;
+        if ($vendor && in_array($status, [
+            \App\Modules\Shared\Domain\Enums\ReturnStatus::REQUESTED,
+            \App\Modules\Shared\Domain\Enums\ReturnStatus::COLLECTED,
+        ], true)) {
+            $vendorMsg = $status === \App\Modules\Shared\Domain\Enums\ReturnStatus::COLLECTED
+                ? "Return {$rn} has been collected from the customer. Please inspect the product."
+                : "New return request {$rn} received for {$product}. Please review it in your seller dashboard.";
+
+            $this->vendor($vendor, 'return', "Return {$rn}: ".ucfirst($status->value), $vendorMsg, [
+                'link' => 'vendor/returns/'.$return->uuid,
+            ]);
+        }
+
+        // ── Admin notification (only for escalations) ─────────────────────
+        if (in_array($status, [
+            \App\Modules\Shared\Domain\Enums\ReturnStatus::REFUND_PENDING,
+            \App\Modules\Shared\Domain\Enums\ReturnStatus::REFUNDED,
+        ], true)) {
+            $this->adminNotify(
+                'return',
+                "Return {$rn} — {$status->label()}",
+                "Return request {$rn} for {$product} requires financial processing.",
+                ['link' => 'admin/orders/returns']
+            );
+        }
+    }
+
     public function vendorNewOrder(VendorOrder $vendorOrder): void
     {
         $vendorOrder->loadMissing('vendor');
