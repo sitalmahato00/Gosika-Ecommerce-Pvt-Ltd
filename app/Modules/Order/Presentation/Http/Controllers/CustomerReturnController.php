@@ -8,9 +8,11 @@ use App\Modules\Order\Presentation\Http\Requests\StoreReturnRequest;
 use App\Modules\Order\Presentation\Resources\CustomerReturnResource;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Schema;
 
 class CustomerReturnController extends Controller
 {
@@ -24,7 +26,7 @@ class CustomerReturnController extends Controller
     public function index(Request $request): JsonResponse
     {
         $returns = ReturnRequest::query()
-            ->with(['orderItem.product', 'order', 'media', 'statusHistory'])
+            ->with($this->returnRelations(['orderItem.product', 'order']))
             ->where('user_id', $request->user()->id)
             ->when($request->filled('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->filled('request_type'), fn ($q) => $q->where('request_type', $request->input('request_type')))
@@ -59,8 +61,13 @@ class CustomerReturnController extends Controller
 
     public function show(Request $request, string $returnId): JsonResponse
     {
+        $relations = $this->returnRelations(['orderItem.product', 'order', 'refunds']);
+        if (Schema::hasTable('return_status_history')) {
+            $relations[] = 'statusHistory.changedBy';
+        }
+
         $return = ReturnRequest::query()
-            ->with(['orderItem.product', 'order', 'media', 'statusHistory.changedBy', 'refunds'])
+            ->with($relations)
             ->where('uuid', $returnId)
             ->where('user_id', $request->user()->id)
             ->first();
@@ -142,12 +149,68 @@ class CustomerReturnController extends Controller
         try {
             $return = $this->returnService->cancel($return, $request->user(), $request->input('reason', ''));
 
+            $relations = ['orderItem', 'order'];
+            if (Schema::hasTable('return_status_history')) {
+                $relations[] = 'statusHistory';
+            }
+
             return Response::success(
-                new CustomerReturnResource($return->load(['orderItem', 'order', 'statusHistory'])),
+                new CustomerReturnResource($return->load($relations)),
                 'Return cancelled.'
             );
         } catch (DomainException $e) {
             return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+    }
+
+    private function returnRelations(array $baseRelations = []): array
+    {
+        $this->ensureSupportingTablesExist();
+
+        $relations = $baseRelations;
+        if (Schema::hasTable('return_request_media')) {
+            $relations[] = 'media';
+        }
+        if (Schema::hasTable('return_status_history')) {
+            $relations[] = 'statusHistory';
+        }
+
+        return $relations;
+    }
+
+    private function ensureSupportingTablesExist(): void
+    {
+        try {
+            if (! Schema::hasTable('return_request_media')) {
+                Schema::create('return_request_media', function (Blueprint $table) {
+                    $table->id();
+                    $table->uuid()->unique();
+                    $table->foreignId('return_request_id')->constrained()->cascadeOnDelete();
+                    $table->string('type', 20)->default('photo');
+                    $table->string('path', 500);
+                    $table->string('mime_type', 100)->nullable();
+                    $table->unsignedBigInteger('size')->nullable();
+                    $table->string('original_name', 255)->nullable();
+                    $table->foreignId('uploaded_by')->nullable()->constrained('users')->nullOnDelete();
+                    $table->timestamps();
+                    $table->index('return_request_id');
+                });
+            }
+
+            if (! Schema::hasTable('return_status_history')) {
+                Schema::create('return_status_history', function (Blueprint $table) {
+                    $table->id();
+                    $table->foreignId('return_request_id')->constrained()->cascadeOnDelete();
+                    $table->string('from_status', 30)->nullable();
+                    $table->string('to_status', 30);
+                    $table->text('notes')->nullable();
+                    $table->foreignId('changed_by')->nullable()->constrained('users')->nullOnDelete();
+                    $table->timestamps();
+                    $table->index('return_request_id');
+                });
+            }
+        } catch (\Throwable) {
+            // Fail safe without interrupting read workflows
         }
     }
 }

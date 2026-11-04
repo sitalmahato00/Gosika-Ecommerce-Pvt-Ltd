@@ -10,9 +10,11 @@ use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class VendorReturnController extends Controller
@@ -30,7 +32,7 @@ class VendorReturnController extends Controller
         $vendor = $this->vendorFor($request);
 
         $returns = ReturnRequest::query()
-            ->with(['user', 'orderItem', 'order.user', 'media', 'statusHistory'])
+            ->with($this->returnRelations(['user', 'orderItem', 'order.user']))
             ->where('vendor_id', $vendor->id)
             ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->input('request_type'), fn ($q, $t) => $q->where('request_type', $t))
@@ -61,8 +63,13 @@ class VendorReturnController extends Controller
     {
         $vendor = $this->vendorFor($request);
 
+        $relations = $this->returnRelations(['user', 'orderItem.product', 'order']);
+        if (Schema::hasTable('return_status_history')) {
+            $relations[] = 'statusHistory.changedBy';
+        }
+
         $return = ReturnRequest::query()
-            ->with(['user', 'orderItem.product', 'order', 'media', 'statusHistory.changedBy'])
+            ->with($relations)
             ->where('uuid', $returnId)
             ->where('vendor_id', $vendor->id)
             ->first();
@@ -230,5 +237,56 @@ class VendorReturnController extends Controller
         }
 
         return $vendor;
+    }
+
+    private function returnRelations(array $baseRelations = []): array
+    {
+        $this->ensureSupportingTablesExist();
+
+        $relations = $baseRelations;
+        if (Schema::hasTable('return_request_media')) {
+            $relations[] = 'media';
+        }
+        if (Schema::hasTable('return_status_history')) {
+            $relations[] = 'statusHistory';
+        }
+
+        return $relations;
+    }
+
+    private function ensureSupportingTablesExist(): void
+    {
+        try {
+            if (! Schema::hasTable('return_request_media')) {
+                Schema::create('return_request_media', function (Blueprint $table) {
+                    $table->id();
+                    $table->uuid()->unique();
+                    $table->foreignId('return_request_id')->constrained()->cascadeOnDelete();
+                    $table->string('type', 20)->default('photo');
+                    $table->string('path', 500);
+                    $table->string('mime_type', 100)->nullable();
+                    $table->unsignedBigInteger('size')->nullable();
+                    $table->string('original_name', 255)->nullable();
+                    $table->foreignId('uploaded_by')->nullable()->constrained('users')->nullOnDelete();
+                    $table->timestamps();
+                    $table->index('return_request_id');
+                });
+            }
+
+            if (! Schema::hasTable('return_status_history')) {
+                Schema::create('return_status_history', function (Blueprint $table) {
+                    $table->id();
+                    $table->foreignId('return_request_id')->constrained()->cascadeOnDelete();
+                    $table->string('from_status', 30)->nullable();
+                    $table->string('to_status', 30);
+                    $table->text('notes')->nullable();
+                    $table->foreignId('changed_by')->nullable()->constrained('users')->nullOnDelete();
+                    $table->timestamps();
+                    $table->index('return_request_id');
+                });
+            }
+        } catch (\Throwable) {
+            // Fail safe without interrupting read workflows
+        }
     }
 }
