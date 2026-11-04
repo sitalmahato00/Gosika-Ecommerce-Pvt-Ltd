@@ -92,11 +92,24 @@ return Application::configure(basePath: dirname(__DIR__))
                     || str_contains($databaseMessage, 'duplicate key value violates unique constraint')
                     || str_contains($databaseMessage, 'duplicate entry');
 
-                $message = $isUniqueConflict && $request->is('api/v1/vendor/products*')
-                    ? 'This product conflicts with an existing product. Check the product and variant SKUs, then try again.'
-                    : 'We could not save this information because it conflicts with existing data. Check the entered values and try again.';
+                if ($isUniqueConflict) {
+                    $message = $request->is('api/v1/vendor/products*')
+                        ? 'This product conflicts with an existing product. Check the product and variant SKUs, then try again.'
+                        : 'We could not save this information because it conflicts with existing data. Check the entered values and try again.';
 
-                return Response::error($message, [], $isUniqueConflict ? 409 : 500);
+                    return Response::error($message, [], 409);
+                }
+
+                \Illuminate\Support\Facades\Log::error('API Database QueryException: ' . $e->getMessage(), [
+                    'url' => $request->fullUrl(),
+                    'sql' => $e->getSql(),
+                ]);
+
+                $message = config('app.debug')
+                    ? $e->getMessage()
+                    : 'A database error occurred. If this persists, please run database migrations on the server.';
+
+                return Response::error($message, config('app.debug') ? ['sql' => $e->getSql()] : [], 500);
             }
         });
 

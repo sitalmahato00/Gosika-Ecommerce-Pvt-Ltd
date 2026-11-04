@@ -16,7 +16,7 @@ This manual is synchronized **strictly with the live Seller Portal sidebar navig
 | **ORDERS** | Order Details | `/vendor/orders/{id}` | Auditing Customer Order Items | `18-order-detail.png` | Complete |
 | **ORDERS** | To Ship | `/vendor/orders/ready` | Packing & Preparing Pickups | `20b-orders-to-ship.png` | Complete |
 | **ORDERS** | Shipped | `/vendor/orders/shipped` | Tracking In-Transit Courier Dispatches | `21b-orders-shipped.png` | Complete |
-| **ORDERS** | Returns & Issues | `/vendor/returns` | Handling Customer Claims & Refunds | `22-returns-issues.png` | Complete |
+| **ORDERS** | Returns & Issues | `/vendor/returns` | Handling Customer Claims, Inspections & Resolutions (9-Step Process) | `22-returns-issues.png` | Complete |
 | **PRODUCTS** | My Products | `/vendor/products` | Managing Product Listings | `08-my-products.png`<br/>`09-product-filters.png` | Complete |
 | **PRODUCTS** | Add Product | `/vendor/products/new` | Creating New Marketplace Listing | `10-add-product-form-top.png`<br/>`11-add-product-form-mid.png`<br/>`12-add-product-form-bottom.png` | Complete |
 | **PRODUCTS** | Edit Product | `/vendor/products/{id}/edit` | Modifying Product Details | `13-product-edit.png` | Complete |
@@ -43,3 +43,22 @@ The generated 38-page Phase 1 PDF manual is synchronized and saved in three loca
 1. `D:\Gosika Pvt. Ltd\Gosika Ecommerce\GOSIKA-Manuals\Seller\GOSIKA-Seller-User-Manual-Phase-1.pdf` (Manuals workspace)
 2. `D:\Gosika Pvt. Ltd\Gosika Ecommerce\manuals\vendor\GOSIKA-Seller-User-Manual-Phase-1.pdf` (Internal vendor documentation)
 3. `D:\Gosika Pvt. Ltd\Gosika Ecommerce\public\manuals\GOSIKA-Seller-User-Manual-Phase-1.pdf` (Public web download asset)
+
+## 3. Standard Operating Procedure: Returns, Exchanges & Refunds (9-Step Lifecycle)
+
+All marketplace returns follow this strict 9-step governance pipeline:
+
+1. **Customer Request Initiation:** Customer opens *My Orders* on any delivered parcel and selects *Return / Exchange / Refund*.
+2. **Product & Type Selection:** Customer selects item(s) and request category:
+   - *Return & Refund* (monetary reimbursement)
+   - *Exchange for another product* (alternate size/variant)
+   - *Replacement* (defective or damaged item exchange)
+3. **Request Evidence & Details:** Customer inputs reason, narrative, attaches photo/video proof, and selects return pickup method.
+4. **Automated Eligibility Check:** System validates 7-day return window, non-returnable categories, and product condition criteria.
+5. **Seller Review & Dispute Management:** Seller audits evidence under `/vendor/returns`, approves with pickup instructions or rejects with reason. Admin oversight available for disputes.
+6. **Logistics & Tracking Generation:** System assigns unique return reference (`RTN-XXXXXXXX`) and dispatches pickup task to courier/delivery network.
+7. **Delivery Collection & Seller Physical Inspection:** Delivery rider collects parcel (`/delivery/returns`), vendor receives item, logs received condition (`good`, `defective`, `damaged`, `missing_parts`), photos, and audit result.
+8. **Resolution Execution:**
+   - *Exchange/Replacement:* Seller dispatches replacement unit with tracking code.
+   - *Refund:* Admin/finance releases refund with transaction reference; vendor ledger adjusted.
+9. **Closure & Audit Trail:** Case marked resolved, real-time alerts dispatched to customer, and full event timeline recorded.

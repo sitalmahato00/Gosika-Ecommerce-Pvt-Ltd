@@ -16,12 +16,7 @@ Route::prefix('v1/orders')->middleware(['auth:sanctum', 'throttle:auth'])->group
 
 // ─── Admin Orders & Returns ───────────────────────────────────────────────────
 Route::prefix('v1/admin/orders')->middleware(['auth:sanctum', 'ensure:admin'])->group(function () {
-    // Orders
-    Route::get('/', [AdminOrderController::class, 'index']);
-    Route::get('/{order}', [AdminOrderController::class, 'show']);
-    Route::post('/{order}/cancel', [AdminOrderController::class, 'cancel']);
-
-    // Return management
+    // Return management (Defined FIRST to avoid /{order} wildcard collision)
     Route::get('/returns', [AdminOrderController::class, 'returns']);
     Route::post('/returns/{return}/approve', [AdminOrderController::class, 'approveReturn']);
     Route::post('/returns/{return}/reject', [AdminOrderController::class, 'rejectReturn']);
@@ -29,6 +24,11 @@ Route::prefix('v1/admin/orders')->middleware(['auth:sanctum', 'ensure:admin'])->
     Route::post('/returns/{return}/refund', [AdminOrderController::class, 'processReturnRefund']);
     Route::post('/returns/{return}/exchange/dispatch', [AdminOrderController::class, 'dispatchExchange']);
     Route::post('/returns/{return}/close', [AdminOrderController::class, 'closeReturn']);
+
+    // Orders
+    Route::get('/', [AdminOrderController::class, 'index']);
+    Route::get('/{order}', [AdminOrderController::class, 'show']);
+    Route::post('/{order}/cancel', [AdminOrderController::class, 'cancel']);
 });
 
 // ─── Vendor Returns ───────────────────────────────────────────────────────────

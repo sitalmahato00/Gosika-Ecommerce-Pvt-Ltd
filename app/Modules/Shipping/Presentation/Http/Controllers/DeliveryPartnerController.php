@@ -189,13 +189,17 @@ class DeliveryPartnerController extends Controller
                     throw new DomainException('You did not deliver this order.', 403);
                 }
 
-                if (! in_array($return->status, [
-                    ReturnStatus::APPROVED,
-                    ReturnStatus::COLLECTED,
-                    ReturnStatus::REFUND_PENDING,
-                    ReturnStatus::REFUNDED,
-                    ReturnStatus::COMPLETED,
-                ], true)) {
+                $statusVal = $return->status instanceof ReturnStatus ? $return->status->value : (string) $return->status;
+                $allowed = [
+                    'approved',
+                    'pickup_arranged',
+                    'collected',
+                    'refund_pending',
+                    'refunded',
+                    'completed',
+                ];
+
+                if (! in_array($statusVal, $allowed, true)) {
                     throw new DomainException('This customer return is not approved for pickup.', 422);
                 }
 
@@ -205,7 +209,7 @@ class DeliveryPartnerController extends Controller
 
                 $return->pickup_collected_at = now();
                 $return->pickup_collected_by = $request->user()->id;
-                if ($return->status === ReturnStatus::APPROVED) {
+                if (in_array($statusVal, ['approved', 'pickup_arranged'], true)) {
                     $return->status = ReturnStatus::COLLECTED;
                 }
                 $return->save();

@@ -277,18 +277,73 @@ If fixtures cannot be created through the UI, use the approved project seeder or
 **Result:** [ ] Pass [ ] Fail [ ] Blocked  
 **Evidence / defect:** 
 
-1. As Customer A, open a delivered order still within the configured return period.
-2. Create a return for an eligible item with reason and supporting media if available.
-3. Test missing reason, invalid media, duplicate return, non-delivered order, and expired return window.
-4. As Seller, inspect the return and approve or reject it with a reason.
-5. For an approved return, mark collected and inspected; record condition/outcome.
-6. Exercise replacement dispatch if exchange is supported.
-7. As Admin, review the case, update its status, process an eligible refund, and close it.
-8. As delivery partner, collect/return the parcel if the return-pickup flow is enabled.
-9. Confirm customer, seller, and admin see the same return status/history and only authorized parties can act.
-10. Verify stock, payment, refund, and vendor balance adjustments are consistent and not duplicated.
+### End-to-End 9-Step Verification Protocol
 
-**Expected:** Return eligibility and transitions follow policy; each decision is traceable, and refund/stock adjustments occur once.
+1. **Step 1: Customer opens My Orders**
+   - As Customer, navigate to **My Account > My Orders**.
+   - Select an order in **Delivered** status and verify the presence of the **Return / Exchange / Refund** button.
+   - Verify that non-delivered orders (pending, processing, shipped, cancelled) do not display the button.
+
+2. **Step 2: Selects product and request type**
+   - Select the specific eligible item(s) within the order.
+   - Choose the claim type from the supported options:
+     - **Return & Refund:** Return the item to seller for full/partial monetary refund.
+     - **Exchange for another product:** Request a different size, color, or variant.
+     - **Replacement for damaged or defective product:** Request a brand-new identical replacement due to arrival defects.
+
+3. **Step 3: Provides request details**
+   - Select standard return/exchange reason from the dropdown (e.g., Defective/Damaged, Wrong Item, Size/Fit, Quality Not as Expected).
+   - Enter detailed description explaining the defect or reason.
+   - Upload supporting evidence (photos/videos). Verify file type and size validation.
+   - Choose preferred resolution method and specify return logistics preference (courier pickup vs drop-off).
+
+4. **Step 4: System checks eligibility**
+   - System automatically validates eligibility against:
+     - Delivery timestamp vs configured return window (e.g. within 7 calendar days).
+     - Non-returnable product category restrictions (perishables, hygiene items, digital goods).
+     - Product condition guidelines and applicable statutory consumer protection rights.
+   - Verify attempt to submit past the deadline or for restricted items throws clear, user-friendly rejection.
+
+5. **Step 5: Seller / Admin reviews request**
+   - Notification delivered to seller portal under **ORDERS > Returns & Issues** (/vendor/returns).
+   - Seller audits evidence, photos, and customer narrative.
+   - Seller exercises action:
+     - **Approve:** Authorizes the return and sets pickup instructions.
+     - **Reject:** Declines the request with mandatory rejection reason communicated to customer.
+   - Verify Admin dispute override: Admin can view and intervene via /admin/orders/returns, mediate disputes, or approve/reject on behalf of seller.
+
+6. **Step 6: Return logistics & pickup arrangement**
+   - System assigns unique alphanumeric return tracking number (e.g. RTN-XXXXXXXX).
+   - Generates return shipping instructions or schedules return pickup task.
+   - For partner pickup, task is dispatched to delivery partner pool with pickup address and return instructions.
+
+7. **Step 7: Delivery collection & Seller receipt inspection**
+   - Delivery partner views return assignment in **Exchanges & Returns** (/delivery/returns).
+   - Delivery rider confirms physical collection (POST /delivery-partner/returns/{id}/collect) — verify status updates to collected without schema or conflict errors.
+   - Seller confirms receipt of returned parcel.
+   - Seller performs physical inspection and records:
+     - Inspection date and received condition (good, defective, damaged, missing_parts).
+     - Uploads inspection verification photos.
+     - Selects inspection result (passed, ailed, partial).
+
+8. **Step 8: Exchange or refund completion**
+   - **Exchange / Replacement Path:**
+     - Seller confirms dispatched replacement package with new dispatch/tracking reference.
+     - Stock ledger decrements replacement inventory accurately.
+   - **Refund Path:**
+     - Admin / Finance team reviews inspection approval at /admin/orders/returns.
+     - Processes monetary refund (original gateway, wallet, or bank transfer).
+     - Records formal payment transaction reference number.
+     - Platform commission, vendor payout balance, and customer wallet/ledger are updated without double deductions.
+
+9. **Step 9: Request closure & notification audit**
+   - Return status transitions to terminal state (completed / 
+efunded / closed).
+   - Customer receives real-time notification (in-app alert & email).
+   - Full timeline/audit history is viewable by Customer, Seller, and Admin.
+   - Confirm customer, seller, and admin interfaces reflect identical synchronized final state.
+
+**Expected:** Return, exchange, and replacement lifecycle strictly adheres to the 9-step governance process; eligibility rules prevent invalid claims, physical inspection is documented with media, financial adjustments occur exactly once, and full audit trail is preserved.
 
 ## 14. Seller wallet, commission, settlement, and payout
 
