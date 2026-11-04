@@ -8,14 +8,21 @@ use Illuminate\Validation\Rule;
 
 class StoreReturnRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('request_type')) {
+            $this->merge(['request_type' => ReturnRequestType::RETURN_REFUND->value]);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'order_id'             => ['required', 'string'],
             'order_item_id'        => ['required', 'string'],
 
-            // Request type: return_refund | exchange | replacement
-            'request_type'         => ['required', Rule::enum(ReturnRequestType::class)],
+            // Request type: return_refund | exchange | replacement (defaults to return_refund)
+            'request_type'         => ['sometimes', 'nullable', Rule::enum(ReturnRequestType::class)],
 
             // Reason
             'reason_type'          => ['required', 'string', Rule::in([

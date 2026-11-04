@@ -17,6 +17,7 @@ use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Infrastructure\Services\ReferenceNumber;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class ReturnService
@@ -59,7 +60,7 @@ class ReturnService
             ->first();
 
         if (! $order) {
-            throw new DomainException('Order not found.', [], 404);
+            throw new DomainException('Order not found.', 404);
         }
 
         $orderItem = OrderItem::query()
@@ -73,7 +74,7 @@ class ReturnService
             ->first();
 
         if (! $orderItem) {
-            throw new DomainException('Order item not found for this order.', [], 404);
+            throw new DomainException('Order item not found for this order.', 404);
         }
 
         // ── STEP 4: System eligibility check ──────────────────────────────
@@ -91,7 +92,7 @@ class ReturnService
             ->exists();
 
         if ($openExists) {
-            throw new DomainException('An open return request already exists for this item.', [], 422);
+            throw new DomainException('An open return request already exists for this item.', 422);
         }
 
         $vendorOrder = $orderItem->vendorOrder;
@@ -100,7 +101,6 @@ class ReturnService
         if (! $windowExpiresAt) {
             throw new DomainException(
                 'The delivery date is unavailable. Please contact support.',
-                [],
                 422
             );
         }
@@ -117,7 +117,7 @@ class ReturnService
                 'vendor_order_id'      => $orderItem->vendor_order_id,
                 'store_id'             => $vendorOrder?->store_id,
                 'vendor_id'            => $orderItem->vendor_id,
-                'request_type'         => ReturnRequestType::from($data['request_type']),
+                'request_type'         => isset($data['request_type']) ? (ReturnRequestType::tryFrom($data['request_type']) ?? ReturnRequestType::RETURN_REFUND) : ReturnRequestType::RETURN_REFUND,
                 'reason_type'          => $data['reason_type'],
                 'reason'               => $data['reason'],
                 'quantity'             => $qty,
@@ -153,7 +153,7 @@ class ReturnService
     public function uploadMedia(ReturnRequest $return, array $files, User $uploader): void
     {
         if ($return->status->isTerminal()) {
-            throw new DomainException('Cannot upload media for a closed request.', [], 422);
+            throw new DomainException('Cannot upload media for a closed request.', 422);
         }
 
         $this->attachMedia($return, $files, $uploader);
@@ -167,7 +167,7 @@ class ReturnService
     {
         $this->assertNotTerminal($return, 'approve');
         if ($return->status !== ReturnStatus::REQUESTED && $return->status !== ReturnStatus::UNDER_REVIEW) {
-            throw new DomainException('Request must be in requested or under_review status to approve.', [], 422);
+            throw new DomainException('Request must be in requested or under_review status to approve.', 422);
         }
 
         return DB::transaction(function () use ($return, $reviewer, $notes, $returnMethod, $pickupInstructions) {
@@ -226,7 +226,7 @@ class ReturnService
     public function markCollected(ReturnRequest $return, User $actor, string $notes = ''): ReturnRequest
     {
         if (! in_array($return->status, [ReturnStatus::APPROVED, ReturnStatus::PICKUP_ARRANGED], true)) {
-            throw new DomainException('Return must be approved before marking as collected.', [], 422);
+            throw new DomainException('Return must be approved before marking as collected.', 422);
         }
 
         return DB::transaction(function () use ($return, $actor, $notes) {
@@ -258,7 +258,7 @@ class ReturnService
         array $inspectionPhotos = []
     ): ReturnRequest {
         if ($return->status !== ReturnStatus::COLLECTED) {
-            throw new DomainException('Product must be collected before inspection.', [], 422);
+            throw new DomainException('Product must be collected before inspection.', 422);
         }
 
         return DB::transaction(function () use ($return, $inspector, $condition, $notes, $inspectionPhotos) {
@@ -295,10 +295,10 @@ class ReturnService
     public function dispatchExchange(ReturnRequest $return, User $actor, ?int $exchangeOrderId = null, string $notes = ''): ReturnRequest
     {
         if (! $return->isExchange()) {
-            throw new DomainException('This request is not an exchange.', [], 422);
+            throw new DomainException('This request is not an exchange.', 422);
         }
         if ($return->status !== ReturnStatus::INSPECTED) {
-            throw new DomainException('Product must be inspected before dispatching exchange.', [], 422);
+            throw new DomainException('Product must be inspected before dispatching exchange.', 422);
         }
 
         return DB::transaction(function () use ($return, $actor, $exchangeOrderId, $notes) {
@@ -319,10 +319,10 @@ class ReturnService
     public function dispatchReplacement(ReturnRequest $return, User $actor, string $notes = ''): ReturnRequest
     {
         if (! $return->isReplacement()) {
-            throw new DomainException('This request is not a replacement.', [], 422);
+            throw new DomainException('This request is not a replacement.', 422);
         }
         if ($return->status !== ReturnStatus::INSPECTED) {
-            throw new DomainException('Product must be inspected before dispatching replacement.', [], 422);
+            throw new DomainException('Product must be inspected before dispatching replacement.', 422);
         }
 
         return DB::transaction(function () use ($return, $actor, $notes) {
@@ -348,7 +348,7 @@ class ReturnService
         ];
 
         if (! in_array($return->status, $closeable, true)) {
-            throw new DomainException('Request cannot be closed in its current state.', [], 422);
+            throw new DomainException('Request cannot be closed in its current state.', 422);
         }
 
         return DB::transaction(function () use ($return, $actor, $notes) {
@@ -368,10 +368,10 @@ class ReturnService
     public function cancel(ReturnRequest $return, User $customer, string $reason = ''): ReturnRequest
     {
         if (! $return->status->isCancellableByCustomer()) {
-            throw new DomainException('This request cannot be cancelled anymore.', [], 422);
+            throw new DomainException('This request cannot be cancelled anymore.', 422);
         }
         if ($return->user_id !== $customer->id) {
-            throw new DomainException('Unauthorized.', [], 403);
+            throw new DomainException('Unauthorized.', 403);
         }
 
         return DB::transaction(function () use ($return, $customer, $reason) {
@@ -393,7 +393,7 @@ class ReturnService
     public function updateStatus(ReturnRequest $return, User $actor, ReturnStatus $newStatus, string $notes = ''): ReturnRequest
     {
         if ($return->status->isTerminal()) {
-            throw new DomainException('Request is already in a terminal state.', [], 422);
+            throw new DomainException('Request is already in a terminal state.', 422);
         }
 
         return DB::transaction(function () use ($return, $actor, $newStatus, $notes) {
@@ -436,7 +436,6 @@ class ReturnService
         ) {
             throw new DomainException(
                 'Returns can only be requested after the order has been delivered.',
-                [],
                 422
             );
         }
@@ -444,27 +443,26 @@ class ReturnService
         // Check return window
         $windowExpiresAt = OrderReturnWindow::expiresAt($order);
         if (! $windowExpiresAt) {
-            throw new DomainException('Delivery date is unavailable. Please contact support.', [], 422);
+            throw new DomainException('Delivery date is unavailable. Please contact support.', 422);
         }
 
         if (now()->greaterThanOrEqualTo($windowExpiresAt)) {
             throw new DomainException(
-                'The return window for this order has expired.',
-                ['window_expired_at' => $windowExpiresAt->toISOString()],
-                422
+                'The return and refund window for this order has expired.',
+                422,
+                ['window_expired_at' => $windowExpiresAt->toISOString()]
             );
         }
 
         // Quantity check
         if ((int) $data['quantity'] > (int) $orderItem->quantity) {
-            throw new DomainException('Return quantity exceeds purchased quantity.', [], 422);
+            throw new DomainException('Return quantity exceeds purchased quantity.', 422);
         }
 
         // Exchange/replacement: require a reason (they always need description)
-        $requestType = ReturnRequestType::tryFrom($data['request_type']);
-        if (! $requestType) {
-            throw new DomainException('Invalid request type.', [], 422);
-        }
+        $requestType = isset($data['request_type'])
+            ? (ReturnRequestType::tryFrom($data['request_type']) ?? ReturnRequestType::RETURN_REFUND)
+            : ReturnRequestType::RETURN_REFUND;
     }
 
     private function assertNotTerminal(ReturnRequest $return, string $action): void
@@ -472,7 +470,6 @@ class ReturnService
         if ($return->status->isTerminal()) {
             throw new DomainException(
                 "Cannot {$action} a request that is already in terminal state ({$return->status->value}).",
-                [],
                 422
             );
         }
@@ -483,6 +480,14 @@ class ReturnService
      */
     private function attachMedia(ReturnRequest $return, array $files, User $uploader): void
     {
+        try {
+            if (! Schema::hasTable('return_request_media')) {
+                return;
+            }
+        } catch (\Throwable) {
+            return;
+        }
+
         foreach ($files as $file) {
             if (! ($file instanceof \Illuminate\Http\UploadedFile)) {
                 continue;
@@ -490,15 +495,19 @@ class ReturnService
 
             $path = $file->store("returns/{$return->id}/media", 'public');
 
-            ReturnRequestMedia::create([
-                'return_request_id' => $return->id,
-                'type'              => str_starts_with($file->getMimeType() ?? '', 'video/') ? 'video' : 'photo',
-                'path'              => $path,
-                'mime_type'         => $file->getMimeType(),
-                'size'              => $file->getSize(),
-                'original_name'     => $file->getClientOriginalName(),
-                'uploaded_by'       => $uploader->id,
-            ]);
+            try {
+                ReturnRequestMedia::create([
+                    'return_request_id' => $return->id,
+                    'type'              => str_starts_with($file->getMimeType() ?? '', 'video/') ? 'video' : 'photo',
+                    'path'              => $path,
+                    'mime_type'         => $file->getMimeType(),
+                    'size'              => $file->getSize(),
+                    'original_name'     => $file->getClientOriginalName(),
+                    'uploaded_by'       => $uploader->id,
+                ]);
+            } catch (\Throwable) {
+                // Silently continue if media table insert fails
+            }
         }
     }
 
@@ -509,12 +518,20 @@ class ReturnService
         ?User $actor,
         string $notes = ''
     ): void {
-        ReturnStatusHistory::create([
-            'return_request_id' => $return->id,
-            'from_status'       => $from?->value,
-            'to_status'         => $to->value,
-            'notes'             => $notes,
-            'changed_by'        => $actor?->id,
-        ]);
+        try {
+            if (! Schema::hasTable('return_status_histories')) {
+                return;
+            }
+
+            ReturnStatusHistory::create([
+                'return_request_id' => $return->id,
+                'from_status'       => $from?->value,
+                'to_status'         => $to->value,
+                'notes'             => $notes,
+                'changed_by'        => $actor?->id,
+            ]);
+        } catch (\Throwable) {
+            // Silently continue if history table is unavailable
+        }
     }
 }

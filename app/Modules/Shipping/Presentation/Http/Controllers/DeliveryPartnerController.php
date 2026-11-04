@@ -29,6 +29,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DeliveryPartnerController extends Controller
 {
@@ -143,6 +144,7 @@ class DeliveryPartnerController extends Controller
             ->whereIn('vendor_order_id', $assignmentByVendorOrder->keys())
             ->whereIn('status', [
                 ReturnStatus::APPROVED->value,
+                ReturnStatus::PICKUP_ARRANGED->value,
                 ReturnStatus::COLLECTED->value,
                 ReturnStatus::REFUND_PENDING->value,
                 ReturnStatus::REFUNDED->value,
@@ -203,19 +205,25 @@ class DeliveryPartnerController extends Controller
                     throw new DomainException('This customer return is not approved for pickup.', 422);
                 }
 
-                if ($return->pickup_collected_at) {
+                if (! empty($return->pickup_collected_at)) {
                     throw new DomainException('This return pickup has already been confirmed.', 422);
                 }
 
-                $return->pickup_collected_at = now();
-                $return->pickup_collected_by = $request->user()->id;
+                if (Schema::hasColumn('return_requests', 'pickup_collected_at')) {
+                    $return->pickup_collected_at = now();
+                }
+                if (Schema::hasColumn('return_requests', 'pickup_collected_by')) {
+                    $return->pickup_collected_by = $request->user()->id;
+                }
                 if (in_array($statusVal, ['approved', 'pickup_arranged'], true)) {
                     $return->status = ReturnStatus::COLLECTED;
                 }
                 $return->save();
+
+                $return->load(['order', 'orderItem', 'vendorOrder']);
                 $return->setRelation('pickup_assignment', $assignment);
 
-                return $return->load(['order', 'orderItem', 'vendorOrder']);
+                return $return;
             });
         } catch (DomainException $e) {
             return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
