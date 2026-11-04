@@ -39,6 +39,7 @@ class VendorOrderController extends Controller
 
         $query = VendorOrder::query()
             ->where('vendor_id', $vendor->id)
+            ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
             ->with(['items', 'store'])
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($filters['delivery_status'] ?? null, fn ($query, $status) => $query->where('delivery_status', $status))
@@ -72,7 +73,8 @@ class VendorOrderController extends Controller
         $this->assertVendorOwns($request->user(), $vendorOrder);
 
         return Response::success(
-            new VendorOrderResource($vendorOrder->load(['items', 'store', 'order.user', 'assignments'])),
+            new VendorOrderResource($vendorOrder->load(['items', 'store', 'order.user', 'assignments'])
+                ->loadSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')),
             'Vendor order retrieved.'
         );
     }

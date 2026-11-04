@@ -40,7 +40,10 @@ class AdminAnalyticsController extends Controller
             $deliveryFees = (float) VendorOrder::query()->where('created_at', '>=', $from)->sum('delivery_charge');
             $newCustomers = (int) \App\Modules\Identity\Infrastructure\Models\User::query()->where('created_at', '>=', $from)->count();
             $payoutsTotal = (float) \App\Modules\Wallet\Infrastructure\Models\PayoutRequest::query()->where('created_at', '>=', $from)->where('status', 'paid')->sum('amount');
-            $refundsTotal = (float) \App\Modules\Payment\Infrastructure\Models\Refund::query()->where('created_at', '>=', $from)->where('status', '!=', 'cancelled')->sum('amount');
+            $refundsTotal = (float) \App\Modules\Payment\Infrastructure\Models\Refund::query()
+                ->where('completed_at', '>=', $from)
+                ->where('status', 'refunded')
+                ->sum('amount');
             $activeVendors = (int) \App\Modules\Vendor\Infrastructure\Models\Vendor::query()->where('status', 'approved')->count();
 
             return [
@@ -284,4 +287,3 @@ class AdminAnalyticsController extends Controller
         };
     }
 }
-

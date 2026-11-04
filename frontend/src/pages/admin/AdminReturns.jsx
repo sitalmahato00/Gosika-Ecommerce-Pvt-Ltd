@@ -25,6 +25,12 @@ const RETURN_STATUSES = [
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
+const maxRefundAmount = item => {
+  const purchasedQuantity = Math.max(1, Number(item?.order_item?.quantity || 1))
+  const returnedQuantity = Math.max(1, Number(item?.quantity || 1))
+  return (Number(item?.order_item?.line_total || 0) / purchasedQuantity) * returnedQuantity
+}
+
 export default function AdminReturns() {
   const toast = useToast()
   const [returns, setReturns] = useState([])
@@ -433,11 +439,15 @@ export default function AdminReturns() {
                   className="input"
                   type="number"
                   min="0.01"
+                  max={maxRefundAmount(dialogState.returnItem).toFixed(2)}
                   step="0.01"
                   value={refundDraft.amount}
                   onChange={e => setRefundDraft(d => ({ ...d, amount: e.target.value }))}
                   style={{ height: 38, fontSize: 13, borderRadius: 8, fontWeight: 600 }}
                 />
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                  Maximum for this item and quantity: {money(maxRefundAmount(dialogState.returnItem))}
+                </div>
               </div>
             </div>
 

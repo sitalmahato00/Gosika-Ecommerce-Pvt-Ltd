@@ -4,10 +4,9 @@ namespace App\Modules\Analytics\Presentation\Http\Controllers;
 
 use App\Modules\Catalog\Infrastructure\Models\Product;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
-use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
+use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
-use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
@@ -42,11 +41,11 @@ class VendorAnalyticsController extends Controller
             ->where('vendor_orders.created_at', '>=', $from)
             ->whereNotIn('vendor_orders.status', [OrderStatus::CANCELLED->value, OrderStatus::FAILED->value])
             ->sum('order_items.quantity');
-        $refundsTotal = (float) ReturnRequest::query()
-            ->where('vendor_id', $vendor->id)
-            ->where('created_at', '>=', $from)
-            ->whereIn('status', [ReturnStatus::APPROVED->value, ReturnStatus::REFUNDED->value, ReturnStatus::COMPLETED->value])
-            ->sum('refund_amount');
+        $refundsTotal = (float) Refund::query()
+            ->whereHas('vendorOrder', fn ($query) => $query->where('vendor_id', $vendor->id))
+            ->where('completed_at', '>=', $from)
+            ->where('status', 'refunded')
+            ->sum('amount');
         $netEarnings = $revenue - $commissionTotal - $refundsTotal;
         $orderCompleted = (clone $orders)->whereIn('status', [OrderStatus::COMPLETED->value, OrderStatus::DELIVERED->value])->count();
 

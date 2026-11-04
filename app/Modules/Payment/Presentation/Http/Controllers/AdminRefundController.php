@@ -115,9 +115,8 @@ class AdminRefundController extends Controller
         }
 
         $newStatus = RefundStatus::from($request->input('status'));
-        $refund->status = $newStatus;
-
         $message = 'Refund status updated.';
+        $providerResponse = [];
         $refund->load('payment');
 
         if ($newStatus === RefundStatus::REFUNDED && $refund->payment?->method === 'esewa') {
@@ -131,7 +130,7 @@ class AdminRefundController extends Controller
                         $refund->provider_refund_id = (string) $check['ref_id'];
                     }
 
-                    $refund->provider_response = array_merge($refund->provider_response ?? [], ['esewa_completed' => $check['raw'] ?? $check]);
+                    $providerResponse['esewa_completed'] = $check['raw'] ?? $check;
                     $message = 'Refund finalized — verified at eSewa (status: '.$gatewayStatus.').';
                 } elseif ($gatewayStatus === 'COMPLETE') {
                     return Response::error(
@@ -141,28 +140,26 @@ class AdminRefundController extends Controller
                     );
                 }
             } else {
-                $refund->provider_response = array_merge($refund->provider_response ?? [], [
-                    'esewa_check' => [
-                        'available' => false,
-                        'reason' => $check['reason'] ?? 'unavailable',
-                        'message' => $check['message'] ?? null,
-                    ],
-                ]);
+                $providerResponse['esewa_check'] = [
+                    'available' => false,
+                    'reason' => $check['reason'] ?? 'unavailable',
+                    'message' => $check['message'] ?? null,
+                ];
                 $message = 'Refund finalized (could not verify with eSewa — confirm the payout from the eSewa merchant dashboard).';
             }
         }
 
-        if ($request->filled('provider_refund_id')) {
-            $refund->provider_refund_id = $request->input('provider_refund_id');
+        try {
+            $refund = $this->refundService->updateStatus(
+                $request->user(),
+                $refund,
+                $newStatus,
+                $request->input('provider_refund_id') ?? $refund->provider_refund_id,
+                $providerResponse ?: null
+            );
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
         }
-
-        $refund->completed_at = in_array($newStatus->value, [
-            RefundStatus::REFUNDED->value,
-            RefundStatus::FAILED->value,
-            RefundStatus::CANCELLED->value,
-        ], true) ? now() : null;
-
-        $refund->save();
 
         return Response::success(
             new AdminRefundResource($refund->load('payment', 'order', 'orderItem')),

@@ -101,7 +101,7 @@ class Payment extends BaseModel
 
     public function isPaid(): bool
     {
-        return $this->status === PaymentStatus::PAID;
+        return in_array($this->status, [PaymentStatus::PAID, PaymentStatus::PARTIALLY_REFUNDED], true);
     }
 
     public function isSettled(): bool

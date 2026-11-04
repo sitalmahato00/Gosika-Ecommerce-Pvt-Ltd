@@ -3,7 +3,10 @@
 namespace App\Modules\Shipping\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Infrastructure\Models\User;
+use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
+use App\Modules\Shared\Domain\Enums\DeliveryStatus;
+use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
@@ -21,9 +24,11 @@ use App\Modules\Shipping\Presentation\Resources\AvailableJobResource;
 use App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource;
 use App\Modules\Shipping\Presentation\Resources\DeliveryPartnerDocumentResource;
 use App\Modules\Shipping\Presentation\Resources\DeliveryPartnerResource;
+use App\Modules\Shipping\Presentation\Resources\DeliveryReturnResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 
 class DeliveryPartnerController extends Controller
 {
@@ -119,6 +124,97 @@ class DeliveryPartnerController extends Controller
                 'last_page' => $assignments->lastPage(),
             ]]
         );
+    }
+
+    public function returns(Request $request): JsonResponse
+    {
+        $partner = $this->partnerFor($request->user());
+        $assignments = $partner->assignments()
+            ->where('status', DeliveryStatus::DELIVERED->value)
+            ->whereNotNull('delivered_at')
+            ->get(['id', 'vendor_order_id', 'pickup_address', 'dropoff_address', 'recipient_name', 'recipient_phone']);
+        $assignmentByVendorOrder = $assignments->keyBy('vendor_order_id');
+
+        $returns = ReturnRequest::query()
+            ->with(['order', 'orderItem', 'vendorOrder'])
+            ->whereIn('vendor_order_id', $assignmentByVendorOrder->keys())
+            ->whereIn('status', [
+                ReturnStatus::APPROVED->value,
+                ReturnStatus::COLLECTED->value,
+                ReturnStatus::REFUND_PENDING->value,
+                ReturnStatus::REFUNDED->value,
+                ReturnStatus::COMPLETED->value,
+            ])
+            ->latest()
+            ->paginate(min(max($request->integer('per_page', 100), 1), 100));
+
+        $returns->getCollection()->each(function (ReturnRequest $return) use ($assignmentByVendorOrder) {
+            $return->setRelation('pickup_assignment', $assignmentByVendorOrder->get($return->vendor_order_id));
+        });
+
+        return Response::success(
+            DeliveryReturnResource::collection($returns),
+            'Customer return pickups retrieved.',
+            ['pagination' => [
+                'total' => $returns->total(),
+                'per_page' => $returns->perPage(),
+                'current_page' => $returns->currentPage(),
+                'last_page' => $returns->lastPage(),
+            ]]
+        );
+    }
+
+    public function collectReturn(Request $request, string $returnId): JsonResponse
+    {
+        $partner = $this->partnerFor($request->user());
+
+        try {
+            $return = DB::transaction(function () use ($partner, $request, $returnId) {
+                $return = ReturnRequest::query()
+                    ->where('uuid', $returnId)
+                    ->when(ctype_digit($returnId), fn ($query) => $query->orWhere('id', (int) $returnId))
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $assignment = $partner->assignments()
+                    ->where('vendor_order_id', $return->vendor_order_id)
+                    ->where('status', DeliveryStatus::DELIVERED->value)
+                    ->whereNotNull('delivered_at')
+                    ->first();
+
+                if (! $assignment) {
+                    throw new DomainException('You did not deliver this order.', 403);
+                }
+
+                if (! in_array($return->status, [
+                    ReturnStatus::APPROVED,
+                    ReturnStatus::COLLECTED,
+                    ReturnStatus::REFUND_PENDING,
+                    ReturnStatus::REFUNDED,
+                    ReturnStatus::COMPLETED,
+                ], true)) {
+                    throw new DomainException('This customer return is not approved for pickup.', 422);
+                }
+
+                if ($return->pickup_collected_at) {
+                    throw new DomainException('This return pickup has already been confirmed.', 422);
+                }
+
+                $return->pickup_collected_at = now();
+                $return->pickup_collected_by = $request->user()->id;
+                if ($return->status === ReturnStatus::APPROVED) {
+                    $return->status = ReturnStatus::COLLECTED;
+                }
+                $return->save();
+                $return->setRelation('pickup_assignment', $assignment);
+
+                return $return->load(['order', 'orderItem', 'vendorOrder']);
+            });
+        } catch (DomainException $e) {
+            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
+        }
+
+        return Response::success(new DeliveryReturnResource($return), 'Customer return pickup confirmed.');
     }
 
     public function assignment(Request $request, DeliveryAssignment $assignment): JsonResponse

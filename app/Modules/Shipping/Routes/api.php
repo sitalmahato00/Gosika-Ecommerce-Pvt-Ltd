@@ -32,6 +32,8 @@ Route::prefix('v1/delivery-partner')->middleware(['auth:sanctum', 'ensure:delive
     Route::post('available-jobs/{vendorOrder}/claim', [DeliveryPartnerController::class, 'claim']);
 
     Route::get('assignments', [DeliveryPartnerController::class, 'assignments']);
+    Route::get('returns', [DeliveryPartnerController::class, 'returns']);
+    Route::post('returns/{returnId}/collect', [DeliveryPartnerController::class, 'collectReturn']);
     Route::get('assignments/{assignment}', [DeliveryPartnerController::class, 'assignment']);
     Route::post('assignments/{assignment}/accept', [DeliveryPartnerController::class, 'accept']);
     Route::post('assignments/{assignment}/pickup', [DeliveryPartnerController::class, 'pickup']);

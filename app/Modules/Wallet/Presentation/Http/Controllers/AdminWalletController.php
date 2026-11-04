@@ -5,6 +5,7 @@ namespace App\Modules\Wallet\Presentation\Http\Controllers;
 use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Identity\Domain\Permissions;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
+use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Shared\Domain\Enums\PayoutStatus;
 use App\Modules\Shared\Domain\Enums\SettlementStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
@@ -235,11 +236,18 @@ class AdminWalletController extends Controller
         }
 
         $statsQuery = VendorOrder::query()->where('vendor_id', $vendor->id);
+        $totalVendorPayable = (float) (clone $statsQuery)->sum('vendor_payable');
+        $totalRefunded = (float) Refund::query()
+            ->whereHas('vendorOrder', fn ($query) => $query->where('vendor_id', $vendor->id))
+            ->where('status', 'refunded')
+            ->sum('amount');
         $stats = [
             'orders_count' => (clone $statsQuery)->count(),
             'total_gross' => number_format((float) (clone $statsQuery)->sum('grand_total'), 2, '.', ''),
             'total_commission' => number_format((float) (clone $statsQuery)->sum('commission_amount'), 2, '.', ''),
             'total_vendor_payable' => number_format((float) (clone $statsQuery)->sum('vendor_payable'), 2, '.', ''),
+            'total_refunded' => number_format($totalRefunded, 2, '.', ''),
+            'total_net_payable' => number_format(max(0, $totalVendorPayable - $totalRefunded), 2, '.', ''),
             'total_settled' => number_format($settlementModels->where('status', SettlementStatus::PAID)->sum(fn ($s) => (float) $s->net_payable), 2, '.', ''),
             'total_withdrawn' => number_format(PayoutRequest::query()->where('vendor_id', $vendor->id)->where('status', PayoutStatus::PAID->value)->sum('amount'), 2, '.', ''),
         ];
@@ -247,6 +255,7 @@ class AdminWalletController extends Controller
         $orderSearch = trim((string) $request->input('order_search', ''));
         $ordersPaginator = VendorOrder::query()
             ->where('vendor_id', $vendor->id)
+            ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
             ->with(['order', 'items', 'store'])
             ->when($orderSearch !== '', function ($q, $s) {
                 $q->where(function ($q2) use ($s) {
@@ -279,6 +288,8 @@ class AdminWalletController extends Controller
                 'commission_rate' => number_format($commissionRate, 2, '.', ''),
                 'commission_amount' => number_format($commissionAmount, 2, '.', ''),
                 'vendor_payable' => number_format((float) $vo->vendor_payable, 2, '.', ''),
+                'refunded_amount' => number_format((float) ($vo->refunded_amount ?? 0), 2, '.', ''),
+                'net_payable' => number_format(max(0, (float) $vo->vendor_payable - (float) ($vo->refunded_amount ?? 0)), 2, '.', ''),
                 'settlement' => $settlementOrderMap->get($vo->id),
                 'items' => $vo->items->map(function ($item) use ($itemsSubtotal, $commissionAmount) {
                     $lineTotal = (float) $item->line_total;

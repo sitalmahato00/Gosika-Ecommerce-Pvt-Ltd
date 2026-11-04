@@ -8,11 +8,13 @@ use App\Modules\Identity\Domain\Roles;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
+use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Enums\DeliveryPartnerStatus;
 use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
+use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Domain\Enums\PaymentMethod;
 use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Domain\Enums\UserStatus;
@@ -816,5 +818,68 @@ class DeliveryAssignmentTest extends TestCase
             ->assertUnprocessable();
         $this->assertSame(8, $product->fresh()->quantity);
         $this->assertSame(8, $variant->fresh()->quantity);
+    }
+
+    public function test_only_original_delivery_partner_can_view_and_confirm_approved_customer_return_pickups(): void
+    {
+        [$order, $vendorOrder] = $this->createTestOrder(OrderStatus::DELIVERED);
+        $item = $order->items()->firstOrFail();
+        $assignment = DeliveryAssignment::create([
+            'uuid' => (string) Str::uuid(),
+            'vendor_order_id' => $vendorOrder->id,
+            'delivery_partner_id' => $this->rider1->id,
+            'status' => DeliveryStatus::DELIVERED,
+            'delivery_fee' => 100,
+            'pickup_address' => 'Vendor store address',
+            'dropoff_address' => 'Customer delivery address',
+            'recipient_name' => 'Ram Shrestha',
+            'recipient_phone' => '9812345678',
+            'delivered_at' => now()->subDay(),
+        ]);
+        $return = ReturnRequest::create([
+            'return_number' => 'RTN-'.strtoupper(Str::random(8)),
+            'user_id' => $order->user_id,
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'order_item_id' => $item->id,
+            'store_id' => $this->store->id,
+            'vendor_id' => $this->vendor->id,
+            'reason_type' => 'damaged',
+            'reason' => 'Item arrived damaged',
+            'quantity' => 1,
+            'status' => ReturnStatus::REQUESTED,
+        ]);
+
+        $this->actingAs($this->riderUser1)
+            ->getJson('/api/v1/delivery-partner/returns')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $return->update(['status' => ReturnStatus::APPROVED]);
+        $this->actingAs($this->riderUser1)
+            ->getJson('/api/v1/delivery-partner/returns')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.pickup_address', 'Customer delivery address')
+            ->assertJsonPath('data.0.dropoff_address', 'Vendor store address');
+
+        $this->actingAs($this->riderUser2)
+            ->getJson('/api/v1/delivery-partner/returns')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+        $this->actingAs($this->riderUser2)
+            ->postJson("/api/v1/delivery-partner/returns/{$return->uuid}/collect")
+            ->assertForbidden();
+
+        $this->actingAs($this->riderUser1)
+            ->postJson("/api/v1/delivery-partner/returns/{$return->uuid}/collect")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'collected');
+
+        $this->assertSame($this->riderUser1->id, $return->fresh()->pickup_collected_by);
+        $this->assertNotNull($return->fresh()->pickup_collected_at);
+        $this->actingAs($this->riderUser1)
+            ->postJson("/api/v1/delivery-partner/returns/{$return->uuid}/collect")
+            ->assertUnprocessable();
     }
 }

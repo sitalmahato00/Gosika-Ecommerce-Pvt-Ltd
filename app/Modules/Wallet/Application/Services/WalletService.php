@@ -5,6 +5,7 @@ namespace App\Modules\Wallet\Application\Services;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
+use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Platform\Infrastructure\Models\Setting;
 use App\Modules\Shared\Domain\Enums\CommissionStatus;
 use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
@@ -121,9 +122,39 @@ class WalletService
 
             $grossSales = round($eligible->sum('grand_total'), 2);
             $commissionTotal = round($eligible->sum('commission_amount'), 2);
-            $refundsTotal = 0.0;
+            $vendorOrderIds = $eligible->pluck('id');
+            $completedRefunds = Refund::query()
+                ->whereIn('vendor_order_id', $vendorOrderIds)
+                ->where('status', 'refunded')
+                ->get();
+            $refundsTotal = round((float) $completedRefunds->sum('amount'), 2);
+            $wallet = $this->lockWallet($vendor->id);
+
+            foreach ($completedRefunds as $refund) {
+                $alreadyDebited = WalletTransaction::query()
+                    ->where('wallet_id', $wallet->id)
+                    ->where('transaction_type', WalletTransactionType::DEBIT_REFUND->value)
+                    ->where('reference_type', 'refund')
+                    ->where('reference_id', $refund->id)
+                    ->exists();
+
+                if ($alreadyDebited) {
+                    continue;
+                }
+
+                $amount = (float) $refund->amount;
+                $this->mutate($wallet, function (VendorWallet $wallet) use ($amount) {
+                    $wallet->balance = round((float) $wallet->balance - $amount, 2);
+                    $wallet->pending_balance = round((float) $wallet->pending_balance - $amount, 2);
+                });
+                $this->ledger($wallet, WalletTransactionType::DEBIT_REFUND, $amount, [
+                    'reference_type' => 'refund',
+                    'reference_id' => $refund->id,
+                    'description' => 'Customer refund '.$refund->refund_number,
+                ]);
+            }
             $adjustmentsTotal = 0.0;
-            $netPayable = round($grossSales - $commissionTotal, 2);
+            $netPayable = max(0, round($grossSales - $commissionTotal - $refundsTotal, 2));
 
             $settlement = new Settlement();
             $settlement->settlement_number = ReferenceNumber::unique('SET');
@@ -529,7 +560,10 @@ class WalletService
             return false;
         }
 
-        if ($order->payment_status->value !== OrderPaymentStatus::PAID->value) {
+        if (! in_array($order->payment_status, [
+            OrderPaymentStatus::PAID,
+            OrderPaymentStatus::PARTIALLY_REFUNDED,
+        ], true)) {
             return false;
         }
 
@@ -601,12 +635,15 @@ class WalletService
     protected function ledger(VendorWallet $wallet, WalletTransactionType $type, float $amount, array $extra = []): WalletTransaction
     {
         $balanceAfter = (float) $wallet->balance;
+        $balanceBefore = str_starts_with($type->value, 'debit_')
+            ? $balanceAfter + $amount
+            : $balanceAfter - $amount;
 
         return WalletTransaction::query()->create(array_merge([
             'wallet_id' => $wallet->id,
             'transaction_type' => $type->value,
             'amount' => $amount,
-            'balance_before' => round($balanceAfter - $amount, 2),
+            'balance_before' => round($balanceBefore, 2),
             'balance_after' => $balanceAfter,
             'status' => 'completed',
             'description' => $extra['description'] ?? $type->value,

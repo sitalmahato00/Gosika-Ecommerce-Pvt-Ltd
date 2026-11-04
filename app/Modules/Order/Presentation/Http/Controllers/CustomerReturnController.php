@@ -118,6 +118,10 @@ class CustomerReturnController extends Controller
             'reason_type' => $data['reason_type'],
             'reason' => $data['reason'],
             'quantity' => $data['quantity'],
+            'refund_amount' => round(
+                ((float) $orderItem->line_total / max(1, (int) $orderItem->quantity)) * $data['quantity'],
+                2
+            ),
             'status' => ReturnStatus::REQUESTED,
             'window_expires_at' => $windowExpiresAt,
         ]);

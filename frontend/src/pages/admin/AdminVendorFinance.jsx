@@ -278,7 +278,8 @@ export default function AdminVendorFinance() {
         { label: 'Status' },
         { label: 'Gross Total', align: 'right' },
         { label: 'Commission', align: 'right' },
-        { label: 'Vendor Payable', align: 'right' },
+        { label: 'Refunded', align: 'right' },
+        { label: 'Net Vendor Payable', align: 'right' },
         { label: 'Product' },
         { label: 'Product Line Total', align: 'right' },
       ],
@@ -290,7 +291,8 @@ export default function AdminVendorFinance() {
           o.status || '',
           it === (o.items || [])[0] ? (o.grand_total || 0) : '',
           it === (o.items || [])[0] ? (o.commission_amount || 0) : '',
-          it === (o.items || [])[0] ? (o.vendor_payable || 0) : '',
+          it === (o.items || [])[0] ? (o.refunded_amount || 0) : '',
+          it === (o.items || [])[0] ? (o.net_payable || o.vendor_payable || 0) : '',
           it.product_name || '',
           it.line_total || 0,
         ])
@@ -562,7 +564,7 @@ export default function AdminVendorFinance() {
                     <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Settlement Period</th>
                     <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Gross Total</th>
                     <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Commission</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Vendor Payable</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Net Vendor Payable</th>
                     <th style={{ padding: '10px 14px', width: 36 }} />
                   </tr>
                 </thead>
@@ -605,7 +607,14 @@ export default function AdminVendorFinance() {
                           </td>
                           <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700 }}>{money(o.grand_total)}</td>
                           <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#dc2626' }}>- {money(o.commission_amount)}</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: '#16a34a' }}>{money(o.vendor_payable)}</td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: '#16a34a' }}>
+                            {money(o.net_payable || o.vendor_payable)}
+                            {Number(o.refunded_amount) > 0 && (
+                              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)' }}>
+                                After refund {money(o.refunded_amount)}
+                              </div>
+                            )}
+                          </td>
                           <td style={{ padding: '10px 14px' }} />
                         </tr>
                         {expanded && o.items?.length > 0 && (

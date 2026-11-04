@@ -9,6 +9,7 @@ class VendorOrderResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $refundedAmount = round((float) ($this->refunded_amount ?? 0), 2);
         $shipping = null;
         if ($this->order) {
             if ($this->order->shipping_address_snapshot) {
@@ -112,6 +113,8 @@ class VendorOrderResource extends JsonResource
             'delivery_charge' => number_format((float) $this->delivery_charge, 2, '.', ''),
             'tax' => number_format((float) $this->tax, 2, '.', ''),
             'grand_total' => number_format((float) $this->grand_total, 2, '.', ''),
+            'refunded_amount' => number_format($refundedAmount, 2, '.', ''),
+            'net_total' => number_format(max(0, (float) $this->grand_total - $refundedAmount), 2, '.', ''),
             'commission_rate' => (float) $this->commission_rate,
             'commission_amount' => number_format((float) $this->commission_amount, 2, '.', ''),
             'vendor_payable' => number_format((float) $this->vendor_payable, 2, '.', ''),

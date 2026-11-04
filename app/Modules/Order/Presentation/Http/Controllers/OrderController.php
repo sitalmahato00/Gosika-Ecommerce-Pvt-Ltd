@@ -34,7 +34,14 @@ class OrderController extends Controller
 
         $query = Order::query()
             ->where('user_id', $request->user()->id)
-            ->with(['items.product', 'items.variant', 'vendorOrders.assignments'])
+            ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
+            ->with([
+                'items.product',
+                'items.variant',
+                'vendorOrders' => fn ($query) => $query
+                    ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount')
+                    ->with('assignments'),
+            ])
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($filters['search'] ?? null, function ($query, $search) {
                 $query->where(function ($inner) use ($search) {

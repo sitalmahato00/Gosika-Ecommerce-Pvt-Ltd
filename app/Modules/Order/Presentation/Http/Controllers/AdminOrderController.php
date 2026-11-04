@@ -48,7 +48,13 @@ class AdminOrderController extends Controller
         ]);
 
         $query = Order::query()
-            ->with(['user', 'items', 'vendorOrders'])
+            ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
+            ->with([
+                'user',
+                'items',
+                'vendorOrders' => fn ($query) => $query
+                    ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount'),
+            ])
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
             ->when($filters['payment_status'] ?? null, fn ($q, $s) => $q->where('payment_status', $s))
             ->when($filters['payment_method'] ?? null, fn ($q, $s) => $q->where('payment_method', $s))
@@ -84,7 +90,16 @@ class AdminOrderController extends Controller
     public function show(string $orderId): JsonResponse
     {
         $order = Order::query()
-            ->with(['user', 'items', 'vendorOrders.items', 'vendorOrders.store', 'vendorOrders.assignments.deliveryPartner', 'payments', 'shippingAddress'])
+            ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
+            ->with([
+                'user',
+                'items',
+                'vendorOrders' => fn ($query) => $query
+                    ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount')
+                    ->with(['items', 'store', 'assignments.deliveryPartner']),
+                'payments',
+                'shippingAddress',
+            ])
             ->where(function ($q) use ($orderId) {
                 $q->where('uuid', $orderId)
                     ->orWhere('order_number', $orderId);
@@ -216,7 +231,6 @@ class AdminOrderController extends Controller
             ->firstOrFail();
 
         $refundable = [
-            ReturnStatus::UNDER_REVIEW->value,
             ReturnStatus::APPROVED->value,
             ReturnStatus::COLLECTED->value,
             ReturnStatus::INSPECTED->value,
@@ -232,9 +246,19 @@ class AdminOrderController extends Controller
         }
 
         $amount = round((float) ($request->input('amount') ?? $return->refund_amount), 2);
-        $payment = $return->order->payments->first(fn ($p) => $p->status->value === 'paid');
+        if ($amount < 0.01) {
+            return Response::error('Enter a refund amount greater than zero.', ['amount' => 'required'], 422);
+        }
+        $payment = $return->order->payments
+            ->first(fn ($p) => $p->vendor_order_id === $return->vendor_order_id && $p->isPaid())
+            ?? $return->order->payments->first(fn ($p) => $p->isPaid());
 
         if (! $payment) {
+            if ($return->order->payments->isNotEmpty()
+                || $return->order->payment_method !== PaymentMethod::COD->value) {
+                return Response::error('No paid payment is available to refund for this order.', ['payment' => 'unavailable'], 422);
+            }
+
             $method = $request->input('method');
             $payment = Payment::query()->create([
                 'payment_number' => ReferenceNumber::unique('PAY'),
@@ -276,16 +300,12 @@ class AdminOrderController extends Controller
                 $request->user(),
                 $amount,
                 $request->input('notes') ?? "Refund for return {$return->return_number}",
-                $gateway
+                $gateway,
+                $return
             );
         } catch (DomainException $e) {
             return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
         }
-
-        $return->status = ReturnStatus::REFUND_PENDING;
-        $return->reviewed_by = $return->reviewed_by ?? $request->user()->id;
-        $return->reviewed_at = $return->reviewed_at ?? now();
-        $return->save();
 
         $message = ($payment->method === 'esewa' && ! ($gateway['provider_response']['esewa_check']['available'] ?? true))
             ? 'Refund created. eSewa verification was unavailable — finalize the payout from the eSewa merchant dashboard.'

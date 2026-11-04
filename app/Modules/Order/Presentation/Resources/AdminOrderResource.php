@@ -13,6 +13,7 @@ class AdminOrderResource extends JsonResource
     public function toArray(Request $request): array
     {
         $shipping = $this->shipping_address_snapshot ? json_decode($this->shipping_address_snapshot, true) : null;
+        $refundedAmount = round((float) ($this->refunded_amount ?? 0), 2);
 
         return [
             'id' => $this->uuid,
@@ -27,6 +28,8 @@ class AdminOrderResource extends JsonResource
             'delivery_charge' => number_format((float) $this->delivery_charge, 2, '.', ''),
             'tax' => number_format((float) $this->tax, 2, '.', ''),
             'grand_total' => number_format((float) $this->grand_total, 2, '.', ''),
+            'refunded_amount' => number_format($refundedAmount, 2, '.', ''),
+            'net_total' => number_format(max(0, (float) $this->grand_total - $refundedAmount), 2, '.', ''),
             'currency' => $this->currency,
             'coupon_code' => $this->coupon_code,
             'customer_notes' => $this->customer_notes,

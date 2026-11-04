@@ -12,26 +12,34 @@ use App\Modules\Marketing\Infrastructure\Models\CustomerNotification;
 use App\Modules\Order\Application\Services\OrderConfirmationSchedulerService;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
+use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Order\Presentation\Resources\OrderResource;
+use App\Modules\Payment\Application\Services\RefundService;
 use App\Modules\Payment\Application\Services\PaymentService;
 use App\Modules\Payment\Domain\Contracts\PaymentProviderContract;
 use App\Modules\Payment\Domain\Exceptions\PaymentProviderException;
 use App\Modules\Payment\Infrastructure\Models\Payment;
+use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Platform\Infrastructure\Models\Setting;
 use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Enums\PaymentMethod;
 use App\Modules\Shared\Domain\Enums\PaymentStatus;
+use App\Modules\Shared\Domain\Enums\RefundStatus;
+use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Domain\Enums\UserStatus;
 use App\Modules\Shared\Domain\Enums\VendorStatus;
+use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shipping\Application\Services\DeliveryService;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment;
 use App\Modules\Shipping\Infrastructure\Models\DeliveryPartner;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
+use App\Modules\Wallet\Application\Services\WalletService;
+use App\Modules\Wallet\Infrastructure\Models\WalletTransaction;
 use Carbon\Carbon;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -631,6 +639,7 @@ class OrderConfirmationRulesTest extends TestCase
             'order_id' => $order->id,
             'order_item_id' => $item->id,
             'window_expires_at' => $deliveredAt->copy()->addDays(7)->toDateTimeString(),
+            'refund_amount' => 1200.00,
         ]);
 
         [$expiredOrder, $expiredVendorOrder, $expiredCustomer] = $this->createOrder(OrderStatus::COMPLETED);
@@ -810,5 +819,211 @@ class OrderConfirmationRulesTest extends TestCase
         // Vendor accepted, and auto_ready_for_pickup automatically advanced to READY_FOR_PICKUP
         $this->assertEquals(OrderStatus::READY_FOR_PICKUP->value, $vendorOrder->fresh()->status->value);
         $this->assertEquals(OrderStatus::READY_FOR_PICKUP->value, $order->fresh()->status->value);
+    }
+
+    public function test_refund_amount_is_linked_and_financial_status_updates_only_when_refunded(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED, isCod: false);
+        $item = $order->items()->firstOrFail();
+        $payment = Payment::create([
+            'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'user_id' => $customer->id,
+            'amount' => $order->grand_total,
+            'currency' => 'NPR',
+            'method' => 'esewa',
+            'provider' => 'esewa',
+            'status' => PaymentStatus::PAID,
+            'initiated_at' => now(),
+            'verified_at' => now(),
+        ]);
+        $return = ReturnRequest::create([
+            'return_number' => 'RTN-'.strtoupper(Str::random(8)),
+            'user_id' => $customer->id,
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'order_item_id' => $item->id,
+            'store_id' => $this->store->id,
+            'vendor_id' => $this->vendor->id,
+            'reason_type' => 'damaged',
+            'reason' => 'Item arrived damaged',
+            'quantity' => 1,
+            'refund_amount' => 1200,
+            'status' => ReturnStatus::APPROVED,
+        ]);
+
+        $service = app(RefundService::class);
+        $refund = $service->create($payment, $this->adminUser, 100, 'Approved return', null, $return);
+
+        $this->assertSame($return->id, $refund->return_request_id);
+        $this->assertSame($item->id, $refund->order_item_id);
+        $this->assertSame('100.00', $return->fresh()->refund_amount);
+        $this->assertSame(ReturnStatus::REFUND_PENDING, $return->fresh()->status);
+
+        $service->approve($this->adminUser, $refund);
+        $this->assertSame(PaymentStatus::PAID, $payment->fresh()->status);
+        $this->assertSame(OrderPaymentStatus::PAID, $order->fresh()->payment_status);
+
+        $service->updateStatus($this->adminUser, $refund, RefundStatus::REFUNDED);
+
+        $this->assertSame(PaymentStatus::PARTIALLY_REFUNDED, $payment->fresh()->status);
+        $this->assertSame(OrderPaymentStatus::PARTIALLY_REFUNDED, $order->fresh()->payment_status);
+        $this->assertSame(ReturnStatus::REFUNDED, $return->fresh()->status);
+
+        $this->actingAs($customer)
+            ->getJson("/api/v1/orders/{$order->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.grand_total', '2500.00')
+            ->assertJsonPath('data.refunded_amount', '100.00')
+            ->assertJsonPath('data.net_total', '2400.00');
+    }
+
+    public function test_refund_cannot_exceed_the_returned_quantity_value(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED, isCod: false);
+        $item = $order->items()->firstOrFail();
+        $payment = Payment::create([
+            'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'user_id' => $customer->id,
+            'amount' => $order->grand_total,
+            'currency' => 'NPR',
+            'method' => 'esewa',
+            'provider' => 'esewa',
+            'status' => PaymentStatus::PAID,
+            'initiated_at' => now(),
+            'verified_at' => now(),
+        ]);
+        $return = ReturnRequest::create([
+            'return_number' => 'RTN-'.strtoupper(Str::random(8)),
+            'user_id' => $customer->id,
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'order_item_id' => $item->id,
+            'store_id' => $this->store->id,
+            'vendor_id' => $this->vendor->id,
+            'reason_type' => 'damaged',
+            'reason' => 'Item arrived damaged',
+            'quantity' => 1,
+            'refund_amount' => 1200,
+            'status' => ReturnStatus::APPROVED,
+        ]);
+
+        try {
+            app(RefundService::class)->create($payment, $this->adminUser, 1200.01, 'Over limit', null, $return);
+            $this->fail('A refund above the returned quantity value should be rejected.');
+        } catch (DomainException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+        }
+
+        $this->assertSame(0, Refund::query()->count());
+    }
+
+    public function test_admin_can_create_refund_using_the_selected_return_amount(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED, isCod: true);
+        $item = $order->items()->firstOrFail();
+        Payment::create([
+            'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'user_id' => $customer->id,
+            'amount' => $order->grand_total,
+            'currency' => 'NPR',
+            'method' => 'cod',
+            'provider' => 'manual',
+            'status' => PaymentStatus::PAID,
+            'initiated_at' => now(),
+            'verified_at' => now(),
+        ]);
+        $return = ReturnRequest::create([
+            'return_number' => 'RTN-'.strtoupper(Str::random(8)),
+            'user_id' => $customer->id,
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'order_item_id' => $item->id,
+            'store_id' => $this->store->id,
+            'vendor_id' => $this->vendor->id,
+            'reason_type' => 'damaged',
+            'reason' => 'Item arrived damaged',
+            'quantity' => 1,
+            'refund_amount' => 1200,
+            'status' => ReturnStatus::APPROVED,
+        ]);
+
+        $response = $this->actingAs($this->adminUser)
+            ->postJson("/api/v1/admin/orders/returns/{$return->uuid}/refund", [
+                'method' => 'cod',
+                'amount' => '321.50',
+                'notes' => 'Refund verified by admin',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.amount', '321.50');
+        $this->assertDatabaseHas('refunds', [
+            'return_request_id' => $return->id,
+            'order_item_id' => $item->id,
+            'amount' => 321.50,
+        ]);
+        $this->assertSame('321.50', $return->fresh()->refund_amount);
+        $this->assertSame(ReturnStatus::REFUND_PENDING, $return->fresh()->status);
+    }
+
+    public function test_completed_refunds_reduce_vendor_settlement_and_pending_wallet_balance(): void
+    {
+        Setting::set('return.window_days', 7, 'return', 'integer', true);
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED, isCod: false);
+        $order->update(['completed_at' => now()->subDays(10)]);
+        $vendorOrder->update([
+            'status' => OrderStatus::DELIVERED,
+            'grand_total' => 2500,
+            'commission_rate' => 8,
+            'commission_amount' => 200,
+            'vendor_payable' => 2300,
+        ]);
+        $payment = Payment::create([
+            'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'user_id' => $customer->id,
+            'amount' => 2500,
+            'currency' => 'NPR',
+            'method' => 'esewa',
+            'provider' => 'esewa',
+            'status' => PaymentStatus::PAID,
+            'initiated_at' => now(),
+            'verified_at' => now(),
+        ]);
+        $refund = Refund::create([
+            'refund_number' => 'REF-'.strtoupper(Str::random(8)),
+            'payment_id' => $payment->id,
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'amount' => 100,
+            'status' => RefundStatus::REFUNDED,
+            'completed_at' => now(),
+        ]);
+
+        $settlement = app(WalletService::class)->settleVendor(
+            $this->vendor,
+            now()->subDays(30),
+            now()
+        );
+
+        $this->assertSame('100.00', $settlement->refunds_total);
+        $this->assertSame('2200.00', $settlement->net_payable);
+        $wallet = app(WalletService::class)->walletForVendor($this->vendor);
+        $this->assertSame('2200.00', $wallet->balance);
+        $this->assertSame('2200.00', $wallet->pending_balance);
+        $this->assertDatabaseHas('wallet_transactions', [
+            'wallet_id' => $wallet->id,
+            'transaction_type' => 'debit_refund',
+            'reference_type' => 'refund',
+            'reference_id' => $refund->id,
+            'balance_before' => 2300,
+            'balance_after' => 2200,
+        ]);
     }
 }

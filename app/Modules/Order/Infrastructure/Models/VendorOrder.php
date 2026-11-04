@@ -2,6 +2,7 @@
 
 namespace App\Modules\Order\Infrastructure\Models;
 
+use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Infrastructure\Models\BaseModel;
@@ -84,5 +85,10 @@ class VendorOrder extends BaseModel
         return $this
             ->hasOne(\App\Modules\Shipping\Infrastructure\Models\DeliveryAssignment::class)
             ->ofMany('id', 'max');
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
     }
 }

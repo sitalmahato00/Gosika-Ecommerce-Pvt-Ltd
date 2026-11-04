@@ -420,6 +420,16 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
               <div className="flex justify-between mt-1" style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
                 <span className="font-bold">Total</span><span className="price-current">{money(order.grand_total)}</span>
               </div>
+              {Number(order.refunded_amount) > 0 && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="muted">Refunded</span><span className="text-success">{money(order.refunded_amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold">
+                    <span>Net paid</span><span>{money(order.net_total)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between mt-1"><span className="muted">Payment</span><span className="font-medium flex items-center gap-1">{order.payment_method === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 14, width: 'auto' }} />}{PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method}</span></div>
             </div>
           </div>

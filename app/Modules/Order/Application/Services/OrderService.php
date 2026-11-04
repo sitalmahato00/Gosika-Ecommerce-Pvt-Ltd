@@ -47,7 +47,15 @@ class OrderService
         return Order::query()
             ->where('user_id', $user->id)
             ->where('uuid', $uuid)
-            ->with(['items.product', 'items.variant', 'vendorOrders.items', 'vendorOrders.assignments.tracking', 'shippingAddress'])
+            ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
+            ->with([
+                'items.product',
+                'items.variant',
+                'vendorOrders' => fn ($query) => $query
+                    ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount')
+                    ->with(['items', 'assignments.tracking']),
+                'shippingAddress',
+            ])
             ->first();
     }
 

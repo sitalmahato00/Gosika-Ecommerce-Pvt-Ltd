@@ -419,7 +419,8 @@ export default function AdminOrderDetail() {
     ${Number(order.discount) > 0 ? `<div class="trow"><span>Coupon Discount</span><span>- ${money(order.discount)}</span></div>` : ''}
     ${Number(order.tax) > 0 ? `<div class="trow"><span>Tax</span><span>${money(order.tax)}</span></div>` : ''}
     <div class="trow"><span>Delivery Charge</span><span>${money(order.delivery_charge || 0)}</span></div>
-    <div class="trow total"><span>Grand Total</span><span>${money(order.grand_total || order.total || 0)}</span></div>`
+    <div class="trow total"><span>Grand Total</span><span>${money(order.grand_total || order.total || 0)}</span></div>
+    ${Number(order.refunded_amount) > 0 ? `<div class="trow"><span>Refunded</span><span>${money(order.refunded_amount)}</span></div><div class="trow total"><span>Net after refunds</span><span>${money(order.net_total)}</span></div>` : ''}`
 
   const baseMetaRows = [
     ['Order #', order.order_number || order.id],
@@ -780,6 +781,18 @@ export default function AdminOrderDetail() {
                   <span style={{ fontWeight: 800, color: 'var(--ink)' }}>Grand Total:</span>
                   <span style={{ fontWeight: 900, color: '#16a34a' }}>{money(order.grand_total || order.total || 0)}</span>
                 </div>
+                {Number(order.refunded_amount) > 0 && (
+                  <>
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--muted)' }}>Refunded:</span>
+                      <span style={{ fontWeight: 700, color: '#16a34a' }}>{money(order.refunded_amount)}</span>
+                    </div>
+                    <div className="flex justify-between pt-2" style={{ borderTop: '1px solid var(--border)', fontSize: 15 }}>
+                      <span style={{ fontWeight: 800, color: 'var(--ink)' }}>Net after refunds:</span>
+                      <span style={{ fontWeight: 900, color: '#16a34a' }}>{money(order.net_total)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -859,6 +872,18 @@ export default function AdminOrderDetail() {
                 <span style={{ color: 'var(--muted)' }}>Order Value:</span>
                 <span style={{ fontWeight: 700 }}>{money(order.grand_total || order.total || 0)}</span>
               </div>
+              {Number(order.refunded_amount) > 0 && (
+                <>
+                  <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ color: 'var(--muted)' }}>Refunded:</span>
+                    <span style={{ fontWeight: 700 }}>{money(order.refunded_amount)}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span style={{ color: 'var(--muted)' }}>Net after refunds:</span>
+                    <span style={{ fontWeight: 700 }}>{money(order.net_total)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between py-1">
                 <span style={{ color: 'var(--muted)' }}>Currency:</span>
                 <span style={{ fontWeight: 600 }}>{order.currency || 'NPR'} (Rs.)</span>

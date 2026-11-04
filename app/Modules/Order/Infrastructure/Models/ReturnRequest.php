@@ -3,10 +3,12 @@
 namespace App\Modules\Order\Infrastructure\Models;
 
 use App\Modules\Identity\Infrastructure\Models\User;
+use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Infrastructure\Models\BaseModel;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ReturnRequest extends BaseModel
 {
@@ -27,6 +29,8 @@ class ReturnRequest extends BaseModel
         'reviewed_by',
         'reviewed_at',
         'window_expires_at',
+        'pickup_collected_at',
+        'pickup_collected_by',
     ];
 
     protected function casts(): array
@@ -37,6 +41,8 @@ class ReturnRequest extends BaseModel
             'quantity' => 'integer',
             'reviewed_at' => 'datetime',
             'window_expires_at' => 'datetime',
+            'pickup_collected_at' => 'datetime',
+            'pickup_collected_by' => 'integer',
         ];
     }
 
@@ -68,5 +74,15 @@ class ReturnRequest extends BaseModel
     public function reviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function pickupCollectedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pickup_collected_by');
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
     }
 }

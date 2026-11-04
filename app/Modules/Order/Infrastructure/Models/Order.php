@@ -6,6 +6,7 @@ use App\Modules\Checkout\Infrastructure\Models\CheckoutSession;
 use App\Modules\Customer\Infrastructure\Models\CustomerAddress;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Payment\Infrastructure\Models\Payment;
+use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Infrastructure\Models\BaseModel;
@@ -96,5 +97,10 @@ class Order extends BaseModel
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
     }
 }
