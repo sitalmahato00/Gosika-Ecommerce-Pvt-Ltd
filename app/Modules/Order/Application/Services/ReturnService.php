@@ -519,7 +519,7 @@ class ReturnService
         string $notes = ''
     ): void {
         try {
-            if (! Schema::hasTable('return_status_histories')) {
+            if (! Schema::hasTable('return_status_history') && ! Schema::hasTable('return_status_histories')) {
                 return;
             }
 
@@ -535,3 +535,4 @@ class ReturnService
         }
     }
 }
+

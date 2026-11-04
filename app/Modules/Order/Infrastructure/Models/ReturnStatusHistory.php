@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ReturnStatusHistory extends Model
 {
+    protected $table = 'return_status_history';
+
     protected $fillable = [
         'return_request_id',
         'from_status',
@@ -15,6 +17,19 @@ class ReturnStatusHistory extends Model
         'notes',
         'changed_by',
     ];
+
+    public function getTable()
+    {
+        if (\Illuminate\Support\Facades\Schema::hasTable('return_status_history')) {
+            return 'return_status_history';
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('return_status_histories')) {
+            return 'return_status_histories';
+        }
+
+        return $this->table;
+    }
 
     public function returnRequest(): BelongsTo
     {

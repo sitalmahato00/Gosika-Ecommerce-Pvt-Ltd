@@ -64,7 +64,7 @@ class VendorReturnController extends Controller
         $vendor = $this->vendorFor($request);
 
         $relations = $this->returnRelations(['user', 'orderItem.product', 'order']);
-        if (Schema::hasTable('return_status_history')) {
+        if (Schema::hasTable('return_status_history') || Schema::hasTable('return_status_histories')) {
             $relations[] = 'statusHistory.changedBy';
         }
 
@@ -247,7 +247,7 @@ class VendorReturnController extends Controller
         if (Schema::hasTable('return_request_media')) {
             $relations[] = 'media';
         }
-        if (Schema::hasTable('return_status_history')) {
+        if (Schema::hasTable('return_status_history') || Schema::hasTable('return_status_histories')) {
             $relations[] = 'statusHistory';
         }
 
@@ -285,8 +285,22 @@ class VendorReturnController extends Controller
                     $table->index('return_request_id');
                 });
             }
+
+            if (! Schema::hasTable('return_status_histories')) {
+                Schema::create('return_status_histories', function (Blueprint $table) {
+                    $table->id();
+                    $table->foreignId('return_request_id')->constrained()->cascadeOnDelete();
+                    $table->string('from_status', 30)->nullable();
+                    $table->string('to_status', 30);
+                    $table->text('notes')->nullable();
+                    $table->foreignId('changed_by')->nullable()->constrained('users')->nullOnDelete();
+                    $table->timestamps();
+                    $table->index('return_request_id');
+                });
+            }
         } catch (\Throwable) {
             // Fail safe without interrupting read workflows
         }
     }
 }
+
