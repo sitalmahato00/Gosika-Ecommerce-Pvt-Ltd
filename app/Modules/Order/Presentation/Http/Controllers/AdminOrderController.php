@@ -115,7 +115,21 @@ class AdminOrderController extends Controller
     public function returns(Request $request): JsonResponse
     {
         $query = ReturnRequest::query()
-            ->with(['user', 'order', 'vendorOrder', 'orderItem', 'store'])
+            ->with([
+                'user',
+                'order.items',
+                'order.payments',
+                'order.shippingAddress.municipality',
+                'order.shippingAddress.district',
+                'order.shippingAddress.province',
+                'order.vendorOrders.store',
+                'order.vendorOrders.assignments.deliveryPartner.user',
+                'vendorOrder.store',
+                'vendorOrder.assignments.deliveryPartner.user',
+                'orderItem',
+                'store',
+                'refunds',
+            ])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $term = '%'.$request->string('search')->trim().'%';

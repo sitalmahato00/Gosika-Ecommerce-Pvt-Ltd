@@ -892,6 +892,11 @@ class DeliveryAssignmentTest extends TestCase
             ->assertJsonPath('data.0.type', 'exchange')
             ->assertJsonPath('data.0.pickup_address', 'Customer delivery address')
             ->assertJsonPath('data.0.dropoff_address', 'Vendor store address');
+        $this->actingAs($this->adminUser)
+            ->getJson('/api/v1/admin/orders/returns')
+            ->assertOk()
+            ->assertJsonPath('data.0.order.items.0.product_name', $item->product_name)
+            ->assertJsonPath('data.0.vendor_order.assignments.0.delivery_partner.name', $this->rider1->name);
 
         $this->actingAs($this->riderUser2)
             ->getJson('/api/v1/delivery-partner/returns')
@@ -901,6 +906,11 @@ class DeliveryAssignmentTest extends TestCase
             ->postJson("/api/v1/delivery-partner/returns/{$return->uuid}/collect")
             ->assertForbidden();
 
+        $assignment->update(['status' => DeliveryStatus::RETURNED_TO_VENDOR]);
+        $this->actingAs($this->riderUser1)
+            ->getJson('/api/v1/delivery-partner/returns')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
         $this->actingAs($this->riderUser1)
             ->postJson("/api/v1/delivery-partner/returns/{$return->uuid}/collect")
             ->assertOk()
@@ -908,6 +918,12 @@ class DeliveryAssignmentTest extends TestCase
 
         $this->assertSame($this->riderUser1->id, $return->fresh()->pickup_collected_by);
         $this->assertNotNull($return->fresh()->pickup_collected_at);
+        $return->update(['status' => ReturnStatus::REFUND_PENDING, 'review_notes' => null]);
+        $this->actingAs($this->riderUser1)
+            ->getJson('/api/v1/delivery-partner/returns')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.type', 'refund');
         $return->update(['status' => ReturnStatus::REFUNDED, 'review_notes' => null]);
         $this->actingAs($this->riderUser1)
             ->getJson('/api/v1/delivery-partner/returns')

@@ -133,7 +133,9 @@ class DeliveryPartnerController extends Controller
             ->whereNotNull('delivered_at')
             ->orderByDesc('delivered_at')
             ->get(['id', 'vendor_order_id', 'pickup_address', 'dropoff_address', 'recipient_name', 'recipient_phone']);
-        $assignmentByVendorOrder = $assignments->keyBy('vendor_order_id');
+        $assignmentByVendorOrder = $assignments
+            ->groupBy('vendor_order_id')
+            ->map(fn ($vendorAssignments) => $vendorAssignments->first());
 
         $returns = ReturnRequest::query()
             ->with(['order', 'orderItem', 'vendorOrder'])
@@ -179,8 +181,8 @@ class DeliveryPartnerController extends Controller
 
                 $assignment = $partner->assignments()
                     ->where('vendor_order_id', $return->vendor_order_id)
-                    ->where('status', DeliveryStatus::DELIVERED->value)
                     ->whereNotNull('delivered_at')
+                    ->orderByDesc('delivered_at')
                     ->first();
 
                 if (! $assignment) {

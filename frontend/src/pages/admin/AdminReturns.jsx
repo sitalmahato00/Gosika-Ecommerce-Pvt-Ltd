@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   RotateCcw, Check, X, Eye, RefreshCw,
-  ShoppingBag, Store, User, AlertCircle
+  ShoppingBag, Store, User, AlertCircle, Truck
 } from 'lucide-react'
 import api from '../../api/client'
 import PageHeader from '../../components/admin/PageHeader'
@@ -12,23 +12,26 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { money, formatDateTime, timeAgo } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 
-const RETURN_STATUSES = [
-  { value: 'requested', label: 'Requested' },
-  { value: 'under_review', label: 'Under Review' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'collected', label: 'Collected' },
-  { value: 'inspected', label: 'Inspected' },
-  { value: 'refund_pending', label: 'Refund Pending' },
-  { value: 'refunded', label: 'Refunded' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-]
-
 const maxRefundAmount = item => {
   const purchasedQuantity = Math.max(1, Number(item?.order_item?.quantity || 1))
   const returnedQuantity = Math.max(1, Number(item?.quantity || 1))
   return (Number(item?.order_item?.line_total || 0) / purchasedQuantity) * returnedQuantity
+}
+
+const getReturnType = item => {
+  if (String(item?.review_notes || '').trim().toLowerCase().startsWith('approved as exchange:')) return 'exchange'
+  if (['refund_pending', 'refunded'].includes(item?.status) || item?.refunds?.length) return 'refund'
+  return 'return'
+}
+
+const getStatusLabel = status => ({
+  refund_pending: 'Refund Processing',
+  under_review: 'Under Review',
+})[status] || String(status || 'unknown').replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())
+
+const getDeliveryAssignment = item => {
+  const assignments = item?.vendor_order?.assignments || []
+  return assignments.find(assignment => assignment.delivered_at) || assignments[0] || null
 }
 
 export default function AdminReturns() {
@@ -42,6 +45,7 @@ export default function AdminReturns() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
+  const [detailItem, setDetailItem] = useState(null)
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -241,19 +245,20 @@ export default function AdminReturns() {
     },
     {
       header: 'Status',
-      render: item => (
-        <select
-          className="input"
-          value={item.status}
-          onChange={e => handleStatusChange(item, e.target.value)}
-          title="Edit return status"
-          style={{ fontSize: 12, fontWeight: 700, borderRadius: 8, padding: '5px 8px', cursor: 'pointer', color: 'var(--ink)', minWidth: 132 }}
-        >
-          {RETURN_STATUSES.map(s => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-      )
+      render: item => {
+        const type = getReturnType(item)
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
+            <span className="chip chip-sm">{getStatusLabel(item.status)}</span>
+            <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'capitalize' }}>{type}</span>
+            {item.pickup_collected_at && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d' }}>
+                Pickup collected {formatDateTime(item.pickup_collected_at)}
+              </span>
+            )}
+          </div>
+        )
+      }
     },
     {
       header: 'Requested',
@@ -268,9 +273,17 @@ export default function AdminReturns() {
       align: 'right',
       render: item => {
         const isPending = item.status === 'requested' || item.status === 'under_review'
-        const canRefund = ['approved', 'collected', 'inspected', 'refund_pending'].includes(item.status)
+        const canRefund = getReturnType(item) !== 'exchange' && ['collected', 'inspected'].includes(item.status)
         return (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-outline btn-xs"
+              onClick={() => setDetailItem(item)}
+              title="View full order and delivery details"
+            >
+              <Eye size={13} /> Details
+            </button>
             {isPending ? (
               <>
                 <button
@@ -278,9 +291,9 @@ export default function AdminReturns() {
                   className="btn btn-xs"
                   style={{ background: '#16a34a', color: '#fff', border: 'none' }}
                   onClick={() => handleAction('approve', item)}
-                  title="Approve as Refund"
+                  title="Approve return"
                 >
-                  <Check size={13} /> Refund
+                  <Check size={13} /> Approve
                 </button>
                 <button
                   type="button"
@@ -311,8 +324,10 @@ export default function AdminReturns() {
               >
                 <RotateCcw size={13} /> Process Refund
               </button>
+            ) : item.status === 'refund_pending' ? (
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#b45309' }}>Refund Processing</span>
             ) : (
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Processed</span>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{getStatusLabel(item.status)}</span>
             )}
           </div>
         )
@@ -320,14 +335,22 @@ export default function AdminReturns() {
     }
   ]
 
+  const detailOrder = detailItem?.order
+  const detailAssignment = getDeliveryAssignment(detailItem)
+  const deliveryUser = detailAssignment?.delivery_partner
+  const deliveryUserName = deliveryUser?.name
+    || deliveryUser?.user?.name
+    || [deliveryUser?.user?.first_name, deliveryUser?.user?.last_name].filter(Boolean).join(' ')
+    || 'Not assigned'
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        title="Return Requests"
-        description="Review, verify, and authorize customer item returns across all marketplace sellers."
+        title="Returns & Exchanges"
+        description="Approve or reject customer requests, process refunds, and track pickup and refund completion."
         breadcrumbs={[
           { label: 'Orders', to: '/admin/orders' },
-          { label: 'Returns' }
+          { label: 'Returns & Exchanges' }
         ]}
         actions={
           <button
@@ -386,8 +409,156 @@ export default function AdminReturns() {
         pagination={pagination}
         onPageChange={setPage}
         emptyTitle="No return requests"
-        emptyDescription="There are no active customer return requests matching your filter."
+        emptyDescription="There are no customer return or exchange requests matching your filter."
       />
+
+      {detailItem && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Return and order details"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 998,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 16,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
+          }}
+          onClick={event => { if (event.target === event.currentTarget) setDetailItem(null) }}
+        >
+          <div className="card" style={{ width: '100%', maxWidth: 900, maxHeight: '90vh', overflowY: 'auto', padding: 24 }}>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: 'var(--ink)' }}>
+                  Return #{detailItem.return_number || detailItem.id}
+                </h2>
+                <div className="muted text-sm mt-1">
+                  Order {detailOrder?.order_number || detailItem.order_id} · {getReturnType(detailItem)} · {getStatusLabel(detailItem.status)}
+                </div>
+              </div>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setDetailItem(null)} aria-label="Close details">
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+              <div className="card" style={{ padding: 14, margin: 0 }}>
+                <div className="muted text-xs font-bold flex items-center gap-1"><User size={13} /> CUSTOMER</div>
+                <div className="font-bold text-sm mt-1">{detailItem.user?.name || `${detailItem.user?.first_name || ''} ${detailItem.user?.last_name || ''}`.trim() || 'Customer'}</div>
+                <div className="muted text-xs">{detailItem.user?.email || '—'}</div>
+                <div className="muted text-xs">{detailItem.user?.phone || detailItem.user?.phone_number || ''}</div>
+              </div>
+              <div className="card" style={{ padding: 14, margin: 0 }}>
+                <div className="muted text-xs font-bold flex items-center gap-1"><ShoppingBag size={13} /> ORDER</div>
+                <div className="font-bold text-sm mt-1">{getStatusLabel(detailOrder?.status)}</div>
+                <div className="muted text-xs">Payment: {getStatusLabel(detailOrder?.payment_status)} · {detailOrder?.payment_method || '—'}</div>
+                <div className="font-bold text-sm mt-1">Total {money(detailOrder?.grand_total || 0)}</div>
+                <div className="muted text-xs">
+                  Subtotal {money(detailOrder?.subtotal || 0)} · Discount {money(detailOrder?.discount || 0)}
+                </div>
+                <div className="muted text-xs">
+                  Delivery {money(detailOrder?.delivery_charge || 0)} · Tax {money(detailOrder?.tax || 0)}
+                </div>
+              </div>
+              <div className="card" style={{ padding: 14, margin: 0 }}>
+                <div className="muted text-xs font-bold flex items-center gap-1"><Truck size={13} /> DELIVERY</div>
+                <div className="font-bold text-sm mt-1">{deliveryUserName}</div>
+                <div className="muted text-xs">
+                  {detailAssignment?.delivered_at
+                    ? `Delivered ${formatDateTime(detailAssignment.delivered_at)}`
+                    : `Status: ${getStatusLabel(detailAssignment?.status)}`}
+                </div>
+                {detailAssignment?.delivery_partner?.phone && (
+                  <div className="muted text-xs">{detailAssignment.delivery_partner.phone}</div>
+                )}
+                {detailAssignment?.dropoff_address && (
+                  <div className="muted text-xs mt-1">Delivered to: {detailAssignment.dropoff_address}</div>
+                )}
+              </div>
+              <div className="card" style={{ padding: 14, margin: 0 }}>
+                <div className="muted text-xs font-bold flex items-center gap-1"><Store size={13} /> STORE</div>
+                <div className="font-bold text-sm mt-1">{detailItem.store?.name || detailItem.vendor_order?.store?.name || '—'}</div>
+                <div className="muted text-xs">Vendor order: {detailItem.vendor_order?.vendor_order_number || '—'}</div>
+                <div className="muted text-xs">Delivery status: {getStatusLabel(detailItem.vendor_order?.delivery_status || detailAssignment?.status)}</div>
+              </div>
+            </div>
+
+            <section className="mb-4">
+              <h3 className="font-bold text-sm mb-2 flex items-center gap-1"><ShoppingBag size={14} /> Order items</h3>
+              <div className="overflow-x-auto" style={{ border: '1px solid var(--border)', borderRadius: 8 }}>
+                <table className="table" style={{ width: '100%', minWidth: 540 }}>
+                  <thead>
+                    <tr>
+                      <th>Product</th><th>SKU / Variant</th><th>Qty</th><th>Unit price</th><th>Line total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(detailOrder?.items || []).map(orderItem => (
+                      <tr key={orderItem.uuid || orderItem.id}>
+                        <td>{orderItem.product_name || 'Product'}</td>
+                        <td>{[orderItem.sku, orderItem.variant_name].filter(Boolean).join(' · ') || '—'}</td>
+                        <td>{orderItem.quantity}</td>
+                        <td>{money(orderItem.unit_price || 0)}</td>
+                        <td>{money(orderItem.line_total || 0)}</td>
+                      </tr>
+                    ))}
+                    {!(detailOrder?.items || []).length && (
+                      <tr><td colSpan={5} className="muted">Order items are unavailable.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
+              <div className="card" style={{ padding: 14, margin: 0 }}>
+                <h3 className="font-bold text-sm mb-2">Shipping address</h3>
+                {detailOrder?.shipping_address ? (
+                  <>
+                    <div className="text-sm">{detailOrder.shipping_address.full_name || detailOrder.shipping_address.label}</div>
+                    <div className="muted text-sm">
+                      {[detailOrder.shipping_address.address_line_1, detailOrder.shipping_address.address_line_2, detailOrder.shipping_address.municipality?.name, detailOrder.shipping_address.district?.name, detailOrder.shipping_address.province?.name, detailOrder.shipping_address.postal_code]
+                        .filter(Boolean).join(', ')}
+                    </div>
+                    <div className="muted text-sm">{detailOrder.shipping_address.phone || '—'}</div>
+                  </>
+                ) : <div className="muted text-sm">Shipping address unavailable.</div>}
+                <h3 className="font-bold text-sm mt-3 mb-2">Payments</h3>
+                {(detailOrder?.payments || []).length ? detailOrder.payments.map(payment => (
+                  <div key={payment.uuid || payment.id} className="flex items-center justify-between gap-2 text-xs py-1">
+                    <span>{payment.payment_number || payment.method} · {getStatusLabel(payment.status)}</span>
+                    <strong>{money(payment.amount || 0)}</strong>
+                  </div>
+                )) : <div className="muted text-xs">No payment record.</div>}
+              </div>
+              <div className="card" style={{ padding: 14, margin: 0 }}>
+                <h3 className="font-bold text-sm mb-2 flex items-center gap-1"><RotateCcw size={14} /> Return request</h3>
+                <div className="text-sm"><strong>Item:</strong> {detailItem.order_item?.product_name || 'Product'} · Qty {detailItem.quantity || 1}</div>
+                <div className="text-sm"><strong>Reason:</strong> {detailItem.reason_type || '—'}</div>
+                <div className="muted text-sm mt-1">{detailItem.reason || 'No additional reason provided.'}</div>
+                <div className="text-sm mt-2"><strong>Pickup:</strong> {detailItem.pickup_collected_at ? `Collected ${formatDateTime(detailItem.pickup_collected_at)}` : 'Not collected'}</div>
+                {detailItem.review_notes && <div className="muted text-xs mt-1">{detailItem.review_notes}</div>}
+              </div>
+              <div className="card" style={{ padding: 14, margin: 0 }}>
+                <h3 className="font-bold text-sm mb-2 flex items-center gap-1"><AlertCircle size={14} /> Refunds</h3>
+                {(detailItem.refunds || []).length ? detailItem.refunds.map(refund => (
+                  <div key={refund.uuid || refund.id} className="flex items-center justify-between gap-2 text-sm py-1">
+                    <span>{refund.refund_number || 'Refund'} · {getStatusLabel(refund.status)}</span>
+                    <strong>{money(refund.amount || 0)}</strong>
+                  </div>
+                )) : <div className="muted text-sm">No refund processing has been started.</div>}
+                <div className="muted text-xs mt-2">
+                  Order total {money(detailOrder?.grand_total || 0)} · {detailOrder?.currency || 'NPR'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Process Refund Dialog */}
       {dialogState.isOpen && dialogState.action === 'process_refund' && dialogState.returnItem && (
