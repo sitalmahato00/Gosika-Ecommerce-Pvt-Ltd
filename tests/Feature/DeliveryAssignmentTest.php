@@ -667,6 +667,32 @@ class DeliveryAssignmentTest extends TestCase
         $this->assertEquals('Rider One', $history[0]['partner']['name']);
     }
 
+    public function test_delivery_partner_history_accepts_date_range_filters(): void
+    {
+        [, $vendorOrder] = $this->createTestOrder(OrderStatus::DELIVERED);
+        $deliveredAt = now()->subDay()->setTime(12, 0);
+        DeliveryAssignment::create([
+            'uuid' => (string) Str::uuid(),
+            'vendor_order_id' => $vendorOrder->id,
+            'delivery_partner_id' => $this->rider1->id,
+            'status' => DeliveryStatus::DELIVERED,
+            'delivery_fee' => 100,
+            'delivered_at' => $deliveredAt,
+        ]);
+
+        $this->actingAs($this->riderUser1)
+            ->getJson('/api/v1/delivery-partner/history?date_from='.now()->toDateString().'&date_to='.now()->toDateString())
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.pagination.total', 0);
+
+        $this->actingAs($this->riderUser1)
+            ->getJson('/api/v1/delivery-partner/history?date_from='.$deliveredAt->toDateString().'&date_to='.$deliveredAt->toDateString())
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.pagination.total', 1);
+    }
+
     // ── 17. Validation error exact message representation ─────────────────
 
     public function test_validation_error_returns_exact_validation_error_message(): void
@@ -855,11 +881,15 @@ class DeliveryAssignmentTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data');
 
-        $return->update(['status' => ReturnStatus::APPROVED]);
+        $return->update([
+            'status' => ReturnStatus::APPROVED,
+            'review_notes' => 'Approved as exchange: replacement package to be dispatched by the store.',
+        ]);
         $this->actingAs($this->riderUser1)
             ->getJson('/api/v1/delivery-partner/returns')
             ->assertOk()
             ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.type', 'exchange')
             ->assertJsonPath('data.0.pickup_address', 'Customer delivery address')
             ->assertJsonPath('data.0.dropoff_address', 'Vendor store address');
 
@@ -878,8 +908,20 @@ class DeliveryAssignmentTest extends TestCase
 
         $this->assertSame($this->riderUser1->id, $return->fresh()->pickup_collected_by);
         $this->assertNotNull($return->fresh()->pickup_collected_at);
+        $return->update(['status' => ReturnStatus::REFUNDED, 'review_notes' => null]);
+        $this->actingAs($this->riderUser1)
+            ->getJson('/api/v1/delivery-partner/returns')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.type', 'refund');
         $this->actingAs($this->riderUser1)
             ->postJson("/api/v1/delivery-partner/returns/{$return->uuid}/collect")
             ->assertUnprocessable();
+        $assignment->update(['status' => DeliveryStatus::RETURNED_TO_VENDOR]);
+        $this->actingAs($this->riderUser1)
+            ->getJson('/api/v1/delivery-partner/returns')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.type', 'refund');
     }
 }

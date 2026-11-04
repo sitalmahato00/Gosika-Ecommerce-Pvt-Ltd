@@ -107,9 +107,9 @@ export default function DeliveryReturns() {
     <div className="w-full flex flex-col gap-4 pb-8">
       <div className="page-header" style={{ marginBottom: 8 }}>
         <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>Returns</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>Exchanges & Returns</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
-            {total} return{total === 1 ? '' : 's'}: failed parcels and approved customer pickups assigned to you.
+            {total} item{total === 1 ? '' : 's'}: failed parcels and approved customer return or exchange pickups assigned to you.
           </p>
         </div>
         <button
@@ -126,7 +126,7 @@ export default function DeliveryReturns() {
 
       {pickups.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>Customer return pickups</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>Customer returns & exchanges</h2>
           {pickups.map((pickup) => (
             <div key={pickup.id} className="card" style={{ padding: 16, margin: 0 }}>
               <div className="flex items-center justify-between wrap gap-2 mb-2">
@@ -134,6 +134,7 @@ export default function DeliveryReturns() {
                   <span className="font-mono font-bold text-xs" style={{ background: 'var(--primary-50)', color: 'var(--primary)', padding: '3px 8px', borderRadius: 4 }}>
                     {pickup.return_number}
                   </span>
+                  <span className="chip chip-sm">{(pickup.type || 'return').replace(/_/g, ' ')}</span>
                   <span className="chip chip-sm">{pickup.status.replace(/_/g, ' ')}</span>
                 </div>
                 <span className="muted text-xs">Order {pickup.vendor_order_number || pickup.order_number}</span>
@@ -193,8 +194,8 @@ export default function DeliveryReturns() {
       {total === 0 && (
         <EmptyState
           icon={RotateCcw}
-          title="No returns right now"
-          message="Approved customer pickups and failed delivery parcels will show up here."
+          title="No returns or exchanges right now"
+          message="Approved customer refunds and exchanges, and failed delivery parcels, will show up here."
         />
       )}
 

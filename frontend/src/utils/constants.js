@@ -184,7 +184,7 @@ export const DELIVERY_NAV = [
   { to: '/delivery/deliveries', label: 'My Deliveries', icon: 'Truck' },
   { to: '/delivery/pickups', label: 'Pickup Tasks', icon: 'PackageCheck' },
   { to: '/delivery/tasks', label: 'Delivery Tasks', icon: 'Navigation' },
-  { to: '/delivery/returns', label: 'Returns', icon: 'RotateCcw' },
+  { to: '/delivery/returns', label: 'Exchanges & Returns', icon: 'RotateCcw' },
 
   { section: 'OPERATIONS' },
   { to: '/delivery/route', label: 'Today\u2019s Route', icon: 'Map' },

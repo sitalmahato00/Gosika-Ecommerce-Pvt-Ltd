@@ -130,13 +130,14 @@ class DeliveryPartnerController extends Controller
     {
         $partner = $this->partnerFor($request->user());
         $assignments = $partner->assignments()
-            ->where('status', DeliveryStatus::DELIVERED->value)
             ->whereNotNull('delivered_at')
+            ->orderByDesc('delivered_at')
             ->get(['id', 'vendor_order_id', 'pickup_address', 'dropoff_address', 'recipient_name', 'recipient_phone']);
         $assignmentByVendorOrder = $assignments->keyBy('vendor_order_id');
 
         $returns = ReturnRequest::query()
             ->with(['order', 'orderItem', 'vendorOrder'])
+            ->withCount('refunds')
             ->whereIn('vendor_order_id', $assignmentByVendorOrder->keys())
             ->whereIn('status', [
                 ReturnStatus::APPROVED->value,
@@ -350,7 +351,7 @@ class DeliveryPartnerController extends Controller
             })
             ->orderByDesc('delivered_at');
 
-        ListingDateRange::apply($query, $request, 'delivered_at');
+        ListingDateRange::apply($query->getQuery(), $request, 'delivered_at');
         $history = $query->paginate(min(max($request->integer('per_page', 15), 1), 100))->withQueryString();
 
         return Response::success(
