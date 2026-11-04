@@ -609,6 +609,50 @@ class WalletService
             });
     }
 
+    /**
+     * Immediately debit a completed refund from the vendor's wallet.
+     * Uses an idempotency check (reference_type + reference_id) so it is
+     * safe to call multiple times and will not double-debit.
+     * Also called by settleVendor() with the same guard.
+     */
+    public function debitRefund(Refund $refund): void
+    {
+        // Resolve vendor via the vendor_order relationship
+        $vendorOrder = $refund->vendorOrder ?? \App\Modules\Order\Infrastructure\Models\VendorOrder::find($refund->vendor_order_id);
+
+        if (! $vendorOrder || ! $vendorOrder->vendor_id) {
+            return; // No vendor to debit — skip silently
+        }
+
+        DB::transaction(function () use ($refund, $vendorOrder) {
+            $wallet = $this->lockWallet($vendorOrder->vendor_id);
+
+            $alreadyDebited = WalletTransaction::query()
+                ->where('wallet_id', $wallet->id)
+                ->where('transaction_type', WalletTransactionType::DEBIT_REFUND->value)
+                ->where('reference_type', 'refund')
+                ->where('reference_id', $refund->id)
+                ->exists();
+
+            if ($alreadyDebited) {
+                return; // Idempotent — already applied
+            }
+
+            $amount = (float) $refund->amount;
+
+            $this->mutate($wallet, function (VendorWallet $wallet) use ($amount) {
+                $wallet->balance          = round((float) $wallet->balance - $amount, 2);
+                $wallet->pending_balance  = round(max(0, (float) $wallet->pending_balance - $amount), 2);
+            });
+
+            $this->ledger($wallet, WalletTransactionType::DEBIT_REFUND, $amount, [
+                'reference_type' => 'refund',
+                'reference_id'   => $refund->id,
+                'description'    => 'Customer return refund '.$refund->refund_number,
+            ]);
+        });
+    }
+
     protected function lockWallet(int $vendorId): VendorWallet
     {
         $wallet = VendorWallet::query()

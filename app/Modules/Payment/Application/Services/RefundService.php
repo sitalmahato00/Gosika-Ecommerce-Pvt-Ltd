@@ -13,10 +13,15 @@ use App\Modules\Shared\Domain\Enums\PaymentStatus;
 use App\Modules\Shared\Domain\Enums\RefundStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Shared\Infrastructure\Services\ReferenceNumber;
+use App\Modules\Wallet\Application\Services\WalletService;
 use Illuminate\Support\Facades\DB;
 
 class RefundService
 {
+    public function __construct(
+        protected WalletService $walletService,
+    ) {}
+
     public function create(
         Payment $payment,
         User $actor,
@@ -200,6 +205,19 @@ class RefundService
                 }
 
                 $this->syncOrderPaymentStatus($refund->order_id);
+
+                // Immediately debit the vendor wallet so the balance is
+                // updated in real-time — settlement cycle uses the same
+                // idempotency guard so it will not double-debit.
+                try {
+                    $this->walletService->debitRefund($refund->load('vendorOrder'));
+                } catch (\Throwable $e) {
+                    // Log but don't fail the refund — wallet can re-sync at settlement
+                    \Illuminate\Support\Facades\Log::error('Wallet debit-refund failed', [
+                        'refund_id' => $refund->id,
+                        'error'     => $e->getMessage(),
+                    ]);
+                }
             }
 
             return $refund->load('payment', 'order', 'orderItem');
