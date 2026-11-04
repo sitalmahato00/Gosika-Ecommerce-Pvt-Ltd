@@ -91,4 +91,9 @@ class VendorOrder extends BaseModel
     {
         return $this->hasMany(Refund::class);
     }
+
+    public function returnRequests(): HasMany
+    {
+        return $this->hasMany(\App\Modules\Order\Infrastructure\Models\ReturnRequest::class, 'vendor_order_id');
+    }
 }

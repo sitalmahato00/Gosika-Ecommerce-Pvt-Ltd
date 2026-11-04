@@ -4,7 +4,7 @@ import {
   Wallet, DollarSign, Download, RefreshCw, Search,
   SlidersHorizontal, Plus, Minus,
   TrendingUp, TrendingDown, ChevronDown, ChevronUp,
-  CheckCircle2, Clock, XCircle, Store, Landmark, PauseCircle, PlayCircle
+  CheckCircle2, Clock, XCircle, Store, Landmark, PauseCircle, PlayCircle, RotateCcw
 } from 'lucide-react'
 import api from '../../api/client'
 import PageHeader from '../../components/admin/PageHeader'
@@ -29,6 +29,8 @@ const STATUSES = {
   completed: { label: 'Completed', bg: '#dcfce7', fg: '#16a34a' },
   held: { label: 'Held', bg: '#fef3c7', fg: '#d97706' },
   cancelled: { label: 'Cancelled', bg: '#e5e7eb', fg: '#6b7280' },
+  refunded: { label: 'Refunded', bg: '#fee2e2', fg: '#dc2626' },
+  partially_refunded: { label: 'Part. Refunded', bg: '#fef3c7', fg: '#d97706' },
   credit_earnings: { label: 'Earnings', bg: '#dcfce7', fg: '#16a34a' },
   credit_settlement: { label: 'Settlement', bg: '#dbeafe', fg: '#2563eb' },
   credit_adjustment: { label: 'Adjustment', bg: '#f3e8ff', fg: '#7c3aed' },
@@ -410,6 +412,15 @@ export default function AdminVendorFinance() {
           <div style={{ fontSize: 20, fontWeight: 900, color: '#7c3aed' }}>{money(stats.total_commission || 0)}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>From {stats.orders_count || 0} orders</div>
         </div>
+        {Number(stats.total_refunded || 0) > 0 && (
+          <div className="card" style={{ padding: '16px 18px', borderLeft: '4px solid #dc2626' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
+              <XCircle size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Total Refunded
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#dc2626' }}>{money(stats.total_refunded || 0)}</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Deducted from payable</div>
+          </div>
+        )}
         <div className="card" style={{ padding: '16px 18px', borderLeft: '4px solid #0891b2' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
             <CheckCircle2 size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Settled to Date
@@ -564,6 +575,7 @@ export default function AdminVendorFinance() {
                     <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Settlement Period</th>
                     <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Gross Total</th>
                     <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Commission</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: '#dc2626', whiteSpace: 'nowrap' }}>Refunded</th>
                     <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Net Vendor Payable</th>
                     <th style={{ padding: '10px 14px', width: 36 }} />
                   </tr>
@@ -571,15 +583,21 @@ export default function AdminVendorFinance() {
                 <tbody>
                   {orders.length === 0 && (
                     <tr>
-                      <td colSpan={9} style={{ padding: 28, textAlign: 'center', color: 'var(--muted)' }}>No orders found.</td>
+                      <td colSpan={10} style={{ padding: 28, textAlign: 'center', color: 'var(--muted)' }}>No orders found.</td>
                     </tr>
                   )}
                   {orders.map(o => {
                     const expanded = expandedOrders.has(o.id)
+                    const hasRefund = Number(o.refunded_amount) > 0
+                    const isRefunded = o.payment_status === 'refunded' || o.payment_status === 'partially_refunded'
                     return (
                       <React.Fragment key={o.id}>
                         <tr
-                          style={{ borderBottom: expanded ? 'none' : '1px solid var(--border)', cursor: 'pointer' }}
+                          style={{
+                            borderBottom: expanded ? 'none' : '1px solid var(--border)',
+                            cursor: 'pointer',
+                            background: hasRefund ? '#fff7f7' : undefined,
+                          }}
                           onClick={() => toggleOrder(o.id)}
                         >
                           <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
@@ -590,7 +608,17 @@ export default function AdminVendorFinance() {
                           </td>
                           <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--ink)' }}>#{o.order_number}</td>
                           <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{o.placed_at ? new Date(o.placed_at).toLocaleDateString() : '—'}</td>
-                          <td style={{ padding: '10px 14px' }}><LocalBadge status={o.status} /></td>
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              <LocalBadge status={o.status} />
+                              {isRefunded && <LocalBadge status={o.payment_status} />}
+                              {o.has_return && !isRefunded && (
+                                <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#d97706', borderRadius: 4, padding: '1px 5px' }}>
+                                  Return
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td style={{ padding: '10px 14px', fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                             {o.settlement ? (
                               <>
@@ -607,19 +635,22 @@ export default function AdminVendorFinance() {
                           </td>
                           <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700 }}>{money(o.grand_total)}</td>
                           <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#dc2626' }}>- {money(o.commission_amount)}</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: '#16a34a' }}>
-                            {money(o.net_payable || o.vendor_payable)}
-                            {Number(o.refunded_amount) > 0 && (
-                              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)' }}>
-                                After refund {money(o.refunded_amount)}
+                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800 }}>
+                            {hasRefund ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                                <span style={{ textDecoration: 'line-through', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>{money(o.vendor_payable)}</span>
+                                <span style={{ color: '#dc2626' }}>- {money(o.refunded_amount)}</span>
+                                <span style={{ color: '#16a34a' }}>{money(o.net_payable)}</span>
                               </div>
+                            ) : (
+                              <span style={{ color: '#16a34a' }}>{money(o.net_payable || o.vendor_payable)}</span>
                             )}
                           </td>
                           <td style={{ padding: '10px 14px' }} />
                         </tr>
                         {expanded && o.items?.length > 0 && (
-                          <tr style={{ background: '#f8fafc' }}>
-                            <td colSpan={9} style={{ padding: '0 14px 12px 36px' }}>
+                          <tr style={{ background: hasRefund ? '#fff5f5' : '#f8fafc' }}>
+                            <td colSpan={10} style={{ padding: '0 14px 12px 36px' }}>
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>
                                 <thead>
                                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -653,6 +684,17 @@ export default function AdminVendorFinance() {
                                     </td>
                                     <td style={{ padding: '5px 10px', textAlign: 'right', fontWeight: 800, color: '#16a34a', fontSize: 11 }}>{money(o.vendor_payable)}</td>
                                   </tr>
+                                  {Number(o.refunded_amount) > 0 && (
+                                    <tr style={{ background: '#fee2e2' }}>
+                                      <td colSpan={5} style={{ padding: '5px 10px', fontWeight: 700, color: '#dc2626', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        <XCircle size={11} /> Customer return refund deducted
+                                      </td>
+                                      <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'right', fontWeight: 700, color: '#dc2626', fontSize: 11 }}>
+                                        - {money(o.refunded_amount)}
+                                      </td>
+                                      <td style={{ padding: '5px 10px', textAlign: 'right', fontWeight: 800, color: '#dc2626', fontSize: 11 }}>{money(o.net_payable)}</td>
+                                    </tr>
+                                  )}
                                 </tbody>
                               </table>
                             </td>

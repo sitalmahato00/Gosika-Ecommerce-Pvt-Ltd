@@ -256,6 +256,7 @@ class AdminWalletController extends Controller
         $ordersPaginator = VendorOrder::query()
             ->where('vendor_id', $vendor->id)
             ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
+            ->withCount(['returnRequests as has_return' => fn ($q) => $q->whereNotIn('status', ['cancelled', 'rejected'])])
             ->with(['order', 'items', 'store'])
             ->when($orderSearch !== '', function ($q, $s) {
                 $q->where(function ($q2) use ($s) {
@@ -278,7 +279,9 @@ class AdminWalletController extends Controller
                 'order_number' => $vo->order?->order_number,
                 'placed_at' => $vo->order?->placed_at?->toISOString(),
                 'status' => $vo->status->value,
+                'payment_status' => $vo->order?->payment_status?->value ?? null,
                 'delivery_status' => $vo->delivery_status?->value,
+                'has_return' => (int) ($vo->has_return ?? 0) > 0,
                 'store_name' => $vo->store?->name,
                 'items_subtotal' => number_format($itemsSubtotal, 2, '.', ''),
                 'discount' => number_format((float) $vo->discount, 2, '.', ''),
