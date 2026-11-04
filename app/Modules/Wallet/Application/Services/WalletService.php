@@ -643,6 +643,9 @@ class WalletService
             $this->mutate($wallet, function (VendorWallet $wallet) use ($amount) {
                 $wallet->balance          = round((float) $wallet->balance - $amount, 2);
                 $wallet->pending_balance  = round(max(0, (float) $wallet->pending_balance - $amount), 2);
+                if ((float) $wallet->available_balance > 0) {
+                    $wallet->available_balance = round(max(0, (float) $wallet->available_balance - $amount), 2);
+                }
             });
 
             $this->ledger($wallet, WalletTransactionType::DEBIT_REFUND, $amount, [

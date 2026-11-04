@@ -202,6 +202,17 @@ class RefundService
                     ReturnRequest::query()
                         ->whereKey($refund->return_request_id)
                         ->update(['status' => \App\Modules\Shared\Domain\Enums\ReturnStatus::REFUNDED->value]);
+
+                    if ($refund->vendor_order_id) {
+                        $vo = \App\Modules\Order\Infrastructure\Models\VendorOrder::find($refund->vendor_order_id);
+                        if ($vo) {
+                            $totalRefunded = (float) $vo->refunds()->where('status', RefundStatus::REFUNDED->value)->sum('amount');
+                            if (round($totalRefunded, 2) >= round((float) $vo->grand_total, 2)) {
+                                $vo->status = \App\Modules\Shared\Domain\Enums\OrderStatus::RETURNED;
+                                $vo->save();
+                            }
+                        }
+                    }
                 }
 
                 $this->syncOrderPaymentStatus($refund->order_id);

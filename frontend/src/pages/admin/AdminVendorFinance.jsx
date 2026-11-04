@@ -575,7 +575,6 @@ export default function AdminVendorFinance() {
                     <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Settlement Period</th>
                     <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Gross Total</th>
                     <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Commission</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: '#dc2626', whiteSpace: 'nowrap' }}>Refunded</th>
                     <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Net Vendor Payable</th>
                     <th style={{ padding: '10px 14px', width: 36 }} />
                   </tr>
@@ -583,20 +582,18 @@ export default function AdminVendorFinance() {
                 <tbody>
                   {orders.length === 0 && (
                     <tr>
-                      <td colSpan={10} style={{ padding: 28, textAlign: 'center', color: 'var(--muted)' }}>No orders found.</td>
+                      <td colSpan={9} style={{ padding: 28, textAlign: 'center', color: 'var(--muted)' }}>No orders found.</td>
                     </tr>
                   )}
                   {orders.map(o => {
                     const expanded = expandedOrders.has(o.id)
                     const hasRefund = Number(o.refunded_amount) > 0
-                    const isRefunded = o.payment_status === 'refunded' || o.payment_status === 'partially_refunded'
                     return (
                       <React.Fragment key={o.id}>
                         <tr
                           style={{
                             borderBottom: expanded ? 'none' : '1px solid var(--border)',
                             cursor: 'pointer',
-                            background: hasRefund ? '#fff7f7' : undefined,
                           }}
                           onClick={() => toggleOrder(o.id)}
                         >
@@ -609,15 +606,7 @@ export default function AdminVendorFinance() {
                           <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--ink)' }}>#{o.order_number}</td>
                           <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{o.placed_at ? new Date(o.placed_at).toLocaleDateString() : '—'}</td>
                           <td style={{ padding: '10px 14px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                              <LocalBadge status={o.status} />
-                              {isRefunded && <LocalBadge status={o.payment_status} />}
-                              {o.has_return && !isRefunded && (
-                                <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#d97706', borderRadius: 4, padding: '1px 5px' }}>
-                                  Return
-                                </span>
-                              )}
-                            </div>
+                            <LocalBadge status={o.status} />
                           </td>
                           <td style={{ padding: '10px 14px', fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                             {o.settlement ? (
@@ -635,22 +624,14 @@ export default function AdminVendorFinance() {
                           </td>
                           <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700 }}>{money(o.grand_total)}</td>
                           <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#dc2626' }}>- {money(o.commission_amount)}</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800 }}>
-                            {hasRefund ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                                <span style={{ textDecoration: 'line-through', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>{money(o.vendor_payable)}</span>
-                                <span style={{ color: '#dc2626' }}>- {money(o.refunded_amount)}</span>
-                                <span style={{ color: '#16a34a' }}>{money(o.net_payable)}</span>
-                              </div>
-                            ) : (
-                              <span style={{ color: '#16a34a' }}>{money(o.net_payable || o.vendor_payable)}</span>
-                            )}
+                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, color: Number(o.net_payable) > 0 ? '#16a34a' : 'var(--muted)' }}>
+                            {money(o.net_payable ?? o.vendor_payable)}
                           </td>
                           <td style={{ padding: '10px 14px' }} />
                         </tr>
                         {expanded && o.items?.length > 0 && (
-                          <tr style={{ background: hasRefund ? '#fff5f5' : '#f8fafc' }}>
-                            <td colSpan={10} style={{ padding: '0 14px 12px 36px' }}>
+                          <tr style={{ background: '#f8fafc' }}>
+                            <td colSpan={9} style={{ padding: '0 14px 12px 36px' }}>
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>
                                 <thead>
                                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -692,7 +673,7 @@ export default function AdminVendorFinance() {
                                       <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'right', fontWeight: 700, color: '#dc2626', fontSize: 11 }}>
                                         - {money(o.refunded_amount)}
                                       </td>
-                                      <td style={{ padding: '5px 10px', textAlign: 'right', fontWeight: 800, color: '#dc2626', fontSize: 11 }}>{money(o.net_payable)}</td>
+                                      <td style={{ padding: '5px 10px', textAlign: 'right', fontWeight: 800, color: '#16a34a', fontSize: 11 }}>{money(o.net_payable)}</td>
                                     </tr>
                                   )}
                                 </tbody>

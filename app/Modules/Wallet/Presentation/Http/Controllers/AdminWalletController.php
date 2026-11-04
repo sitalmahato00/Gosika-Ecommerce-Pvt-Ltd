@@ -235,17 +235,20 @@ class AdminWalletController extends Controller
             }
         }
 
-        $statsQuery = VendorOrder::query()->where('vendor_id', $vendor->id);
-        $totalVendorPayable = (float) (clone $statsQuery)->sum('vendor_payable');
+        $validOrdersQuery = VendorOrder::query()
+            ->where('vendor_id', $vendor->id)
+            ->whereNotIn('status', ['cancelled', 'returned']);
+
+        $totalVendorPayable = (float) (clone $validOrdersQuery)->sum('vendor_payable');
         $totalRefunded = (float) Refund::query()
             ->whereHas('vendorOrder', fn ($query) => $query->where('vendor_id', $vendor->id))
             ->where('status', 'refunded')
             ->sum('amount');
         $stats = [
-            'orders_count' => (clone $statsQuery)->count(),
-            'total_gross' => number_format((float) (clone $statsQuery)->sum('grand_total'), 2, '.', ''),
-            'total_commission' => number_format((float) (clone $statsQuery)->sum('commission_amount'), 2, '.', ''),
-            'total_vendor_payable' => number_format((float) (clone $statsQuery)->sum('vendor_payable'), 2, '.', ''),
+            'orders_count' => (clone $validOrdersQuery)->count(),
+            'total_gross' => number_format((float) (clone $validOrdersQuery)->sum('grand_total'), 2, '.', ''),
+            'total_commission' => number_format((float) (clone $validOrdersQuery)->sum('commission_amount'), 2, '.', ''),
+            'total_vendor_payable' => number_format((float) (clone $validOrdersQuery)->sum('vendor_payable'), 2, '.', ''),
             'total_refunded' => number_format($totalRefunded, 2, '.', ''),
             'total_net_payable' => number_format(max(0, $totalVendorPayable - $totalRefunded), 2, '.', ''),
             'total_settled' => number_format($settlementModels->where('status', SettlementStatus::PAID)->sum(fn ($s) => (float) $s->net_payable), 2, '.', ''),
@@ -255,6 +258,7 @@ class AdminWalletController extends Controller
         $orderSearch = trim((string) $request->input('order_search', ''));
         $ordersPaginator = VendorOrder::query()
             ->where('vendor_id', $vendor->id)
+            ->whereNotIn('status', ['returned'])
             ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
             ->withCount(['returnRequests as has_return' => fn ($q) => $q->whereNotIn('status', ['cancelled', 'rejected'])])
             ->with(['order', 'items', 'store'])
@@ -272,6 +276,10 @@ class AdminWalletController extends Controller
             $itemsSubtotal = (float) $vo->items_subtotal;
             $commissionAmount = (float) $vo->commission_amount;
             $commissionRate = (float) $vo->commission_rate;
+            $refundedAmount = (float) ($vo->refunded_amount ?? 0);
+            $isCancelled = in_array($vo->status?->value ?? (string) $vo->status, ['cancelled', 'returned'], true);
+            $vendorPayable = $isCancelled ? 0.0 : (float) $vo->vendor_payable;
+            $netPayable = $isCancelled ? 0.0 : max(0, round($vendorPayable - $refundedAmount, 2));
 
             return [
                 'id' => $vo->uuid,
@@ -290,9 +298,9 @@ class AdminWalletController extends Controller
                 'grand_total' => number_format((float) $vo->grand_total, 2, '.', ''),
                 'commission_rate' => number_format($commissionRate, 2, '.', ''),
                 'commission_amount' => number_format($commissionAmount, 2, '.', ''),
-                'vendor_payable' => number_format((float) $vo->vendor_payable, 2, '.', ''),
-                'refunded_amount' => number_format((float) ($vo->refunded_amount ?? 0), 2, '.', ''),
-                'net_payable' => number_format(max(0, (float) $vo->vendor_payable - (float) ($vo->refunded_amount ?? 0)), 2, '.', ''),
+                'vendor_payable' => number_format($vendorPayable, 2, '.', ''),
+                'refunded_amount' => number_format($refundedAmount, 2, '.', ''),
+                'net_payable' => number_format($netPayable, 2, '.', ''),
                 'settlement' => $settlementOrderMap->get($vo->id),
                 'items' => $vo->items->map(function ($item) use ($itemsSubtotal, $commissionAmount) {
                     $lineTotal = (float) $item->line_total;
