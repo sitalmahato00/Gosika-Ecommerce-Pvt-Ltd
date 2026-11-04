@@ -45,9 +45,27 @@ export default function DeliveryReturns() {
 
   const handleConfirmPickup = async () => {
     if (!confirmPickup) return
-    setBusyId(confirmPickup.id)
+    const targetId = confirmPickup.id
+    setBusyId(targetId)
     try {
-      await api.post(`/delivery-partner/returns/${confirmPickup.id}/collect`)
+      const res = await api.post(`/delivery-partner/returns/${targetId}/collect`)
+      const updated = res?.data?.data
+      const collectedTime = updated?.pickup_collected_at || new Date().toISOString()
+
+      if (customerReturns.setData) {
+        customerReturns.setData(prev =>
+          (prev || []).map(p =>
+            p.id === targetId
+              ? {
+                  ...p,
+                  pickup_collected_at: collectedTime,
+                  status: p.status === 'approved' || p.status === 'pickup_arranged' ? 'collected' : p.status,
+                }
+              : p
+          )
+        )
+      }
+
       toast.success('Customer return pickup confirmed.')
       setConfirmPickup(null)
       customerReturns.reload({ silent: true })
@@ -155,23 +173,41 @@ export default function DeliveryReturns() {
                   <div className="muted text-xs">{pickup.dropoff_address || '—'}</div>
                 </div>
               </div>
-              <div className="flex items-center justify-between wrap gap-2 mt-3 pt-2" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <span className="muted text-xs">
-                  {pickup.pickup_collected_at
-                    ? `Pickup confirmed ${formatDateTime(pickup.pickup_collected_at)}`
-                    : `Approved ${formatDateTime(pickup.updated_at || pickup.created_at)}`}
-                </span>
-                {!pickup.pickup_collected_at && (
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-xs flex items-center gap-1"
-                    onClick={() => setConfirmPickup(pickup)}
-                    disabled={busyId === pickup.id}
-                  >
-                    <CheckCircle size={12} /> {busyId === pickup.id ? 'Confirming…' : 'Confirm Pickup'}
-                  </button>
-                )}
-              </div>
+              {(() => {
+                const isCollected = Boolean(
+                  pickup.pickup_collected_at ||
+                  ['collected', 'inspected', 'completed', 'refunded'].includes(pickup.status)
+                )
+
+                return (
+                  <div className="flex items-center justify-between wrap gap-2 mt-3 pt-2" style={{ borderTop: '1px solid #f1f5f9' }}>
+                    <span className="muted text-xs flex items-center gap-1">
+                      {isCollected ? (
+                        <>
+                          <CheckCircle size={14} style={{ color: 'var(--success, #16a34a)' }} />
+                          <span style={{ color: 'var(--success, #16a34a)', fontWeight: 600 }}>
+                            {pickup.pickup_collected_at
+                              ? `Pickup confirmed ${formatDateTime(pickup.pickup_collected_at)}`
+                              : `Pickup completed (${String(pickup.status || '').replace(/_/g, ' ')})`}
+                          </span>
+                        </>
+                      ) : (
+                        `Approved ${formatDateTime(pickup.updated_at || pickup.created_at)}`
+                      )}
+                    </span>
+                    {!isCollected && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-xs flex items-center gap-1"
+                        onClick={() => setConfirmPickup(pickup)}
+                        disabled={busyId === pickup.id}
+                      >
+                        <CheckCircle size={12} /> {busyId === pickup.id ? 'Confirming…' : 'Confirm Pickup'}
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           ))}
         </section>

@@ -127,8 +127,27 @@ class DeliveryPartnerController extends Controller
         );
     }
 
+    private static function ensurePickupColumnsExist(): void
+    {
+        try {
+            if (! Schema::hasColumn('return_requests', 'pickup_collected_at')) {
+                Schema::table('return_requests', function ($table) {
+                    if (! Schema::hasColumn('return_requests', 'pickup_collected_at')) {
+                        $table->timestamp('pickup_collected_at')->nullable();
+                    }
+                    if (! Schema::hasColumn('return_requests', 'pickup_collected_by')) {
+                        $table->unsignedBigInteger('pickup_collected_by')->nullable();
+                    }
+                });
+            }
+        } catch (\Throwable) {
+            // Silently continue if DDL is restricted
+        }
+    }
+
     public function returns(Request $request): JsonResponse
     {
+        self::ensurePickupColumnsExist();
         $partner = $this->partnerFor($request->user());
         $assignments = $partner->assignments()
             ->whereNotNull('delivered_at')
@@ -209,12 +228,21 @@ class DeliveryPartnerController extends Controller
                     throw new DomainException('This return pickup has already been confirmed.', 422);
                 }
 
+                self::ensurePickupColumnsExist();
+
+                $now = now();
                 if (Schema::hasColumn('return_requests', 'pickup_collected_at')) {
-                    $return->pickup_collected_at = now();
+                    $return->pickup_collected_at = $now;
                 }
                 if (Schema::hasColumn('return_requests', 'pickup_collected_by')) {
                     $return->pickup_collected_by = $request->user()->id;
                 }
+
+                $currentNotes = (string) ($return->review_notes ?? '');
+                if (! str_contains($currentNotes, '[PICKUP_COLLECTED:')) {
+                    $return->review_notes = trim($currentNotes . ' [PICKUP_COLLECTED:' . $now->toISOString() . ':by:' . $request->user()->id . ']');
+                }
+
                 if (in_array($statusVal, ['approved', 'pickup_arranged'], true)) {
                     $return->status = ReturnStatus::COLLECTED;
                 }

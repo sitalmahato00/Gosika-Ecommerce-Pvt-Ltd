@@ -28,11 +28,19 @@ class DeliveryReturnResource extends JsonResource
             || (int) ($this->refunds_count ?? 0) > 0;
 
         $collectedAt = $this->pickup_collected_at;
+        if (empty($collectedAt) && preg_match('/\[PICKUP_COLLECTED:([^:\]]+)/', (string) $this->review_notes, $matches)) {
+            $collectedAt = $matches[1];
+        }
+
         $collectedAtIso = null;
         if ($collectedAt instanceof DateTimeInterface) {
             $collectedAtIso = $collectedAt->toISOString();
         } elseif (! empty($collectedAt)) {
-            $collectedAtIso = Carbon::parse($collectedAt)->toISOString();
+            try {
+                $collectedAtIso = Carbon::parse($collectedAt)->toISOString();
+            } catch (\Throwable) {
+                $collectedAtIso = (string) $collectedAt;
+            }
         }
 
         $createdAtIso = $this->created_at instanceof DateTimeInterface
