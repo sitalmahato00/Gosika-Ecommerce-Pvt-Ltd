@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react'
+import React, { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Phone, User, Store, MapPin, Banknote, Package,
@@ -11,6 +11,7 @@ import { money, formatDateTime, errorMessage } from '../../utils/format'
 import { nextStep } from '../../utils/delivery'
 import DeliveryStatusBadge from '../../components/delivery/DeliveryStatusBadge'
 import DeliveryStatusTimeline from '../../components/delivery/DeliveryStatusTimeline'
+import DeliveryRouteMap from '../../components/delivery/DeliveryRouteMap'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import ErrorState from '../../components/ui/ErrorState'
 import { Skeleton } from '../../components/ui/Skeleton'
@@ -171,6 +172,32 @@ export default function DeliveryDetail() {
           </div>
         </div>
       </div>
+
+      {/* Map-Based Delivery Route */}
+      <DeliveryRouteMap
+        pickup={{
+          address: a.pickup_address,
+          name: a.vendor_order_number ? `Order ${a.vendor_order_number}` : 'Merchant Store',
+          lat: a.pickup_coordinates?.lat,
+          lng: a.pickup_coordinates?.lng,
+        }}
+        dropoff={{
+          address: a.dropoff_address,
+          name: a.recipient_name,
+          phone: a.recipient_phone,
+          lat: a.dropoff_coordinates?.lat,
+          lng: a.dropoff_coordinates?.lng,
+        }}
+        rider={{
+          lat: a.rider_coordinates?.lat,
+          lng: a.rider_coordinates?.lng,
+        }}
+        tracking={a.tracking || []}
+        status={a.status}
+        height={320}
+        title="Delivery Corridor & GPS Route Map"
+        subtitle="Visual map from vendor pickup to destination dropoff"
+      />
 
       {/* Financial Summary */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>

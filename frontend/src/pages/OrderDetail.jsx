@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { ChevronRight, MapPin, Truck, ShieldCheck, Phone, Clock, AlertCircle, HelpCircle, KeyRound, Copy, CheckCircle2, RotateCcw } from 'lucide-react'
 import api from '../api/client'
 import StatusBadge from '../components/commerce/StatusBadge'
+import DeliveryRouteMap from '../components/delivery/DeliveryRouteMap'
 import ErrorState from '../components/ui/ErrorState'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Button from '../components/ui/Button'
@@ -428,6 +429,30 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
               <p className="muted text-sm" style={{ margin: 0 }}>Tracking updates will appear once your order is assigned for delivery.</p>
             )}
           </div>
+
+          {/* Map-Based Live Delivery Route */}
+          {order.status !== 'cancelled' && (
+            <DeliveryRouteMap
+              pickup={{
+                name: order.vendor_orders?.[0]?.store_name || 'Seller Fulfillment Hub',
+                address: order.vendor_orders?.[0]?.pickup_address || 'Seller Fulfillment Hub',
+                lat: order.vendor_orders?.[0]?.pickup_coordinates?.lat,
+                lng: order.vendor_orders?.[0]?.pickup_coordinates?.lng,
+              }}
+              dropoff={{
+                name: addr.name || 'Your Delivery Address',
+                address: [addr.street, addr.municipality, addr.district, addr.province].filter(Boolean).join(', ') || 'Delivery Address',
+                phone: addr.phone,
+                lat: addr.latitude || addr.lat,
+                lng: addr.longitude || addr.lng,
+              }}
+              tracking={tracking}
+              status={order.status}
+              height={280}
+              title="Live Delivery Route & Map"
+              subtitle="Map route from merchant warehouse to your doorstep"
+            />
+          )}
         </div>
 
         {/* Summary sidebar */}

@@ -27,24 +27,26 @@ For each flow, record the result beside the flow heading. Capture screenshots or
 
 Run against a non-production environment with a disposable database and payment-provider sandbox credentials. Do not send live payments or use real personal information.
 
-Create or identify the following fixtures before starting:
+Prepare the test-only password in the approved secrets store as `QA_TEST_PASSWORD` (at least 12 characters). The same secret is applied to the seeded accounts; it is deliberately not stored in this checklist or source control. Seed with `php artisan db:seed` in a local or testing environment. The seeder is repeatable and does not truncate tables. It refuses to run outside local/testing, and the default seeder skips production.
 
-| Fixture | Suggested test data |
-|---|---|
-| Admin | Super admin plus a restricted admin role |
-| Seller A | Approved seller, active store, bank account, at least two products |
-| Seller B | Separate approved seller for ownership/isolation checks |
-| Seller C | Pending/rejected seller for onboarding checks |
-| Delivery partner | Approved partner with complete profile and online/offline controls |
-| Customer A | Verified customer with a saved address |
-| Customer B | Separate customer for access-control checks |
-| Products | Published/in-stock, low-stock, out-of-stock, variant product, discounted product |
-| Delivery location | Valid seeded Nepal country/province/district/municipality/address |
-| Test payment | Configured sandbox gateway; COD enabled if supported |
-| Promotion | Active coupon, expired coupon, minimum-order coupon, and vendor promotion |
-| Return | Delivered order within the configured return window |
+| Reference | Account / role | Login ID | Credential location |
+|---|---|---|---|
+| ADM-01 | Super Admin | `admin@gosika.com.np` / `9801000001` | Approved secrets store: `QA_TEST_PASSWORD` |
+| S-1 | Orders-view-only staff | `staff@gosika.com.np` / `9801000002` | Approved secrets store: `QA_TEST_PASSWORD` |
+| SEL-A | Approved Seller A | `sellerA@gosika.com.np` / `9801000003` | Approved secrets store: `QA_TEST_PASSWORD` |
+| SEL-B | Approved Seller B | `sellerB@gosika.com.np` / `9801000004` | Approved secrets store: `QA_TEST_PASSWORD` |
+| SEL-C | Approved Seller C, pending KYC | `sellerC@gosika.com.np` / `9801000005` | Approved secrets store: `QA_TEST_PASSWORD` |
+| DP-1 | Active, online delivery partner | `delivery1@gosika.com.np` / `9801000006` | Approved secrets store: `QA_TEST_PASSWORD` |
+| DP-2 | Active, offline delivery partner | `delivery2@gosika.com.np` / `9801000007` | Approved secrets store: `QA_TEST_PASSWORD` |
+| CUS-A | Verified Customer A, two addresses, empty wallet/cart | `customerA@gosika.com.np` / `9801000008` | Approved secrets store: `QA_TEST_PASSWORD` |
+| CUS-B | Verified Customer B, isolation account | `customerB@gosika.com.np` / `9801000009` | Approved secrets store: `QA_TEST_PASSWORD` |
+| PAY-SBX | Payment gateway sandbox | Do not use a live account | Approved secrets store and local app payment settings |
+| MAIL-TEST | Test notification inbox | Configure a sandbox inbox under `@gosika.com.np` | Mail sandbox / approved secrets store |
+| SMS-TEST | Test notification number | `+9779800000199` (placeholder; configure a sandbox number) | SMS sandbox / approved secrets store |
 
-If fixtures cannot be created through the UI, use the approved project seeder or QA setup process. Record any manual database setup. Keep test accounts isolated from one another.
+Seeded product references are P-01 (Seller A, in stock, variant), P-02 (Seller B, discounted), P-03 (Seller C, low stock), and OOS-01 (zero stock). `QA-CART-MV` contains one item from each seller; Customer A's cart stays empty. `ACTIVE10` has a minimum order, usage limits, and a discount cap; `EXPIRED10` is expired. `ZONE-X` and `ZONE-Y` have different delivery charges. `QA-ORD-RET` is a delivered Customer A order inside the configured return window. KYC upload fixtures (JPG, PNG, PDF, invalid text, and oversized file) are generated under local application storage.
+
+The seeder never creates payment credentials or real identity data. Configure only gateway sandbox keys and test mail/SMS routing through approved secrets and environment settings. Do not copy real credentials, payment details, or identity documents into seed data.
 
 ## 2. Smoke test and public storefront
 

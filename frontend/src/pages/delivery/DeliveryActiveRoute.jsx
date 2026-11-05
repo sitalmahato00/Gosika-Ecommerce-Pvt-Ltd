@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Navigation, Truck, Phone, User, Store, MapPin, Package,
@@ -11,6 +11,7 @@ import { money, errorMessage } from '../../utils/format'
 import { ACTIVE_STATUSES, nextStep } from '../../utils/delivery'
 import DeliveryStatusBadge from '../../components/delivery/DeliveryStatusBadge'
 import DeliveryStatusTimeline from '../../components/delivery/DeliveryStatusTimeline'
+import DeliveryRouteMap from '../../components/delivery/DeliveryRouteMap'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
@@ -96,6 +97,32 @@ export default function DeliveryActiveRoute() {
         </div>
         <DeliveryStatusBadge status={a.status} />
       </div>
+
+      {/* Map-Based Live Delivery Route */}
+      <DeliveryRouteMap
+        pickup={{
+          address: a.pickup_address,
+          name: a.vendor_order_number ? `Order ${a.vendor_order_number}` : 'Merchant Store',
+          lat: a.pickup_coordinates?.lat,
+          lng: a.pickup_coordinates?.lng,
+        }}
+        dropoff={{
+          address: a.dropoff_address,
+          name: a.recipient_name,
+          phone: a.recipient_phone,
+          lat: a.dropoff_coordinates?.lat,
+          lng: a.dropoff_coordinates?.lng,
+        }}
+        rider={{
+          lat: a.rider_coordinates?.lat,
+          lng: a.rider_coordinates?.lng,
+        }}
+        tracking={a.tracking || []}
+        status={a.status}
+        height={320}
+        title="Live Navigation & Route Map"
+        subtitle="GPS route connecting pickup location to customer dropoff"
+      />
 
       {/* Route Visual */}
       <div className="card" style={{ padding: '18px 20px', margin: 0, border: '2px solid rgba(16, 185, 129, 0.25)' }}>

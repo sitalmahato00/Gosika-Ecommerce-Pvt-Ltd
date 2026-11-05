@@ -12,6 +12,51 @@ class DeliveryAssignmentResource extends JsonResource
         $safeMeta = (array) ($this->meta ?? []);
         unset($safeMeta['delivery_otp']);
 
+        $dropoffCoords = null;
+        $order = $this->vendorOrder?->order;
+        if ($order && $order->shipping_address_snapshot) {
+            $shippingSnap = is_array($order->shipping_address_snapshot)
+                ? $order->shipping_address_snapshot
+                : json_decode((string) $order->shipping_address_snapshot, true);
+            if (! empty($shippingSnap['latitude']) && ! empty($shippingSnap['longitude'])) {
+                $dropoffCoords = [
+                    'lat' => (float) $shippingSnap['latitude'],
+                    'lng' => (float) $shippingSnap['longitude'],
+                ];
+            }
+        }
+
+        $pickupCoords = null;
+        $vendor = $this->vendorOrder?->vendor;
+        if ($vendor) {
+            if ($vendor->relationLoaded('stores') && $vendor->stores->isNotEmpty()) {
+                $store = $vendor->stores->first();
+                $storeAddress = $store->relationLoaded('address') ? $store->address : $store->address()->first();
+                if ($storeAddress && ! empty($storeAddress->latitude) && ! empty($storeAddress->longitude)) {
+                    $pickupCoords = [
+                        'lat' => (float) $storeAddress->latitude,
+                        'lng' => (float) $storeAddress->longitude,
+                    ];
+                }
+            }
+            if (! $pickupCoords && $vendor->relationLoaded('kyc') && $vendor->kyc) {
+                if (! empty($vendor->kyc->latitude) && ! empty($vendor->kyc->longitude)) {
+                    $pickupCoords = [
+                        'lat' => (float) $vendor->kyc->latitude,
+                        'lng' => (float) $vendor->kyc->longitude,
+                    ];
+                }
+            }
+        }
+
+        $riderCoords = null;
+        if ($this->deliveryPartner && $this->deliveryPartner->latitude && $this->deliveryPartner->longitude) {
+            $riderCoords = [
+                'lat' => (float) $this->deliveryPartner->latitude,
+                'lng' => (float) $this->deliveryPartner->longitude,
+            ];
+        }
+
         return [
             'id' => $this->uuid,
             'vendor_order_id' => $this->vendorOrder?->uuid,
@@ -24,6 +69,9 @@ class DeliveryAssignmentResource extends JsonResource
             'cod_amount' => number_format((float) $this->cod_amount, 2, '.', ''),
             'pickup_address' => $this->pickup_address,
             'dropoff_address' => $this->dropoff_address,
+            'pickup_coordinates' => $pickupCoords,
+            'dropoff_coordinates' => $dropoffCoords,
+            'rider_coordinates' => $riderCoords,
             'recipient_name' => $this->recipient_name,
             'recipient_phone' => $this->recipient_phone,
             'assigned_at' => $this->assigned_at?->toISOString(),
