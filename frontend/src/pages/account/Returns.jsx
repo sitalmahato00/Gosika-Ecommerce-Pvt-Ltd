@@ -171,12 +171,11 @@ export default function Returns() {
         if (prefillOrderId) {
           const matched = list.find((o) => o.id === prefillOrderId || o.order_number === prefillOrderId)
           if (matched) {
-            const firstItem = prefillItemId
-              ? matched.items?.find((i) => i.id === prefillItemId)
-              : matched.items?.[0]
+            const availableItems = matched.items?.filter((item) => item.can_request_return) || []
+            const firstItem = availableItems.find((item) => item.id === prefillItemId) || availableItems[0]
             setReturnForm((prev) => ({
               ...prev,
-              order_id: matched.id,
+              order_id: firstItem ? matched.id : '',
               order_item_id: firstItem?.id || '',
               quantity: firstItem?.quantity || 1,
             }))
@@ -193,9 +192,14 @@ export default function Returns() {
   }
 
   // Filter eligible orders
-  const eligibleOrders = orders.filter((o) => o.can_request_return || ['delivered', 'completed'].includes(o.status))
+  const eligibleOrders = orders.filter((o) =>
+    o.status === 'delivered'
+    && o.can_request_return
+    && o.items?.some((item) => item.can_request_return),
+  )
   const selectedOrder = eligibleOrders.find((o) => o.id === returnForm.order_id)
-  const selectedItem = selectedOrder?.items?.find((i) => i.id === returnForm.order_item_id)
+  const eligibleItems = selectedOrder?.items?.filter((item) => item.can_request_return) || []
+  const selectedItem = eligibleItems.find((i) => i.id === returnForm.order_item_id)
 
   const handleRequestTypeChange = (typeId) => {
     const presets = RESOLUTION_PRESETS[typeId] || []
@@ -660,7 +664,7 @@ export default function Returns() {
                       }}
                     >
                       <option value="">Select a product</option>
-                      {selectedOrder?.items?.map((i) => (
+                      {eligibleItems.map((i) => (
                         <option key={i.id} value={i.id}>
                           {i.product_name} (Qty: {i.quantity})
                         </option>

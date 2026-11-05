@@ -3,7 +3,7 @@ import CustomerHeader from './components/layout/CustomerHeader'
 import CustomerFooter from './components/layout/CustomerFooter'
 import CustomerBottomNav from './components/layout/CustomerBottomNav'
 import DashboardLayout from './components/layout/DashboardLayout'
-import { AuthRoute, GuestRoute, VendorRoute, AdminRoute, DeliveryRoute } from './components/layout/RouteGuards'
+import { AuthRoute, GuestRoute, VendorRoute, AdminRoute, DeliveryRoute, CustomerRoute } from './components/layout/RouteGuards'
 import { VENDOR_NAV, ADMIN_NAV, VENDOR_MOBILE_NAV, ADMIN_MOBILE_NAV, ADMIN_PERMISSION_MAP } from './utils/constants'
 import SectionPage from './components/admin/SectionPage'
 import { useAuth } from './context/AuthContext'
@@ -134,6 +134,7 @@ import AdminPaymentMethods from './pages/admin/AdminPaymentMethods'
 import AdminSystemLogs from './pages/admin/AdminSystemLogs'
 import AdminProfile from './pages/admin/AdminProfile'
 import Unauthorized from './pages/admin/Unauthorized'
+import PortalAccessDenied from './pages/PortalAccessDenied'
 
 import DeliveryLayout from './components/layout/DeliveryLayout'
 import DeliveryDashboard from './pages/delivery/DeliveryDashboard'
@@ -326,7 +327,8 @@ export default function App() {
       <Route path="/set-password" element={<SetPassword />} />
       <Route path="/admin-login" element={<Navigate to="/admin/login" replace />} />
       <Route path="/vendor-login" element={<Navigate to="/seller/login" replace />} />
-      <Route path="/*" element={<CustomerLayout />} />
+      <Route path="/access-denied" element={<PortalAccessDenied />} />
+      <Route path="/*" element={<CustomerRoute><CustomerLayout /></CustomerRoute>} />
 
       {/* Vendor Portal */}
       <Route path="/vendor" element={<VendorRoute><DashboardLayout nav={VENDOR_NAV} title="Vendor Panel" roleLabel="Vendor" mobileNav={VENDOR_MOBILE_NAV} /></VendorRoute>}>

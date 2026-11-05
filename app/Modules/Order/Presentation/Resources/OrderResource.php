@@ -49,9 +49,17 @@ class OrderResource extends JsonResource
 
         $secondsRemaining = $isWithinWindow ? max(0, $now->diffInSeconds($cancellationDeadline, false)) : 0;
         $returnWindowExpiresAt = OrderReturnWindow::expiresAt($this->resource);
-        $canRequestReturn = in_array($this->status, [OrderStatus::DELIVERED, OrderStatus::COMPLETED], true)
+        $canRequestReturn = false;
+        if (
+            $this->status === OrderStatus::DELIVERED
             && $returnWindowExpiresAt !== null
-            && $now->lessThan($returnWindowExpiresAt);
+            && $now->lessThan($returnWindowExpiresAt)
+        ) {
+            $canRequestReturn = $this->items->contains(
+                fn ($item) => $item->canRequestReturn()
+                    && $item->vendorOrder?->status === OrderStatus::DELIVERED
+            );
+        }
 
         $otpAvailable = ! in_array($this->status, [OrderStatus::DELIVERED, OrderStatus::COMPLETED], true)
             && (

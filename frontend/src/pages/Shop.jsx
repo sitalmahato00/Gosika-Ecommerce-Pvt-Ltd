@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import {
   SlidersHorizontal, X, PackageSearch, ChevronDown,
@@ -33,6 +33,15 @@ const RATINGS = [
   { value: '2', label: '2 Stars & above', stars: 2 },
 ]
 
+const AVAILABILITY_OPTIONS = [
+  { value: 'in_stock', label: 'In Stock' },
+  { value: 'low_stock', label: 'Low Stock' },
+  { value: 'out_of_stock', label: 'Out of Stock' },
+]
+
+const toggleSelection = (values, value) =>
+  values.includes(value) ? values.filter((item) => item !== value) : [...values, value]
+
 function FilterSection({ title, defaultOpen = true, children }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
@@ -54,13 +63,26 @@ function FilterSection({ title, defaultOpen = true, children }) {
 }
 
 function FilterSidebar({ categories, brands, filters, onUpdate, onClear }) {
-  const { category, brand, range, minRating, inStock } = filters
+  const [customPrice, setCustomPrice] = useState({ min: filters.minPrice, max: filters.maxPrice })
+  const [priceError, setPriceError] = useState('')
+
+  useEffect(() => {
+    setCustomPrice({ min: filters.minPrice, max: filters.maxPrice })
+    setPriceError('')
+  }, [filters.minPrice, filters.maxPrice])
+
+  const hasActiveFilters = Object.values(filters).some((value) =>
+    Array.isArray(value) ? value.length > 0 : Boolean(value),
+  )
 
   return (
     <aside className="filter-sidebar" aria-label="Product filters">
       <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span className="font-semibold" style={{ fontSize: 14 }}>Filters</span>
-        {Object.values(filters).some(Boolean) && (
+        <div>
+          <span className="font-semibold" style={{ fontSize: 14 }}>Filters</span>
+          <span style={{ display: 'block', marginTop: 2, color: 'var(--muted)', fontSize: 11 }}>Match any choice per section; sections combine.</span>
+        </div>
+        {hasActiveFilters && (
           <button className="btn btn-ghost btn-xs" onClick={onClear} style={{ color: 'var(--danger)' }}>
             Clear All
           </button>
@@ -70,16 +92,20 @@ function FilterSidebar({ categories, brands, filters, onUpdate, onClear }) {
       <FilterSection title="Category">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <label className="checkbox-row" style={{ padding: '5px 0' }}>
-            <input type="radio" name="cat" checked={!category} onChange={() => onUpdate({ category: '' })} style={{ accentColor: 'var(--primary)' }} />
+            <input
+              type="checkbox"
+              checked={filters.category.length === 0}
+              onChange={() => onUpdate({ category: [] })}
+              style={{ accentColor: 'var(--primary)' }}
+            />
             <span style={{ flex: 1, fontSize: 13 }}>All Categories</span>
           </label>
           {categories.map((c) => (
             <label key={c.id} className="checkbox-row" style={{ padding: '5px 0' }}>
               <input
-                type="radio"
-                name="cat"
-                checked={category === c.slug}
-                onChange={() => onUpdate({ category: category === c.slug ? '' : c.slug })}
+                type="checkbox"
+                checked={filters.category.includes(c.slug)}
+                onChange={() => onUpdate({ category: toggleSelection(filters.category, c.slug) })}
                 style={{ accentColor: 'var(--primary)' }}
               />
               <span style={{ flex: 1, fontSize: 13 }}>{c.name}</span>
@@ -94,22 +120,69 @@ function FilterSidebar({ categories, brands, filters, onUpdate, onClear }) {
       <FilterSection title="Price Range">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <label className="checkbox-row" style={{ padding: '5px 0' }}>
-            <input type="radio" name="range" checked={!range} onChange={() => onUpdate({ range: '' })} style={{ accentColor: 'var(--primary)' }} />
+            <input
+              type="checkbox"
+              checked={filters.priceRanges.length === 0 && !filters.minPrice && !filters.maxPrice}
+              onChange={() => onUpdate({ priceRange: [], minPrice: '', maxPrice: '' })}
+              style={{ accentColor: 'var(--primary)' }}
+            />
             <span style={{ fontSize: 13 }}>Any Price</span>
           </label>
           {PRICE_RANGES.map((r) => (
             <label key={r.label} className="checkbox-row" style={{ padding: '5px 0' }}>
               <input
-                type="radio"
-                name="range"
-                checked={range === r.label}
-                onChange={() => onUpdate({ range: range === r.label ? '' : r.label })}
+                type="checkbox"
+                checked={filters.priceRanges.includes(r.key)}
+                onChange={() => onUpdate({ priceRange: toggleSelection(filters.priceRanges, r.key) })}
                 style={{ accentColor: 'var(--primary)' }}
               />
               <span style={{ fontSize: 13 }}>{r.label}</span>
             </label>
           ))}
         </div>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            const min = customPrice.min === '' ? '' : Number(customPrice.min)
+            const max = customPrice.max === '' ? '' : Number(customPrice.max)
+            if (min !== '' && max !== '' && min > max) {
+              setPriceError('Minimum price must not exceed maximum price.')
+              return
+            }
+            setPriceError('')
+            onUpdate({ minPrice: min === '' ? '' : String(min), maxPrice: max === '' ? '' : String(max) })
+          }}
+          style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}
+        >
+          <span style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Custom price (Rs.)</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              aria-label="Minimum price"
+              placeholder="Min"
+              value={customPrice.min}
+              onChange={(event) => setCustomPrice((current) => ({ ...current, min: event.target.value }))}
+              style={{ width: '50%', minWidth: 0, padding: '7px 8px', border: '1px solid var(--border)', borderRadius: 6 }}
+            />
+            <span aria-hidden="true">–</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              aria-label="Maximum price"
+              placeholder="Max"
+              value={customPrice.max}
+              onChange={(event) => setCustomPrice((current) => ({ ...current, max: event.target.value }))}
+              style={{ width: '50%', minWidth: 0, padding: '7px 8px', border: '1px solid var(--border)', borderRadius: 6 }}
+            />
+          </div>
+          {priceError && <p role="alert" style={{ margin: '6px 0 0', color: 'var(--danger)', fontSize: 11 }}>{priceError}</p>}
+          <button type="submit" className="btn btn-outline btn-sm" style={{ width: '100%', marginTop: 8 }}>Apply price</button>
+        </form>
       </FilterSection>
 
       {brands.length > 0 && (
@@ -119,8 +192,8 @@ function FilterSidebar({ categories, brands, filters, onUpdate, onClear }) {
               <label key={b.id} className="checkbox-row" style={{ padding: '5px 0' }}>
                 <input
                   type="checkbox"
-                  checked={brand === String(b.id)}
-                  onChange={() => onUpdate({ brand: brand === String(b.id) ? '' : String(b.id) })}
+                  checked={filters.brand.includes(String(b.id))}
+                  onChange={() => onUpdate({ brand: toggleSelection(filters.brand, String(b.id)) })}
                   style={{ accentColor: 'var(--primary)' }}
                 />
                 <span style={{ flex: 1, fontSize: 13 }}>{b.name}</span>
@@ -135,10 +208,9 @@ function FilterSidebar({ categories, brands, filters, onUpdate, onClear }) {
           {RATINGS.map((r) => (
             <label key={r.value} className="checkbox-row" style={{ padding: '5px 0' }}>
               <input
-                type="radio"
-                name="rating"
-                checked={minRating === r.value}
-                onChange={() => onUpdate({ minRating: minRating === r.value ? '' : r.value })}
+                type="checkbox"
+                checked={filters.minRatings.includes(r.value)}
+                onChange={() => onUpdate({ minRatings: toggleSelection(filters.minRatings, r.value) })}
                 style={{ accentColor: 'var(--primary)' }}
               />
               <span style={{ fontSize: 13 }}>{r.label}</span>
@@ -148,15 +220,17 @@ function FilterSidebar({ categories, brands, filters, onUpdate, onClear }) {
       </FilterSection>
 
       <FilterSection title="Availability" defaultOpen={false}>
-        <label className="checkbox-row" style={{ padding: '5px 0' }}>
-          <input
-            type="checkbox"
-            checked={inStock === '1'}
-            onChange={() => onUpdate({ inStock: inStock === '1' ? '' : '1' })}
-            style={{ accentColor: 'var(--primary)' }}
-          />
-          <span style={{ fontSize: 13 }}>In Stock Only</span>
-        </label>
+        {AVAILABILITY_OPTIONS.map((option) => (
+          <label key={option.value} className="checkbox-row" style={{ padding: '5px 0' }}>
+            <input
+              type="checkbox"
+              checked={filters.availability.includes(option.value)}
+              onChange={() => onUpdate({ availability: toggleSelection(filters.availability, option.value) })}
+              style={{ accentColor: 'var(--primary)' }}
+            />
+            <span style={{ fontSize: 13 }}>{option.label}</span>
+          </label>
+        ))}
       </FilterSection>
     </aside>
   )
@@ -214,18 +288,24 @@ function ProductShop() {
   const [viewMode, setViewMode] = useState('grid')
 
   const search = params.get('search') || ''
-  const category = params.get('category') || ''
-  const brand = params.get('brand') || ''
+  const category = params.getAll('category')
+  const brand = params.getAll('brand')
   const store = params.get('store') || ''
   const filter = params.get('filter') || ''
   const nearby = params.get('nearby') === '1'
   const sort = params.get('sort') || (filter === 'deals' ? 'discount' : search ? 'rating' : '')
-  const range = params.get('range') || ''
-  const minRating = params.get('minRating') || ''
-  const inStock = params.get('inStock') || ''
+  const legacyRange = params.get('range') || ''
+  const priceRanges = params.getAll('priceRange').length
+    ? params.getAll('priceRange')
+    : PRICE_RANGES.filter((range) => range.label === legacyRange).map((range) => range.key)
+  const minPrice = params.get('minPrice') || ''
+  const maxPrice = params.get('maxPrice') || ''
+  const minRatings = params.getAll('minRating')
+  const availability = params.getAll('availability')
+  if (availability.length === 0 && params.get('inStock') === '1') availability.push('in_stock')
   const mode = params.get('mode') || ''
 
-  const filters = { category, brand, range, minRating, inStock }
+  const filters = { category, brand, priceRanges, minPrice, maxPrice, minRatings, availability }
 
   useEffect(() => {
     api.get('/categories').then((r) => setCategories(r.data.data || [])).catch(() => {})
@@ -239,11 +319,14 @@ function ProductShop() {
       sort: p.sort || (p.filter === 'deals' ? 'discount' : p.search ? 'rating' : undefined),
       discount: p.filter === 'deals' ? 1 : undefined,
       search: p.search || undefined,
-      category: p.category || undefined,
-      brand: p.brand || undefined,
+      category: p.category.length ? p.category : undefined,
+      brand: p.brand.length ? p.brand : undefined,
       store: p.store || undefined,
-      min_rating: p.minRating || undefined,
-      in_stock: p.inStock || undefined,
+      min_rating: p.minRatings.length ? p.minRatings : undefined,
+      availability: p.availability.length ? p.availability : undefined,
+      price_ranges: p.priceRanges.length ? p.priceRanges : undefined,
+      min_price: p.minPrice || undefined,
+      max_price: p.maxPrice || undefined,
       featured: p.mode === 'featured' ? 1 : undefined,
     }
     if (p.nearby === '1') {
@@ -253,42 +336,64 @@ function ProductShop() {
         q.longitude = location.longitude
       }
     }
-    if (p.range) {
-      const r = PRICE_RANGES.find((x) => x.label === p.range)
-      if (r) { q.min_price = r.min; q.max_price = r.max }
-    }
     return q
   }, [])
 
   const fetcher = useCallback(
-    async (page) => api.get('/products', { params: { ...buildParams(Object.fromEntries(params)), page } }),
-    [params, buildParams],
+    async (page) => api.get('/products', {
+      params: {
+        ...buildParams({
+          ...Object.fromEntries(params),
+          category,
+          brand,
+          priceRanges,
+          minPrice,
+          maxPrice,
+          minRatings,
+          availability,
+        }),
+        page,
+      },
+    }),
+    [params, buildParams, category, brand, priceRanges, minPrice, maxPrice, minRatings, availability],
   )
 
   const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
-    deps: [search, category, brand, store, sort, range, minRating, inStock, mode, filter, nearby],
+    deps: [
+      search, category.join(','), brand.join(','), store, sort, priceRanges.join(','),
+      minPrice, maxPrice, minRatings.join(','), availability.join(','), mode, filter, nearby,
+    ],
     pageSize: 16,
   })
 
   const update = (patch, reset = true) => {
     const next = new URLSearchParams(params)
+    if ('priceRange' in patch || 'minPrice' in patch || 'maxPrice' in patch) next.delete('range')
+    if ('availability' in patch) next.delete('inStock')
     Object.entries(patch).forEach(([k, v]) => {
-      if (v) next.set(k, v)
-      else next.delete(k)
+      next.delete(k)
+      if (Array.isArray(v)) {
+        v.forEach((value) => next.append(k, value))
+      } else if (v !== '' && v !== null && v !== undefined) {
+        next.set(k, v)
+      }
     })
     if (reset) {
       next.delete('page')
       setPage(1)
     }
     setParams(next, { replace: true })
-    setFilterOpen(false)
   }
 
   const clearAll = () => navigate('/shop', { replace: true })
 
-  const activeFilters = [category, brand, range, minRating, inStock, filter].filter(Boolean).length
-  const pageTitle = category
-    ? categories.find((c) => c.slug === category)?.name || 'Products'
+  const activeFilters =
+    category.length + brand.length + priceRanges.length + minRatings.length + availability.length +
+    Number(Boolean(minPrice || maxPrice)) + Number(Boolean(filter))
+  const pageTitle = category.length === 1
+    ? categories.find((c) => c.slug === category[0])?.name || 'Products'
+    : category.length > 1
+    ? 'Filtered Products'
     : search
     ? `Results for "${search}"`
     : filter === 'deals'
@@ -301,7 +406,7 @@ function ProductShop() {
       <nav className="breadcrumb" aria-label="Breadcrumb">
         <Link to="/">Home</Link>
         <ChevronRight size={13} className="breadcrumb-sep" />
-        {category ? (
+        {category.length > 0 ? (
           <>
             <Link to="/shop">Shop</Link>
             <ChevronRight size={13} className="breadcrumb-sep" />
@@ -390,36 +495,42 @@ function ProductShop() {
       {/* Active filter chips */}
       {activeFilters > 0 && (
         <div className="flex items-center gap-2 wrap mb-3">
-          {category && (
+          {category.map((slug) => (
+            <span key={slug} className="filter-chip">
+              {categories.find((c) => c.slug === slug)?.name || slug}
+              <button onClick={() => update({ category: category.filter((item) => item !== slug) })} aria-label={`Remove ${slug} category filter`}><X size={12} /></button>
+            </span>
+          ))}
+          {brand.map((id) => (
+            <span key={id} className="filter-chip">
+              {brands.find((item) => String(item.id) === id)?.name || 'Brand'}
+              <button onClick={() => update({ brand: brand.filter((item) => item !== id) })} aria-label="Remove brand filter"><X size={12} /></button>
+            </span>
+          ))}
+          {priceRanges.map((key) => (
+            <span key={key} className="filter-chip">
+              {PRICE_RANGES.find((item) => item.key === key)?.label || key}
+              <button onClick={() => update({ priceRange: priceRanges.filter((item) => item !== key) })} aria-label="Remove price range filter"><X size={12} /></button>
+            </span>
+          ))}
+          {(minPrice || maxPrice) && (
             <span className="filter-chip">
-              {categories.find((c) => c.slug === category)?.name || category}
-              <button onClick={() => update({ category: '' })} aria-label="Remove category filter"><X size={12} /></button>
+              Rs. {minPrice || '0'} – {maxPrice || 'Any'}
+              <button onClick={() => update({ minPrice: '', maxPrice: '' })} aria-label="Remove custom price filter"><X size={12} /></button>
             </span>
           )}
-          {brand && (
-            <span className="filter-chip">
-              {brands.find((b) => String(b.id) === brand)?.name || 'Brand'}
-              <button onClick={() => update({ brand: '' })} aria-label="Remove brand filter"><X size={12} /></button>
+          {minRatings.map((rating) => (
+            <span key={rating} className="filter-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Star size={12} fill="#f59e0b" color="#f59e0b" /> {rating}.0 & above
+              <button onClick={() => update({ minRating: minRatings.filter((item) => item !== rating) })} aria-label={`Remove ${rating} star rating filter`}><X size={12} /></button>
             </span>
-          )}
-          {range && (
-            <span className="filter-chip">
-              {range}
-              <button onClick={() => update({ range: '' })} aria-label="Remove price filter"><X size={12} /></button>
+          ))}
+          {availability.map((status) => (
+            <span key={status} className="filter-chip">
+              {AVAILABILITY_OPTIONS.find((item) => item.value === status)?.label || status}
+              <button onClick={() => update({ availability: availability.filter((item) => item !== status) })} aria-label={`Remove ${status} availability filter`}><X size={12} /></button>
             </span>
-          )}
-          {minRating && (
-            <span className="filter-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Star size={12} fill="#f59e0b" color="#f59e0b" /> {minRating}.0 & above
-              <button onClick={() => update({ minRating: '' })} aria-label="Remove rating filter"><X size={12} /></button>
-            </span>
-          )}
-          {inStock && (
-            <span className="filter-chip">
-              In Stock Only
-              <button onClick={() => update({ inStock: '' })} aria-label="Remove stock filter"><X size={12} /></button>
-            </span>
-          )}
+          ))}
           {filter === 'deals' && (
             <span className="filter-chip">
               Flash Deals

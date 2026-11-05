@@ -6,7 +6,7 @@ export default function Unauthorized() {
   const navigate = useNavigate()
 
   return (
-    <div className="flex flex-col items-center justify-center" style={{ minHeight: '70vh', padding: '0 1rem' }}>
+    <div className="flex flex-col items-center justify-center" style={{ position: 'fixed', inset: 0, zIndex: 10000, minHeight: '100vh', padding: '0 1rem', background: '#f8fafc' }}>
       <div className="text-center" style={{ maxWidth: '28rem' }}>
         <div 
           className="inline-flex items-center justify-center mb-6" 
@@ -30,18 +30,10 @@ export default function Unauthorized() {
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', justifyContent: 'center' }}>
           <Button
-            onClick={() => navigate('/admin')}
+            onClick={() => navigate(-1)}
             style={{ padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: '500' }}
           >
-            Go to Dashboard
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={() => navigate('/admin/system/users')}
-            style={{ padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: '500' }}
-          >
-            Contact Administrator
+            Go back
           </Button>
         </div>
       </div>

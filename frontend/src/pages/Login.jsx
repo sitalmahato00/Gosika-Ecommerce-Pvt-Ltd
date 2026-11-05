@@ -8,6 +8,7 @@ import { useToast } from '../context/ToastContext'
 import { useBranding } from '../context/BrandingContext'
 import { apiImage } from '../utils/format'
 import api from '../api/client'
+import { getPortalHome, getUserPortal } from '../utils/portalAccess'
 import GosikaLogo from '../components/common/GosikaLogo'
 
 const SOCIAL_BASE = '/api/v1/auth'
@@ -49,28 +50,12 @@ export default function Login() {
       const { user, token } = res.data.data
       
       // NOW check roles BEFORE completing login
-      const roles = user.roles || []
-      const isCustomer = roles.includes('customer')
-      const isVendor = roles.includes('vendor_admin')
-      const hasStaffRole = roles.some(role => 
-        !['customer', 'vendor_admin'].includes(role)
-      )
-      
+      const portal = getUserPortal(user)
+
       // STRICT PORTAL VALIDATION: Only customers allowed
-      if (!isCustomer) {
-        let correctPortal = ''
-        let roleType = ''
-        
-        if (isVendor) {
-          correctPortal = '/seller/login'
-          roleType = 'vendor'
-        } else if (hasStaffRole) {
-          correctPortal = '/admin/login'
-          roleType = 'staff/admin'
-        } else {
-          correctPortal = ''
-          roleType = 'unknown'
-        }
+      if (portal !== 'customer') {
+        const correctPortal = getPortalHome(user)
+        const roleType = portal === 'delivery' ? 'delivery partner' : portal || 'unknown'
         
         // Logout the token we just created
         try {
@@ -80,7 +65,7 @@ export default function Login() {
         } catch {}
         
         // Show error - DON'T save anything to localStorage
-        if (correctPortal) {
+        if (portal) {
           setError(`This account belongs to the ${roleType} portal. Please sign in through ${correctPortal}.`)
         } else {
           setError('You do not have permission to access this portal. Please contact support.')

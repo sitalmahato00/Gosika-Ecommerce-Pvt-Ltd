@@ -5,9 +5,11 @@ namespace App\Modules\Order\Infrastructure\Models;
 use App\Modules\Catalog\Infrastructure\Models\Product;
 use App\Modules\Catalog\Infrastructure\Models\ProductVariant;
 use App\Modules\Shared\Domain\Enums\DeliveryStatus;
+use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Infrastructure\Models\BaseModel;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OrderItem extends BaseModel
 {
@@ -64,5 +66,32 @@ class OrderItem extends BaseModel
     public function variant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class);
+    }
+
+    public function returnRequests(): HasMany
+    {
+        return $this->hasMany(ReturnRequest::class);
+    }
+
+    public function canRequestReturn(): bool
+    {
+        $retryableStatuses = [
+            ReturnStatus::CANCELLED->value,
+            ReturnStatus::REJECTED->value,
+        ];
+
+        if ($this->relationLoaded('returnRequests')) {
+            return $this->returnRequests->every(
+                fn (ReturnRequest $returnRequest) => in_array(
+                    $returnRequest->status?->value ?? $returnRequest->status,
+                    $retryableStatuses,
+                    true
+                )
+            );
+        }
+
+        return ! $this->returnRequests()
+            ->whereNotIn('status', $retryableStatuses)
+            ->exists();
     }
 }

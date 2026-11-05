@@ -21,13 +21,35 @@ class EnsurePortalAccess
         if (! $user->relationLoaded('roles')) {
             $user->load('roles');
         }
-        
+
         $roles = $user->roles->pluck('name');
 
+        $isAdmin = $roles->contains(Roles::SUPER_ADMIN)
+            || $roles->diff([
+                Roles::CUSTOMER,
+                Roles::VENDOR_ADMIN,
+                Roles::DELIVERY_PARTNER,
+                'vendor',
+                'delivery',
+            ])->isNotEmpty();
+        $isVendor = $roles->contains(Roles::VENDOR_ADMIN)
+            || $roles->contains('vendor_admin')
+            || $roles->contains('vendor')
+            || $user->vendor !== null;
+        $isDeliveryPartner = $roles->contains(Roles::DELIVERY_PARTNER)
+            || $roles->contains('delivery_partner')
+            || $roles->contains('delivery')
+            || $user->deliveryPartner !== null;
+        $isCustomer = $roles->contains(Roles::CUSTOMER)
+            && ! $isAdmin
+            && ! $isVendor
+            && ! $isDeliveryPartner;
+
         $allowed = match ($portal) {
-            'admin' => ! $roles->contains('customer') && ! $roles->contains('vendor_admin'),
-            'vendor' => $roles->contains(Roles::VENDOR_ADMIN) || $roles->contains('vendor_admin') || $roles->contains('vendor') || $user->vendor !== null,
-            'delivery' => $roles->contains(Roles::DELIVERY_PARTNER) || $roles->contains('delivery_partner') || $roles->contains('delivery') || $user->deliveryPartner !== null,
+            'admin' => $isAdmin,
+            'vendor' => ! $isAdmin && $isVendor,
+            'delivery' => ! $isAdmin && ! $isVendor && $isDeliveryPartner,
+            'customer' => $isCustomer,
             default => false,
         };
 

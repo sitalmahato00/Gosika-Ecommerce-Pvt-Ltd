@@ -20,6 +20,7 @@ import { FacebookIcon, InstagramIcon, TwitterIcon } from '../components/common/S
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
+import { getPortalHome, getUserPortal } from '../utils/portalAccess'
 import { useBranding } from '../context/BrandingContext'
 import { apiImage } from '../utils/format'
 import api from '../api/client'
@@ -68,19 +69,7 @@ export default function AdminLogin() {
   useEffect(() => {
     if (!booted || !user) return
 
-    const roles = user.roles || []
-    const hasAdminRole = roles.some((role) =>
-      !['customer', 'vendor_admin', 'delivery_partner'].includes(role)
-    )
-    if (hasAdminRole) {
-      navigate('/admin', { replace: true })
-    } else if (roles.includes('delivery_partner')) {
-      navigate('/delivery', { replace: true })
-    } else if (roles.includes('vendor_admin')) {
-      navigate('/vendor', { replace: true })
-    } else {
-      navigate('/account', { replace: true })
-    }
+    navigate(getPortalHome(user), { replace: true })
   }, [booted, navigate, user])
 
   const handleSubmit = async (e) => {
@@ -96,24 +85,17 @@ export default function AdminLogin() {
       })
 
       const { user: authedUser, token } = res.data.data
-      const roles = authedUser.roles || []
-      const isAdmin = roles.includes('super_admin')
-      const isDeliveryPartner = roles.includes('delivery_partner')
-      const hasCustomAdminRole = roles.some(
-        (role) => !['customer', 'vendor_admin'].includes(role)
-      )
+      const portal = getUserPortal(authedUser)
 
-      // Strict portal enforcement: reject customers and vendor accounts
-      if (!isAdmin && !isDeliveryPartner && !hasCustomAdminRole) {
-        const isVendor = roles.includes('vendor_admin')
-        const isCustomer = roles.includes('customer')
-
-        let targetPortal = '/login'
-        let portalLabel = 'customer'
-        if (isVendor) {
-          targetPortal = '/seller/login'
-          portalLabel = 'seller'
-        }
+      if (portal !== 'admin' && portal !== 'delivery') {
+        const targetPortal = portal === 'delivery'
+          ? '/delivery'
+          : portal === 'vendor'
+            ? '/seller/login'
+            : portal === 'customer'
+              ? '/login'
+              : '/access-denied'
+        const portalLabel = portal === 'delivery' ? 'delivery partner' : portal
 
         // Revoke token immediately
         try {
@@ -145,11 +127,7 @@ export default function AdminLogin() {
       toast.success(`Welcome back, ${authedUser.name?.split(' ')[0] || 'Admin'}!`)
 
       // Redirect
-      if (isDeliveryPartner && !isAdmin) {
-        window.location.href = '/delivery'
-      } else {
-        window.location.href = '/admin'
-      }
+      window.location.href = getPortalHome(authedUser)
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Login failed. Please check your credentials.')
       setLoading(false)

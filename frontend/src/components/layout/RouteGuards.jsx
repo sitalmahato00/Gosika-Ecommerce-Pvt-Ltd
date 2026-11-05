@@ -2,6 +2,7 @@ import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import Spinner from '../ui/Spinner'
+import { getPortalHome, getUserPortal } from '../../utils/portalAccess'
 
 function FullPageLoading() {
   return (
@@ -23,44 +24,38 @@ export function AuthRoute({ children }) {
 export function GuestRoute({ children }) {
   const { user, booted } = useAuth()
   if (!booted) return <FullPageLoading />
-  if (user) return <Navigate to="/account" replace />
+  if (user) return <Navigate to={getPortalHome(user)} replace />
   return children
 }
 
 export function VendorRoute({ children }) {
-  const { user, booted, isVendor, isSuperAdmin } = useAuth()
+  const { user, booted } = useAuth()
   if (!booted) return <FullPageLoading />
   if (!user) return <Navigate to="/seller/login" state={{ from: '/vendor' }} replace />
-  // Allow vendors or super admins (super admins can access all portals)
-  if (!isVendor() && !isSuperAdmin()) return <Navigate to="/account" replace />
+  if (getUserPortal(user) !== 'vendor') return <Navigate to={getPortalHome(user)} replace />
   return children
 }
 
 export function AdminRoute({ children }) {
-  const { user, booted, isSuperAdmin, isDeliveryPartner } = useAuth()
+  const { user, booted } = useAuth()
   if (!booted) return <FullPageLoading />
   if (!user) return <Navigate to="/admin/login" state={{ from: '/admin' }} replace />
-  
-  // Allow super_admin, delivery_partner, or custom admin roles
-  const roles = user?.roles || []
-  const isAdmin = isSuperAdmin()
-  const isDelivery = isDeliveryPartner()
-  const hasCustomAdminRole = roles.some(role => 
-    !['customer', 'vendor_admin'].includes(role)
-  )
-  
-  if (!isAdmin && !isDelivery && !hasCustomAdminRole) {
-    return <Navigate to="/account" replace />
-  }
-  
+  if (getUserPortal(user) !== 'admin') return <Navigate to={getPortalHome(user)} replace />
   return children
 }
 
 export function DeliveryRoute({ children }) {
-  const { user, booted, isDeliveryPartner, isSuperAdmin } = useAuth()
+  const { user, booted } = useAuth()
   if (!booted) return <FullPageLoading />
   if (!user) return <Navigate to="/admin/login" state={{ from: '/delivery' }} replace />
-  // Allow delivery partners or super admins (for testing/managing delivery operations)
-  if (!isDeliveryPartner() && !isSuperAdmin()) return <Navigate to="/account" replace />
+  if (getUserPortal(user) !== 'delivery') return <Navigate to={getPortalHome(user)} replace />
+  return children
+}
+
+export function CustomerRoute({ children }) {
+  const { user, booted } = useAuth()
+  if (!booted) return <FullPageLoading />
+  if (!user) return children
+  if (getUserPortal(user) !== 'customer') return <Navigate to={getPortalHome(user)} replace />
   return children
 }

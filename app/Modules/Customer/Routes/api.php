@@ -4,6 +4,7 @@ use App\Modules\Customer\Presentation\Http\Controllers\AdminCustomerController;
 use App\Modules\Customer\Presentation\Http\Controllers\CustomerAccountController;
 use App\Modules\Customer\Presentation\Http\Controllers\CustomerAddressController;
 use App\Modules\Customer\Presentation\Http\Controllers\CustomerProfileController;
+use App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/admin/customers')->group(function () {
@@ -16,7 +17,7 @@ Route::prefix('v1/admin/customers')->group(function () {
     Route::get('/wallets/{user}/transactions', [AdminCustomerController::class, 'walletTransactions']);
 });
 
-Route::prefix('v1/customer')->middleware('auth:sanctum')->group(function () {
+Route::prefix('v1/customer')->middleware(['auth:sanctum', 'ensure:customer'])->group(function () {
     Route::get('profile', [CustomerProfileController::class, 'show']);
     Route::put('profile', [CustomerProfileController::class, 'update']);
     Route::put('profile/password', [CustomerProfileController::class, 'updatePassword']);
@@ -34,9 +35,9 @@ Route::prefix('v1/customer')->middleware('auth:sanctum')->group(function () {
     Route::get('reviews/pending', [CustomerAccountController::class, 'pendingReviews']);
     Route::get('questions', [CustomerAccountController::class, 'myQuestions']);
 
-    Route::get('notifications', [\App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController::class, 'index']);
-    Route::get('notifications/unread-count', [\App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController::class, 'unread']);
-    Route::post('notifications/read-all', [\App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController::class, 'markAllRead']);
-    Route::delete('notifications/read', [\App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController::class, 'clearRead']);
-    Route::post('notifications/{notification}/read', [\App\Modules\Marketing\Presentation\Http\Controllers\CustomerNotificationController::class, 'markRead']);
+    Route::get('notifications', [CustomerNotificationController::class, 'index']);
+    Route::get('notifications/unread-count', [CustomerNotificationController::class, 'unread']);
+    Route::post('notifications/read-all', [CustomerNotificationController::class, 'markAllRead']);
+    Route::delete('notifications/read', [CustomerNotificationController::class, 'clearRead']);
+    Route::post('notifications/{notification}/read', [CustomerNotificationController::class, 'markRead']);
 });

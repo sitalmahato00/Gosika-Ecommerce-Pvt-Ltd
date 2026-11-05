@@ -37,7 +37,7 @@ class OrderService
     {
         return Order::query()
             ->where('user_id', $user->id)
-            ->with(['items.product', 'items.variant'])
+            ->with(['items.product', 'items.variant', 'items.returnRequests', 'items.vendorOrder'])
             ->orderByDesc('created_at')
             ->get();
     }
@@ -51,6 +51,8 @@ class OrderService
             ->with([
                 'items.product',
                 'items.variant',
+                'items.returnRequests',
+                'items.vendorOrder',
                 'vendorOrders' => fn ($query) => $query
                     ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount')
                     ->with(['items', 'assignments.tracking']),

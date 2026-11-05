@@ -38,6 +38,8 @@ class OrderController extends Controller
             ->with([
                 'items.product',
                 'items.variant',
+                'items.returnRequests',
+                'items.vendorOrder',
                 'vendorOrders' => fn ($query) => $query
                     ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount')
                     ->with('assignments'),

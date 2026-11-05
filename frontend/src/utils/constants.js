@@ -319,11 +319,11 @@ export const SHIPPING_METHODS = [
 ]
 
 export const PRICE_RANGES = [
-  { label: 'Under Rs. 1,000', min: 0, max: 1000 },
-  { label: 'Rs. 1,000 – 5,000', min: 1000, max: 5000 },
-  { label: 'Rs. 5,000 – 15,000', min: 5000, max: 15000 },
-  { label: 'Rs. 15,000 – 50,000', min: 15000, max: 50000 },
-  { label: 'Above Rs. 50,000', min: 50000, max: 10000000 },
+  { key: 'under_1000', label: 'Under Rs. 1,000', min: 0, max: 1000 },
+  { key: '1000_5000', label: 'Rs. 1,000 – 5,000', min: 1000, max: 5000 },
+  { key: '5000_15000', label: 'Rs. 5,000 – 15,000', min: 5000, max: 15000 },
+  { key: '15000_50000', label: 'Rs. 15,000 – 50,000', min: 15000, max: 50000 },
+  { key: 'above_50000', label: 'Above Rs. 50,000', min: 50000, max: 10000000 },
 ]
 
 /**

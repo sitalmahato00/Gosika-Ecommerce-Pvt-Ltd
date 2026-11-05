@@ -10,6 +10,8 @@ use App\Modules\Catalog\Presentation\Resources\CategoryResource;
 use App\Modules\Catalog\Presentation\Resources\ProductResource;
 use App\Modules\Marketplace\Application\Services\MarketplaceService;
 use App\Modules\Shared\Domain\Enums\ProductStatus;
+use App\Modules\Shared\Domain\Enums\StockStatus;
+use App\Modules\Shared\Domain\Enums\StoreStatus;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +19,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class PublicCatalogController extends Controller
 {
@@ -68,14 +71,67 @@ class PublicCatalogController extends Controller
 
     public function products(Request $request): JsonResponse
     {
+        $priceRanges = [
+            'under_1000' => [0, 1000],
+            '1000_5000' => [1000, 5000],
+            '5000_15000' => [5000, 15000],
+            '15000_50000' => [15000, 50000],
+            'above_50000' => [50000, 10000000],
+        ];
+        $filterRules = [
+            'price_ranges' => ['sometimes', 'array'],
+            'price_ranges.*' => ['string', Rule::in(array_keys($priceRanges))],
+            'min_price' => ['nullable', 'numeric', 'min:0'],
+            'max_price' => ['nullable', 'numeric', 'min:0'],
+            'min_rating' => ['sometimes'],
+            'min_rating.*' => ['numeric', 'min:0', 'max:5'],
+            'availability' => ['sometimes', 'array'],
+            'availability.*' => ['string', Rule::in(array_column(StockStatus::cases(), 'value'))],
+        ];
+        foreach (['category', 'brand'] as $identifierFilter) {
+            if (is_array($request->input($identifierFilter))) {
+                $filterRules[$identifierFilter] = ['array'];
+                $filterRules[$identifierFilter.'.*'] = ['string', 'max:255'];
+            } elseif ($request->has($identifierFilter)) {
+                $filterRules[$identifierFilter] = ['string', 'max:255'];
+            }
+        }
+        if (is_array($request->input('min_rating'))) {
+            $filterRules['min_rating'] = ['array'];
+        } elseif ($request->has('min_rating')) {
+            $filterRules['min_rating'] = ['numeric', 'min:0', 'max:5'];
+        }
+        if ($request->filled('min_price') && $request->filled('max_price')) {
+            $filterRules['max_price'][] = 'gte:min_price';
+        }
+        $request->validate($filterRules);
+
+        $categoryIdentifiers = $this->filterValues($request->input('category'));
+        $brandIdentifiers = $this->filterValues($request->input('brand'));
+        $selectedPriceRanges = $this->filterValues($request->input('price_ranges'));
+        $minRatings = $this->filterValues($request->input('min_rating'));
+        $availability = $this->filterValues($request->input('availability'));
+        if ($availability === [] && $request->boolean('in_stock')) {
+            $availability = [StockStatus::IN_STOCK->value, StockStatus::LOW_STOCK->value];
+        }
+
         $coordinates = $this->searchCoordinates($request);
-        $categoryIds = $request->filled('category')
-            ? $this->categoryAndDescendantIds((string) $request->input('category'))
-            : [];
+        $categoryIds = [];
+        foreach ($categoryIdentifiers as $identifier) {
+            $categoryIds = array_merge($categoryIds, $this->categoryAndDescendantIds($identifier));
+        }
+        $categoryIds = array_values(array_unique($categoryIds));
+        $hasCustomPrice = $request->filled('min_price') || $request->filled('max_price');
 
         $products = Product::query()
             ->select('products.*')
-            ->available()
+            ->where('products.status', ProductStatus::PUBLISHED)
+            ->whereHas('store', fn ($query) => $query->where('status', StoreStatus::ACTIVE))
+            ->when(
+                $availability === [],
+                fn ($query) => $query->where('stock_status', '!=', StockStatus::OUT_OF_STOCK),
+                fn ($query) => $query->whereIn('stock_status', $availability)
+            )
             ->with([
                 'store.addresses.municipality',
                 'store.addresses.district',
@@ -84,13 +140,37 @@ class PublicCatalogController extends Controller
                 'primaryImage',
                 'variants' => fn ($q) => $q->orderBy('is_default', 'desc'),
             ])
-            ->when($request->filled('category'), fn ($q) => $q->whereIn('category_id', $categoryIds))
-            ->when($request->filled('brand'), fn ($q) => $q->whereHas('brand', function ($q) use ($request) {
-                $q->where('slug', $request->brand)->orWhere('uuid', $request->brand);
+            ->when($categoryIdentifiers !== [], fn ($q) => $q->whereIn('category_id', $categoryIds))
+            ->when($brandIdentifiers !== [], fn ($q) => $q->whereHas('brand', function ($q) use ($brandIdentifiers) {
+                $q->whereIn('slug', $brandIdentifiers)->orWhereIn('uuid', $brandIdentifiers);
             }))
             ->when($request->filled('store'), fn ($q) => $q->whereHas('store', fn ($q) => $q->where('uuid', $request->store)))
-            ->when($request->filled('min_price'), fn ($q) => $q->where('price', '>=', $request->min_price))
-            ->when($request->filled('max_price'), fn ($q) => $q->where('price', '<=', $request->max_price))
+            ->when($selectedPriceRanges !== [] || $hasCustomPrice, function ($query) use ($selectedPriceRanges, $priceRanges, $request) {
+                $query->where(function ($query) use ($selectedPriceRanges, $priceRanges, $request) {
+                    foreach ($selectedPriceRanges as $range) {
+                        [$min, $max] = $priceRanges[$range];
+                        $query->orWhere(fn ($query) => $query->where('price', '>=', $min)->where('price', '<=', $max));
+                    }
+
+                    if ($request->filled('min_price') || $request->filled('max_price')) {
+                        $query->orWhere(function ($query) use ($request) {
+                            if ($request->filled('min_price')) {
+                                $query->where('price', '>=', $request->input('min_price'));
+                            }
+                            if ($request->filled('max_price')) {
+                                $query->where('price', '<=', $request->input('max_price'));
+                            }
+                        });
+                    }
+                });
+            })
+            ->when($minRatings !== [], function ($query) use ($minRatings) {
+                $query->where(function ($query) use ($minRatings) {
+                    foreach ($minRatings as $rating) {
+                        $query->orWhere('rating_avg', '>=', $rating);
+                    }
+                });
+            })
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where(function ($q) use ($request) {
                     $q->where('name', 'like', '%'.$request->search.'%')
@@ -131,6 +211,18 @@ class PublicCatalogController extends Controller
             'Products retrieved.',
             $this->paginatorMeta($products)
         );
+    }
+
+    private function filterValues(mixed $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map(static fn ($item) => is_scalar($item) ? (string) $item : '', is_array($value) ? $value : [$value]),
+            static fn ($item) => $item !== ''
+        )));
     }
 
     protected function categoryAndDescendantIds(string $identifier): array

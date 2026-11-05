@@ -64,7 +64,7 @@ export function AuthProvider({ children }) {
   const isVendor = useCallback(() => hasRole('vendor_admin'), [hasRole])
   const isSuperAdmin = useCallback(() => hasRole('super_admin'), [hasRole])
   const isDeliveryPartner = useCallback(() => hasRole('delivery_partner'), [hasRole])
-  const isCustomer = useCallback(() => !!user && (hasRole('customer') || isVendor()), [user, hasRole, isVendor])
+  const isCustomer = useCallback(() => !!user && hasRole('customer') && !isVendor(), [user, hasRole, isVendor])
 
   // Permission Set for O(1) lookup performance
   const permissions = useMemo(() => {

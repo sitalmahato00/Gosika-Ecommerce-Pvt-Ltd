@@ -2125,6 +2125,13 @@ button {
   gap: 24px;
   align-items: start;
 }
+.filter-sidebar {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
 @media (min-width: 1024px) {
   .shop-layout { grid-template-columns: 260px 1fr; }
   .filter-sidebar {
@@ -2134,13 +2141,6 @@ button {
     max-height: calc(100vh - 100px);
     overflow-y: auto;
   }
-}
-.filter-sidebar {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
 }
 .filter-section {
   border-bottom: 1px solid var(--border);

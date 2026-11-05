@@ -160,6 +160,7 @@ class DeliveryAssignmentTest extends TestCase
             'password' => bcrypt('password'),
             'status' => UserStatus::ACTIVE,
         ]);
+        $customer->assignRole(Roles::CUSTOMER);
 
         $order = Order::create([
             'uuid' => (string) Str::uuid(),

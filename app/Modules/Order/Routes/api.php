@@ -7,7 +7,7 @@ use App\Modules\Order\Presentation\Http\Controllers\VendorReturnController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Customer Orders ──────────────────────────────────────────────────────────
-Route::prefix('v1/orders')->middleware(['auth:sanctum', 'throttle:auth'])->group(function () {
+Route::prefix('v1/orders')->middleware(['auth:sanctum', 'ensure:customer', 'throttle:auth'])->group(function () {
     Route::get('/', [OrderController::class, 'index']);
     Route::post('/', [OrderController::class, 'store']);
     Route::get('/{order}', [OrderController::class, 'show']);
@@ -54,7 +54,7 @@ Route::prefix('v1/vendor/returns')->middleware(['auth:sanctum', 'ensure:vendor']
 });
 
 // ─── Customer Returns ─────────────────────────────────────────────────────────
-Route::prefix('v1/customer/returns')->middleware('auth:sanctum')->group(function () {
+Route::prefix('v1/customer/returns')->middleware(['auth:sanctum', 'ensure:customer'])->group(function () {
     // Step 1–3: List, view, submit
     Route::get('/', [CustomerReturnController::class, 'index']);
     Route::get('/{return}', [CustomerReturnController::class, 'show']);

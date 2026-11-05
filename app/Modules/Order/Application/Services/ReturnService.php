@@ -80,15 +80,28 @@ class ReturnService
         // ── STEP 4: System eligibility check ──────────────────────────────
         $this->assertEligible($order, $orderItem, $data);
 
+        // ── Prevent repeat requests after a successful resolution ────────
+        $resolvedExists = ReturnRequest::query()
+            ->where('order_item_id', $orderItem->id)
+            ->whereIn('status', [
+                ReturnStatus::REFUNDED,
+                ReturnStatus::COMPLETED,
+                ReturnStatus::EXCHANGE_DISPATCHED,
+                ReturnStatus::REPLACEMENT_DISPATCHED,
+            ])
+            ->exists();
+
+        if ($resolvedExists) {
+            throw new DomainException(
+                'This item has already been refunded, returned, exchanged, or replaced.',
+                422
+            );
+        }
+
         // ── Prevent duplicate open requests ───────────────────────────────
         $openExists = ReturnRequest::query()
             ->where('order_item_id', $orderItem->id)
-            ->whereNotIn('status', [
-                ReturnStatus::CANCELLED,
-                ReturnStatus::REJECTED,
-                ReturnStatus::REFUNDED,
-                ReturnStatus::COMPLETED,
-            ])
+            ->whereNotIn('status', [ReturnStatus::CANCELLED, ReturnStatus::REJECTED])
             ->exists();
 
         if ($openExists) {
@@ -425,14 +438,13 @@ class ReturnService
 
     private function assertEligible(Order $order, OrderItem $orderItem, array $data): void
     {
-        // Must be delivered or completed
+        // Requests can only be made after delivery, while the seller shipment is delivered.
         $vendorOrder = $orderItem->vendorOrder;
-        $deliveredStatuses = [OrderStatus::DELIVERED, OrderStatus::COMPLETED];
 
         if (
-            ! in_array($order->status, $deliveredStatuses, true)
+            $order->status !== OrderStatus::DELIVERED
             || ! $vendorOrder
-            || ! in_array($vendorOrder->status, $deliveredStatuses, true)
+            || $vendorOrder->status !== OrderStatus::DELIVERED
         ) {
             throw new DomainException(
                 'Returns can only be requested after the order has been delivered.',
@@ -535,4 +547,3 @@ class ReturnService
         }
     }
 }
-

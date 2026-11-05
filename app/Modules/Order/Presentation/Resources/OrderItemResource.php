@@ -21,6 +21,7 @@ class OrderItemResource extends JsonResource
             'unit_price' => number_format((float) $this->unit_price, 2, '.', ''),
             'line_total' => number_format((float) $this->line_total, 2, '.', ''),
             'delivery_status' => $this->delivery_status->value,
+            'can_request_return' => $this->canRequestReturn(),
         ];
     }
 

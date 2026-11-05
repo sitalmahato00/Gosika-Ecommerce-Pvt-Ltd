@@ -148,6 +148,7 @@ class OrderConfirmationRulesTest extends TestCase
             'password' => bcrypt('password'),
             'status' => UserStatus::ACTIVE,
         ]);
+        $customer->assignRole(Roles::CUSTOMER);
 
         $order = Order::create([
             'uuid' => (string) Str::uuid(),
@@ -629,20 +630,26 @@ class OrderConfirmationRulesTest extends TestCase
             ->postJson('/api/v1/customer/returns', [
                 'order_id' => $order->uuid,
                 'order_item_id' => $item->uuid,
+                'request_type' => 'return_refund',
                 'reason_type' => 'damaged',
                 'reason' => 'The item arrived damaged.',
                 'quantity' => 1,
+                'preferred_resolution' => 'Refund to original payment method (eSewa / Khalti / Bank)',
+                'return_method' => 'pickup',
             ])
             ->assertCreated();
 
         $this->assertDatabaseHas('return_requests', [
             'order_id' => $order->id,
             'order_item_id' => $item->id,
+            'request_type' => 'return_refund',
+            'preferred_resolution' => 'Refund to original payment method (eSewa / Khalti / Bank)',
+            'return_method' => 'pickup',
             'window_expires_at' => $deliveredAt->copy()->addDays(7)->toDateTimeString(),
             'refund_amount' => 1200.00,
         ]);
 
-        [$expiredOrder, $expiredVendorOrder, $expiredCustomer] = $this->createOrder(OrderStatus::COMPLETED);
+        [$expiredOrder, $expiredVendorOrder, $expiredCustomer] = $this->createOrder(OrderStatus::DELIVERED);
         $expiredOrder->update(['completed_at' => now()->subDays(8)]);
         $expiredVendorOrder->update(['status' => OrderStatus::DELIVERED]);
         $expiredItem = $expiredOrder->items()->firstOrFail();
@@ -657,6 +664,84 @@ class OrderConfirmationRulesTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonPath('message', 'The return and refund window for this order has expired.');
+    }
+
+    public function test_only_delivered_orders_are_eligible_for_return_requests(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::COMPLETED);
+        $deliveredAt = now()->subDay();
+        $order->update(['completed_at' => $deliveredAt]);
+        $vendorOrder->update(['status' => OrderStatus::DELIVERED]);
+        $item = $order->items()->firstOrFail();
+
+        $this->actingAs($customer)
+            ->getJson('/api/v1/orders/'.$order->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.can_request_return', false);
+
+        $this->actingAs($customer)
+            ->postJson('/api/v1/customer/returns', [
+                'order_id' => $order->uuid,
+                'order_item_id' => $item->uuid,
+                'reason_type' => 'damaged',
+                'reason' => 'The item arrived damaged.',
+                'quantity' => 1,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Returns can only be requested after the order has been delivered.');
+    }
+
+    public function test_successfully_resolved_items_cannot_be_requested_again(): void
+    {
+        foreach ([
+            ReturnStatus::REFUNDED,
+            ReturnStatus::COMPLETED,
+            ReturnStatus::EXCHANGE_DISPATCHED,
+            ReturnStatus::REPLACEMENT_DISPATCHED,
+        ] as $status) {
+            [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED);
+            $deliveredAt = now()->subDay();
+            $order->update(['completed_at' => $deliveredAt]);
+            $vendorOrder->update(['status' => OrderStatus::DELIVERED]);
+            $item = $order->items()->firstOrFail();
+
+            ReturnRequest::create([
+                'return_number' => 'RTN-'.strtoupper(Str::random(8)),
+                'user_id' => $customer->id,
+                'order_id' => $order->id,
+                'vendor_order_id' => $vendorOrder->id,
+                'order_item_id' => $item->id,
+                'store_id' => $this->store->id,
+                'vendor_id' => $this->vendor->id,
+                'request_type' => 'return_refund',
+                'reason_type' => 'damaged',
+                'reason' => 'The item arrived damaged.',
+                'quantity' => 1,
+                'refund_amount' => 1200,
+                'status' => $status,
+                'window_expires_at' => $deliveredAt->copy()->addDays(7),
+            ]);
+
+            $this->actingAs($customer)
+                ->getJson('/api/v1/orders/'.$order->uuid)
+                ->assertOk()
+                ->assertJsonPath('data.can_request_return', false)
+                ->assertJsonPath('data.items.0.can_request_return', false);
+
+            $this->actingAs($customer)
+                ->postJson('/api/v1/customer/returns', [
+                    'order_id' => $order->uuid,
+                    'order_item_id' => $item->uuid,
+                    'reason_type' => 'damaged',
+                    'reason' => 'Trying to request another return.',
+                    'quantity' => 1,
+                ])
+                ->assertUnprocessable()
+                ->assertJsonPath(
+                    'message',
+                    'This item has already been refunded, returned, exchanged, or replaced.'
+                );
+        }
     }
 
     public function test_delivered_orders_without_completed_at_use_delivery_assignment_date_for_return_window(): void
