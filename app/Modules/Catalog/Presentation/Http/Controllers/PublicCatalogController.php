@@ -8,6 +8,7 @@ use App\Modules\Catalog\Infrastructure\Models\Product;
 use App\Modules\Catalog\Presentation\Resources\BrandResource;
 use App\Modules\Catalog\Presentation\Resources\CategoryResource;
 use App\Modules\Catalog\Presentation\Resources\ProductResource;
+use App\Modules\Marketplace\Application\Services\MarketplaceService;
 use App\Modules\Shared\Domain\Enums\ProductStatus;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +23,7 @@ class PublicCatalogController extends Controller
     public function categories(Request $request): JsonResponse
     {
         $withChildren = $request->boolean('with_children');
-        $cacheKey = 'catalog.categories.public.' . ($withChildren ? '1' : '0');
+        $cacheKey = 'catalog.categories.public.'.($withChildren ? '1' : '0');
 
         $data = Cache::remember($cacheKey, 300, function () use ($withChildren) {
             $categories = Category::query()
@@ -51,6 +52,7 @@ class PublicCatalogController extends Controller
 
                 return BrandResource::collection($brands)->resolve();
             });
+
             return Response::success($data, 'Brands retrieved.');
         }
 
@@ -66,13 +68,22 @@ class PublicCatalogController extends Controller
 
     public function products(Request $request): JsonResponse
     {
+        $coordinates = $this->searchCoordinates($request);
         $categoryIds = $request->filled('category')
             ? $this->categoryAndDescendantIds((string) $request->input('category'))
             : [];
 
         $products = Product::query()
+            ->select('products.*')
             ->available()
-            ->with(['store', 'brand', 'primaryImage', 'variants' => fn ($q) => $q->orderBy('is_default', 'desc')])
+            ->with([
+                'store.addresses.municipality',
+                'store.addresses.district',
+                'store.addresses.province',
+                'brand',
+                'primaryImage',
+                'variants' => fn ($q) => $q->orderBy('is_default', 'desc'),
+            ])
             ->when($request->filled('category'), fn ($q) => $q->whereIn('category_id', $categoryIds))
             ->when($request->filled('brand'), fn ($q) => $q->whereHas('brand', function ($q) use ($request) {
                 $q->where('slug', $request->brand)->orWhere('uuid', $request->brand);
@@ -83,23 +94,37 @@ class PublicCatalogController extends Controller
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where(function ($q) use ($request) {
                     $q->where('name', 'like', '%'.$request->search.'%')
-                        ->orWhere('description', 'like', '%'.$request->search.'%');
+                        ->orWhere('description', 'like', '%'.$request->search.'%')
+                        ->orWhereHas('brand', fn ($brand) => $brand->where('name', 'like', '%'.$request->search.'%'))
+                        ->orWhereHas('category', fn ($category) => $category->where('name', 'like', '%'.$request->search.'%'));
                 });
             })
             ->when($request->boolean('featured') || $request->boolean('is_featured'), fn ($q) => $q->where('is_featured', true))
             ->when($request->boolean('discount'), fn ($q) => $q->whereColumn('compare_at_price', '>', 'price'))
-            ->when($request->filled('sort'), function ($q) use ($request) {
-                match ($request->sort) {
-                    'price_asc' => $q->orderBy('price'),
-                    'price_desc' => $q->orderByDesc('price'),
-                    'newest' => $q->orderByDesc('created_at'),
-                    'rating' => $q->orderByDesc('rating_avg'),
-                    'top' => $q->orderByDesc('rating_avg')->orderByDesc('views_count'),
-                    'discount' => $q->orderByDesc(DB::raw('(COALESCE(compare_at_price, price) - price)')),
-                    default => $q->orderByDesc('created_at'),
-                };
-            }, fn ($q) => $q->orderByDesc('created_at'))
-            ->paginate((int) $request->integer('per_page', 12));
+            ->when($coordinates !== null, function ($query) use ($coordinates) {
+                $query->selectSub($this->distanceSubquery(...$coordinates), 'distance_score')
+                    ->orderByRaw('CASE WHEN distance_score IS NULL THEN 1 ELSE 0 END')
+                    ->orderBy('distance_score');
+            });
+
+        $sort = $request->input('sort');
+        if ($sort) {
+            match ($sort) {
+                'price_asc' => $products->orderBy('price'),
+                'price_desc' => $products->orderByDesc('price'),
+                'newest' => $products->orderByDesc('created_at'),
+                'rating' => $products->orderByDesc('rating_avg')->orderByDesc('rating_count'),
+                'top' => $products->orderByDesc('rating_avg')->orderByDesc('views_count'),
+                'discount' => $products->orderByDesc(DB::raw('(COALESCE(compare_at_price, price) - price)')),
+                default => $products->orderByDesc('created_at'),
+            };
+        } elseif ($request->filled('search')) {
+            $products->orderByDesc('rating_avg')->orderByDesc('rating_count')->orderByDesc('created_at');
+        } else {
+            $products->orderByDesc('created_at');
+        }
+
+        $products = $products->paginate((int) $request->integer('per_page', 12));
 
         return Response::success(
             ProductResource::collection($products),
@@ -165,7 +190,7 @@ class PublicCatalogController extends Controller
         $product->increment('views_count');
 
         if (Auth::guard('sanctum')->user()) {
-            app(\App\Modules\Marketplace\Application\Services\MarketplaceService::class)
+            app(MarketplaceService::class)
                 ->trackRecentView(Auth::guard('sanctum')->user(), $product->uuid);
         }
 
@@ -182,34 +207,60 @@ class PublicCatalogController extends Controller
         }
 
         $q = mb_substr(trim($q), 0, 100);
-        $cacheKey = 'search.suggestions.' . md5($q);
+        $coordinates = $this->searchCoordinates($request);
+        $locationKey = $coordinates
+            ? implode(',', array_map(fn ($coordinate) => round($coordinate, 3), $coordinates))
+            : 'all';
+        $cacheKey = 'search.suggestions.'.md5($q.'|'.$locationKey);
 
-        $data = Cache::remember($cacheKey, 60, function () use ($q) {
+        $data = Cache::remember($cacheKey, 60, function () use ($q, $coordinates) {
             $results = [];
 
-            // Products — up to 4
+            // Products — exact and prefix matches first, then nearby and highly rated.
             $products = Product::query()
                 ->available()
-                ->where('name', 'like', '%' . $q . '%')
-                ->with('primaryImage')
-                ->select(['id', 'name', 'slug'])
-                ->orderBy('name')
+                ->where('name', 'like', '%'.$q.'%')
+                ->with([
+                    'primaryImage',
+                    'store.addresses.municipality',
+                    'store.addresses.district',
+                    'store.addresses.province',
+                ])
+                ->select(['id', 'uuid', 'name', 'slug', 'store_id', 'rating_avg', 'rating_count'])
+                ->when($coordinates !== null, fn ($query) => $query->selectSub(
+                    $this->distanceSubquery(...$coordinates),
+                    'distance_score'
+                ))
+                ->orderByRaw('CASE WHEN name = ? THEN 0 WHEN name LIKE ? THEN 1 ELSE 2 END', [$q, $q.'%'])
+                ->when($coordinates !== null, fn ($query) => $query->orderBy('distance_score'))
+                ->orderByDesc('rating_avg')
+                ->orderByDesc('rating_count')
                 ->limit(4)
                 ->get();
 
             foreach ($products as $product) {
+                $address = $product->store?->addresses->first();
+                $location = $address?->municipality?->name
+                    ?? $address?->district?->name
+                    ?? $address?->province?->name;
+
                 $results[] = [
-                    'type'  => 'product',
+                    'type' => 'product',
+                    'id' => $product->uuid,
                     'label' => $product->name,
-                    'slug'  => $product->slug,
+                    'slug' => $product->slug,
                     'image' => $product->primaryImage?->file_path ?? null,
+                    'rating_avg' => $product->rating_avg,
+                    'rating_count' => $product->rating_count,
+                    'store_name' => $product->store?->name,
+                    'location' => $location,
                 ];
             }
 
             // Categories — up to 2
             $categories = Category::query()
                 ->active()
-                ->where('name', 'like', '%' . $q . '%')
+                ->where('name', 'like', '%'.$q.'%')
                 ->select(['id', 'name', 'slug', 'image'])
                 ->orderBy('name')
                 ->limit(2)
@@ -217,9 +268,9 @@ class PublicCatalogController extends Controller
 
             foreach ($categories as $category) {
                 $results[] = [
-                    'type'  => 'category',
+                    'type' => 'category',
                     'label' => $category->name,
-                    'slug'  => $category->slug,
+                    'slug' => $category->slug,
                     'image' => $category->image ?? null,
                 ];
             }
@@ -227,7 +278,7 @@ class PublicCatalogController extends Controller
             // Brands — up to 2
             $brands = Brand::query()
                 ->active()
-                ->where('name', 'like', '%' . $q . '%')
+                ->where('name', 'like', '%'.$q.'%')
                 ->select(['id', 'name', 'slug', 'logo'])
                 ->orderBy('name')
                 ->limit(2)
@@ -235,9 +286,9 @@ class PublicCatalogController extends Controller
 
             foreach ($brands as $brand) {
                 $results[] = [
-                    'type'  => 'brand',
+                    'type' => 'brand',
                     'label' => $brand->name,
-                    'slug'  => $brand->slug,
+                    'slug' => $brand->slug,
                     'image' => $brand->logo ?? null,
                 ];
             }
@@ -246,6 +297,40 @@ class PublicCatalogController extends Controller
         });
 
         return Response::success($data, 'Suggestions retrieved.');
+    }
+
+    /**
+     * @return array{0: float, 1: float}|null
+     */
+    private function searchCoordinates(Request $request): ?array
+    {
+        $coordinates = $request->validate([
+            'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
+        ]);
+
+        if (! isset($coordinates['latitude'], $coordinates['longitude'])) {
+            return null;
+        }
+
+        return [(float) $coordinates['latitude'], (float) $coordinates['longitude']];
+    }
+
+    private function distanceSubquery(float $latitude, float $longitude)
+    {
+        $longitudeScale = cos(deg2rad($latitude));
+
+        return DB::table('store_addresses')
+            ->selectRaw(
+                'MIN(
+                    (CAST(latitude AS DECIMAL(10, 7)) - ?) * (CAST(latitude AS DECIMAL(10, 7)) - ?)
+                    + (CAST(longitude AS DECIMAL(10, 7)) - ?) * (CAST(longitude AS DECIMAL(10, 7)) - ?) * ?
+                )',
+                [$latitude, $latitude, $longitude, $longitude, $longitudeScale * $longitudeScale]
+            )
+            ->whereColumn('store_addresses.store_id', 'products.store_id')
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude');
     }
 
     protected function paginatorMeta($paginator): array

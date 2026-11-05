@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Heart, ShoppingCart, Eye } from 'lucide-react'
+import { Heart, ShoppingCart, Eye, MapPin } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
 import { useAuth } from '../../context/AuthContext'
@@ -117,6 +117,11 @@ export default function ProductCard({ product, onQuickView, variant = 'outline' 
           <Link to={`/store/${product.store.id}`} className="muted text-xs truncate" onClick={(e) => e.stopPropagation()}>
             {product.store.name}
           </Link>
+        )}
+        {product.store?.location && (
+          <span className="muted text-xs truncate" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            <MapPin size={11} /> {product.store.location}
+          </span>
         )}
         <div className="flex items-center justify-between" style={{ marginTop: 2 }}>
           <span className="price-current" style={{ fontSize: 15 }}>{money(product.price)}</span>

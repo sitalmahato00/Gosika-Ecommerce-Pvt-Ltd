@@ -1038,6 +1038,15 @@ button {
   transition: background 0.15s ease;
 }
 .search-bar button:hover { background: var(--primary-dark); }
+.search-autocomplete {
+  max-width: 640px;
+  overflow: visible;
+  z-index: 40;
+}
+.search-autocomplete .search-bar {
+  width: 100%;
+  max-width: none;
+}
 .header-actions {
   display: flex;
   align-items: center;

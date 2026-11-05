@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import {
   SlidersHorizontal, X, PackageSearch, ChevronDown,
-  ChevronRight, LayoutGrid, List, Search, Star
+  ChevronRight, LayoutGrid, List, Search, Star, MapPin
 } from 'lucide-react'
 import api from '../api/client'
 import ProductCard from '../components/commerce/ProductCard'
@@ -16,6 +16,7 @@ import { useList } from '../hooks/useApi'
 import { errorMessage } from '../utils/format'
 import { PRICE_RANGES } from '../utils/constants'
 import VendorCard from '../components/commerce/VendorCard'
+import { getSearchLocation } from '../utils/searchLocation'
 
 const SORTS = [
   { value: '', label: 'Newest First' },
@@ -217,7 +218,8 @@ function ProductShop() {
   const brand = params.get('brand') || ''
   const store = params.get('store') || ''
   const filter = params.get('filter') || ''
-  const sort = params.get('sort') || (filter === 'deals' ? 'discount' : '')
+  const nearby = params.get('nearby') === '1'
+  const sort = params.get('sort') || (filter === 'deals' ? 'discount' : search ? 'rating' : '')
   const range = params.get('range') || ''
   const minRating = params.get('minRating') || ''
   const inStock = params.get('inStock') || ''
@@ -234,7 +236,7 @@ function ProductShop() {
     const q = {
       per_page: 16,
       load: 'brand,store,images',
-      sort: p.sort || (p.filter === 'deals' ? 'discount' : undefined),
+      sort: p.sort || (p.filter === 'deals' ? 'discount' : p.search ? 'rating' : undefined),
       discount: p.filter === 'deals' ? 1 : undefined,
       search: p.search || undefined,
       category: p.category || undefined,
@@ -243,6 +245,13 @@ function ProductShop() {
       min_rating: p.minRating || undefined,
       in_stock: p.inStock || undefined,
       featured: p.mode === 'featured' ? 1 : undefined,
+    }
+    if (p.nearby === '1') {
+      const location = getSearchLocation()
+      if (location) {
+        q.latitude = location.latitude
+        q.longitude = location.longitude
+      }
     }
     if (p.range) {
       const r = PRICE_RANGES.find((x) => x.label === p.range)
@@ -257,7 +266,7 @@ function ProductShop() {
   )
 
   const { items, meta, page, setPage, loading, error, reload } = useList(fetcher, {
-    deps: [search, category, brand, store, sort, range, minRating, inStock, mode, filter],
+    deps: [search, category, brand, store, sort, range, minRating, inStock, mode, filter, nearby],
     pageSize: 16,
   })
 
@@ -310,6 +319,11 @@ function ProductShop() {
           <p className="muted text-sm m-0">
             {loading ? 'Loading…' : `${meta.total} product${meta.total !== 1 ? 's' : ''} found`}
           </p>
+          {nearby && (
+            <p className="muted text-xs m-0" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+              <MapPin size={13} /> Nearby stores first, then top rated
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
           {/* View toggle */}

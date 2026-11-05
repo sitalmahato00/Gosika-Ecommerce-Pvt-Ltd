@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag, Heart, User, Search, Menu, Truck, MapPin,
   Store, ChevronDown, X, Bell, Phone, Package, LogOut,
-  UserCheck, LayoutDashboard, Settings, Flame, Clock, HelpCircle, Tag
+  UserCheck, LayoutDashboard, Settings, Flame, Clock, HelpCircle, Tag, Star
 } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
@@ -12,6 +12,7 @@ import { initials, apiImage } from '../../utils/format'
 import Drawer from '../ui/Drawer'
 import api from '../../api/client'
 import { getCategoryIcon } from '../../utils/icons'
+import { getSearchLocation, saveSearchLocation } from '../../utils/searchLocation'
 import GosikaLogo from '../common/GosikaLogo'
 
 import { useBranding } from '../../context/BrandingContext'
@@ -49,6 +50,12 @@ export default function CustomerHeader() {
   const [unreadNotif, setUnreadNotif] = useState(0)
   const [suggestions, setSuggestions] = useState([])
   const [suggestOpen, setSuggestOpen] = useState(false)
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const [suggestError, setSuggestError] = useState('')
+  const [locationLoading, setLocationLoading] = useState(false)
+  const [locationError, setLocationError] = useState('')
+  const [nearbyEnabled, setNearbyEnabled] = useState(Boolean(getSearchLocation()))
+  const [activeSuggestion, setActiveSuggestion] = useState(-1)
   const accountRef = useRef(null)
   const suggestRef = useRef(null)
   const prevItemCount = useRef(itemCount)
@@ -112,34 +119,113 @@ export default function CustomerHeader() {
     if (trimmed.length < 2) {
       setSuggestions([])
       setSuggestOpen(false)
+      setSuggestError('')
+      setSuggestLoading(false)
       return
     }
+    let active = true
+    setSuggestions([])
+    setActiveSuggestion(-1)
+    setSuggestLoading(true)
+    setSuggestError('')
+    setSuggestOpen(true)
     const timer = setTimeout(() => {
+      const location = nearbyEnabled ? getSearchLocation() : null
       api
-        .get('/products/suggestions', { params: { q: trimmed } })
+        .get('/products/suggestions', {
+          params: {
+            q: trimmed,
+            latitude: location?.latitude,
+            longitude: location?.longitude,
+          },
+          skipCache: true,
+        })
         .then((res) => {
+          if (!active) return
           const items = res.data?.data || []
           setSuggestions(items)
-          setSuggestOpen(items.length > 0)
+          setSuggestOpen(true)
+          setActiveSuggestion(-1)
         })
         .catch(() => {
+          if (!active) return
           setSuggestions([])
-          setSuggestOpen(false)
+          setSuggestError('Suggestions could not be loaded. Press Search to view results.')
+          setSuggestOpen(true)
+        })
+        .finally(() => {
+          if (active) setSuggestLoading(false)
         })
     }, 300)
-    return () => clearTimeout(timer)
-  }, [q])
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [q, nearbyEnabled])
+
+  const goToSearch = ({ nearby = nearbyEnabled, category, brand } = {}) => {
+    setSuggestOpen(false)
+    const params = new URLSearchParams()
+    if (q.trim()) params.set('search', q.trim())
+    if (category || catFilter) params.set('category', category || catFilter)
+    if (brand) params.set('brand', brand)
+    if (nearby && getSearchLocation()) params.set('nearby', '1')
+    navigate(`/shop?${params.toString()}`)
+    setMenuOpen(false)
+  }
 
   const submitSearch = (e) => {
     e.preventDefault()
+    goToSearch()
+  }
+
+  const selectSuggestion = (item) => {
     setSuggestOpen(false)
-    setSuggestions([])
-    const params = new URLSearchParams()
-    if (q) params.set('search', q)
-    if (catFilter) params.set('category', catFilter)
-    navigate(`/shop?${params.toString()}`)
-    setMenuOpen(false)
     setQ('')
+    if (item.type === 'product') {
+      navigate(`/product/${item.id}`)
+    } else if (item.type === 'brand') {
+      navigate(`/shop?brand=${encodeURIComponent(item.slug)}`)
+    } else {
+      navigate(`/shop?category=${encodeURIComponent(item.slug)}`)
+    }
+  }
+
+  const useNearbyLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Location is not available in this browser.')
+      return
+    }
+
+    setLocationLoading(true)
+    setLocationError('')
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        saveSearchLocation(coords.latitude, coords.longitude)
+        setNearbyEnabled(true)
+        setLocationLoading(false)
+        goToSearch({ nearby: true })
+      },
+      () => {
+        setLocationLoading(false)
+        setLocationError('Location permission was not granted. You can still search by product name.')
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    )
+  }
+
+  const handleSearchKeyDown = (event) => {
+    if (!suggestOpen || !suggestions.length) return
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveSuggestion((index) => (index + 1) % suggestions.length)
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setActiveSuggestion((index) => (index <= 0 ? suggestions.length - 1 : index - 1))
+    } else if (event.key === 'Enter' && activeSuggestion >= 0) {
+      event.preventDefault()
+      selectSuggestion(suggestions[activeSuggestion])
+    }
   }
 
   const handleLogout = async () => {
@@ -194,10 +280,11 @@ export default function CustomerHeader() {
         {/* Search bar with Category dropdown — hidden on mobile */}
         <div
           ref={suggestRef}
-          className="search-bar hide-sm"
-          style={{ flex: 1, position: 'relative' }}
+          className="search-autocomplete hide-sm"
+          style={{ flex: '1 1 0%', position: 'relative', width: '100%', maxWidth: 640, minWidth: 0 }}
         >
           <form
+            className="search-bar"
             onSubmit={submitSearch}
             role="search"
             aria-label="Search products"
@@ -205,14 +292,17 @@ export default function CustomerHeader() {
               display: 'flex',
               alignItems: 'center',
               background: '#ffffff',
-              border: '1.5px solid #e2e8f0',
-              borderRadius: 8,
+              border: '1.5px solid #ff5500',
+              borderRadius: 999,
               overflow: 'hidden',
               height: 42,
+              width: '100%',
+              minWidth: 0,
+              boxSizing: 'border-box',
               boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
             }}
           >
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <select
                 className="search-cat-select"
                 value={catFilter}
@@ -229,7 +319,9 @@ export default function CustomerHeader() {
                   color: '#334155',
                   cursor: 'pointer',
                   outline: 'none',
-                  appearance: 'none'
+                  appearance: 'none',
+                  maxWidth: 140,
+                  flexShrink: 0
                 }}
               >
                 <option value="">All Categories</option>
@@ -244,18 +336,23 @@ export default function CustomerHeader() {
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              onFocus={() => { if (suggestions.length > 0) setSuggestOpen(true) }}
+              onFocus={() => { if (q.trim().length >= 2) setSuggestOpen(true) }}
+              onKeyDown={handleSearchKeyDown}
               placeholder="Search products, brands and more..."
               aria-label="Search products"
               aria-autocomplete="list"
               aria-expanded={suggestOpen}
+              aria-controls="search-suggestions-list"
               style={{
-                flex: 1,
+                flex: '1 1 0%',
+                width: 0,
+                minWidth: 0,
                 border: 'none',
                 padding: '0 14px',
                 fontSize: 13.5,
                 outline: 'none',
-                background: 'transparent'
+                background: 'transparent',
+                boxSizing: 'border-box'
               }}
             />
 
@@ -274,6 +371,7 @@ export default function CustomerHeader() {
                 alignItems: 'center',
                 gap: 6,
                 height: '100%',
+                flexShrink: 0,
                 transition: 'background 0.15s'
               }}
             >
@@ -283,10 +381,8 @@ export default function CustomerHeader() {
           </form>
 
           {/* Autocomplete suggestions dropdown */}
-          {suggestOpen && suggestions.length > 0 && (
+          {suggestOpen && (
             <div
-              role="listbox"
-              aria-label="Search suggestions"
               style={{
                 position: 'absolute',
                 top: 'calc(100% + 6px)',
@@ -300,81 +396,113 @@ export default function CustomerHeader() {
                 overflow: 'hidden'
               }}
             >
-              {suggestions.map((item, idx) => {
-                const Icon =
-                  item.type === 'product'
-                    ? ShoppingBag
-                    : item.type === 'brand'
-                    ? Store
-                    : Tag
-                const href =
-                  item.type === 'product'
-                    ? `/products/${item.slug}`
-                    : item.type === 'brand'
-                    ? `/search?brand=${item.slug}`
-                    : `/search?category=${item.slug}`
-
-                return (
-                  <button
-                    key={`${item.type}-${item.slug}-${idx}`}
-                    role="option"
-                    onClick={() => {
-                      setSuggestOpen(false)
-                      setSuggestions([])
-                      setQ('')
-                      navigate(href)
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      width: '100%',
-                      padding: '9px 14px',
-                      background: 'none',
-                      border: 'none',
-                      borderBottom: idx < suggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'background 0.1s'
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
-                  >
-                    <span
+              <button
+                type="button"
+                onClick={useNearbyLocation}
+                disabled={locationLoading}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: '100%',
+                  padding: '10px 14px',
+                  border: 0,
+                  borderBottom: '1px solid #e2e8f0',
+                  background: '#fff7f0',
+                  color: '#c2410c',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textAlign: 'left',
+                  cursor: locationLoading ? 'wait' : 'pointer',
+                }}
+              >
+                <MapPin size={15} />
+                {locationLoading ? 'Finding nearby stores…' : nearbyEnabled ? 'Refresh nearby store results' : 'Use my location for nearby stores'}
+              </button>
+              {locationError && <p role="status" style={{ margin: 0, padding: '8px 14px', color: '#b91c1c', fontSize: 12 }}>{locationError}</p>}
+              {suggestLoading && <p role="status" style={{ margin: 0, padding: '12px 14px', color: '#64748b', fontSize: 13 }}>Searching products…</p>}
+              {suggestError && <p role="status" style={{ margin: 0, padding: '10px 14px', color: '#b91c1c', fontSize: 12 }}>{suggestError}</p>}
+              {!suggestLoading && !suggestError && suggestions.length === 0 && (
+                <p style={{ margin: 0, padding: '12px 14px', color: '#64748b', fontSize: 13 }}>No matching products, brands, or categories.</p>
+              )}
+              <div id="search-suggestions-list" role="listbox" aria-label="Search suggestions">
+                {suggestions.map((item, idx) => {
+                  const Icon =
+                    item.type === 'product'
+                      ? ShoppingBag
+                      : item.type === 'brand'
+                      ? Store
+                      : Tag
+                  return (
+                    <button
+                      key={`${item.type}-${item.slug}-${idx}`}
+                      id={`search-suggestion-${idx}`}
+                      type="button"
+                      role="option"
+                      aria-selected={activeSuggestion === idx}
+                      onClick={() => selectSuggestion(item)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 30,
-                        height: 30,
-                        borderRadius: 6,
-                        background: item.type === 'product' ? '#fff7f0' : item.type === 'brand' ? '#f0f7ff' : '#f0fff4',
-                        flexShrink: 0
+                        gap: 10,
+                        width: '100%',
+                        padding: '9px 14px',
+                        background: activeSuggestion === idx ? '#f8fafc' : 'none',
+                        border: 'none',
+                        borderBottom: idx < suggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'background 0.1s'
                       }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
                     >
-                      {item.image ? (
-                        <img
-                          src={item.image.startsWith('http') ? item.image : `/storage/${item.image}`}
-                          alt=""
-                          style={{ width: 24, height: 24, objectFit: 'contain', borderRadius: 4 }}
-                          onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
+                      <span
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 30,
+                          height: 30,
+                          borderRadius: 6,
+                          background: item.type === 'product' ? '#fff7f0' : item.type === 'brand' ? '#f0f7ff' : '#f0fff4',
+                          flexShrink: 0
+                        }}
+                      >
+                        {item.image ? (
+                          <img
+                            src={apiImage(item.image)}
+                            alt=""
+                            style={{ width: 24, height: 24, objectFit: 'contain', borderRadius: 4 }}
+                            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
+                          />
+                        ) : null}
+                        <Icon
+                          size={14}
+                          color={item.type === 'product' ? '#ff5500' : item.type === 'brand' ? '#3b82f6' : '#22c55e'}
+                          style={{ display: item.image ? 'none' : 'block' }}
                         />
-                      ) : null}
-                      <Icon
-                        size={14}
-                        color={item.type === 'product' ? '#ff5500' : item.type === 'brand' ? '#3b82f6' : '#22c55e'}
-                        style={{ display: item.image ? 'none' : 'block' }}
-                      />
-                    </span>
-                    <span style={{ flex: 1, fontSize: 13.5, color: '#1e293b', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.label}
-                    </span>
-                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500, textTransform: 'capitalize', flexShrink: 0 }}>
-                      {item.type}
-                    </span>
-                  </button>
-                )
-              })}
+                      </span>
+                      <span style={{ flex: 1, fontSize: 13.5, color: '#1e293b', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.label}
+                        {item.type === 'product' && item.store_name && (
+                          <span style={{ display: 'block', marginTop: 2, color: '#64748b', fontSize: 11, fontWeight: 400 }}>
+                            {item.store_name}{item.location ? ` · ${item.location}` : ''}
+                          </span>
+                        )}
+                      </span>
+                      {item.type === 'product' && Number(item.rating_avg) > 0 && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#a16207', fontSize: 11, flexShrink: 0 }}>
+                          <Star size={12} fill="currentColor" /> {Number(item.rating_avg).toFixed(1)}
+                        </span>
+                      )}
+                      <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500, textTransform: 'capitalize', flexShrink: 0 }}>
+                        {item.type}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>

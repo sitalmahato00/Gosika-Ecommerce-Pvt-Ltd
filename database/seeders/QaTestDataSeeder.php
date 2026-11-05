@@ -120,7 +120,7 @@ class QaTestDataSeeder extends Seeder
         $definitions = [
             'SEL-A' => ['company' => 'QA Alpine Goods', 'status' => VendorStatus::APPROVED, 'kyc' => 'approved'],
             'SEL-B' => ['company' => 'QA Valley Market', 'status' => VendorStatus::APPROVED, 'kyc' => 'approved'],
-            'SEL-C' => ['company' => 'QA River Crafts', 'status' => VendorStatus::APPROVED, 'kyc' => 'pending'],
+            'SEL-C' => ['company' => 'QA River Crafts', 'status' => VendorStatus::APPROVED, 'kyc' => 'submitted'],
         ];
 
         foreach ($definitions as $reference => $definition) {
@@ -223,7 +223,7 @@ class QaTestDataSeeder extends Seeder
             ->firstOrFail();
         $municipality = Municipality::query()
             ->where('district_id', $district->id)
-            ->where('name', 'Kathmandu')
+            ->where('name', 'Kathmandu Metropolitan City')
             ->firstOrFail();
 
         foreach (['CUS-A', 'CUS-B'] as $reference) {

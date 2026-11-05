@@ -8,12 +8,13 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         foreach (Permissions::ALL as $permission) {
             Permission::query()->updateOrCreate(['name' => $permission], ['guard_name' => 'web']);
@@ -46,6 +47,7 @@ class RolePermissionSeeder extends Seeder
                 Permissions::DELIVERIES_MANAGE,
             ],
             Roles::CUSTOMER => [],
+            'qa_orders_view_only' => [Permissions::ORDERS_VIEW],
         ];
 
         DB::transaction(function () use ($roles) {

@@ -2,19 +2,14 @@
 
 namespace Database\Seeders;
 
-use App\Modules\Identity\Domain\Roles;
-use App\Modules\Identity\Infrastructure\Models\User;
-use App\Modules\Shared\Domain\Enums\UserStatus;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // This seeder creates demo accounts and demo marketplace data. It must
-        // never run in production where it would expose known credentials.
         if (app()->isProduction()) {
-            $this->command?->warn('DatabaseSeeder contains demo data only and was skipped in production.');
+            $this->command?->warn('DatabaseSeeder contains QA-only data and was skipped in production.');
 
             return;
         }
@@ -24,64 +19,8 @@ class DatabaseSeeder extends Seeder
             NepalGeoSchemaSeeder::class,
             SettingsSeeder::class,
             CatalogSeeder::class,
-        ]);
-
-        $demoPassword = app()->environment(['local', 'testing'])
-            ? 'password'
-            : (string) \Illuminate\Support\Str::password(24);
-
-        $adminUser = User::updateOrCreate(
-            ['email' => 'admin@gosika.com.np'],
-            [
-                'uuid' => (string) \Illuminate\Support\Str::uuid(),
-                'first_name' => 'GOSIKA',
-                'last_name' => 'Super Admin',
-                'phone' => '9800000001',
-                'password' => \Illuminate\Support\Facades\Hash::make($demoPassword),
-                'email_verified_at' => now(),
-                'phone_verified_at' => now(),
-                'status' => UserStatus::ACTIVE,
-            ]
-        );
-        $adminUser->assignRole(Roles::SUPER_ADMIN);
-
-        // Create default vendor BEFORE ProductSeeder
-        $vendorUser = User::updateOrCreate(
-            ['email' => 'vendor@gosika.com.np'],
-            [
-                'uuid' => (string) \Illuminate\Support\Str::uuid(),
-                'first_name' => 'Himalayan',
-                'last_name' => 'Handicrafts',
-                'phone' => '9800000003',
-                'password' => \Illuminate\Support\Facades\Hash::make($demoPassword),
-                'email_verified_at' => now(),
-                'phone_verified_at' => now(),
-                'status' => UserStatus::ACTIVE,
-            ]
-        );
-        $vendorUser->assignRole(Roles::VENDOR_ADMIN);
-
-        \App\Modules\Vendor\Infrastructure\Models\Vendor::query()->updateOrCreate(
-            ['user_id' => $vendorUser->id],
-            [
-                'company_name' => 'Himalayan Handicrafts',
-                'business_email' => 'vendor@gosika.com.np',
-                'status' => \App\Modules\Shared\Domain\Enums\VendorStatus::APPROVED,
-                'commission_rate' => 10,
-            ]
-        );
-
-        // Now call ProductSeeder after vendor is created
-        $this->call([
-            ProductSeeder::class,
-            DeliveryPartnerSeeder::class,
-            ReviewsSeeder::class,
-            VendorMarketplaceSeeder::class,
-            CustomerExperienceSeeder::class,
-            DeliveryAssignmentSeeder::class,
             CategoryCommissionSeeder::class,
-            MarketingContentSeeder::class,
-            DemoFinanceSeeder::class,
+            QaTestDataSeeder::class,
         ]);
     }
 }

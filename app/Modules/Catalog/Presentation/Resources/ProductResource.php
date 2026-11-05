@@ -42,6 +42,13 @@ class ProductResource extends JsonResource
                 'id' => $this->store->uuid,
                 'name' => $this->store->name,
                 'slug' => $this->store->slug,
+                'location' => $this->store->relationLoaded('addresses')
+                    ? $this->store->addresses->map(
+                        fn ($address) => $address->municipality?->name
+                            ?? $address->district?->name
+                            ?? $address->province?->name
+                    )->filter()->first()
+                    : null,
             ]),
             'vendor' => $this->when($this->relationLoaded('vendor') && $this->vendor, fn () => [
                 'id' => $this->vendor->uuid,

@@ -41,7 +41,7 @@ Prepare the test-only password in the approved secrets store as `QA_TEST_PASSWOR
 | CUS-A | Verified Customer A, two addresses, empty wallet/cart | `customerA@gosika.com.np` / `9801000008` | Approved secrets store: `QA_TEST_PASSWORD` |
 | CUS-B | Verified Customer B, isolation account | `customerB@gosika.com.np` / `9801000009` | Approved secrets store: `QA_TEST_PASSWORD` |
 | PAY-SBX | Payment gateway sandbox | Do not use a live account | Approved secrets store and local app payment settings |
-| MAIL-TEST | Test notification inbox | Configure a sandbox inbox under `@gosika.com.np` | Mail sandbox / approved secrets store |
+| MAIL-TEST | Test notification inbox | `qa-inbox@gosika.com.np` (route only to a mail sandbox) | Mail sandbox / approved secrets store |
 | SMS-TEST | Test notification number | `+9779800000199` (placeholder; configure a sandbox number) | SMS sandbox / approved secrets store |
 
 Seeded product references are P-01 (Seller A, in stock, variant), P-02 (Seller B, discounted), P-03 (Seller C, low stock), and OOS-01 (zero stock). `QA-CART-MV` contains one item from each seller; Customer A's cart stays empty. `ACTIVE10` has a minimum order, usage limits, and a discount cap; `EXPIRED10` is expired. `ZONE-X` and `ZONE-Y` have different delivery charges. `QA-ORD-RET` is a delivered Customer A order inside the configured return window. KYC upload fixtures (JPG, PNG, PDF, invalid text, and oversized file) are generated under local application storage.
