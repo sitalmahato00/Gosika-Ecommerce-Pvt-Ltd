@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { AlertTriangle, Info, CheckCircle, X } from 'lucide-react'
 
 export default function ConfirmDialog({
@@ -11,11 +11,19 @@ export default function ConfirmDialog({
   cancelText = 'Cancel',
   variant = 'danger', // danger | warning | primary | success
   requireReason = false,
+  reasonLabel = 'Reason / Explanation',
   reasonPlaceholder = 'Please enter a detailed reason for this action...',
   loading = false
 }) {
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (isOpen) {
+      setReason('')
+      setError('')
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -111,7 +119,7 @@ export default function ConfirmDialog({
         {requireReason && (
           <div style={{ padding: '0 24px 16px' }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>
-              Reason / Explanation <span style={{ color: '#dc2626' }}>*</span>
+              {reasonLabel} <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <textarea
               className="input"

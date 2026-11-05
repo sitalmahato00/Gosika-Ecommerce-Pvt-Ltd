@@ -147,7 +147,7 @@ export default function AdminCodReconciliation() {
                 <th>Customer</th>
                 <th>Delivery partner</th>
                 <th>Delivered</th>
-                <th>COD collected</th>
+                <th>COD to remit</th>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Action</th>
               </tr>
@@ -173,7 +173,21 @@ export default function AdminCodReconciliation() {
                     <div className="muted text-xs">{record.delivery_partner_phone || ''}</div>
                   </td>
                   <td className="text-sm">{formatDateTime(record.delivered_at)}</td>
-                  <td className="font-bold" style={{ color: '#b45309' }}>{money(record.cod_amount)}</td>
+                  <td>
+                    {Number(record.refunded_amount) > 0 && (
+                      <div style={{ color: '#dc2626', fontSize: 11, fontWeight: 700 }}>
+                        −{money(record.refunded_amount)} refunded
+                      </div>
+                    )}
+                    {Number(record.refunded_amount) > 0 && (
+                      <div className="muted text-xs" style={{ textDecoration: 'line-through' }}>
+                        {money(record.original_cod_amount)}
+                      </div>
+                    )}
+                    <div className="font-bold" style={{ color: Number(record.refunded_amount) > 0 ? '#15803d' : '#b45309' }}>
+                      {money(record.cod_amount)}
+                    </div>
+                  </td>
                   <td>
                     {record.status === 'collected' ? (
                       <div>
@@ -183,6 +197,8 @@ export default function AdminCodReconciliation() {
                           {formatDateTime(record.cod_reconciled_at)}
                         </div>
                       </div>
+                    ) : record.status === 'refunded' ? (
+                      <span className="badge badge-success">Fully refunded</span>
                     ) : <span className="badge badge-warning">Awaiting handover</span>}
                   </td>
                   <td style={{ textAlign: 'right' }}>

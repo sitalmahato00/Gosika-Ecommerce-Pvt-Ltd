@@ -2,16 +2,14 @@
 
 namespace App\Modules\Payment\Presentation\Http\Controllers;
 
-use App\Modules\Administration\Application\Services\AuditLogService;
 use App\Modules\Identity\Domain\Permissions;
-use App\Modules\Identity\Domain\Roles;
+use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Payment\Application\Services\PaymentService;
 use App\Modules\Payment\Application\Services\RefundService;
 use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Payment\Presentation\Resources\AdminRefundResource;
 use App\Modules\Shared\Domain\Enums\RefundStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
-use App\Modules\Shared\Presentation\Http\Filters\ListingDateRange;
 use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,91 +22,33 @@ class AdminRefundController extends Controller
     {
         $this->middleware('auth:sanctum');
         $this->middleware('admin');
-        $this->middleware('permission:'.Permissions::REFUNDS_MANAGE);
+        $this->middleware('permission:'.Permissions::ORDERS_MANAGE.'|'.Permissions::REFUNDS_MANAGE);
     }
 
-    public function index(Request $request): JsonResponse
+    public function updateReturnRefundStatus(Request $request, string $returnId, string $refundId): JsonResponse
     {
-        $query = Refund::query()
-            ->with(['payment', 'order.user', 'orderItem'])
-            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
-            ->when($request->input('search'), function ($q, $search) {
-                $q->where(function ($inner) use ($search) {
-                    $inner->where('refund_number', 'like', "%{$search}%")
-                        ->orWhereHas('order', fn ($o) => $o->where('order_number', 'like', "%{$search}%"));
-                });
+        $return = ReturnRequest::where('uuid', $returnId)
+            ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
+            ->firstOrFail();
+        $refund = Refund::where('return_request_id', $return->id)
+            ->where(function ($query) use ($refundId) {
+                $query->where('uuid', $refundId);
+                if (ctype_digit($refundId)) {
+                    $query->orWhere('id', (int) $refundId);
+                }
             })
-            ->orderByDesc('created_at');
-
-        ListingDateRange::apply($query, $request, 'created_at');
-
-        $refunds = $query->paginate(min(max($request->integer('per_page', 15), 1), 100))->withQueryString();
-
-        return Response::success(
-            AdminRefundResource::collection($refunds),
-            'Refunds retrieved.',
-            ['pagination' => [
-                'total' => $refunds->total(),
-                'per_page' => $refunds->perPage(),
-                'current_page' => $refunds->currentPage(),
-                'last_page' => $refunds->lastPage(),
-            ]]
-        );
-    }
-
-    public function show(string $refundId): JsonResponse
-    {
-        $refund = Refund::query()
-            ->with(['payment', 'order.user', 'orderItem', 'initiatedBy'])
-            ->where('uuid', $refundId)
             ->firstOrFail();
 
-        return Response::success(new AdminRefundResource($refund), 'Refund retrieved.');
+        return $this->applyStatusUpdate($request, $refund);
     }
 
-    public function approve(string $refundId): JsonResponse
-    {
-        $refund = Refund::where('uuid', $refundId)->firstOrFail();
-
-        try {
-            $refund = $this->refundService->approve(request()->user(), $refund);
-            app(AuditLogService::class)->record(request()->user(), 'refund.approved', 'refund', $refund->uuid, ['status' => 'requested'], ['status' => $refund->status->value]);
-
-            return Response::success(new AdminRefundResource($refund), 'Refund approved.');
-        } catch (DomainException $e) {
-            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
-        }
-    }
-
-    public function reject(Request $request, string $refundId): JsonResponse
-    {
-        $request->validate([
-            'reason' => ['nullable', 'string', 'max:500'],
-        ]);
-
-        $refund = Refund::where('uuid', $refundId)->firstOrFail();
-
-        try {
-            $refund = $this->refundService->reject(request()->user(), $refund, $request->input('reason'));
-            app(AuditLogService::class)->record(request()->user(), 'refund.rejected', 'refund', $refund->uuid, ['status' => 'requested'], ['status' => 'rejected', 'reason' => $request->input('reason')]);
-
-            return Response::success(new AdminRefundResource($refund), 'Refund rejected.');
-        } catch (DomainException $e) {
-            return Response::error($e->getMessage(), $e->getErrors(), $e->getStatusCode());
-        }
-    }
-
-    public function updateStatus(Request $request, string $refundId): JsonResponse
+    private function applyStatusUpdate(Request $request, Refund $refund): JsonResponse
     {
         $request->validate([
             'status' => ['required', Rule::enum(RefundStatus::class)],
             'provider_refund_id' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
-
-        $refund = Refund::where('uuid', $refundId)
-            ->when(ctype_digit($refundId), fn ($q) => $q->orWhere('id', (int) $refundId))
-            ->firstOrFail();
 
         if ($refund->status->value === RefundStatus::REFUNDED->value) {
             return Response::error('A refunded transaction cannot be modified.', ['status' => 'refunded'], 422);

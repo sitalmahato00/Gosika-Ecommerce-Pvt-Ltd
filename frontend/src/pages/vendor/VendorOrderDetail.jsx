@@ -251,7 +251,7 @@ export default function VendorOrderDetail() {
       ${Number(order.tax) > 0 ? `<div class="trow"><span>Tax</span><span>${money(order.tax)}</span></div>` : ''}
       <div class="trow total"><span>Grand Total</span><span>${money(order.grand_total)}</span></div>
       <div class="trow"><span>Commission (${order.commission_rate}%)</span><span>- ${money(order.commission_amount)}</span></div>
-      <div class="trow"><span>You receive</span><span>${money(order.vendor_payable)}</span></div>`
+      <div class="trow"><span>You receive after refunds</span><span>${money(order.net_vendor_payable ?? order.vendor_payable)}</span></div>`
 
     return { customerName, customerPhone, addrHtml, billTo, groupsHtml, totalsHtml }
   }
@@ -333,6 +333,9 @@ export default function VendorOrderDetail() {
           <div className="flex items-center gap-2 wrap">
             <StatusBadge status={order.status} />
             <StatusBadge status={order.delivery_status} />
+            {(order.return_categories || []).map(category => (
+              <span key={category} className="chip chip-sm">{category}</span>
+            ))}
             <Button variant="outline" size="sm" icon={Printer} onClick={printInvoice}>Print Invoice</Button>
             <Button variant="outline" size="sm" icon={FileText} onClick={printSlip}>Packing Slip</Button>
             {order.status === 'pending' && (
@@ -437,10 +440,28 @@ export default function VendorOrderDetail() {
             <div className="flex justify-between"><span className="muted">Delivery</span><span>{Number(order.delivery_charge) > 0 ? money(order.delivery_charge) : 'Free'}</span></div>
             {Number(order.tax) > 0 && <div className="flex justify-between"><span className="muted">Tax</span><span>{money(order.tax)}</span></div>}
             <div className="flex justify-between" style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
-              <span className="font-bold">Grand total</span><span className="price-current">{money(order.grand_total)}</span>
+              <span className="font-bold">Grand total</span>
+              <span style={{ color: Number(order.refunded_amount) > 0 ? '#64748b' : 'var(--primary)', textDecoration: Number(order.refunded_amount) > 0 ? 'line-through' : 'none' }}>
+                {money(order.grand_total)}
+              </span>
             </div>
+            {Number(order.refunded_amount) > 0 && (
+              <>
+                <div className="flex justify-between">
+                  <span className="muted">Refunded</span>
+                  <span className="text-danger">−{money(order.refunded_amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-bold">Net order amount</span>
+                  <span className="font-bold text-success">{money(order.net_total)}</span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between mt-1"><span className="muted">Commission ({order.commission_rate}%)</span><span className="text-danger">-{money(order.commission_amount)}</span></div>
-            <div className="flex justify-between"><span className="muted font-semibold">You receive</span><span className="font-bold text-success">{money(order.vendor_payable)}</span></div>
+            <div className="flex justify-between">
+              <span className="muted font-semibold">{Number(order.refunded_amount) > 0 ? 'You receive after refunds' : 'You receive'}</span>
+              <span className="font-bold text-success">{money(order.net_vendor_payable ?? order.vendor_payable)}</span>
+            </div>
           </div>
         </div>
 

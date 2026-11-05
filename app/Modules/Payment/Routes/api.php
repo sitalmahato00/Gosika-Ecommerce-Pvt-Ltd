@@ -22,9 +22,6 @@ Route::prefix('v1/admin')->middleware(['auth:sanctum', 'ensure:admin'])->group(f
     Route::get('payments/{payment}', [AdminPaymentController::class, 'show']);
     Route::post('payments/{payment}/refund', [AdminPaymentController::class, 'refund']);
 
-    Route::get('refunds', [AdminRefundController::class, 'index']);
-    Route::get('refunds/{refund}', [AdminRefundController::class, 'show']);
-    Route::post('refunds/{refund}/approve', [AdminRefundController::class, 'approve']);
-    Route::post('refunds/{refund}/reject', [AdminRefundController::class, 'reject']);
-    Route::patch('refunds/{refund}/status', [AdminRefundController::class, 'updateStatus']);
+    Route::patch('orders/returns/{return}/refunds/{refund}/status', [AdminRefundController::class, 'updateReturnRefundStatus'])
+        ->middleware('permission:orders.manage|refunds.manage');
 });

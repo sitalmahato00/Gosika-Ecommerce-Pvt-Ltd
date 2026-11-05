@@ -3,6 +3,7 @@
 namespace App\Modules\Shipping\Presentation\Http\Controllers;
 
 use App\Modules\Identity\Domain\Permissions;
+use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\PaymentMethod;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
@@ -24,15 +25,25 @@ class AdminCodReconciliationController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $refundedAmountSql = "(SELECT COALESCE(SUM(refunds.amount), 0) FROM refunds WHERE refunds.vendor_order_id = delivery_assignments.vendor_order_id AND refunds.status = 'refunded')";
+        $netCodAmountSql = "CASE WHEN delivery_assignments.cod_amount > {$refundedAmountSql} THEN delivery_assignments.cod_amount - {$refundedAmountSql} ELSE 0 END";
         $baseQuery = DeliveryAssignment::query()
             ->where('status', DeliveryStatus::DELIVERED)
             ->where('cod_amount', '>', 0)
-            ->whereHas('vendorOrder.order', fn ($query) => $query->where('payment_method', PaymentMethod::COD->value));
+            ->whereHas('vendorOrder.order', fn ($query) => $query->where('payment_method', PaymentMethod::COD->value))
+            ->select('delivery_assignments.*')
+            ->selectSub(
+                Refund::query()
+                    ->selectRaw('COALESCE(SUM(amount), 0)')
+                    ->whereColumn('vendor_order_id', 'delivery_assignments.vendor_order_id')
+                    ->where('status', 'refunded'),
+                'refunded_amount'
+            );
 
         $summary = [
-            'pending_amount' => round((float) (clone $baseQuery)->whereNull('cod_reconciled_at')->sum('cod_amount'), 2),
-            'pending_count' => (clone $baseQuery)->whereNull('cod_reconciled_at')->count(),
-            'collected_amount' => round((float) (clone $baseQuery)->whereNotNull('cod_reconciled_at')->sum('cod_amount'), 2),
+            'pending_amount' => round((float) (clone $baseQuery)->whereNull('cod_reconciled_at')->sum(DB::raw($netCodAmountSql)), 2),
+            'pending_count' => (clone $baseQuery)->whereNull('cod_reconciled_at')->whereRaw($netCodAmountSql.' > 0')->count(),
+            'collected_amount' => round((float) (clone $baseQuery)->whereNotNull('cod_reconciled_at')->sum(DB::raw($netCodAmountSql)), 2),
             'collected_count' => (clone $baseQuery)->whereNotNull('cod_reconciled_at')->count(),
         ];
 
@@ -92,12 +103,22 @@ class AdminCodReconciliationController extends Controller
                 throw new DomainException('This COD amount has already been recorded as received.', 422);
             }
 
+            $refundedAmount = (float) $locked->vendorOrder->refunds()
+                ->where('status', 'refunded')
+                ->sum('amount');
+            if (round((float) $locked->cod_amount - $refundedAmount, 2) <= 0) {
+                throw new DomainException('The COD amount has been fully offset by refunds.', 422);
+            }
+
             $locked->update([
                 'cod_reconciled_at' => now(),
                 'cod_reconciled_by' => $request->user()->id,
             ]);
 
-            return $locked->fresh(['deliveryPartner', 'vendorOrder.order.user', 'codReconciledBy']);
+            $fresh = $locked->fresh(['deliveryPartner', 'vendorOrder.order.user', 'codReconciledBy']);
+            $fresh->setAttribute('refunded_amount', $refundedAmount);
+
+            return $fresh;
         });
 
         return Response::success($this->row($assignment), 'COD cash receipt recorded.');
@@ -106,6 +127,8 @@ class AdminCodReconciliationController extends Controller
     protected function row(DeliveryAssignment $assignment): array
     {
         $order = $assignment->vendorOrder?->order;
+        $originalCodAmount = round((float) $assignment->cod_amount, 2);
+        $refundedAmount = round((float) ($assignment->refunded_amount ?? 0), 2);
 
         return [
             'id' => $assignment->uuid,
@@ -114,11 +137,13 @@ class AdminCodReconciliationController extends Controller
             'customer_name' => $order?->user?->full_name ?? $order?->user?->name,
             'delivery_partner_name' => $assignment->deliveryPartner?->name,
             'delivery_partner_phone' => $assignment->deliveryPartner?->phone,
-            'cod_amount' => (float) $assignment->cod_amount,
+            'original_cod_amount' => $originalCodAmount,
+            'refunded_amount' => $refundedAmount,
+            'cod_amount' => max(0, round($originalCodAmount - $refundedAmount, 2)),
             'delivered_at' => $assignment->delivered_at?->toISOString(),
             'cod_reconciled_at' => $assignment->cod_reconciled_at?->toISOString(),
             'cod_reconciled_by' => $assignment->codReconciledBy?->full_name ?? $assignment->codReconciledBy?->name,
-            'status' => $assignment->cod_reconciled_at ? 'collected' : 'pending',
+            'status' => $assignment->cod_reconciled_at ? 'collected' : ($originalCodAmount <= $refundedAmount ? 'refunded' : 'pending'),
         ];
     }
 }

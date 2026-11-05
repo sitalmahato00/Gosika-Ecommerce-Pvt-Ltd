@@ -11,10 +11,13 @@ use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Infrastructure\Models\ReturnRequestMedia;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
+use App\Modules\Payment\Infrastructure\Models\Payment;
+use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Shared\Domain\Enums\DeliveryPartnerStatus;
 use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\OrderPaymentStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
+use App\Modules\Shared\Domain\Enums\PaymentStatus;
 use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Domain\Enums\PaymentMethod;
 use App\Modules\Shared\Domain\Enums\StoreStatus;
@@ -640,6 +643,40 @@ class DeliveryAssignmentTest extends TestCase
             ->assertJsonPath('data.0.status', 'collected')
             ->assertJsonPath('meta.summary.pending_amount', 0)
             ->assertJsonPath('meta.summary.collected_amount', 2650);
+
+        $payment = Payment::create([
+            'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
+            'order_id' => $order->id,
+            'vendor_order_id' => $readyOrder->id,
+            'user_id' => $order->user_id,
+            'amount' => 2650,
+            'currency' => 'NPR',
+            'method' => PaymentMethod::COD,
+            'provider' => 'manual',
+            'status' => PaymentStatus::PAID,
+            'initiated_at' => now(),
+            'verified_at' => now(),
+        ]);
+        Refund::create([
+            'refund_number' => 'REF-'.strtoupper(Str::random(10)),
+            'payment_id' => $payment->id,
+            'order_id' => $order->id,
+            'vendor_order_id' => $readyOrder->id,
+            'amount' => 650,
+            'reason' => 'Partial COD refund',
+            'status' => 'refunded',
+            'initiated_by' => $this->adminUser->id,
+            'initiated_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($this->adminUser)
+            ->getJson('/api/v1/admin/deliveries/cod-reconciliation?status=collected')
+            ->assertOk()
+            ->assertJsonPath('data.0.original_cod_amount', 2650)
+            ->assertJsonPath('data.0.refunded_amount', 650)
+            ->assertJsonPath('data.0.cod_amount', 2000)
+            ->assertJsonPath('meta.summary.collected_amount', 2000);
 
         $this->actingAs($this->adminUser)
             ->postJson("/api/v1/admin/deliveries/cod-reconciliation/{$assignment->uuid}/collect")

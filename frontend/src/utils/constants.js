@@ -263,7 +263,6 @@ export const ADMIN_NAV = [
   { section: 'Orders' },
   { to: '/admin/orders', label: 'Orders', icon: 'ShoppingBag' },
   { to: '/admin/orders/returns', label: 'Returns & Exchanges', icon: 'RotateCcw' },
-  { to: '/admin/orders/refunds', label: 'Refunds', icon: 'Receipt' },
 
   { section: 'Catalog' },
   { to: '/admin/marketplace/products', label: 'Products', icon: 'Package' },
@@ -342,7 +341,6 @@ export const ADMIN_PERMISSION_MAP = {
   // Orders
   '/admin/orders': ['orders.view'],
   '/admin/orders/returns': ['orders.view', 'orders.manage'],
-  '/admin/orders/refunds': ['orders.refund'],
   
   // Catalog
   '/admin/marketplace/products': ['products.view'],

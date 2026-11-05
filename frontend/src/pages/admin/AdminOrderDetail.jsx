@@ -565,6 +565,9 @@ export default function AdminOrderDetail() {
                 Order #{order.order_number || order.id}
               </span>
               <StatusBadge status={order.status} />
+              {(order.return_categories || []).map(category => (
+                <span key={category} className="chip chip-sm">{category}</span>
+              ))}
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
               Payment Status: <strong>{order.payment_status?.toUpperCase() || 'PENDING'}</strong> via <strong>{order.payment_method?.toUpperCase() || 'COD'}</strong>
@@ -574,10 +577,20 @@ export default function AdminOrderDetail() {
 
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>
-            Grand Total
+            {Number(order.refunded_amount) > 0 ? 'Net Total' : 'Grand Total'}
           </div>
-          <div style={{ fontSize: 24, fontWeight: 900, color: '#16a34a' }}>
-            {money(order.grand_total || order.total || 0)}
+          {Number(order.refunded_amount) > 0 && (
+            <div style={{ color: '#dc2626', fontSize: 12, fontWeight: 800 }}>
+              −{money(order.refunded_amount)} refunded
+            </div>
+          )}
+          {Number(order.refunded_amount) > 0 && (
+            <div style={{ color: 'var(--muted)', fontSize: 12, textDecoration: 'line-through' }}>
+              {money(order.grand_total || order.total || 0)}
+            </div>
+          )}
+          <div style={{ fontSize: 24, fontWeight: 900, color: Number(order.refunded_amount) > 0 ? '#15803d' : '#16a34a' }}>
+            {money(order.net_total ?? order.grand_total ?? order.total ?? 0)}
           </div>
         </div>
       </div>
@@ -805,11 +818,11 @@ export default function AdminOrderDetail() {
                   <>
                     <div className="flex justify-between">
                       <span style={{ color: 'var(--muted)' }}>Refunded:</span>
-                      <span style={{ fontWeight: 700, color: '#16a34a' }}>{money(order.refunded_amount)}</span>
+                      <span style={{ fontWeight: 700, color: '#dc2626' }}>−{money(order.refunded_amount)}</span>
                     </div>
                     <div className="flex justify-between pt-2" style={{ borderTop: '1px solid var(--border)', fontSize: 15 }}>
                       <span style={{ fontWeight: 800, color: 'var(--ink)' }}>Net after refunds:</span>
-                      <span style={{ fontWeight: 900, color: '#16a34a' }}>{money(order.net_total)}</span>
+                      <span style={{ fontWeight: 900, color: '#15803d' }}>{money(order.net_total)}</span>
                     </div>
                   </>
                 )}
@@ -896,7 +909,7 @@ export default function AdminOrderDetail() {
                 <>
                   <div className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--border)' }}>
                     <span style={{ color: 'var(--muted)' }}>Refunded:</span>
-                    <span style={{ fontWeight: 700 }}>{money(order.refunded_amount)}</span>
+                    <span style={{ fontWeight: 700, color: '#dc2626' }}>−{money(order.refunded_amount)}</span>
                   </div>
                   <div className="flex justify-between py-1">
                     <span style={{ color: 'var(--muted)' }}>Net after refunds:</span>

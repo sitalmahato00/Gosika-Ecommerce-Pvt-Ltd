@@ -56,7 +56,8 @@ class AdminOrderController extends Controller
                 'user',
                 'items.product.primaryImage',
                 'vendorOrders' => fn ($query) => $query
-                    ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount'),
+                    ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount')
+                    ->with('returnRequests'),
             ])
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
             ->when($filters['payment_status'] ?? null, fn ($q, $s) => $q->where('payment_status', $s))
@@ -99,7 +100,7 @@ class AdminOrderController extends Controller
                 'items',
                 'vendorOrders' => fn ($query) => $query
                     ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount')
-                    ->with(['items.product.primaryImage', 'store', 'assignments.deliveryPartner']),
+                    ->with(['items.product.primaryImage', 'store', 'assignments.deliveryPartner', 'returnRequests']),
                 'payments',
                 'shippingAddress',
             ])
@@ -186,13 +187,17 @@ class AdminOrderController extends Controller
 
     public function approveReturn(Request $request, string $returnId): JsonResponse
     {
+        $validated = $request->validate([
+            'notes' => ['required', 'string', 'max:1000'],
+        ]);
+
         $return = ReturnRequest::where('uuid', $returnId)
             ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
             ->firstOrFail();
         $return->status = ReturnStatus::APPROVED;
         $return->reviewed_by = $request->user()->id;
         $return->reviewed_at = now();
-        $return->review_notes = $request->input('notes', 'Approved by admin');
+        $return->review_notes = trim($validated['notes']);
         $return->save();
 
         return Response::success($return, 'Return request approved.');
@@ -200,7 +205,9 @@ class AdminOrderController extends Controller
 
     public function rejectReturn(Request $request, string $returnId): JsonResponse
     {
-        $request->validate(['reason' => 'required|string|max:500']);
+        $validated = $request->validate([
+            'notes' => ['required', 'string', 'max:1000'],
+        ]);
 
         $return = ReturnRequest::where('uuid', $returnId)
             ->when(ctype_digit($returnId), fn ($q) => $q->orWhere('id', (int) $returnId))
@@ -208,7 +215,7 @@ class AdminOrderController extends Controller
         $return->status = ReturnStatus::REJECTED;
         $return->reviewed_by = $request->user()->id;
         $return->reviewed_at = now();
-        $return->review_notes = $request->input('reason');
+        $return->review_notes = trim($validated['notes']);
         $return->save();
 
         return Response::success($return, 'Return request rejected.');

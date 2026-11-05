@@ -19,16 +19,29 @@ const maxRefundAmount = item => {
 }
 
 const getReturnType = item => {
-  if (item?.request_type === 'exchange' || String(item?.review_notes || '').trim().toLowerCase().startsWith('approved as exchange:')) return 'exchange'
-  if (item?.request_type === 'replacement') return 'replacement'
-  if (['refund_pending', 'refunded'].includes(item?.status) || item?.refunds?.length || item?.request_type === 'return_refund') return 'refund'
-  return item?.request_type ? item.request_type.replace('_', ' ') : 'return'
+  return ({
+    return_refund: 'Return & Refund',
+    exchange: 'Exchange',
+    replacement: 'Replacement',
+  })[item?.request_type] || (item?.request_type ? item.request_type.replace(/_/g, ' ') : 'Return')
 }
 
 const getStatusLabel = status => ({
   refund_pending: 'Refund Processing',
   under_review: 'Under Review',
 })[status] || String(status || 'unknown').replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())
+
+const getRefundAmounts = item => {
+  const requested = Math.max(0, Number(item?.order_item ? maxRefundAmount(item) : item?.refund_amount || 0))
+  const refunded = (item?.refunds || [])
+    .filter(refund => refund.status === 'refunded')
+    .reduce((sum, refund) => sum + Number(refund.amount || 0), 0)
+  return {
+    requested,
+    refunded,
+    remaining: Math.max(0, requested - refunded),
+  }
+}
 
 const getDeliveryAssignment = item => {
   const assignments = item?.vendor_order?.assignments || []
@@ -47,6 +60,8 @@ export default function AdminReturns() {
   const [toDate, setToDate] = useState('')
   const [appliedDates, setAppliedDates] = useState({ from: '', to: '' })
   const [detailItem, setDetailItem] = useState(null)
+  const [refundStatusDrafts, setRefundStatusDrafts] = useState({})
+  const [savingRefundId, setSavingRefundId] = useState(null)
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -101,7 +116,7 @@ export default function AdminReturns() {
     })
   }
 
-  const handleConfirmAction = async (reason) => {
+  const handleConfirmAction = async (notes) => {
     const { action, returnItem } = dialogState
     if (!returnItem) return
 
@@ -110,10 +125,10 @@ export default function AdminReturns() {
 
     try {
       if (action === 'approve') {
-        await api.post(`/admin/orders/returns/${targetId}/approve`, { notes: reason || 'Approved by admin' })
+        await api.post(`/admin/orders/returns/${targetId}/approve`, { notes })
         toast.success(`Return #${returnItem.return_number || returnItem.id} approved.`)
       } else if (action === 'reject') {
-        await api.post(`/admin/orders/returns/${targetId}/reject`, { reason })
+        await api.post(`/admin/orders/returns/${targetId}/reject`, { notes })
         toast.success(`Return #${returnItem.return_number || returnItem.id} rejected.`)
       }
 
@@ -125,24 +140,40 @@ export default function AdminReturns() {
     }
   }
 
-  const handleStatusChange = async (item, status, notes) => {
+  const saveRefundStatus = async refund => {
+    const refundId = refund.uuid || refund.id
+    const draft = refundStatusDrafts[refundId] || {
+      status: refund.status,
+      provider_refund_id: refund.provider_refund_id || '',
+    }
+
+    setSavingRefundId(refundId)
     try {
-      await api.patch(`/admin/orders/returns/${item.uuid || item.id}/status`, {
-        status,
-        notes: notes || null
+      const response = await api.patch(`/admin/orders/returns/${detailItem.uuid || detailItem.id}/refunds/${refundId}/status`, {
+        status: draft.status,
+        provider_refund_id: draft.provider_refund_id.trim() || undefined,
       })
-      toast.success(`Return #${item.return_number || item.id} marked as ${status.replace(/_/g, ' ')}.`)
-      loadReturns()
+      const updatedRefund = response.data?.data || { ...refund, ...draft }
+      const matchesRefund = current => (current.uuid || current.id) === refundId
+      setDetailItem(current => current ? {
+        ...current,
+        refunds: (current.refunds || []).map(existing => matchesRefund(existing) ? { ...existing, ...updatedRefund } : existing),
+      } : current)
+      setReturns(current => current.map(item => ({
+        ...item,
+        refunds: (item.refunds || []).map(existing => matchesRefund(existing) ? { ...existing, ...updatedRefund } : existing),
+      })))
+      setRefundStatusDrafts(current => ({ ...current, [refundId]: {
+        status: updatedRefund.status,
+        provider_refund_id: updatedRefund.provider_refund_id || '',
+      } }))
+      toast.success(`Refund #${updatedRefund.refund_number || refund.refund_number || refundId} updated.`)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Could not update return status.')
+      toast.error(err.response?.data?.message || 'Could not update refund status.')
+    } finally {
+      setSavingRefundId(null)
     }
   }
-
-  const acceptExchange = (item) => handleStatusChange(
-    item,
-    'approved',
-    'Approved as exchange: replacement package to be dispatched by the store.'
-  )
 
   const openRefundDialog = (item) => {
     setRefundDraft({
@@ -164,7 +195,7 @@ export default function AdminReturns() {
         amount: refundDraft.amount,
         notes: refundDraft.notes || null
       })
-      toast.success('Refund created (Requested). Complete it in Refunds Management.')
+      toast.success('Refund created. Continue tracking and finalizing it here.')
       setDialogState({ isOpen: false, action: null, returnItem: null, loading: false })
       loadReturns()
     } catch (err) {
@@ -246,13 +277,25 @@ export default function AdminReturns() {
       )
     },
     {
-      header: 'Refund Amount',
+      header: 'Amount to Return',
       align: 'right',
-      render: item => (
-        <span style={{ fontWeight: 900, color: '#dc2626', fontSize: 13.5 }}>
-          {money(item.refund_amount || 0)}
-        </span>
-      )
+      render: item => {
+        if (item.request_type && item.request_type !== 'return_refund') {
+          return <span className="muted text-xs">No refund requested</span>
+        }
+        const amounts = getRefundAmounts(item)
+        return (
+          <div style={{ minWidth: 130 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>Requested {money(amounts.requested)}</div>
+            {amounts.refunded > 0 && (
+              <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 700 }}>−{money(amounts.refunded)} refunded</div>
+            )}
+            <div style={{ fontWeight: 800, color: amounts.refunded > 0 ? '#15803d' : '#dc2626', fontSize: 13 }}>
+              Remaining {money(amounts.remaining)}
+            </div>
+          </div>
+        )
+      }
     },
     {
       header: 'Status',
@@ -261,7 +304,7 @@ export default function AdminReturns() {
         return (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
             <span className="chip chip-sm">{getStatusLabel(item.status)}</span>
-            <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'capitalize' }}>{type}</span>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>Requested: {type}</span>
             {item.pickup_collected_at && (
               <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d' }}>
                 Pickup collected {formatDateTime(item.pickup_collected_at)}
@@ -284,7 +327,8 @@ export default function AdminReturns() {
       align: 'right',
       render: item => {
         const isPending = item.status === 'requested' || item.status === 'under_review'
-        const canRefund = getReturnType(item) !== 'exchange' && ['collected', 'inspected'].includes(item.status)
+        const canRefund = (!item.request_type || item.request_type === 'return_refund')
+          && ['collected', 'inspected'].includes(item.status)
         return (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
             <button
@@ -305,15 +349,6 @@ export default function AdminReturns() {
                   title="Approve return"
                 >
                   <Check size={13} /> Approve
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline btn-xs"
-                  style={{ color: '#2563eb', borderColor: '#bfdbfe' }}
-                  onClick={() => acceptExchange(item)}
-                  title="Accept as Exchange"
-                >
-                  <RotateCcw size={13} /> Exchange
                 </button>
                 <button
                   type="button"
@@ -358,7 +393,7 @@ export default function AdminReturns() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
         title="Returns & Exchanges"
-        description="Approve or reject customer requests, process refunds, and track pickup and refund completion."
+        description="Review the customer-requested return type, record your decision notes, and manage refunds here."
         breadcrumbs={[
           { label: 'Orders', to: '/admin/orders' },
           { label: 'Returns & Exchanges' }
@@ -572,7 +607,17 @@ export default function AdminReturns() {
                   <div className="text-xs font-bold" style={{ color: '#9a3412' }}>CUSTOMER EXPLANATION</div>
                   <div className="text-sm mt-1" style={{ whiteSpace: 'pre-wrap' }}>{detailItem.reason || 'No additional explanation provided.'}</div>
                 </div>
-                <div className="text-sm mt-2"><strong>Preferred resolution:</strong> {detailItem.preferred_resolution || '—'}</div>
+                <div className="text-sm mt-2"><strong>Customer requested:</strong> {getReturnType(detailItem)}</div>
+                {(!detailItem.request_type || detailItem.request_type === 'return_refund') && (
+                  <div className="mt-2 p-2 rounded text-sm" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                    <strong>Amount to return:</strong> {money(getRefundAmounts(detailItem).remaining)}
+                    <div className="text-xs mt-1" style={{ color: '#9a3412' }}>
+                      Requested {money(getRefundAmounts(detailItem).requested)}
+                      {getRefundAmounts(detailItem).refunded > 0 && ` · ${money(getRefundAmounts(detailItem).refunded)} already refunded`}
+                    </div>
+                  </div>
+                )}
+                <div className="text-sm mt-1"><strong>Preferred resolution:</strong> {detailItem.preferred_resolution || '—'}</div>
                 <div className="text-sm mt-1"><strong>Return method:</strong> {detailItem.return_method === 'pickup' ? 'Courier pickup' : detailItem.return_method === 'drop_off' ? 'Self drop-off' : '—'}</div>
                 <div className="text-sm mt-1"><strong>Pickup:</strong> {detailItem.pickup_collected_at ? `Collected ${formatDateTime(detailItem.pickup_collected_at)}` : 'Not collected'}</div>
                 {detailItem.pickup_instructions && <div className="text-sm mt-1"><strong>Pickup notes:</strong> {detailItem.pickup_instructions}</div>}
@@ -613,9 +658,63 @@ export default function AdminReturns() {
               <div className="card" style={{ padding: 14, margin: 0 }}>
                 <h3 className="font-bold text-sm mb-2 flex items-center gap-1"><AlertCircle size={14} /> Refunds</h3>
                 {(detailItem.refunds || []).length ? detailItem.refunds.map(refund => (
-                  <div key={refund.uuid || refund.id} className="flex items-center justify-between gap-2 text-sm py-1">
-                    <span>{refund.refund_number || 'Refund'} · {getStatusLabel(refund.status)}</span>
-                    <strong>{money(refund.amount || 0)}</strong>
+                  <div key={refund.uuid || refund.id} className="py-2" style={{ borderTop: '1px solid var(--border)' }}>
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span>{refund.refund_number || 'Refund'} · {getStatusLabel(refund.status)}</span>
+                      <strong>{money(refund.amount || 0)}</strong>
+                    </div>
+                    {refund.status !== 'refunded' && (
+                      <div className="grid gap-2 mt-2">
+                        <select
+                          className="input"
+                          aria-label={`Refund status for ${refund.refund_number || refund.id}`}
+                          value={(refundStatusDrafts[refund.uuid || refund.id] || {}).status || refund.status}
+                          onChange={event => {
+                            const id = refund.uuid || refund.id
+                            setRefundStatusDrafts(current => ({
+                              ...current,
+                              [id]: {
+                                status: event.target.value,
+                                provider_refund_id: current[id]?.provider_refund_id ?? refund.provider_refund_id ?? '',
+                              },
+                            }))
+                          }}
+                        >
+                          {[
+                            ['requested', 'Requested'],
+                            ['approved', 'Approved'],
+                            ['processing', 'Processing'],
+                            ['refunded', 'Refunded / Completed'],
+                            ['failed', 'Failed'],
+                            ['cancelled', 'Cancelled'],
+                          ].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                        </select>
+                        <input
+                          className="input"
+                          aria-label={`Gateway refund reference for ${refund.refund_number || refund.id}`}
+                          placeholder="Gateway refund reference (optional)"
+                          value={(refundStatusDrafts[refund.uuid || refund.id] || {}).provider_refund_id ?? refund.provider_refund_id ?? ''}
+                          onChange={event => {
+                            const id = refund.uuid || refund.id
+                            setRefundStatusDrafts(current => ({
+                              ...current,
+                              [id]: {
+                                status: current[id]?.status || refund.status,
+                                provider_refund_id: event.target.value,
+                              },
+                            }))
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-xs"
+                          disabled={savingRefundId === (refund.uuid || refund.id)}
+                          onClick={() => saveRefundStatus(refund)}
+                        >
+                          {savingRefundId === (refund.uuid || refund.id) ? 'Saving...' : 'Save refund status'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )) : <div className="muted text-sm">No refund processing has been started.</div>}
                 <div className="muted text-xs mt-2">
@@ -705,12 +804,12 @@ export default function AdminReturns() {
               {refundDraft.method === 'esewa' ? (
                 <>
                   Creates a <strong>Requested</strong> refund and verifies the payment via the <strong>eSewa status API</strong>. The payout is issued from the
-                  eSewa merchant dashboard — finalize it in <strong>Refunds Management</strong> (eSewa must report the transaction refunded).
+                  eSewa merchant dashboard — update the refund status in the <strong>Refunds</strong> section of this page after confirming the payout.
                 </>
               ) : (
                 <>
-                  Creates a <strong>Requested</strong> refund against the order payment via <strong>{refundDraft.method.toUpperCase()}</strong> — finalize it in{' '}
-                  <strong>Refunds Management</strong>.
+                  Creates a <strong>Requested</strong> refund against the order payment via <strong>{refundDraft.method.toUpperCase()}</strong>. Track and finalize it in the{' '}
+                  <strong>Refunds</strong> section of this page.
                 </>
               )}
             </div>
@@ -755,8 +854,11 @@ export default function AdminReturns() {
         }
         variant={dialogState.action === 'approve' ? 'success' : 'danger'}
         confirmText={dialogState.action === 'approve' ? 'Approve Return' : 'Reject Return'}
-        requireReason={dialogState.action === 'reject'}
-        reasonPlaceholder="State why this return request is being rejected..."
+        requireReason
+        reasonLabel="Decision notes"
+        reasonPlaceholder={dialogState.action === 'approve'
+          ? 'Add notes explaining this approval...'
+          : 'Add notes explaining why this request is rejected...'}
       />
     </div>
   )

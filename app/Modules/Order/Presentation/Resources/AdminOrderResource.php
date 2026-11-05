@@ -14,6 +14,15 @@ class AdminOrderResource extends JsonResource
     {
         $shipping = $this->shipping_address_snapshot ? json_decode($this->shipping_address_snapshot, true) : null;
         $refundedAmount = round((float) ($this->refunded_amount ?? 0), 2);
+        $returnCategories = $this->relationLoaded('vendorOrders')
+            ? $this->vendorOrders
+                ->flatMap(fn ($vendorOrder) => $vendorOrder->relationLoaded('returnRequests')
+                    ? $vendorOrder->returnRequests->map(fn ($return) => $return->request_type?->label())
+                    : [])
+                ->filter()
+                ->unique()
+                ->values()
+            : collect();
 
         return [
             'id' => $this->uuid,
@@ -30,6 +39,7 @@ class AdminOrderResource extends JsonResource
             'grand_total' => number_format((float) $this->grand_total, 2, '.', ''),
             'refunded_amount' => number_format($refundedAmount, 2, '.', ''),
             'net_total' => number_format(max(0, (float) $this->grand_total - $refundedAmount), 2, '.', ''),
+            'return_categories' => $returnCategories,
             'currency' => $this->currency,
             'coupon_code' => $this->coupon_code,
             'customer_notes' => $this->customer_notes,

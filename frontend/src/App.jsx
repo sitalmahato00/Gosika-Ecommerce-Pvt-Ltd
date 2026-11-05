@@ -112,7 +112,6 @@ import AdminCommissions from './pages/admin/AdminCommissions'
 import AdminPayouts from './pages/admin/AdminPayouts'
 import AdminSettlements from './pages/admin/AdminSettlements'
 import AdminVendorFinance from './pages/admin/AdminVendorFinance'
-import AdminRefunds from './pages/admin/AdminRefunds'
 import AdminShipping from './pages/admin/AdminShipping'
 import AdminDeliveries from './pages/admin/AdminDeliveries'
 import AdminDeliveryPartners from './pages/admin/AdminDeliveryPartners'
@@ -403,7 +402,6 @@ export default function App() {
         <Route path="orders" element={<PermissionGuard path="/admin/orders"><AdminOrders /></PermissionGuard>} />
         <Route path="orders/:id" element={<PermissionGuard path="/admin/orders"><AdminOrderDetail /></PermissionGuard>} />
         <Route path="orders/returns" element={<PermissionGuard path="/admin/orders/returns"><AdminReturns /></PermissionGuard>} />
-        <Route path="orders/refunds" element={<PermissionGuard path="/admin/orders/refunds"><AdminRefunds /></PermissionGuard>} />
 
         {/* Fulfillment */}
         <Route path="fulfillment/dashboard" element={<PermissionGuard path="/admin/fulfillment/dashboard"><AdminDeliveryDashboard /></PermissionGuard>} />
@@ -461,7 +459,8 @@ export default function App() {
         <Route path="brand-requests" element={<Navigate to="/admin/marketplace/brands/requests" replace />} />
         <Route path="reviews" element={<Navigate to="/admin/marketplace/reviews" replace />} />
         <Route path="returns" element={<Navigate to="/admin/orders/returns" replace />} />
-        <Route path="refunds" element={<Navigate to="/admin/orders/refunds" replace />} />
+        <Route path="orders/refunds" element={<Navigate to="/admin/orders/returns" replace />} />
+        <Route path="refunds" element={<Navigate to="/admin/orders/returns" replace />} />
         <Route path="shipping" element={<Navigate to="/admin/fulfillment/zones" replace />} />
         <Route path="deliveries" element={<Navigate to="/admin/fulfillment/assignments" replace />} />
         <Route path="delivery-partners" element={<Navigate to="/admin/fulfillment/partners" replace />} />

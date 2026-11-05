@@ -128,18 +128,21 @@ export default function VendorOrders({ view = 'all' }) {
     }
   }
 
-  const totalVolume = filtered.reduce((sum, o) => sum + Number(o.grand_total || 0), 0)
+  const totalVolume = filtered.reduce((sum, o) => sum + Number(o.net_total ?? o.grand_total ?? 0), 0)
   const pendingCount = filtered.filter((o) => o.status === 'pending').length
   const fulfillmentCount = filtered.filter((o) => ['accepted', 'confirmed', 'processing', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)).length
   const deliveredCount = filtered.filter((o) => ['delivered', 'completed'].includes(o.status)).length
 
   const exportCSV = () => {
-    const headers = ['Order Number', 'Store', 'Items Count', 'Total NPR', 'Status', 'Delivery Status', 'Date']
+    const headers = ['Order Number', 'Store', 'Items Count', 'Grand Total NPR', 'Refunded NPR', 'Net Total NPR', 'Return Type', 'Status', 'Delivery Status', 'Date']
     const rows = filtered.map((o) => [
       o.order_number,
       `"${o.store_name || ''}"`,
       o.items?.length || 1,
       o.grand_total,
+      o.refunded_amount || 0,
+      o.net_total ?? o.grand_total,
+      (o.return_categories || []).join(' / '),
       o.status,
       o.delivery_status,
       o.created_at,
@@ -257,7 +260,8 @@ export default function VendorOrders({ view = 'all' }) {
                 <tr>
                   <th>Order Reference</th>
                   <th>Store Catalog Items</th>
-                  <th>Amount</th>
+                  <th>Return / Refund</th>
+                  <th>Net Amount</th>
                   <th>Order Status</th>
                   <th>Delivery Status</th>
                   <th>Order Date</th>
@@ -295,8 +299,26 @@ export default function VendorOrders({ view = 'all' }) {
                       </div>
                     </td>
 
-                    <td className="font-bold text-sm" style={{ color: 'var(--ink)' }}>
-                      {money(o.grand_total)}
+                    <td>
+                      {(o.return_categories || []).length
+                        ? <div className="flex flex-wrap gap-1">{o.return_categories.map(category => (
+                          <span key={category} className="chip chip-sm" style={{ fontSize: 10 }}>{category}</span>
+                        ))}</div>
+                        : <span className="muted text-xs">—</span>}
+                    </td>
+
+                    <td className="text-sm" style={{ textAlign: 'right' }}>
+                      {Number(o.refunded_amount) > 0 && (
+                        <div style={{ color: '#dc2626', fontWeight: 700, fontSize: 11 }}>
+                          −{money(o.refunded_amount)} refunded
+                        </div>
+                      )}
+                      {Number(o.refunded_amount) > 0 && (
+                        <div className="muted text-xs" style={{ textDecoration: 'line-through' }}>{money(o.grand_total)}</div>
+                      )}
+                      <div className="font-bold" style={{ color: Number(o.refunded_amount) > 0 ? '#15803d' : 'var(--ink)' }}>
+                        {money(o.net_total ?? o.grand_total)}
+                      </div>
                     </td>
 
                     <td><StatusBadge status={o.status} /></td>

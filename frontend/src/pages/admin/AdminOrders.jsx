@@ -114,6 +114,9 @@ export default function AdminOrders() {
       { label: 'Payment Status' },
       { label: 'Fulfillment Status' },
       { label: 'Grand Total', align: 'right' },
+      { label: 'Refunded', align: 'right' },
+      { label: 'Net Total', align: 'right' },
+      { label: 'Return Type' },
       { label: 'Placed At' },
     ]
     const rows = orders.map((o) => {
@@ -126,6 +129,9 @@ export default function AdminOrders() {
         o.payment_status || 'pending',
         o.status || 'pending',
         money(o.grand_total || o.total || 0),
+        money(o.refunded_amount || 0),
+        money(o.net_total ?? o.grand_total ?? o.total ?? 0),
+        (o.return_categories || []).join(', '),
         formatDateTime(o.created_at || o.placed_at),
       ]
     })
@@ -199,12 +205,34 @@ export default function AdminOrders() {
       render: item => <StatusBadge status={item.status} />
     },
     {
-      header: 'Grand Total',
+      header: 'Return / Refund',
+      render: item => (
+        (item.return_categories || []).length
+          ? <div className="flex flex-wrap gap-1">{item.return_categories.map(category => (
+            <span key={category} className="chip chip-sm" style={{ fontSize: 10 }}>{category}</span>
+          ))}</div>
+          : <span className="muted text-xs">—</span>
+      )
+    },
+    {
+      header: 'Net / Grand Total',
       align: 'right',
       render: item => (
-        <span style={{ fontWeight: 900, color: 'var(--ink)', fontSize: 13.5 }}>
-          {money(item.grand_total || item.total || 0)}
-        </span>
+        <div>
+          {Number(item.refunded_amount) > 0 && (
+            <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 700 }}>
+              −{money(item.refunded_amount)} refunded
+            </div>
+          )}
+          {Number(item.refunded_amount) > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'line-through' }}>
+              {money(item.grand_total || item.total || 0)}
+            </div>
+          )}
+          <div style={{ fontWeight: 900, color: Number(item.refunded_amount) > 0 ? '#15803d' : 'var(--ink)', fontSize: 13.5 }}>
+            {money(item.net_total ?? item.grand_total ?? item.total ?? 0)}
+          </div>
+        </div>
       )
     },
     {

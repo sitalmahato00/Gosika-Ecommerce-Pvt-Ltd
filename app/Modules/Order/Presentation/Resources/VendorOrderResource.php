@@ -97,6 +97,12 @@ class VendorOrderResource extends JsonResource
             : null;
 
         $meta = is_array($this->meta) ? $this->meta : [];
+        $returnRequests = $this->relationLoaded('returnRequests') ? $this->returnRequests : collect();
+        $returnCategories = $returnRequests
+            ->map(fn ($return) => $return->request_type?->label())
+            ->filter()
+            ->unique()
+            ->values();
 
         return [
             'id' => $this->uuid,
@@ -115,9 +121,16 @@ class VendorOrderResource extends JsonResource
             'grand_total' => number_format((float) $this->grand_total, 2, '.', ''),
             'refunded_amount' => number_format($refundedAmount, 2, '.', ''),
             'net_total' => number_format(max(0, (float) $this->grand_total - $refundedAmount), 2, '.', ''),
+            'return_categories' => $returnCategories,
+            'return_requests' => $returnRequests->map(fn ($return) => [
+                'request_type' => $return->request_type?->value,
+                'request_type_label' => $return->request_type?->label(),
+                'status' => $return->status?->value,
+            ])->values(),
             'commission_rate' => (float) $this->commission_rate,
             'commission_amount' => number_format((float) $this->commission_amount, 2, '.', ''),
             'vendor_payable' => number_format((float) $this->vendor_payable, 2, '.', ''),
+            'net_vendor_payable' => number_format(max(0, (float) $this->vendor_payable - $refundedAmount), 2, '.', ''),
             'shipping_address' => $shipping,
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
             'assignment' => $activeAssignment ? new \App\Modules\Shipping\Presentation\Resources\DeliveryAssignmentResource($activeAssignment) : null,

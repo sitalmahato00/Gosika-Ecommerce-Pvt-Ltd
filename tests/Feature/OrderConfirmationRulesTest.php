@@ -972,6 +972,7 @@ class OrderConfirmationRulesTest extends TestCase
             'order_item_id' => $item->id,
             'store_id' => $this->store->id,
             'vendor_id' => $this->vendor->id,
+            'request_type' => 'return_refund',
             'reason_type' => 'damaged',
             'reason' => 'Item arrived damaged',
             'quantity' => 1,
@@ -980,6 +981,7 @@ class OrderConfirmationRulesTest extends TestCase
         ]);
 
         $service = app(RefundService::class);
+        $vendorOrder->update(['vendor_payable' => 2300]);
         $refund = $service->create($payment, $this->adminUser, 100, 'Approved return', null, $return);
 
         $this->assertSame($return->id, $refund->return_request_id);
@@ -1003,6 +1005,112 @@ class OrderConfirmationRulesTest extends TestCase
             ->assertJsonPath('data.grand_total', '2500.00')
             ->assertJsonPath('data.refunded_amount', '100.00')
             ->assertJsonPath('data.net_total', '2400.00');
+
+        $this->actingAs($this->adminUser)
+            ->getJson('/api/v1/admin/orders')
+            ->assertOk()
+            ->assertJsonPath('data.0.refunded_amount', '100.00')
+            ->assertJsonPath('data.0.net_total', '2400.00')
+            ->assertJsonPath('data.0.return_categories.0', 'Return & Refund');
+
+        $this->actingAs($this->vendorUser)
+            ->getJson('/api/v1/vendor/orders')
+            ->assertOk()
+            ->assertJsonPath('data.0.refunded_amount', '100.00')
+            ->assertJsonPath('data.0.net_total', '2400.00')
+            ->assertJsonPath('data.0.net_vendor_payable', '2200.00')
+            ->assertJsonPath('data.0.return_categories.0', 'Return & Refund');
+    }
+
+    public function test_admin_return_approval_requires_notes_and_keeps_customer_requested_category(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED);
+        $item = $order->items()->firstOrFail();
+        $return = ReturnRequest::create([
+            'return_number' => 'RTN-'.strtoupper(Str::random(10)),
+            'user_id' => $customer->id,
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'order_item_id' => $item->id,
+            'store_id' => $this->store->id,
+            'vendor_id' => $this->vendor->id,
+            'request_type' => 'exchange',
+            'reason_type' => 'damaged',
+            'reason' => 'Customer requested an exchange.',
+            'quantity' => 1,
+            'refund_amount' => 1200,
+            'status' => ReturnStatus::REQUESTED,
+        ]);
+
+        $endpoint = "/api/v1/admin/orders/returns/{$return->uuid}/approve";
+
+        $this->actingAs($this->adminUser)
+            ->postJson($endpoint)
+            ->assertUnprocessable();
+
+        $this->actingAs($this->adminUser)
+            ->postJson($endpoint, ['notes' => 'Approved after reviewing the evidence.'])
+            ->assertOk();
+
+        $this->assertSame('exchange', $return->fresh()->request_type->value);
+        $this->assertSame('Approved after reviewing the evidence.', $return->fresh()->review_notes);
+    }
+
+    public function test_admin_can_update_refund_status_from_its_return_only(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED, isCod: false);
+        $item = $order->items()->firstOrFail();
+        $payment = Payment::create([
+            'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'user_id' => $customer->id,
+            'amount' => $order->grand_total,
+            'currency' => 'NPR',
+            'method' => 'khalti',
+            'provider' => 'khalti',
+            'status' => PaymentStatus::PAID,
+            'initiated_at' => now(),
+            'verified_at' => now(),
+        ]);
+        $return = ReturnRequest::create([
+            'return_number' => 'RTN-'.strtoupper(Str::random(10)),
+            'user_id' => $customer->id,
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'order_item_id' => $item->id,
+            'store_id' => $this->store->id,
+            'vendor_id' => $this->vendor->id,
+            'reason_type' => 'damaged',
+            'reason' => 'Item arrived damaged.',
+            'quantity' => 1,
+            'refund_amount' => 1200,
+            'status' => ReturnStatus::APPROVED,
+        ]);
+        $refund = app(RefundService::class)->create($payment, $this->adminUser, 100, 'Approved return', null, $return);
+        $unrelatedReturn = ReturnRequest::create([
+            'return_number' => 'RTN-'.strtoupper(Str::random(10)),
+            'user_id' => $customer->id,
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'order_item_id' => $item->id,
+            'store_id' => $this->store->id,
+            'vendor_id' => $this->vendor->id,
+            'reason_type' => 'damaged',
+            'reason' => 'Another return request.',
+            'quantity' => 1,
+            'refund_amount' => 1200,
+            'status' => ReturnStatus::APPROVED,
+        ]);
+
+        $this->actingAs($this->adminUser)
+            ->patchJson("/api/v1/admin/orders/returns/{$return->uuid}/refunds/{$refund->uuid}/status", ['status' => 'processing'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'processing');
+
+        $this->actingAs($this->adminUser)
+            ->patchJson("/api/v1/admin/orders/returns/{$unrelatedReturn->uuid}/refunds/{$refund->uuid}/status", ['status' => 'refunded'])
+            ->assertNotFound();
     }
 
     public function test_refund_cannot_exceed_the_returned_quantity_value(): void
