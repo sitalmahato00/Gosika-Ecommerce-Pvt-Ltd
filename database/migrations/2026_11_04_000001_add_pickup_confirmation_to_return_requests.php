@@ -8,9 +8,21 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('return_requests', function (Blueprint $table) {
-            $table->timestamp('pickup_collected_at')->nullable();
-            $table->foreignId('pickup_collected_by')->nullable()->constrained('users')->nullOnDelete();
+        $addPickupCollectedAt = ! Schema::hasColumn('return_requests', 'pickup_collected_at');
+        $addPickupCollectedBy = ! Schema::hasColumn('return_requests', 'pickup_collected_by');
+
+        if (! $addPickupCollectedAt && ! $addPickupCollectedBy) {
+            return;
+        }
+
+        Schema::table('return_requests', function (Blueprint $table) use ($addPickupCollectedAt, $addPickupCollectedBy) {
+            if ($addPickupCollectedAt) {
+                $table->timestamp('pickup_collected_at')->nullable();
+            }
+
+            if ($addPickupCollectedBy) {
+                $table->foreignId('pickup_collected_by')->nullable()->constrained('users')->nullOnDelete();
+            }
         });
     }
 

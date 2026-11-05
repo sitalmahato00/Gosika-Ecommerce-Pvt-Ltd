@@ -626,7 +626,7 @@ class OrderConfirmationRulesTest extends TestCase
             ->assertJsonPath('data.can_request_return', true)
             ->assertJsonPath('data.return_window_expires_at', $deliveredAt->copy()->addDays(7)->toISOString());
 
-        $this->actingAs($customer)
+        $response = $this->actingAs($customer)
             ->postJson('/api/v1/customer/returns', [
                 'order_id' => $order->uuid,
                 'order_item_id' => $item->uuid,
@@ -638,6 +638,8 @@ class OrderConfirmationRulesTest extends TestCase
                 'return_method' => 'pickup',
             ])
             ->assertCreated();
+
+        $this->assertMatchesRegularExpression('/^RTN-[A-F0-9]{8}$/', $response->json('data.return_number'));
 
         $this->assertDatabaseHas('return_requests', [
             'order_id' => $order->id,
