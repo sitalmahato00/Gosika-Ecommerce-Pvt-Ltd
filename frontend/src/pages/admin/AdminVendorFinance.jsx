@@ -274,8 +274,8 @@ export default function AdminVendorFinance() {
     )
     exportReportFromRows({
       columns: [
-        { label: 'Vendor Order #' },
-        { label: 'Store Order #' },
+        { label: 'Order #' },
+        { label: 'Vendor Shipment #' },
         { label: 'Date' },
         { label: 'Status' },
         { label: 'Gross Total', align: 'right' },
@@ -287,8 +287,8 @@ export default function AdminVendorFinance() {
       ],
       rows: rows.flatMap(o =>
         (o.items || []).map(it => [
-          o.vendor_order_number || '',
           o.order_number || '',
+          o.vendor_order_number || '',
           o.placed_at ? new Date(o.placed_at).toLocaleDateString() : '',
           o.status || '',
           it === (o.items || [])[0] ? (o.grand_total || 0) : '',
@@ -568,8 +568,8 @@ export default function AdminVendorFinance() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '2px solid var(--border)' }}>
-                    <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Vendor Order</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Store Order</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Order #</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Vendor Shipment #</th>
                     <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--muted)' }}>Date</th>
                     <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--muted)' }}>Status</th>
                     <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Settlement Period</th>
@@ -600,10 +600,10 @@ export default function AdminVendorFinance() {
                           <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               {expanded ? <ChevronUp size={13} color="var(--muted)" /> : <ChevronDown size={13} color="var(--muted)" />}
-                              #{o.vendor_order_number}
+                              #{o.order_number || o.vendor_order_number}
                             </div>
                           </td>
-                          <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--ink)' }}>#{o.order_number}</td>
+                          <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--ink)' }}>{o.vendor_order_number || '—'}</td>
                           <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{o.placed_at ? new Date(o.placed_at).toLocaleDateString() : '—'}</td>
                           <td style={{ padding: '10px 14px' }}>
                             <LocalBadge status={o.status} />

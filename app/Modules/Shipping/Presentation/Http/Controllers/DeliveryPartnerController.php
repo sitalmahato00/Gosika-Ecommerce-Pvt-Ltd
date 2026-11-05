@@ -30,6 +30,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
 class DeliveryPartnerController extends Controller
 {
@@ -108,10 +109,20 @@ class DeliveryPartnerController extends Controller
     public function assignments(Request $request): JsonResponse
     {
         $partner = $this->partnerFor($request->user());
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::enum(DeliveryStatus::class)],
+            'statuses' => ['nullable', 'array'],
+            'statuses.*' => [Rule::enum(DeliveryStatus::class)],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
 
         $assignments = $partner->assignments()
-            ->with(['tracking', 'vendorOrder'])
-            ->when($request->input('status'), fn ($query, $status) => $query->where('status', $status))
+            ->with(['tracking', 'vendorOrder.order'])
+            ->when($filters['statuses'] ?? null, fn ($query, $statuses) => $query->whereIn('status', $statuses))
+            ->when(
+                ! ($filters['statuses'] ?? null) && ($filters['status'] ?? null),
+                fn ($query) => $query->where('status', $filters['status'])
+            )
             ->latest()
             ->paginate($request->integer('per_page', 15));
 
@@ -269,7 +280,7 @@ class DeliveryPartnerController extends Controller
         }
 
         return Response::success(
-            new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder'])),
+            new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder.order'])),
             'Delivery assignment retrieved.'
         );
     }
@@ -278,14 +289,14 @@ class DeliveryPartnerController extends Controller
     {
         $assignment = $this->service->accept($request->user(), $assignment);
 
-        return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder'])), 'Delivery accepted.');
+        return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder.order'])), 'Delivery accepted.');
     }
 
     public function pickup(Request $request, DeliveryAssignment $assignment): JsonResponse
     {
         $assignment = $this->service->pickup($request->user(), $assignment);
 
-        return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder'])), 'Order picked up.');
+        return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder.order'])), 'Order picked up.');
     }
 
     public function outForDelivery(Request $request, DeliveryAssignment $assignment): JsonResponse
@@ -293,7 +304,7 @@ class DeliveryPartnerController extends Controller
         [$assignment] = $this->service->outForDelivery($request->user(), $assignment);
 
         return Response::success(
-            new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder'])),
+            new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder.order'])),
             'Order is out for delivery. Request the 6-digit confirmation OTP from the customer upon arrival.'
         );
     }
@@ -302,21 +313,21 @@ class DeliveryPartnerController extends Controller
     {
         $assignment = $this->service->deliver($request->user(), $assignment, $request->input('otp'));
 
-        return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder'])), 'Delivery confirmed.');
+        return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder.order'])), 'Delivery confirmed.');
     }
 
     public function fail(DeliveryFailureRequest $request, DeliveryAssignment $assignment): JsonResponse
     {
         $assignment = $this->service->fail($request->user(), $assignment, $request->input('reason'));
 
-        return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder'])), 'Delivery marked as failed.');
+        return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder.order'])), 'Delivery marked as failed.');
     }
 
     public function returnToVendor(Request $request, DeliveryAssignment $assignment): JsonResponse
     {
         $assignment = $this->service->returnToVendor($request->user(), $assignment, $request->input('reason'));
 
-        return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder'])), 'Order returned to vendor.');
+        return Response::success(new DeliveryAssignmentResource($assignment->load(['tracking', 'vendorOrder.order'])), 'Order returned to vendor.');
     }
 
     public function availableJobs(Request $request): JsonResponse

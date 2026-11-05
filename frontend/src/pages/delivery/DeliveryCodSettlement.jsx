@@ -52,7 +52,7 @@ export default function DeliveryCodSettlement() {
     () =>
       delivered.map((a) => ({
         id: a.id,
-        vendor_order_number: a.vendor_order_number,
+        order_number: a.order_number,
         recipient_name: a.recipient_name,
         cod: Number(a.cod_amount || 0),
         fee: Number(a.delivery_fee || 0),
@@ -74,14 +74,14 @@ export default function DeliveryCodSettlement() {
   const exportReport = () => {
     exportReportFromRows({
       columns: [
-        { label: 'Vendor Order #' },
+        { label: 'Order #' },
         { label: 'Recipient' },
         { label: 'Delivered At' },
         { label: 'COD Collected', align: 'right' },
         { label: 'Delivery Fee', align: 'right' },
       ],
       rows: inPeriod.map((row) => [
-        row.vendor_order_number || row.id,
+        row.order_number || row.id,
         row.recipient_name || '',
         row.at ? formatDateTime(row.at) : '',
         money(row.cod),
@@ -215,7 +215,7 @@ export default function DeliveryCodSettlement() {
                   <TrendingUp size={16} />
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="font-bold text-sm text-ink truncate">{r.vendor_order_number || r.id}</div>
+                  <div className="font-bold text-sm text-ink truncate">#{r.order_number || r.id}</div>
                   <div className="muted text-xs mt-0.5 truncate">{r.at ? formatDateTime(r.at) : '—'} · {r.recipient_name || '—'}</div>
                 </div>
                 <div className="text-right flex flex-col items-end" style={{ gap: 2 }}>

@@ -51,6 +51,7 @@ class AvailableJobResource extends JsonResource
 
         return [
             'id' => $vendorOrder->uuid,
+            'order_number' => $order?->order_number,
             'vendor_order_number' => $vendorOrder->vendor_order_number,
             'status' => $vendorOrder->status->value,
             'readiness_status' => 'ready_for_pickup',

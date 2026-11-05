@@ -82,7 +82,7 @@ export default function DeliveryDeliver() {
           </span>
           <h3 style={{ fontSize: 18, fontWeight: 900, margin: '0 0 6px' }}>Delivery Completed</h3>
           <p className="muted" style={{ margin: '0 auto 18px', maxWidth: 400 }}>
-            {a.vendor_order_number || a.id} has been confirmed by the customer. Your delivery fee{' '}
+            Order #{a.order_number || a.vendor_order_number || a.id} has been confirmed by the customer. Your delivery fee{' '}
             <strong className="text-success">{money(a.delivery_fee)}</strong> has been credited to your earnings.
           </p>
           <div className="flex items-center justify-center gap-2 wrap">
@@ -116,7 +116,7 @@ export default function DeliveryDeliver() {
             <h1 style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink)', margin: 0 }}>Customer Delivery</h1>
           </div>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
-            {a.vendor_order_number || a.id} · <strong className="text-success">+{money(a.delivery_fee)}</strong>
+            Order #{a.order_number || a.vendor_order_number || a.id} · <strong className="text-success">+{money(a.delivery_fee)}</strong>
           </p>
         </div>
         <DeliveryStatusBadge status={a.status} />

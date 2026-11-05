@@ -691,6 +691,26 @@ class OrderConfirmationRulesTest extends TestCase
             ->assertJsonPath('message', 'Returns can only be requested after the order has been delivered.');
     }
 
+    public function test_return_quantity_cannot_exceed_the_quantity_ordered(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED, qty: 2);
+        $deliveredAt = now()->subDay();
+        $order->update(['completed_at' => $deliveredAt]);
+        $vendorOrder->update(['status' => OrderStatus::DELIVERED]);
+        $item = $order->items()->firstOrFail();
+
+        $this->actingAs($customer)
+            ->postJson('/api/v1/customer/returns', [
+                'order_id' => $order->uuid,
+                'order_item_id' => $item->uuid,
+                'reason_type' => 'damaged',
+                'reason' => 'The item arrived damaged.',
+                'quantity' => 3,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Return quantity exceeds purchased quantity.');
+    }
+
     public function test_successfully_resolved_items_cannot_be_requested_again(): void
     {
         foreach ([

@@ -178,7 +178,7 @@ export default function DeliveryRoute() {
                       <div className="flex items-center justify-between wrap gap-2">
                         <div>
                           <div className="font-bold text-sm text-ink flex items-center gap-2">
-                            {s.assignment.vendor_order_number || s.id}
+                            #{s.assignment.order_number || s.assignment.vendor_order_number || s.id}
                             <DeliveryStatusBadge status={s.assignment.status} size="xs" />
                           </div>
                           <div className="font-bold text-ink text-sm">{s.label}</div>

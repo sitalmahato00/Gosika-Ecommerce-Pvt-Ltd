@@ -60,6 +60,7 @@ class DeliveryAssignmentResource extends JsonResource
         return [
             'id' => $this->uuid,
             'vendor_order_id' => $this->vendorOrder?->uuid,
+            'order_number' => $order?->order_number,
             'vendor_order_number' => $this->vendorOrder?->vendor_order_number,
             'delivery_partner_id' => $this->deliveryPartner?->uuid,
             'delivery_partner_name' => $this->deliveryPartner?->name,

@@ -136,7 +136,7 @@ export default function VendorOrders({ view = 'all' }) {
   const exportCSV = () => {
     const headers = ['Order Number', 'Store', 'Items Count', 'Total NPR', 'Status', 'Delivery Status', 'Date']
     const rows = filtered.map((o) => [
-      o.vendor_order_number,
+      o.order_number,
       `"${o.store_name || ''}"`,
       o.items?.length || 1,
       o.grand_total,
@@ -273,7 +273,7 @@ export default function VendorOrders({ view = 'all' }) {
                         className="font-mono font-bold text-sm"
                         style={{ color: 'var(--primary)' }}
                       >
-                        {o.vendor_order_number}
+                        #{o.order_number || o.vendor_order_number}
                       </Link>
                       <div className="muted text-xs mt-0.5">{o.store_name || '—'}</div>
                     </td>

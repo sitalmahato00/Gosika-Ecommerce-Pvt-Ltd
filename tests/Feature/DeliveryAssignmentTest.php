@@ -753,6 +753,34 @@ class DeliveryAssignmentTest extends TestCase
         $this->assertEquals($this->rider1->id, $readyOrder->fresh()->assignments()->active()->first()->delivery_partner_id);
     }
 
+    public function test_assignment_status_tabs_accept_multiple_statuses_and_include_customer_order_number(): void
+    {
+        [, $pickedUpOrder] = $this->createTestOrder(OrderStatus::PICKED_UP);
+        [, $outForDeliveryOrder] = $this->createTestOrder(OrderStatus::OUT_FOR_DELIVERY);
+
+        foreach ([
+            [$pickedUpOrder, DeliveryStatus::PICKED_UP],
+            [$outForDeliveryOrder, DeliveryStatus::OUT_FOR_DELIVERY],
+        ] as [$vendorOrder, $status]) {
+            DeliveryAssignment::create([
+                'vendor_order_id' => $vendorOrder->id,
+                'delivery_partner_id' => $this->rider1->id,
+                'status' => $status,
+                'delivery_fee' => 100,
+                'assigned_at' => now(),
+            ]);
+        }
+
+        $response = $this->actingAs($this->riderUser1)
+            ->getJson('/api/v1/delivery-partner/assignments?statuses[]=picked_up&statuses[]=out_for_delivery')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        foreach ($response->json('data') as $assignment) {
+            $this->assertStringStartsWith('ORD-', $assignment['order_number']);
+        }
+    }
+
     public function test_delivery_otp_generated_and_available_in_customer_order_detail(): void
     {
         [$order, $readyOrder] = $this->createTestOrder(OrderStatus::READY_FOR_PICKUP);

@@ -45,7 +45,7 @@ class CatalogService
                 'slug' => $this->uniqueProductSlug($dto->slug ?: $dto->name),
                 'description' => $dto->description,
                 'short_description' => $dto->short_description,
-                'sku' => $dto->sku,
+                'sku' => $dto->sku ?? $this->generateSku($vendor->id),
                 'barcode' => $dto->barcode,
                 'status' => $dto->status ?: ProductStatus::DRAFT,
                 'stock_status' => StockStatus::OUT_OF_STOCK,
@@ -101,7 +101,7 @@ class CatalogService
                     : $product->slug,
                 'description' => $dto->description,
                 'short_description' => $dto->short_description,
-                'sku' => $dto->sku,
+                'sku' => $dto->sku ?? $product->sku,
                 'barcode' => $dto->barcode ?? $product->barcode,
                 'status' => $dto->status ?: $product->status,
                 'quantity' => $dto->quantity ?? $product->quantity,
@@ -316,13 +316,15 @@ class CatalogService
         $defaultSet = false;
         $retainedSkus = [];
 
-        foreach ($variants as $variantData) {
+        foreach ($variants as $index => $variantData) {
             $options = $variantData['options'] ?? [];
-            $retainedSkus[] = $variantData['sku'];
+            $sku = trim((string) ($variantData['sku'] ?? ''))
+                ?: $this->generateSku($product->vendor_id, 'VAR'.($index + 1));
+            $retainedSkus[] = $sku;
 
             $variant = ProductVariant::withTrashed()->firstOrNew([
                 'product_id' => $product->id,
-                'sku' => $variantData['sku'],
+                'sku' => $sku,
             ]);
             if ($variant->trashed()) {
                 $variant->restore();
@@ -356,6 +358,18 @@ class CatalogService
             }
             $query->delete();
         }
+    }
+
+    protected function generateSku(int $vendorId, string $kind = 'PRD'): string
+    {
+        do {
+            $sku = 'GSK-'.$vendorId.'-'.$kind.'-'.Str::upper(Str::random(8));
+        } while (
+            Product::query()->where('vendor_id', $vendorId)->where('sku', $sku)->exists()
+            || ProductVariant::query()->where('sku', $sku)->exists()
+        );
+
+        return $sku;
     }
 
     protected function syncAttributes(Product $product, array $attributes): void

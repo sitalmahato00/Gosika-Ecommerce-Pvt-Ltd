@@ -57,7 +57,7 @@ function LabelSheet({ seller, store, order }) {
       </div>
 
       <div style={{ borderTop: '2px solid #0f172a', paddingTop: 10 }}>
-        <div className="font-mono" style={{ fontWeight: 800, fontSize: 16 }}>{order.vendor_order_number || `#${order.id}`}</div>
+        <div className="font-mono" style={{ fontWeight: 800, fontSize: 16 }}>Order #{order.order_number || order.vendor_order_number || order.id}</div>
         <div className="flex items-center justify-between wrap">
           <div>{items.length} item(s)</div>
           <div>Total {money(order.grand_total)}</div>
@@ -66,9 +66,9 @@ function LabelSheet({ seller, store, order }) {
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <Barcode value={order.vendor_order_number || order.id} />
+        <Barcode value={order.order_number || order.vendor_order_number || order.id} />
         <div className="font-mono" style={{ fontSize: 9, textAlign: 'center', letterSpacing: '0.16em', marginTop: 4 }}>
-          {order.vendor_order_number || order.id}
+          {order.order_number || order.vendor_order_number || order.id}
         </div>
       </div>
     </div>
@@ -140,7 +140,7 @@ export default function VendorShippingLabels() {
                     <Package size={20} />
                   </span>
                   <div style={{ minWidth: 0 }}>
-                    <div className="font-mono font-bold text-sm" style={{ color: 'var(--primary)' }}>{o.vendor_order_number || `#${o.id}`}</div>
+                    <div className="font-mono font-bold text-sm" style={{ color: 'var(--primary)' }}>#{o.order_number || o.vendor_order_number || o.id}</div>
                     <div className="muted text-xs mt-0.5 line-clamp-1">{addr?.name || 'Customer'} · {o.items?.length || 1} item({o.items?.length === 1 ? '' : 's'}) · {money(o.grand_total)}</div>
                     <div className="muted text-xs line-clamp-1 flex items-center gap-1"><MapPin size={11} /> {[addr?.municipality || addr?.city, addr?.district, addr?.province].filter(Boolean).join(', ') || 'Address not set'}</div>
                   </div>

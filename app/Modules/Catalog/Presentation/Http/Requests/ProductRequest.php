@@ -40,7 +40,7 @@ class ProductRequest extends FormRequest
             'short_description' => ['nullable', 'string', 'max:1000'],
             'category_id' => ['nullable', 'string', 'exists:categories,uuid'],
             'brand_id' => ['nullable', 'string', 'exists:brands,uuid'],
-            'sku' => ['required', 'string', 'max:80', $skuRule],
+            'sku' => ['nullable', 'string', 'max:80', $skuRule],
             'barcode' => ['nullable', 'string', 'max:80'],
             'status' => ['nullable', Rule::enum(ProductStatus::class)],
             'quantity' => ['nullable', 'integer', 'min:0'],
@@ -60,7 +60,7 @@ class ProductRequest extends FormRequest
 
             'variants' => ['nullable', 'array'],
             'variants_present' => ['nullable', 'boolean'],
-            'variants.*.sku' => ['required_with:variants', 'string', 'max:80', 'distinct'],
+            'variants.*.sku' => ['nullable', 'string', 'max:80', 'distinct'],
             'variants.*.name' => ['nullable', 'string', 'max:200'],
             'variants.*.price' => ['required_with:variants', 'numeric', 'min:0'],
             'variants.*.compare_at_price' => ['nullable', 'numeric', 'min:0'],

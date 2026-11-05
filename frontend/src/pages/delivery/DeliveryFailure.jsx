@@ -88,7 +88,7 @@ export default function DeliveryFailure() {
             <h1 style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink)', margin: 0 }}>Failed Delivery</h1>
           </div>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
-            {a.vendor_order_number || a.id} · {a.recipient_name || '—'}
+            Order #{a.order_number || a.vendor_order_number || a.id} · {a.recipient_name || '—'}
           </p>
         </div>
         <DeliveryStatusBadge status={a.status} />

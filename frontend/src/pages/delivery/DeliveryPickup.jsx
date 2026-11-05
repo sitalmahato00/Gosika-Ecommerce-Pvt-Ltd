@@ -81,7 +81,7 @@ export default function DeliveryPickup() {
             <h1 style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink)', margin: 0 }}>Pickup Workflow</h1>
           </div>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
-            {a.vendor_order_number || a.id}
+            Order #{a.order_number || a.vendor_order_number || a.id}
           </p>
         </div>
         <DeliveryStatusBadge status={a.status} />

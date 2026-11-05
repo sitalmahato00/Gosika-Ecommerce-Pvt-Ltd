@@ -1348,6 +1348,7 @@ class DeliveryService
             $like = '%' . $search . '%';
             $query->where(function (Builder $q) use ($like) {
                 $q->where('vendor_order_number', 'like', $like)
+                    ->orWhereHas('order', fn (Builder $oq) => $oq->where('order_number', 'like', $like))
                     ->orWhereHas('store', fn ($sq) => $sq->where('name', 'like', $like))
                     ->orWhereHas('items', fn ($iq) => $iq->where('product_name', 'like', $like));
             });
@@ -1475,6 +1476,7 @@ class DeliveryService
 
         return [
             'id' => $assignment->uuid,
+            'order_number' => $assignment->vendorOrder?->order?->order_number,
             'status' => $assignment->status->value,
             'assignment_method' => $method,
             'assignment_method_label' => $methodLabel,

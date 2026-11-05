@@ -222,7 +222,7 @@ export default function DeliveryDeliveries() {
       >
         {confirm && (
           <div className="card" style={{ background: 'var(--bg)', padding: 12, margin: 0 }}>
-            <div className="font-bold text-sm text-ink">{confirm.assignment.vendor_order_number}</div>
+            <div className="font-bold text-sm text-ink">Order #{confirm.assignment.order_number || confirm.assignment.vendor_order_number}</div>
             <div className="muted text-xs mt-0.5">
               {confirm.assignment.recipient_name} · {money(confirm.assignment.delivery_fee)}
             </div>

@@ -15,7 +15,7 @@ export default function DeliveryAssignmentCard({ assignment, actions, to, date, 
             className="font-mono font-bold text-xs"
             style={{ background: 'var(--primary-50)', color: 'var(--primary)', padding: '3px 8px', borderRadius: 4 }}
           >
-            {assignment.vendor_order_number || assignment.id}
+            {assignment.order_number || assignment.vendor_order_number || assignment.id}
           </span>
           <DeliveryStatusBadge status={assignment.status} size="xs" />
         </div>

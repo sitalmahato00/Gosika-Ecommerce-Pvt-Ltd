@@ -702,8 +702,17 @@ export default function Returns() {
                           style={{ width: 64, height: 32, fontSize: 13, textAlign: 'center' }}
                           min={1}
                           max={selectedItem.quantity || 1}
+                          required
                           value={returnForm.quantity}
-                          onChange={(e) => setReturnForm({ ...returnForm, quantity: Number(e.target.value) })}
+                          onChange={(e) => {
+                            const quantity = Number(e.target.value)
+                            setReturnForm({
+                              ...returnForm,
+                              quantity: Number.isFinite(quantity)
+                                ? Math.min(selectedItem.quantity || 1, Math.max(1, quantity))
+                                : 1,
+                            })
+                          }}
                         />
                       </div>
                     </div>

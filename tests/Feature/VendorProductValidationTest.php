@@ -157,6 +157,42 @@ class VendorProductValidationTest extends TestCase
             );
     }
 
+    public function test_vendor_product_and_variant_skus_are_generated_when_omitted(): void
+    {
+            Storage::fake('public');
+            Role::findOrCreate(Roles::VENDOR_ADMIN, 'web');
+            $vendor = User::factory()->create();
+            $vendor->assignRole(Roles::VENDOR_ADMIN);
+            $vendorProfile = Vendor::query()->create([
+                'user_id' => $vendor->id,
+                'company_name' => 'Auto SKU Vendor',
+                'business_email' => 'auto-sku-vendor@example.test',
+                'status' => VendorStatus::APPROVED,
+            ]);
+            Store::query()->create([
+                'vendor_id' => $vendorProfile->id,
+                'name' => 'Auto SKU Store',
+                'slug' => 'auto-sku-store',
+                'status' => 'active',
+            ]);
+
+            $this->actingAs($vendor)
+                ->postJson('/api/v1/vendor/products', [
+                    'name' => 'Automatic SKU Product',
+                    'price' => '100',
+                    'image_urls' => ['https://example.test/auto-sku.jpg'],
+                    'variants' => [
+                        ['price' => '100', 'quantity' => '2'],
+                    ],
+                ])
+                ->assertCreated();
+
+            $product = Product::query()->where('vendor_id', $vendorProfile->id)->firstOrFail();
+            $variant = $product->variants()->firstOrFail();
+            $this->assertMatchesRegularExpression('/^GSK-'.$vendorProfile->id.'-PRD-[A-Z0-9]{8}$/', $product->sku);
+            $this->assertMatchesRegularExpression('/^GSK-'.$vendorProfile->id.'-VAR1-[A-Z0-9]{8}$/', $variant->sku);
+    }
+
     public function test_removed_variant_sku_can_be_reused_when_editing_a_product(): void
     {
         Storage::fake('public');

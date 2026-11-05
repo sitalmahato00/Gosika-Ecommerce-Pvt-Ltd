@@ -155,7 +155,7 @@ export default function DeliveryReturns() {
                   <span className="chip chip-sm">{(pickup.type || 'return').replace(/_/g, ' ')}</span>
                   <span className="chip chip-sm">{pickup.status.replace(/_/g, ' ')}</span>
                 </div>
-                <span className="muted text-xs">Order {pickup.vendor_order_number || pickup.order_number}</span>
+                <span className="muted text-xs">Order #{pickup.order_number || pickup.vendor_order_number}</span>
               </div>
               <div className="font-bold text-sm text-ink">
                 {pickup.product_name || 'Returned item'} · Qty {pickup.quantity}
@@ -246,7 +246,7 @@ export default function DeliveryReturns() {
       >
         {confirmReturn && (
           <div className="card" style={{ background: 'var(--bg)', padding: 12, margin: 0 }}>
-            <div className="font-bold text-sm text-ink">{confirmReturn.vendor_order_number}</div>
+            <div className="font-bold text-sm text-ink">Order #{confirmReturn.order_number || confirmReturn.vendor_order_number}</div>
             <div className="muted text-xs mt-0.5">{confirmReturn.recipient_name} · {money(confirmReturn.delivery_fee)}</div>
           </div>
         )}

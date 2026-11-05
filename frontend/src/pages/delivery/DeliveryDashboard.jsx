@@ -72,14 +72,15 @@ export default function DeliveryDashboard() {
     setDeliveriesLoading(true)
     setDeliveriesError(null)
     try {
-      let statusParam = ''
-      if (tab === 'assigned') statusParam = 'assigned'
-      else if (tab === 'active') statusParam = 'picked_up'
-      else if (tab === 'completed') statusParam = 'delivered'
-      else if (tab === 'failed') statusParam = 'failed'
+      const statuses = {
+        assigned: ['assigned', 'accepted'],
+        active: ['picked_up', 'out_for_delivery'],
+        completed: ['delivered'],
+        failed: ['failed', 'returned_to_vendor'],
+      }[tab] || []
 
       const res = await api.get('/delivery-partner/assignments', {
-        params: statusParam ? { status: statusParam } : {},
+        params: { statuses, per_page: 100 },
         skipCache: true,
       })
       setDeliveries(api.unwrapList(res.data))
@@ -365,7 +366,9 @@ export default function DeliveryDashboard() {
             <Inbox size={15} />
             Available Jobs
             <span style={{ background: activeTab === 'available' ? 'rgba(255,255,255,0.3)' : '#f1f5f9', color: activeTab === 'available' ? '#fff' : '#0f172a', padding: '1px 7px', borderRadius: 999, fontSize: 11 }}>
-              {availableJobs.length}
+              {areaScope === 'my_area'
+                ? (stats?.available_jobs ?? availableJobs.length)
+                : (stats?.all_available_jobs ?? availableJobs.length)}
             </span>
           </button>
 
@@ -443,6 +446,11 @@ export default function DeliveryDashboard() {
           >
             <CheckCircle2 size={15} />
             Completed
+            {stats?.today_completed ? (
+              <span style={{ background: activeTab === 'completed' ? 'rgba(255,255,255,0.3)' : '#f1f5f9', color: activeTab === 'completed' ? '#fff' : '#0f172a', padding: '1px 7px', borderRadius: 999, fontSize: 11 }}>
+                {stats.today_completed}
+              </span>
+            ) : null}
           </button>
 
           <button
@@ -465,6 +473,11 @@ export default function DeliveryDashboard() {
           >
             <AlertTriangle size={15} />
             Failed / Returns
+            {stats?.today_failed ? (
+              <span style={{ background: activeTab === 'failed' ? 'rgba(255,255,255,0.3)' : '#f1f5f9', color: activeTab === 'failed' ? '#fff' : '#0f172a', padding: '1px 7px', borderRadius: 999, fontSize: 11 }}>
+                {stats.today_failed}
+              </span>
+            ) : null}
           </button>
         </div>
 
@@ -607,7 +620,7 @@ export default function DeliveryDashboard() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
                       <div>
                         <span style={{ fontSize: 14, fontWeight: 900, color: 'var(--ink)' }}>
-                          #{job.vendor_order_number}
+                          #{job.order_number || job.vendor_order_number}
                         </span>
                         <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>
                           Ready {job.ready_at ? timeAgo(job.ready_at) : 'recently'}
@@ -790,7 +803,7 @@ export default function DeliveryDashboard() {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 14, fontWeight: 900, color: 'var(--ink)' }}>
-                          #{a.vendor_order_number || a.id.slice(0, 8)}
+                          #{a.order_number || a.vendor_order_number || a.id.slice(0, 8)}
                         </span>
                         <DeliveryStatusBadge status={a.status} size="xs" />
                       </div>

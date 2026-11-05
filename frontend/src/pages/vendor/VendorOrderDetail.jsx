@@ -234,7 +234,7 @@ export default function VendorOrderDetail() {
       <div class="group">
         <div class="group-head">
           <strong>${esc(order.store_name || 'Store')}</strong>
-          <span>Vendor Order #${esc(order.vendor_order_number)}</span>
+          <span>Order #${esc(order.order_number || order.vendor_order_number)}</span>
           <span>${esc(String(order.status || '').replace(/_/g, ' ')).toUpperCase()}</span>
         </div>
         <table>
@@ -264,7 +264,7 @@ export default function VendorOrderDetail() {
       'Tax Invoice',
       `Invoice Date: ${today} · Paid via ${esc(String(order.payment_method || 'COD')).toUpperCase()}`,
       [
-        ['Invoice #', order.vendor_order_number],
+        ['Order #', order.order_number || order.vendor_order_number],
         ['Order Date', formatDateTime(order.created_at)],
         ['Customer', customerName],
         ['Phone', customerPhone],
@@ -276,7 +276,7 @@ export default function VendorOrderDetail() {
       addrHtml,
       groupsHtml,
       totalsHtml,
-      `Payment status: ${esc((order.payment_status || 'pending').toUpperCase())}. This is a system-generated tax invoice for vendor order ${esc(order.vendor_order_number)} on the Gosika Marketplace.`
+      `Payment status: ${esc((order.payment_status || 'pending').toUpperCase())}. This is a system-generated tax invoice for order ${esc(order.order_number || order.vendor_order_number)} on the Gosika Marketplace.`
     ), toast)
   }
 
@@ -300,7 +300,7 @@ export default function VendorOrderDetail() {
       'Packing Slip',
       `Prepared for packing · ${today}`,
       [
-        ['Vendor Order #', order.vendor_order_number],
+        ['Order #', order.order_number || order.vendor_order_number],
         ['Order Date', formatDateTime(order.created_at)],
         ['Store', order.store_name || 'Store'],
         ['Customer', customerName],
@@ -312,7 +312,7 @@ export default function VendorOrderDetail() {
       addrHtml,
       groupsHtml,
       slipTotalsHtml,
-      `Thank you for shopping with Gosika Marketplace &nbsp;·&nbsp; This is a system-generated packing slip for order ${esc(order.vendor_order_number)}. It is not a tax invoice.`,
+      `Thank you for shopping with Gosika Marketplace &nbsp;·&nbsp; This is a system-generated packing slip for order ${esc(order.order_number || order.vendor_order_number)}. It is not a tax invoice.`,
       qrHtml
     ), toast)
   }
@@ -321,13 +321,13 @@ export default function VendorOrderDetail() {
     <div className="flex flex-col gap-4">
       <nav className="flex items-center gap-1 muted text-sm" aria-label="Breadcrumb">
         <Link to="/vendor/orders">Orders</Link> <ChevronRight size={13} />
-        <span className="font-semibold" style={{ color: 'var(--ink)' }}>{order.vendor_order_number}</span>
+        <span className="font-semibold" style={{ color: 'var(--ink)' }}>#{order.order_number || order.vendor_order_number}</span>
       </nav>
 
       <div className="card">
         <div className="flex items-center justify-between wrap gap-2">
           <div>
-            <h2 style={{ fontSize: 18, marginBottom: 4 }}>{order.vendor_order_number}</h2>
+            <h2 style={{ fontSize: 18, marginBottom: 4 }}>#{order.order_number || order.vendor_order_number}</h2>
             <div className="muted text-sm">Placed {formatDateTime(order.created_at)} · {order.store_name}</div>
           </div>
           <div className="flex items-center gap-2 wrap">

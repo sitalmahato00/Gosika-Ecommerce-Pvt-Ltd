@@ -26,6 +26,7 @@ class DispatchItemResource extends JsonResource
 
         return [
             'id' => $vendorOrder->uuid,
+            'order_number' => $order?->order_number,
             'vendor_order_number' => $vendorOrder->vendor_order_number,
             'vendor_order_status' => $vendorOrder->status->value,
             'delivery_status' => $vendorOrder->delivery_status->value,

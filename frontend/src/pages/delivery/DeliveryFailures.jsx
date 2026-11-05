@@ -118,7 +118,7 @@ export default function DeliveryFailures() {
         {confirmReturn && (
           <div className="card" style={{ background: 'var(--bg)', padding: 12, margin: 0 }}>
             <div className="font-bold text-sm text-ink">
-              {confirmReturn.vendor_order_number} · {money(confirmReturn.delivery_fee)}
+              Order #{confirmReturn.order_number || confirmReturn.vendor_order_number} · {money(confirmReturn.delivery_fee)}
             </div>
             <div className="muted text-xs mt-0.5">{confirmReturn.recipient_name}</div>
           </div>

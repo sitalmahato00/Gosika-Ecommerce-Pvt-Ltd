@@ -52,7 +52,7 @@ export default function DeliveryEarnings() {
   const exportEarnings = () => {
     exportReportFromRows({
       columns: [
-        { label: 'Vendor Order #' },
+        { label: 'Order #' },
         { label: 'Recipient' },
         { label: 'Delivered At' },
         { label: 'Delivery Fee', align: 'right' },
@@ -60,7 +60,7 @@ export default function DeliveryEarnings() {
         { label: 'Status' },
       ],
       rows: delivered.map((assignment) => [
-        assignment.vendor_order_number || assignment.id,
+        assignment.order_number || assignment.vendor_order_number || assignment.id,
         assignment.recipient_name || '',
         formatDateTime(assignment.delivered_at),
         money(assignment.delivery_fee),
@@ -211,7 +211,7 @@ export default function DeliveryEarnings() {
                   <DollarSign size={16} />
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="font-bold text-sm text-ink truncate">{a.vendor_order_number || a.id}</div>
+                  <div className="font-bold text-sm text-ink truncate">#{a.order_number || a.vendor_order_number || a.id}</div>
                   <div className="muted text-xs mt-0.5 truncate">{a.delivered_at ? formatDateTime(a.delivered_at) : '—'} · {a.recipient_name || '—'}</div>
                 </div>
                 <div className="flex items-center gap-3">

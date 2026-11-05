@@ -229,7 +229,7 @@ export default function DeliveryAvailableJobs() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
                   <div>
                     <span style={{ fontSize: 14, fontWeight: 900, color: 'var(--ink)' }}>
-                      #{job.vendor_order_number}
+                      #{job.order_number || job.vendor_order_number}
                     </span>
                     <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>
                       Ready {job.ready_at ? timeAgo(job.ready_at) : 'recently'}

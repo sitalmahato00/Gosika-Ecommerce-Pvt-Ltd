@@ -133,7 +133,7 @@ export default function DeliveryPickupTasks() {
       >
         {confirmAccept && (
           <div className="card" style={{ background: 'var(--bg)', padding: 12, margin: 0 }}>
-            <div className="font-bold text-sm text-ink">{confirmAccept.vendor_order_number}</div>
+            <div className="font-bold text-sm text-ink">Order #{confirmAccept.order_number || confirmAccept.vendor_order_number}</div>
             <div className="muted text-xs mt-0.5">
               {confirmAccept.recipient_name} · {money(confirmAccept.delivery_fee)}
             </div>

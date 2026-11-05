@@ -132,11 +132,11 @@ export default function DeliveryDetail() {
               <ArrowLeft size={12} /> Deliveries
             </Link>
             <h1 style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink)', margin: 0 }}>
-              Delivery {a.vendor_order_number || a.id}
+              Delivery #{a.order_number || a.vendor_order_number || a.id}
             </h1>
           </div>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
-            Order #{a.vendor_order_number || '—'} · Assigned {a.assigned_at ? formatDateTime(a.assigned_at) : '—'}
+            Order #{a.order_number || a.vendor_order_number || '—'} · Assigned {a.assigned_at ? formatDateTime(a.assigned_at) : '—'}
           </p>
         </div>
         <DeliveryStatusBadge status={a.status} />
@@ -177,7 +177,7 @@ export default function DeliveryDetail() {
       <DeliveryRouteMap
         pickup={{
           address: a.pickup_address,
-          name: a.vendor_order_number ? `Order ${a.vendor_order_number}` : 'Merchant Store',
+          name: a.order_number ? `Order ${a.order_number}` : 'Merchant Store',
           lat: a.pickup_coordinates?.lat,
           lng: a.pickup_coordinates?.lng,
         }}

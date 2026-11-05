@@ -157,7 +157,7 @@ export default function VendorCommission() {
                   const refund = Number(o.refund_total || 0)
                   return (
                     <tr key={o.id}>
-                      <td className="font-medium" style={{ fontSize: 13 }}>{o.vendor_order_number}</td>
+                      <td className="font-medium" style={{ fontSize: 13 }}>#{o.order_number || o.vendor_order_number}</td>
                       <td style={{ textAlign: 'right' }}>{money(gross)}</td>
                       <td style={{ textAlign: 'right' }} className="text-danger">-{money(discount)}</td>
                       <td style={{ textAlign: 'right' }} className="font-medium">{money(eligible)}</td>
