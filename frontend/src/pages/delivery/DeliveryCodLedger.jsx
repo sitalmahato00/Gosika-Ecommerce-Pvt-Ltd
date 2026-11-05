@@ -43,7 +43,7 @@ export default function DeliveryCodLedger() {
   const codEntries = useMemo(
     () =>
       (history.data ?? [])
-        .filter((a) => Number(a.cod_amount || 0) > 0)
+        .filter((a) => Number(a.original_cod_amount ?? a.cod_amount ?? 0) > 0)
         .sort((a, b) => new Date(b.delivered_at || 0) - new Date(a.delivered_at || 0)),
     [history.data],
   )
@@ -56,16 +56,20 @@ export default function DeliveryCodLedger() {
         { label: 'Order #' },
         { label: 'Recipient' },
         { label: 'Delivered At' },
-        { label: 'COD Collected', align: 'right' },
+        { label: 'Original COD', align: 'right' },
+        { label: 'Refunded', align: 'right' },
+        { label: 'COD to Remit', align: 'right' },
       ],
       rows: codEntries.map((assignment) => [
         assignment.order_number || assignment.vendor_order_number || assignment.id,
         assignment.recipient_name || '',
         formatDateTime(assignment.delivered_at),
+        money(assignment.original_cod_amount ?? assignment.cod_amount),
+        money(assignment.refunded_amount),
         money(assignment.cod_amount),
       ]),
       title: 'Delivery COD Collection Report',
-      subtitle: 'Cash collected on delivered COD orders matching the selected filters.',
+      subtitle: 'COD due to the hub after completed refunds for delivered orders matching the selected filters.',
       sectionLabel: 'Filtered COD Collections',
       fileName: `gosika_delivery_cod_collection_${new Date().toISOString().slice(0, 10)}`,
       rangeLabel: appliedDates.from || appliedDates.to
@@ -132,7 +136,7 @@ export default function DeliveryCodLedger() {
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
           <div className="flex items-center justify-between mb-2">
             <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em' }}>
-              COD collected in selected period
+              COD to remit after refunds
             </span>
             <span className="avatar" style={{ width: 34, height: 34, background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
               <Banknote size={18} />
@@ -157,7 +161,7 @@ export default function DeliveryCodLedger() {
         <p className="m-0 text-xs" style={{ color: '#92400e', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
           <Info size={14} style={{ color: '#d97706', flexShrink: 0, marginTop: 1 }} />
           <span>
-            Hand over collected COD cash to the GOSIKA dispatch hub at the end of your shift. Your ledger is reconciled against the orders you deliver.
+            Hand over COD cash due to the GOSIKA dispatch hub at the end of your shift. Completed refunds are deducted from the original COD amount.
           </span>
         </p>
       </div>
@@ -190,7 +194,21 @@ export default function DeliveryCodLedger() {
                   <div className="muted text-xs mt-0.5 truncate">{a.delivered_at ? formatDateTime(a.delivered_at) : '—'} · {a.recipient_name || '—'}</div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="font-bold text-sm" style={{ color: '#d97706' }}>{money(a.cod_amount)}</div>
+                  <div className="text-right">
+                    {Number(a.refunded_amount) > 0 && (
+                      <>
+                        <div style={{ color: '#dc2626', fontSize: 11, fontWeight: 700 }}>
+                          −{money(a.refunded_amount)} refunded
+                        </div>
+                        <div className="muted text-xs" style={{ textDecoration: 'line-through' }}>
+                          {money(a.original_cod_amount ?? a.cod_amount)}
+                        </div>
+                      </>
+                    )}
+                    <div className="font-bold text-sm" style={{ color: Number(a.refunded_amount) > 0 ? '#15803d' : '#d97706' }}>
+                      {money(a.cod_amount)}
+                    </div>
+                  </div>
                   <ChevronRight size={14} color="#94a3b8" />
                 </div>
               </Link>

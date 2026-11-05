@@ -11,6 +11,8 @@ class DeliveryAssignmentResource extends JsonResource
     {
         $safeMeta = (array) ($this->meta ?? []);
         unset($safeMeta['delivery_otp']);
+        $originalCodAmount = round((float) $this->cod_amount, 2);
+        $refundedAmount = round((float) ($this->refunded_amount ?? 0), 2);
 
         $dropoffCoords = null;
         $order = $this->vendorOrder?->order;
@@ -67,7 +69,9 @@ class DeliveryAssignmentResource extends JsonResource
             'delivery_partner' => new DeliveryPartnerResource($this->whenLoaded('deliveryPartner')),
             'status' => $this->status->value,
             'delivery_fee' => number_format((float) $this->delivery_fee, 2, '.', ''),
-            'cod_amount' => number_format((float) $this->cod_amount, 2, '.', ''),
+            'original_cod_amount' => number_format($originalCodAmount, 2, '.', ''),
+            'refunded_amount' => number_format($refundedAmount, 2, '.', ''),
+            'cod_amount' => number_format(max(0, $originalCodAmount - $refundedAmount), 2, '.', ''),
             'pickup_address' => $this->pickup_address,
             'dropoff_address' => $this->dropoff_address,
             'pickup_coordinates' => $pickupCoords,

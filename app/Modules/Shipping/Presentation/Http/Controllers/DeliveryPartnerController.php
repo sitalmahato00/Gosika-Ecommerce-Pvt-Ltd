@@ -5,6 +5,7 @@ namespace App\Modules\Shipping\Presentation\Http\Controllers;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
+use App\Modules\Payment\Infrastructure\Models\Refund;
 use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\ReturnStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
@@ -392,6 +393,12 @@ class DeliveryPartnerController extends Controller
 
         $query = $partner->assignments()
             ->with(['tracking', 'vendorOrder'])
+            ->addSelect([
+                'refunded_amount' => Refund::query()
+                    ->selectRaw('COALESCE(SUM(amount), 0)')
+                    ->whereColumn('refunds.vendor_order_id', 'delivery_assignments.vendor_order_id')
+                    ->where('status', 'refunded'),
+            ])
             ->whereIn('status', ['delivered', 'failed', 'returned_to_vendor'])
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($filters['search'] ?? null, function ($query, $search) {

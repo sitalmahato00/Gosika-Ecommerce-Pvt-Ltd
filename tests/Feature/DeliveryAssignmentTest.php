@@ -670,6 +670,13 @@ class DeliveryAssignmentTest extends TestCase
             'completed_at' => now(),
         ]);
 
+        $this->actingAs($this->riderUser1)
+            ->getJson('/api/v1/delivery-partner/history?status=delivered')
+            ->assertOk()
+            ->assertJsonPath('data.0.original_cod_amount', '2650.00')
+            ->assertJsonPath('data.0.refunded_amount', '650.00')
+            ->assertJsonPath('data.0.cod_amount', '2000.00');
+
         $this->actingAs($this->adminUser)
             ->getJson('/api/v1/admin/deliveries/cod-reconciliation?status=collected')
             ->assertOk()

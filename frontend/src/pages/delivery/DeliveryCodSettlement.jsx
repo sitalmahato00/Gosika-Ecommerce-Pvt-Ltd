@@ -43,7 +43,7 @@ export default function DeliveryCodSettlement() {
   const delivered = useMemo(
     () =>
       (history.data ?? [])
-        .filter((a) => Number(a.cod_amount || 0) > 0)
+        .filter((a) => Number(a.original_cod_amount ?? a.cod_amount ?? 0) > 0)
         .sort((a, b) => new Date(b.delivered_at || 0) - new Date(a.delivered_at || 0)),
     [history.data],
   )
@@ -55,6 +55,8 @@ export default function DeliveryCodSettlement() {
         order_number: a.order_number,
         recipient_name: a.recipient_name,
         cod: Number(a.cod_amount || 0),
+        originalCod: Number(a.original_cod_amount ?? a.cod_amount ?? 0),
+        refunded: Number(a.refunded_amount || 0),
         fee: Number(a.delivery_fee || 0),
         at: a.delivered_at,
       })),
@@ -77,18 +79,22 @@ export default function DeliveryCodSettlement() {
         { label: 'Order #' },
         { label: 'Recipient' },
         { label: 'Delivered At' },
-        { label: 'COD Collected', align: 'right' },
+        { label: 'Original COD', align: 'right' },
+        { label: 'Refunded', align: 'right' },
+        { label: 'COD to Remit', align: 'right' },
         { label: 'Delivery Fee', align: 'right' },
       ],
       rows: inPeriod.map((row) => [
         row.order_number || row.id,
         row.recipient_name || '',
         row.at ? formatDateTime(row.at) : '',
+        money(row.originalCod),
+        money(row.refunded),
         money(row.cod),
         money(row.fee),
       ]),
       title: 'Delivery COD Settlement Report',
-      subtitle: 'COD collected and delivery fees for delivered orders matching the selected filters.',
+      subtitle: 'COD due to the hub after completed refunds and delivery fees for delivered orders matching the selected filters.',
       sectionLabel: 'Filtered COD Settlement',
       fileName: `gosika_delivery_cod_settlement_${new Date().toISOString().slice(0, 10)}`,
       rangeLabel: appliedDates.from || appliedDates.to
@@ -123,7 +129,7 @@ export default function DeliveryCodSettlement() {
         <div className="page-header-left">
           <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink)' }}>COD Settlement</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
-            Your settlement breakdown — COD remitted to the hub, delivery fees you keep.
+            Your settlement breakdown — net COD remitted to the hub after refunds, plus delivery fees you keep.
           </p>
         </div>
         <div className="flex items-center gap-2 wrap">
@@ -154,7 +160,7 @@ export default function DeliveryCodSettlement() {
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
         <div className="card flex flex-col justify-between" style={{ padding: '16px 18px', margin: 0 }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em' }}>COD Remitted</span>
+            <span className="muted text-xs font-bold uppercase" style={{ letterSpacing: '0.04em' }}>COD to Remit</span>
             <span className="avatar" style={{ width: 34, height: 34, background: 'rgba(245, 158, 11, 0.12)', color: '#d97706' }}>
               <Wallet size={18} />
             </span>
@@ -219,8 +225,18 @@ export default function DeliveryCodSettlement() {
                   <div className="muted text-xs mt-0.5 truncate">{r.at ? formatDateTime(r.at) : '—'} · {r.recipient_name || '—'}</div>
                 </div>
                 <div className="text-right flex flex-col items-end" style={{ gap: 2 }}>
+                  {r.refunded > 0 && (
+                    <>
+                      <div style={{ color: '#dc2626', fontSize: 11, fontWeight: 700 }}>
+                        −{money(r.refunded)} refunded
+                      </div>
+                      <div className="muted text-xs" style={{ textDecoration: 'line-through' }}>
+                        {money(r.originalCod)}
+                      </div>
+                    </>
+                  )}
                   <div className="muted text-xs">
-                    COD <span style={{ color: '#d97706', fontWeight: 700 }}>{money(r.cod)}</span>
+                    COD to remit <span style={{ color: r.refunded > 0 ? '#15803d' : '#d97706', fontWeight: 700 }}>{money(r.cod)}</span>
                   </div>
                   <div className="font-bold text-sm" style={{ color: '#059669' }}>Fee {money(r.fee)}</div>
                 </div>
