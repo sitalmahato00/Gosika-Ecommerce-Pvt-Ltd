@@ -172,6 +172,82 @@ class PublicCatalogController extends Controller
         return Response::success(new ProductResource($product), 'Product retrieved.');
     }
 
+    public function suggestions(Request $request): JsonResponse
+    {
+        $q = $request->input('q', '');
+
+        // Return empty if query is missing or too short
+        if (! is_string($q) || mb_strlen(trim($q)) < 2) {
+            return Response::success([], 'Suggestions retrieved.');
+        }
+
+        $q = mb_substr(trim($q), 0, 100);
+        $cacheKey = 'search.suggestions.' . md5($q);
+
+        $data = Cache::remember($cacheKey, 60, function () use ($q) {
+            $results = [];
+
+            // Products — up to 4
+            $products = Product::query()
+                ->available()
+                ->where('name', 'like', '%' . $q . '%')
+                ->with('primaryImage')
+                ->select(['id', 'name', 'slug'])
+                ->orderBy('name')
+                ->limit(4)
+                ->get();
+
+            foreach ($products as $product) {
+                $results[] = [
+                    'type'  => 'product',
+                    'label' => $product->name,
+                    'slug'  => $product->slug,
+                    'image' => $product->primaryImage?->file_path ?? null,
+                ];
+            }
+
+            // Categories — up to 2
+            $categories = Category::query()
+                ->active()
+                ->where('name', 'like', '%' . $q . '%')
+                ->select(['id', 'name', 'slug', 'image'])
+                ->orderBy('name')
+                ->limit(2)
+                ->get();
+
+            foreach ($categories as $category) {
+                $results[] = [
+                    'type'  => 'category',
+                    'label' => $category->name,
+                    'slug'  => $category->slug,
+                    'image' => $category->image ?? null,
+                ];
+            }
+
+            // Brands — up to 2
+            $brands = Brand::query()
+                ->active()
+                ->where('name', 'like', '%' . $q . '%')
+                ->select(['id', 'name', 'slug', 'logo'])
+                ->orderBy('name')
+                ->limit(2)
+                ->get();
+
+            foreach ($brands as $brand) {
+                $results[] = [
+                    'type'  => 'brand',
+                    'label' => $brand->name,
+                    'slug'  => $brand->slug,
+                    'image' => $brand->logo ?? null,
+                ];
+            }
+
+            return $results;
+        });
+
+        return Response::success($data, 'Suggestions retrieved.');
+    }
+
     protected function paginatorMeta($paginator): array
     {
         return [

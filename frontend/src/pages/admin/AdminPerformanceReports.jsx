@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   FileBarChart, Download, RefreshCw, ShoppingBag, DollarSign, Percent,
   Users, Store, Truck, RotateCcw, TrendingUp, Layers, MapPin, CreditCard, CalendarRange, ChevronDown,
+  DatabaseBackup,
 } from 'lucide-react'
 import api from '../../api/client'
 import { useApi } from '../../hooks/useApi'
@@ -58,6 +59,54 @@ export default function AdminPerformanceReports() {
   const [exportScope, setExportScope] = useState('all')
   const [fromDate, setFromDate] = useState(() => rangeWindow('30d').from)
   const [toDate, setToDate] = useState(() => rangeWindow('30d').to)
+  const [csvMenuOpen, setCsvMenuOpen] = useState(false)
+  const [csvExporting, setCsvExporting] = useState(false)
+  const csvMenuRef = useRef(null)
+
+  // Close CSV dropdown when clicking outside
+  useEffect(() => {
+    if (!csvMenuOpen) return
+    const handler = (e) => {
+      if (csvMenuRef.current && !csvMenuRef.current.contains(e.target)) {
+        setCsvMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [csvMenuOpen])
+
+  const handleCsvExport = useCallback(async (type) => {
+    setCsvMenuOpen(false)
+    setCsvExporting(true)
+    try {
+      const token = localStorage.getItem('gosika_token')
+      // Map frontend 'year' range to backend '365d' equivalent — backend also supports 'year' now
+      const url = `/api/v1/admin/analytics/export/${type}?range=${range}`
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'text/csv',
+        },
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new Error(text || `HTTP ${res.status}`)
+      }
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `gosika-${type}-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(a.href)
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} CSV exported.`)
+    } catch (e) {
+      toast.error(`CSV export failed: ${e.message || 'Unknown error'}`)
+    } finally {
+      setCsvExporting(false)
+    }
+  }, [range, toast])
 
   useEffect(() => {
     const win = rangeWindow(range)
@@ -244,6 +293,59 @@ export default function AdminPerformanceReports() {
             <button type="button" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ff5500', border: 'none', borderRadius: 10, padding: '9px 16px', fontSize: 12.5, fontWeight: 800, color: '#fff', cursor: 'pointer', boxShadow: '0 6px 16px -6px rgba(255,85,0,0.6)' }}>
               <Download size={14} /> Export Report
             </button>
+
+            {/* CSV Export Dropdown */}
+            <div ref={csvMenuRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                disabled={csvExporting}
+                onClick={() => setCsvMenuOpen((o) => !o)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: '#0f172a', border: 'none', borderRadius: 10,
+                  padding: '9px 14px', fontSize: 12.5, fontWeight: 800,
+                  color: '#fff', cursor: csvExporting ? 'not-allowed' : 'pointer',
+                  opacity: csvExporting ? 0.65 : 1,
+                  boxShadow: '0 6px 16px -6px rgba(15,23,42,0.5)',
+                }}
+                title="Export raw data as CSV"
+              >
+                <DatabaseBackup size={14} />
+                {csvExporting ? 'Exporting…' : 'Export CSV'}
+                <ChevronDown size={12} style={{ marginLeft: 2, transition: 'transform 0.15s', transform: csvMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+              </button>
+              {csvMenuOpen && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100,
+                  background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
+                  boxShadow: '0 8px 24px -4px rgba(15,23,42,0.12)', minWidth: 200, overflow: 'hidden',
+                }}>
+                  {[
+                    { type: 'orders', label: 'Export Orders CSV', icon: ShoppingBag },
+                    { type: 'payouts', label: 'Export Payouts CSV', icon: DollarSign },
+                    { type: 'refunds', label: 'Export Refunds CSV', icon: RotateCcw },
+                  ].map(({ type, label, icon: Icon }) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => handleCsvExport(type)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 9,
+                        width: '100%', padding: '10px 16px',
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        fontSize: 12.5, fontWeight: 700, color: '#0f172a',
+                        textAlign: 'left', transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
+                    >
+                      <Icon size={14} color="#ff5500" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={async () => { await summary.reload(); toast.success('Report data refreshed.') }}

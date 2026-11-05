@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag, Heart, User, Search, Menu, Truck, MapPin,
   Store, ChevronDown, X, Bell, Phone, Package, LogOut,
-  UserCheck, LayoutDashboard, Settings, Flame, Clock, HelpCircle
+  UserCheck, LayoutDashboard, Settings, Flame, Clock, HelpCircle, Tag
 } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
@@ -47,7 +47,10 @@ export default function CustomerHeader() {
   const [accountOpen, setAccountOpen] = useState(false)
   const [categories, setCategories] = useState([])
   const [unreadNotif, setUnreadNotif] = useState(0)
+  const [suggestions, setSuggestions] = useState([])
+  const [suggestOpen, setSuggestOpen] = useState(false)
   const accountRef = useRef(null)
+  const suggestRef = useRef(null)
   const prevItemCount = useRef(itemCount)
 
   useEffect(() => {
@@ -81,8 +84,56 @@ export default function CustomerHeader() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Close suggestions dropdown on outside click
+  useEffect(() => {
+    function handler(e) {
+      if (suggestRef.current && !suggestRef.current.contains(e.target)) {
+        setSuggestOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Close suggestions on Escape key
+  useEffect(() => {
+    function handler(e) {
+      if (e.key === 'Escape') {
+        setSuggestOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
+
+  // Debounced suggestions fetch when q changes
+  useEffect(() => {
+    const trimmed = q.trim()
+    if (trimmed.length < 2) {
+      setSuggestions([])
+      setSuggestOpen(false)
+      return
+    }
+    const timer = setTimeout(() => {
+      api
+        .get('/products/suggestions', { params: { q: trimmed } })
+        .then((res) => {
+          const items = res.data?.data || []
+          setSuggestions(items)
+          setSuggestOpen(items.length > 0)
+        })
+        .catch(() => {
+          setSuggestions([])
+          setSuggestOpen(false)
+        })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [q])
+
   const submitSearch = (e) => {
     e.preventDefault()
+    setSuggestOpen(false)
+    setSuggestions([])
     const params = new URLSearchParams()
     if (q) params.set('search', q)
     if (catFilter) params.set('category', catFilter)
@@ -141,89 +192,192 @@ export default function CustomerHeader() {
         <Logo />
 
         {/* Search bar with Category dropdown — hidden on mobile */}
-        <form
+        <div
+          ref={suggestRef}
           className="search-bar hide-sm"
-          onSubmit={submitSearch}
-          role="search"
-          aria-label="Search products"
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            background: '#ffffff',
-            border: '1.5px solid #e2e8f0',
-            borderRadius: 8,
-            overflow: 'hidden',
-            height: 42,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-          }}
+          style={{ flex: 1, position: 'relative' }}
         >
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <select
-              className="search-cat-select"
-              value={catFilter}
-              onChange={(e) => setCatFilter(e.target.value)}
-              aria-label="Filter by category"
-              style={{
-                height: 42,
-                padding: '0 28px 0 14px',
-                border: 'none',
-                borderRight: '1.5px solid #e2e8f0',
-                background: '#f8fafc',
-                fontSize: 13,
-                fontWeight: 600,
-                color: '#334155',
-                cursor: 'pointer',
-                outline: 'none',
-                appearance: 'none'
-              }}
-            >
-              <option value="">All Categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.slug}>{c.name}</option>
-              ))}
-            </select>
-            <ChevronDown size={13} style={{ position: 'absolute', right: 10, pointerEvents: 'none', color: '#64748b' }} />
-          </div>
-
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search products, brands and more..."
+          <form
+            onSubmit={submitSearch}
+            role="search"
             aria-label="Search products"
             style={{
-              flex: 1,
-              border: 'none',
-              padding: '0 14px',
-              fontSize: 13.5,
-              outline: 'none',
-              background: 'transparent'
-            }}
-          />
-
-          <button
-            type="submit"
-            aria-label="Search"
-            style={{
-              background: '#ff5500',
-              color: '#ffffff',
-              border: 'none',
-              padding: '0 20px',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              height: '100%',
-              transition: 'background 0.15s'
+              background: '#ffffff',
+              border: '1.5px solid #e2e8f0',
+              borderRadius: 8,
+              overflow: 'hidden',
+              height: 42,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
             }}
           >
-            <Search size={15} />
-            <span className="hide-sm">Search</span>
-          </button>
-        </form>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <select
+                className="search-cat-select"
+                value={catFilter}
+                onChange={(e) => setCatFilter(e.target.value)}
+                aria-label="Filter by category"
+                style={{
+                  height: 42,
+                  padding: '0 28px 0 14px',
+                  border: 'none',
+                  borderRight: '1.5px solid #e2e8f0',
+                  background: '#f8fafc',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: '#334155',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  appearance: 'none'
+                }}
+              >
+                <option value="">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.slug}>{c.name}</option>
+                ))}
+              </select>
+              <ChevronDown size={13} style={{ position: 'absolute', right: 10, pointerEvents: 'none', color: '#64748b' }} />
+            </div>
+
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onFocus={() => { if (suggestions.length > 0) setSuggestOpen(true) }}
+              placeholder="Search products, brands and more..."
+              aria-label="Search products"
+              aria-autocomplete="list"
+              aria-expanded={suggestOpen}
+              style={{
+                flex: 1,
+                border: 'none',
+                padding: '0 14px',
+                fontSize: 13.5,
+                outline: 'none',
+                background: 'transparent'
+              }}
+            />
+
+            <button
+              type="submit"
+              aria-label="Search"
+              style={{
+                background: '#ff5500',
+                color: '#ffffff',
+                border: 'none',
+                padding: '0 20px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                height: '100%',
+                transition: 'background 0.15s'
+              }}
+            >
+              <Search size={15} />
+              <span className="hide-sm">Search</span>
+            </button>
+          </form>
+
+          {/* Autocomplete suggestions dropdown */}
+          {suggestOpen && suggestions.length > 0 && (
+            <div
+              role="listbox"
+              aria-label="Search suggestions"
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 6px)',
+                left: 0,
+                right: 0,
+                zIndex: 9999,
+                background: '#ffffff',
+                borderRadius: 12,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
+                border: '1px solid #e2e8f0',
+                overflow: 'hidden'
+              }}
+            >
+              {suggestions.map((item, idx) => {
+                const Icon =
+                  item.type === 'product'
+                    ? ShoppingBag
+                    : item.type === 'brand'
+                    ? Store
+                    : Tag
+                const href =
+                  item.type === 'product'
+                    ? `/products/${item.slug}`
+                    : item.type === 'brand'
+                    ? `/search?brand=${item.slug}`
+                    : `/search?category=${item.slug}`
+
+                return (
+                  <button
+                    key={`${item.type}-${item.slug}-${idx}`}
+                    role="option"
+                    onClick={() => {
+                      setSuggestOpen(false)
+                      setSuggestions([])
+                      setQ('')
+                      navigate(href)
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      width: '100%',
+                      padding: '9px 14px',
+                      background: 'none',
+                      border: 'none',
+                      borderBottom: idx < suggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'background 0.1s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
+                  >
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 30,
+                        height: 30,
+                        borderRadius: 6,
+                        background: item.type === 'product' ? '#fff7f0' : item.type === 'brand' ? '#f0f7ff' : '#f0fff4',
+                        flexShrink: 0
+                      }}
+                    >
+                      {item.image ? (
+                        <img
+                          src={item.image.startsWith('http') ? item.image : `/storage/${item.image}`}
+                          alt=""
+                          style={{ width: 24, height: 24, objectFit: 'contain', borderRadius: 4 }}
+                          onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
+                        />
+                      ) : null}
+                      <Icon
+                        size={14}
+                        color={item.type === 'product' ? '#ff5500' : item.type === 'brand' ? '#3b82f6' : '#22c55e'}
+                        style={{ display: item.image ? 'none' : 'block' }}
+                      />
+                    </span>
+                    <span style={{ flex: 1, fontSize: 13.5, color: '#1e293b', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.label}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500, textTransform: 'capitalize', flexShrink: 0 }}>
+                      {item.type}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Header actions: Login / Wishlist / Cart */}
         <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>

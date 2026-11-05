@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Analytics\Presentation\Http\Controllers\AdminAnalyticsController;
+use App\Modules\Analytics\Presentation\Http\Controllers\AdminExportController;
 use App\Modules\Analytics\Presentation\Http\Controllers\VendorAnalyticsController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,6 +13,9 @@ Route::prefix('v1/admin/analytics')->middleware(['auth:sanctum', 'ensure:admin']
     Route::get('top-stores', [AdminAnalyticsController::class, 'topStores']);
     Route::get('category-share', [AdminAnalyticsController::class, 'categoryShare']);
     Route::get('provinces', [AdminAnalyticsController::class, 'provinceStats']);
+    Route::get('export/orders', [AdminExportController::class, 'orders']);
+    Route::get('export/payouts', [AdminExportController::class, 'payouts']);
+    Route::get('export/refunds', [AdminExportController::class, 'refunds']);
 });
 
 Route::prefix('v1/vendor/analytics')->middleware(['auth:sanctum', 'ensure:vendor'])->group(function () {
