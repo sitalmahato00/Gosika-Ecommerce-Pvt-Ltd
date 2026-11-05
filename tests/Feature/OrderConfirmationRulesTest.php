@@ -40,6 +40,7 @@ use App\Modules\Shipping\Infrastructure\Models\DeliveryPartner;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use App\Modules\Wallet\Application\Services\WalletService;
+use App\Modules\Wallet\Infrastructure\Models\VendorWallet;
 use App\Modules\Wallet\Infrastructure\Models\WalletTransaction;
 use Carbon\Carbon;
 use Database\Seeders\RolePermissionSeeder;
@@ -1259,5 +1260,53 @@ class OrderConfirmationRulesTest extends TestCase
             'balance_before' => 2300,
             'balance_after' => 2200,
         ]);
+    }
+
+    public function test_completed_refund_is_deducted_once_from_pending_then_available_wallet_balance(): void
+    {
+        [$order, $vendorOrder, $customer] = $this->createOrder(OrderStatus::DELIVERED, isCod: false);
+        $payment = Payment::create([
+            'payment_number' => 'PAY-'.strtoupper(Str::random(10)),
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'user_id' => $customer->id,
+            'amount' => 2500,
+            'currency' => 'NPR',
+            'method' => 'esewa',
+            'provider' => 'esewa',
+            'status' => PaymentStatus::PAID,
+            'initiated_at' => now(),
+            'verified_at' => now(),
+        ]);
+        $refund = Refund::create([
+            'refund_number' => 'REF-'.strtoupper(Str::random(8)),
+            'payment_id' => $payment->id,
+            'order_id' => $order->id,
+            'vendor_order_id' => $vendorOrder->id,
+            'amount' => 1200,
+            'status' => RefundStatus::REFUNDED,
+            'completed_at' => now(),
+        ]);
+        $wallet = VendorWallet::create([
+            'vendor_id' => $this->vendor->id,
+            'balance' => 1500,
+            'pending_balance' => 500,
+            'available_balance' => 1000,
+            'currency' => 'NPR',
+            'version' => 1,
+        ]);
+
+        $walletService = app(WalletService::class);
+        $walletService->debitRefund($refund);
+        $walletService->debitRefund($refund);
+
+        $this->assertSame('300.00', $wallet->fresh()->balance);
+        $this->assertSame('0.00', $wallet->fresh()->pending_balance);
+        $this->assertSame('300.00', $wallet->fresh()->available_balance);
+        $this->assertSame(1, WalletTransaction::query()
+            ->where('wallet_id', $wallet->id)
+            ->where('reference_type', 'refund')
+            ->where('reference_id', $refund->id)
+            ->count());
     }
 }

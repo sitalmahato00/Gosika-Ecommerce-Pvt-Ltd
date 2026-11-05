@@ -115,7 +115,7 @@ export default function VendorWallet() {
           { label: 'Balance After', align: 'right' },
         ],
         rows: rows.map((transaction) => {
-          const credit = String(transaction.transaction_type).startsWith('credit_') || Number(transaction.amount) > 0
+          const credit = String(transaction.transaction_type).startsWith('credit_')
           return [
             (transaction.transaction_type || '').replace(/_/g, ' '),
             transaction.description || '',
@@ -242,7 +242,7 @@ export default function VendorWallet() {
               </thead>
               <tbody>
                 {transactions.map((t) => {
-                  const isCredit = String(t.transaction_type).startsWith('credit_') || Number(t.amount) > 0
+                  const isCredit = String(t.transaction_type).startsWith('credit_')
                   return (
                     <tr key={t.id}>
                       <td>

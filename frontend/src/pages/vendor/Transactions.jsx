@@ -38,7 +38,7 @@ function typeIcon(type) {
 }
 
 function isCreditTransaction(t) {
-  return String(t.transaction_type).startsWith('credit_') || Number(t.amount) > 0
+  return String(t.transaction_type).startsWith('credit_')
 }
 
 export default function VendorTransactions() {

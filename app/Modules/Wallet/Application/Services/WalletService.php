@@ -144,8 +144,7 @@ class WalletService
 
                 $amount = (float) $refund->amount;
                 $this->mutate($wallet, function (VendorWallet $wallet) use ($amount) {
-                    $wallet->balance = round((float) $wallet->balance - $amount, 2);
-                    $wallet->pending_balance = round((float) $wallet->pending_balance - $amount, 2);
+                    $this->deductRefundBalances($wallet, $amount);
                 });
                 $this->ledger($wallet, WalletTransactionType::DEBIT_REFUND, $amount, [
                     'reference_type' => 'refund',
@@ -641,11 +640,7 @@ class WalletService
             $amount = (float) $refund->amount;
 
             $this->mutate($wallet, function (VendorWallet $wallet) use ($amount) {
-                $wallet->balance          = round((float) $wallet->balance - $amount, 2);
-                $wallet->pending_balance  = round(max(0, (float) $wallet->pending_balance - $amount), 2);
-                if ((float) $wallet->available_balance > 0) {
-                    $wallet->available_balance = round(max(0, (float) $wallet->available_balance - $amount), 2);
-                }
+                $this->deductRefundBalances($wallet, $amount);
             });
 
             $this->ledger($wallet, WalletTransactionType::DEBIT_REFUND, $amount, [
@@ -654,6 +649,20 @@ class WalletService
                 'description'    => 'Customer return refund '.$refund->refund_number,
             ]);
         });
+    }
+
+    protected function deductRefundBalances(VendorWallet $wallet, float $amount): void
+    {
+        $pending = (float) $wallet->pending_balance;
+        $available = (float) $wallet->available_balance;
+        $pendingDeduction = min(max(0, $pending), $amount);
+        $remaining = $amount - $pendingDeduction;
+        $availableDeduction = min(max(0, $available), $remaining);
+        $unfundedDeduction = $remaining - $availableDeduction;
+
+        $wallet->balance = round((float) $wallet->balance - $amount, 2);
+        $wallet->pending_balance = round($pending - $pendingDeduction - $unfundedDeduction, 2);
+        $wallet->available_balance = round($available - $availableDeduction, 2);
     }
 
     protected function lockWallet(int $vendorId): VendorWallet
