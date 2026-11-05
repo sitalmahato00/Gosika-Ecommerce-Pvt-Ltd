@@ -32,7 +32,7 @@ class VendorReturnController extends Controller
         $vendor = $this->vendorFor($request);
 
         $returns = ReturnRequest::query()
-            ->with($this->returnRelations(['user', 'orderItem', 'order.user']))
+            ->with($this->returnRelations(['user', 'orderItem.product.primaryImage', 'order.user']))
             ->where('vendor_id', $vendor->id)
             ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->input('request_type'), fn ($q, $t) => $q->where('request_type', $t))
@@ -63,7 +63,7 @@ class VendorReturnController extends Controller
     {
         $vendor = $this->vendorFor($request);
 
-        $relations = $this->returnRelations(['user', 'orderItem.product', 'order']);
+        $relations = $this->returnRelations(['user', 'orderItem.product.primaryImage', 'order']);
         if (Schema::hasTable('return_status_history') || Schema::hasTable('return_status_histories')) {
             $relations[] = 'statusHistory.changedBy';
         }
@@ -303,4 +303,3 @@ class VendorReturnController extends Controller
         }
     }
 }
-

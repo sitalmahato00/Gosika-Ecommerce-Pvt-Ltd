@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { MapPin, ArrowRight, Truck } from 'lucide-react'
 import api from '../../api/client'
 import StatusBadge from '../../components/commerce/StatusBadge'
-import { money, formatDateTime } from '../../utils/format'
+import { money, formatDateTime, apiImage, getProductImage, handleImgError } from '../../utils/format'
 import { AccountPage, AccountSection, AccountSkeleton, AccountEmpty, AccountError } from './AccountUI'
 
 const ACTIVE_STATUSES = ['confirmed', 'accepted', 'processing', 'preparing', 'ready_for_pickup', 'picked_up', 'out_for_delivery']
@@ -77,6 +77,17 @@ export default function AccountActiveOrders() {
                 <Link to={`/account/orders/${o.id}`} className="flex items-center gap-1.5" style={{ color: 'var(--primary)', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
                   <MapPin size={15} /> Track Order <ArrowRight size={14} />
                 </Link>
+              </div>
+              <div className="flex gap-2" style={{ overflow: 'hidden' }}>
+                {(o.items || []).slice(0, 5).map(item => (
+                  <img
+                    key={item.id}
+                    src={item.image ? apiImage(item.image) : getProductImage(null)}
+                    alt={item.product_name || 'Product'}
+                    onError={handleImgError}
+                    style={{ width: 48, height: 48, borderRadius: 7, objectFit: 'cover', border: '1px solid var(--border)' }}
+                  />
+                ))}
               </div>
             </div>
           ))}

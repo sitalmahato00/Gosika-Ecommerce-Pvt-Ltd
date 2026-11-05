@@ -829,7 +829,7 @@ class DeliveryService
 
     public function dispatchDetail(VendorOrder $vendorOrder): array
     {
-        $vendorOrder->load(['order.user', 'items', 'store', 'latestAssignment.deliveryPartner']);
+        $vendorOrder->load(['order.user', 'items.product.primaryImage', 'store', 'latestAssignment.deliveryPartner']);
 
         $order = $vendorOrder->order;
         $assignment = $vendorOrder->latestAssignment;
@@ -903,6 +903,7 @@ class DeliveryService
             ] : null,
             'items' => $vendorOrder->items->map(fn ($item) => [
                 'product_name' => $item->product_name,
+                'image' => $item->image ?: $item->product?->primaryImage?->file_path,
                 'quantity' => (int) $item->quantity,
                 'unit_price' => (float) $item->unit_price,
                 'line_total' => (float) $item->line_total,

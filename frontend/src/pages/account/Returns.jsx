@@ -19,7 +19,7 @@ import { Skeleton } from '../../components/ui/Skeleton'
 import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
-import { money, formatDate, formatDateTime, errorMessage, apiImage } from '../../utils/format'
+import { money, formatDate, formatDateTime, errorMessage, apiImage, getProductImage, handleImgError } from '../../utils/format'
 import { AccountPage } from './AccountUI'
 
 const REQUEST_TYPES = [
@@ -507,13 +507,12 @@ export default function Returns() {
 
                       <td style={{ maxWidth: 220 }}>
                         <div className="flex items-center gap-2">
-                          {r.product_image && (
-                            <img
-                              src={apiImage(r.product_image)}
-                              alt={r.product_name || 'Product'}
-                              style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
-                            />
-                          )}
+                          <img
+                            src={r.product_image ? apiImage(r.product_image) : getProductImage(null)}
+                            alt={r.product_name || 'Product'}
+                            onError={handleImgError}
+                            style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                          />
                           <div className="truncate">
                             <span className="font-medium text-sm text-ink truncate block">{r.product_name || '—'}</span>
                             <span className="muted text-xs">Qty: {r.quantity}</span>
@@ -1008,13 +1007,12 @@ export default function Returns() {
                 <div className="card" style={{ padding: 14 }}>
                   <div className="muted text-xs uppercase font-bold mb-2">Item Details</div>
                   <div className="flex items-center gap-3">
-                    {selectedReturn.product_image && (
-                      <img
-                        src={apiImage(selectedReturn.product_image)}
-                        alt={selectedReturn.product_name || 'Product'}
-                        style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }}
-                      />
-                    )}
+                    <img
+                      src={selectedReturn.product_image ? apiImage(selectedReturn.product_image) : getProductImage(null)}
+                      alt={selectedReturn.product_name || 'Product'}
+                      onError={handleImgError}
+                      style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }}
+                    />
                     <div className="flex-1">
                       <div className="font-bold text-sm text-ink">{selectedReturn.product_name || '—'}</div>
                       <div className="muted text-xs mt-0.5">
@@ -1048,7 +1046,7 @@ export default function Returns() {
                         {selectedReturn.media.map((m) => (
                           <a
                             key={m.id}
-                            href={m.url}
+                            href={apiImage(m.url || m.path)}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
@@ -1074,8 +1072,9 @@ export default function Returns() {
                               </div>
                             ) : (
                               <img
-                                src={m.url}
+                                src={apiImage(m.url || m.path)}
                                 alt={m.original_name || 'Evidence'}
+                                onError={handleImgError}
                                 style={{ width: 64, height: 64, objectFit: 'cover' }}
                               />
                             )}

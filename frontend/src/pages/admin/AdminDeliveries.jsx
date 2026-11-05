@@ -14,7 +14,7 @@ import Timeline from '../../components/admin/Timeline'
 import DeliveryStatusBadge from '../../components/delivery/DeliveryStatusBadge'
 import Modal from '../../components/ui/Modal'
 import Drawer from '../../components/ui/Drawer'
-import { money, formatDateTime, timeAgo } from '../../utils/format'
+import { money, formatDateTime, timeAgo, apiImage, getProductImage, handleImgError } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useBranding } from '../../context/BrandingContext'
 import { useAuth } from '../../context/AuthContext'
@@ -1091,9 +1091,12 @@ function detailContent(d, handlers) {
           {(d.items || []).map((item, idx) => (
             <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 0', borderBottom: idx < d.items.length - 1 ? '1px solid var(--border)' : 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, background: '#f1f5f9', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Boxes size={15} />
-                </div>
+                <img
+                  src={item.image ? apiImage(item.image) : getProductImage(null)}
+                  alt={item.product_name || 'Product'}
+                  onError={handleImgError}
+                  style={{ width: 42, height: 42, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
+                />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }} className="truncate">{item.product_name}</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)' }}>Qty {item.quantity}</div>

@@ -9,7 +9,7 @@ import PageHeader from '../../components/admin/PageHeader'
 import DataTable from '../../components/admin/DataTable'
 import FilterBar from '../../components/admin/FilterBar'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
-import { money, formatDateTime, timeAgo } from '../../utils/format'
+import { money, formatDateTime, timeAgo, apiImage, getProductImage, handleImgError } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 
 const maxRefundAmount = item => {
@@ -210,12 +210,22 @@ export default function AdminReturns() {
     {
       header: 'Product / Store',
       render: item => (
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 12.5, color: 'var(--ink)' }}>
-            {item.order_item?.product_name || item.orderItem?.product_name || 'Product'}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            Store: {item.store?.name || '—'} · Qty: {item.quantity || 1}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <img
+            src={item.order_item?.image || item.orderItem?.image || item.order_item?.product?.primary_image?.file_path || item.orderItem?.product?.primary_image?.file_path
+              ? apiImage(item.order_item?.image || item.orderItem?.image || item.order_item?.product?.primary_image?.file_path || item.orderItem?.product?.primary_image?.file_path)
+              : getProductImage(null)}
+            alt={item.order_item?.product_name || item.orderItem?.product_name || 'Product'}
+            onError={handleImgError}
+            style={{ width: 42, height: 42, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+          />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 12.5, color: 'var(--ink)' }}>
+              {item.order_item?.product_name || item.orderItem?.product_name || 'Product'}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+              Store: {item.store?.name || '—'} · Qty: {item.quantity || 1}
+            </div>
           </div>
         </div>
       )
@@ -500,7 +510,19 @@ export default function AdminReturns() {
                   <tbody>
                     {(detailOrder?.items || []).map(orderItem => (
                       <tr key={orderItem.uuid || orderItem.id}>
-                        <td>{orderItem.product_name || 'Product'}</td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={orderItem.image || orderItem.product?.primary_image?.file_path
+                                ? apiImage(orderItem.image || orderItem.product?.primary_image?.file_path)
+                                : getProductImage(null)}
+                              alt={orderItem.product_name || 'Product'}
+                              onError={handleImgError}
+                              style={{ width: 42, height: 42, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                            />
+                            <span>{orderItem.product_name || 'Product'}</span>
+                          </div>
+                        </td>
                         <td>{[orderItem.sku, orderItem.variant_name].filter(Boolean).join(' · ') || '—'}</td>
                         <td>{orderItem.quantity}</td>
                         <td>{money(orderItem.unit_price || 0)}</td>
@@ -538,11 +560,55 @@ export default function AdminReturns() {
               </div>
               <div className="card" style={{ padding: 14, margin: 0 }}>
                 <h3 className="font-bold text-sm mb-2 flex items-center gap-1"><RotateCcw size={14} /> Return request</h3>
-                <div className="text-sm"><strong>Item:</strong> {detailItem.order_item?.product_name || 'Product'} · Qty {detailItem.quantity || 1}</div>
-                <div className="text-sm"><strong>Reason:</strong> {detailItem.reason_type || '—'}</div>
-                <div className="muted text-sm mt-1">{detailItem.reason || 'No additional reason provided.'}</div>
-                <div className="text-sm mt-2"><strong>Pickup:</strong> {detailItem.pickup_collected_at ? `Collected ${formatDateTime(detailItem.pickup_collected_at)}` : 'Not collected'}</div>
-                {detailItem.review_notes && <div className="muted text-xs mt-1">{detailItem.review_notes}</div>}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                  <span className="chip chip-sm" style={{ color: '#9a3412', background: '#ffedd5', border: '1px solid #fdba74', fontWeight: 800 }}>
+                    Reason: {String(detailItem.reason_type || '—').replace(/_/g, ' ')}
+                  </span>
+                  <span className="chip chip-sm" style={{ color: '#1d4ed8', background: '#dbeafe', border: '1px solid #93c5fd', fontWeight: 800 }}>
+                    Quantity: {detailItem.quantity || 1}
+                  </span>
+                </div>
+                <div style={{ padding: 10, borderRadius: 8, background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                  <div className="text-xs font-bold" style={{ color: '#9a3412' }}>CUSTOMER EXPLANATION</div>
+                  <div className="text-sm mt-1" style={{ whiteSpace: 'pre-wrap' }}>{detailItem.reason || 'No additional explanation provided.'}</div>
+                </div>
+                <div className="text-sm mt-2"><strong>Preferred resolution:</strong> {detailItem.preferred_resolution || '—'}</div>
+                <div className="text-sm mt-1"><strong>Return method:</strong> {detailItem.return_method === 'pickup' ? 'Courier pickup' : detailItem.return_method === 'drop_off' ? 'Self drop-off' : '—'}</div>
+                <div className="text-sm mt-1"><strong>Pickup:</strong> {detailItem.pickup_collected_at ? `Collected ${formatDateTime(detailItem.pickup_collected_at)}` : 'Not collected'}</div>
+                {detailItem.pickup_instructions && <div className="text-sm mt-1"><strong>Pickup notes:</strong> {detailItem.pickup_instructions}</div>}
+                {detailItem.review_notes && (
+                  <div className="mt-2 p-2 rounded text-sm" style={{ background: '#f1f5f9', border: '1px solid var(--border)' }}>
+                    <strong>Review notes:</strong> {detailItem.review_notes}
+                  </div>
+                )}
+                <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                  <div className="text-xs font-bold uppercase mb-2">Customer photos / videos</div>
+                  {(detailItem.media || []).length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {detailItem.media.map(media => (
+                        <a
+                          key={media.id}
+                          href={apiImage(media.url || media.path)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={media.original_name || 'Return evidence'}
+                          style={{ width: 88, height: 88, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          {media.type === 'video' ? (
+                            <video src={apiImage(media.url || media.path)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <img
+                              src={apiImage(media.url || media.path)}
+                              alt={media.original_name || 'Return evidence'}
+                              onError={handleImgError}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  ) : <div className="muted text-sm">No photos or videos were attached.</div>}
+                </div>
               </div>
               <div className="card" style={{ padding: 14, margin: 0 }}>
                 <h3 className="font-bold text-sm mb-2 flex items-center gap-1"><AlertCircle size={14} /> Refunds</h3>

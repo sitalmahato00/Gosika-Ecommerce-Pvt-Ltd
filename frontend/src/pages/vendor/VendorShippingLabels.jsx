@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import {
-  Printer, FileText, X, Package, MapPin, Building2
+  Printer, FileText, X, MapPin, Building2
 } from 'lucide-react'
 import api from '../../api/client'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import EmptyState from '../../components/ui/EmptyState'
-import { money, formatDate, errorMessage } from '../../utils/format'
+import { money, formatDate, errorMessage, apiImage, getProductImage, handleImgError } from '../../utils/format'
 
 function Barcode({ value }) {
   const bars = []
@@ -63,6 +63,19 @@ function LabelSheet({ seller, store, order }) {
           <div>Total {money(order.grand_total)}</div>
         </div>
         <div className="muted" style={{ fontSize: 10 }}>Placed {formatDate(order.created_at)}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
+          {items.map(item => (
+            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 10 }}>
+              <img
+                src={item.image ? apiImage(item.image) : getProductImage(null)}
+                alt={item.product_name || 'Product'}
+                onError={handleImgError}
+                style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }}
+              />
+              <span>{item.product_name} · Qty {item.quantity}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div style={{ marginTop: 12 }}>
@@ -136,9 +149,12 @@ export default function VendorShippingLabels() {
             return (
               <div key={o.id} className="card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
-                  <span className="avatar" style={{ width: 42, height: 42, background: 'var(--primary-50)', color: 'var(--primary)', flexShrink: 0 }}>
-                    <Package size={20} />
-                  </span>
+                  <img
+                    src={o.items?.[0]?.image ? apiImage(o.items[0].image) : getProductImage(null)}
+                    alt={o.items?.[0]?.product_name || 'Product'}
+                    onError={handleImgError}
+                    style={{ width: 42, height: 42, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
+                  />
                   <div style={{ minWidth: 0 }}>
                     <div className="font-mono font-bold text-sm" style={{ color: 'var(--primary)' }}>#{o.order_number || o.vendor_order_number || o.id}</div>
                     <div className="muted text-xs mt-0.5 line-clamp-1">{addr?.name || 'Customer'} · {o.items?.length || 1} item({o.items?.length === 1 ? '' : 's'}) · {money(o.grand_total)}</div>

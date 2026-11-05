@@ -9,6 +9,7 @@ use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Order\Infrastructure\Models\ReturnRequest;
+use App\Modules\Order\Infrastructure\Models\ReturnRequestMedia;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
 use App\Modules\Shared\Domain\Enums\DeliveryPartnerStatus;
 use App\Modules\Shared\Domain\Enums\DeliveryStatus;
@@ -879,6 +880,7 @@ class DeliveryAssignmentTest extends TestCase
     {
         [$order, $vendorOrder] = $this->createTestOrder(OrderStatus::DELIVERED);
         $item = $order->items()->firstOrFail();
+        $item->update(['image' => 'products/return-evidence-product.jpg']);
         $assignment = DeliveryAssignment::create([
             'uuid' => (string) Str::uuid(),
             'vendor_order_id' => $vendorOrder->id,
@@ -904,6 +906,15 @@ class DeliveryAssignmentTest extends TestCase
             'quantity' => 1,
             'status' => ReturnStatus::REQUESTED,
         ]);
+        ReturnRequestMedia::create([
+            'return_request_id' => $return->id,
+            'type' => 'photo',
+            'path' => "returns/{$return->id}/media/evidence.jpg",
+            'mime_type' => 'image/jpeg',
+            'size' => 2048,
+            'original_name' => 'evidence.jpg',
+            'uploaded_by' => $order->user_id,
+        ]);
 
         $this->actingAs($this->riderUser1)
             ->getJson('/api/v1/delivery-partner/returns')
@@ -925,6 +936,8 @@ class DeliveryAssignmentTest extends TestCase
             ->getJson('/api/v1/admin/orders/returns')
             ->assertOk()
             ->assertJsonPath('data.0.order.items.0.product_name', $item->product_name)
+            ->assertJsonPath('data.0.order.items.0.image', 'products/return-evidence-product.jpg')
+            ->assertJsonPath('data.0.media.0.url', "/storage/returns/{$return->id}/media/evidence.jpg")
             ->assertJsonPath('data.0.vendor_order.assignments.0.delivery_partner.name', $this->rider1->name);
 
         $this->actingAs($this->riderUser2)

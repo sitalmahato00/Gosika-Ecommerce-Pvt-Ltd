@@ -51,7 +51,7 @@ class CustomerReturnResource extends JsonResource
 
             // Product / order
             'product_name'        => $this->orderItem?->product_name,
-            'product_image'       => $this->orderItem?->image,
+            'product_image'       => $this->orderItem?->image ?? $this->orderItem?->product?->primaryImage?->file_path,
             'order_id'            => $this->order?->uuid,
             'order_number'        => $this->order?->order_number,
 

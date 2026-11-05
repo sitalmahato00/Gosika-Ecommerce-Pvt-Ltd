@@ -16,7 +16,7 @@ import FilterBar from '../../components/admin/FilterBar'
 import ExportScopeNote from '../../components/admin/ExportScopeNote'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
-import { money, formatDateTime, errorMessage } from '../../utils/format'
+import { money, formatDateTime, errorMessage, apiImage, getProductImage, handleImgError } from '../../utils/format'
 
 const STATUS_TABS = [
   { value: '', label: 'All Orders' },
@@ -279,12 +279,20 @@ export default function VendorOrders({ view = 'all' }) {
                     </td>
 
                     <td className="text-sm">
-                      <div className="font-medium text-ink">
-                        {o.items?.[0]?.product_name || `${o.items?.length || 1} Item`}
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={o.items?.[0]?.image ? apiImage(o.items[0].image) : getProductImage(null)}
+                          alt={o.items?.[0]?.product_name || 'Product'}
+                          onError={handleImgError}
+                          style={{ width: 38, height: 38, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                        />
+                        <div className="font-medium text-ink">
+                          {o.items?.[0]?.product_name || `${o.items?.length || 1} Item`}
+                          {o.items?.length > 1 && (
+                            <div className="muted text-xs">+{o.items.length - 1} other item(s)</div>
+                          )}
+                        </div>
                       </div>
-                      {o.items?.length > 1 && (
-                        <div className="muted text-xs">+{o.items.length - 1} other item(s)</div>
-                      )}
                     </td>
 
                     <td className="font-bold text-sm" style={{ color: 'var(--ink)' }}>

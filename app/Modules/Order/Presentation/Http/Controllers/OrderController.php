@@ -36,7 +36,7 @@ class OrderController extends Controller
             ->where('user_id', $request->user()->id)
             ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
             ->with([
-                'items.product',
+                'items.product.primaryImage',
                 'items.variant',
                 'items.returnRequests',
                 'items.vendorOrder',

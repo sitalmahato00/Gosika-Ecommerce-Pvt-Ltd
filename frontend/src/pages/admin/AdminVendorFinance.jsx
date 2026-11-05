@@ -9,7 +9,7 @@ import {
 import api from '../../api/client'
 import PageHeader from '../../components/admin/PageHeader'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
-import { money, formatDate, formatDateTime, timeAgo } from '../../utils/format'
+import { money, formatDate, formatDateTime, timeAgo, apiImage, getProductImage, handleImgError } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useBranding } from '../../context/BrandingContext'
 import { useAuth } from '../../context/AuthContext'
@@ -648,7 +648,17 @@ export default function AdminVendorFinance() {
                                 <tbody>
                                   {o.items.map((it, idx) => (
                                     <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                      <td style={{ padding: '5px 10px', fontWeight: 600, color: 'var(--ink)' }}>{it.product_name}</td>
+                                      <td style={{ padding: '5px 10px', fontWeight: 600, color: 'var(--ink)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                          <img
+                                            src={it.image ? apiImage(it.image) : getProductImage(null)}
+                                            alt={it.product_name || 'Product'}
+                                            onError={handleImgError}
+                                            style={{ width: 36, height: 36, borderRadius: 5, objectFit: 'cover', flexShrink: 0 }}
+                                          />
+                                          <span>{it.product_name}</span>
+                                        </div>
+                                      </td>
                                       <td style={{ padding: '5px 10px', color: 'var(--muted)', fontFamily: 'monospace', fontSize: 11 }}>{it.sku || '—'}</td>
                                       <td style={{ padding: '5px 10px', textAlign: 'center' }}>{it.quantity}</td>
                                       <td style={{ padding: '5px 10px', textAlign: 'right' }}>{money(it.unit_price)}</td>

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Modules\Catalog\Infrastructure\Models\Product;
+use App\Modules\Catalog\Infrastructure\Models\ProductImage;
 use App\Modules\Identity\Domain\Roles;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Marketing\Application\Mail\OrderConfirmationMail;
@@ -666,6 +667,24 @@ class OrderConfirmationRulesTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonPath('message', 'The return and refund window for this order has expired.');
+    }
+
+    public function test_order_items_use_product_primary_image_when_the_order_snapshot_is_empty(): void
+    {
+        [$order] = $this->createOrder(OrderStatus::DELIVERED);
+        $item = $order->items()->firstOrFail();
+        $item->update(['image' => null]);
+
+        ProductImage::create([
+            'product_id' => $item->product_id,
+            'file_path' => 'products/primary-fallback.jpg',
+            'is_primary' => true,
+        ]);
+
+        $this->actingAs($order->user)
+            ->getJson('/api/v1/orders/'.$order->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.items.0.image', url('/storage/products/primary-fallback.jpg'));
     }
 
     public function test_only_delivered_orders_are_eligible_for_return_requests(): void

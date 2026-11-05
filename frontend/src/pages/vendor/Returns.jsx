@@ -16,7 +16,7 @@ import Button from '../../components/ui/Button'
 import { Skeleton } from '../../components/ui/Skeleton'
 import Pagination from '../../components/ui/Pagination'
 import { useToast } from '../../context/ToastContext'
-import { money, formatDateTime, errorMessage, apiImage } from '../../utils/format'
+import { money, formatDateTime, errorMessage, apiImage, getProductImage, handleImgError } from '../../utils/format'
 
 const RETURN_REASONS = {
   wrong_item: 'Wrong item received',
@@ -404,13 +404,12 @@ export default function VendorReturns() {
 
                     <td style={{ maxWidth: 220 }}>
                       <div className="flex items-center gap-2">
-                        {r.product_image && (
-                          <img
-                            src={apiImage(r.product_image)}
-                            alt={r.product_name || 'Product'}
-                            style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
-                          />
-                        )}
+                        <img
+                          src={r.product_image ? apiImage(r.product_image) : getProductImage(null)}
+                          alt={r.product_name || 'Product'}
+                          onError={handleImgError}
+                          style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                        />
                         <div className="truncate">
                           <div className="font-medium text-sm text-ink truncate">{r.product_name || '—'}</div>
                           <div className="muted text-xs">Qty: {r.quantity}</div>
@@ -502,13 +501,12 @@ export default function VendorReturns() {
             {/* Product & Claim */}
             <div className="card" style={{ padding: 14 }}>
               <div className="flex items-center gap-3">
-                {selected.product_image && (
-                  <img
-                    src={apiImage(selected.product_image)}
-                    alt={selected.product_name}
-                    style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }}
-                  />
-                )}
+                <img
+                  src={selected.product_image ? apiImage(selected.product_image) : getProductImage(null)}
+                  alt={selected.product_name || 'Product'}
+                  onError={handleImgError}
+                  style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }}
+                />
                 <div>
                   <div className="font-bold text-sm text-ink">{selected.product_name}</div>
                   <div className="muted text-xs">Quantity: {selected.quantity}</div>
@@ -531,7 +529,7 @@ export default function VendorReturns() {
                     {selected.media.map((m) => (
                       <a
                         key={m.id}
-                        href={m.url}
+                        href={apiImage(m.url || m.path)}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}
@@ -541,7 +539,7 @@ export default function VendorReturns() {
                             <Video size={18} />
                           </div>
                         ) : (
-                          <img src={m.url} alt="Proof" style={{ width: 60, height: 60, objectFit: 'cover' }} />
+                          <img src={apiImage(m.url || m.path)} alt="Proof" onError={handleImgError} style={{ width: 60, height: 60, objectFit: 'cover' }} />
                         )}
                       </a>
                     ))}

@@ -12,7 +12,7 @@ import StatusBadge from '../../components/commerce/StatusBadge'
 import Timeline from '../../components/admin/Timeline'
 import { Skeleton } from '../../components/ui/Skeleton'
 import ErrorState from '../../components/admin/ErrorState'
-import { money, formatDateTime } from '../../utils/format'
+import { money, formatDateTime, apiImage, getProductImage, handleImgError } from '../../utils/format'
 import { qrDataUrl, orderTrackUrl } from '../../utils/qr'
 import { useToast } from '../../context/ToastContext'
 
@@ -614,7 +614,17 @@ export default function AdminOrderDetail() {
                   <tbody>
                     {(order.items || []).map((it, idx) => (
                       <tr key={idx}>
-                        <td style={{ fontWeight: 600, fontSize: 13 }}>{it.product_name || it.name}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <img
+                              src={it.image ? apiImage(it.image) : getProductImage(null)}
+                              alt={it.product_name || it.name || 'Product'}
+                              onError={handleImgError}
+                              style={{ width: 42, height: 42, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                            />
+                            <span style={{ fontWeight: 600, fontSize: 13 }}>{it.product_name || it.name}</span>
+                          </div>
+                        </td>
                         <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{it.sku || '—'}</td>
                         <td style={{ textAlign: 'right' }}>{money(it.unit_price || it.price)}</td>
                         <td style={{ textAlign: 'right', fontWeight: 700 }}>{it.quantity}</td>
@@ -728,11 +738,21 @@ export default function AdminOrderDetail() {
                             {items.map((it, itIdx) => (
                               <tr key={it.id || itIdx}>
                                 <td>
-                                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>
-                                    {it.product_name || it.name}
-                                  </div>
-                                  <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                                    SKU: {it.sku || '—'}{it.variant_name ? ` · ${it.variant_name}` : ''}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <img
+                                      src={it.image ? apiImage(it.image) : getProductImage(null)}
+                                      alt={it.product_name || it.name || 'Product'}
+                                      onError={handleImgError}
+                                      style={{ width: 42, height: 42, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                                    />
+                                    <div>
+                                      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>
+                                        {it.product_name || it.name}
+                                      </div>
+                                      <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                                        SKU: {it.sku || '—'}{it.variant_name ? ` · ${it.variant_name}` : ''}
+                                      </div>
+                                    </div>
                                   </div>
                                 </td>
                                 <td style={{ textAlign: 'right' }}>{money(it.unit_price || it.price)}</td>

@@ -24,6 +24,7 @@ use App\Modules\Shared\Presentation\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class AdminOrderController extends Controller
@@ -53,7 +54,7 @@ class AdminOrderController extends Controller
             ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
             ->with([
                 'user',
-                'items',
+                'items.product.primaryImage',
                 'vendorOrders' => fn ($query) => $query
                     ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount'),
             ])
@@ -98,7 +99,7 @@ class AdminOrderController extends Controller
                 'items',
                 'vendorOrders' => fn ($query) => $query
                     ->withSum(['refunds as refunded_amount' => fn ($refunds) => $refunds->where('status', 'refunded')], 'amount')
-                    ->with(['items', 'store', 'assignments.deliveryPartner']),
+                    ->with(['items.product.primaryImage', 'store', 'assignments.deliveryPartner']),
                 'payments',
                 'shippingAddress',
             ])
@@ -119,7 +120,7 @@ class AdminOrderController extends Controller
         $query = ReturnRequest::query()
             ->with([
                 'user',
-                'order.items',
+                'order.items.product.primaryImage',
                 'order.payments',
                 'order.shippingAddress.municipality',
                 'order.shippingAddress.district',
@@ -128,7 +129,7 @@ class AdminOrderController extends Controller
                 'order.vendorOrders.assignments.deliveryPartner.user',
                 'vendorOrder.store',
                 'vendorOrder.assignments.deliveryPartner.user',
-                'orderItem',
+                'orderItem.product.primaryImage',
                 'store',
                 'refunds',
             ])
@@ -148,12 +149,31 @@ class AdminOrderController extends Controller
             })
             ->orderByDesc('created_at');
 
+        if (Schema::hasTable('return_request_media')) {
+            $query->with('media');
+        }
+
         ListingDateRange::apply($query, $request, 'created_at');
 
         $returns = $query->paginate(min(max($request->integer('per_page', 20), 1), 100))->withQueryString();
+        $returnData = $returns->getCollection()->map(function (ReturnRequest $return): array {
+            $data = $return->toArray();
+            $data['media'] = $return->relationLoaded('media')
+                ? $return->media->map(fn ($media) => [
+                    'id' => $media->uuid,
+                    'type' => $media->type,
+                    'url' => $media->url,
+                    'mime_type' => $media->mime_type,
+                    'original_name' => $media->original_name,
+                    'size' => $media->size,
+                ])->values()->all()
+                : [];
+
+            return $data;
+        })->all();
 
         return Response::success(
-            $returns->items(),
+            $returnData,
             'Return requests retrieved.',
             ['pagination' => [
                 'total' => $returns->total(),

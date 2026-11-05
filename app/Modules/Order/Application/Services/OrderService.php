@@ -37,7 +37,7 @@ class OrderService
     {
         return Order::query()
             ->where('user_id', $user->id)
-            ->with(['items.product', 'items.variant', 'items.returnRequests', 'items.vendorOrder'])
+            ->with(['items.product.primaryImage', 'items.variant', 'items.returnRequests', 'items.vendorOrder'])
             ->orderByDesc('created_at')
             ->get();
     }
@@ -49,7 +49,7 @@ class OrderService
             ->where('uuid', $uuid)
             ->withSum(['refunds as refunded_amount' => fn ($query) => $query->where('status', 'refunded')], 'amount')
             ->with([
-                'items.product',
+                'items.product.primaryImage',
                 'items.variant',
                 'items.returnRequests',
                 'items.vendorOrder',

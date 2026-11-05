@@ -26,7 +26,7 @@ class CustomerReturnController extends Controller
     public function index(Request $request): JsonResponse
     {
         $returns = ReturnRequest::query()
-            ->with($this->returnRelations(['orderItem.product', 'order']))
+            ->with($this->returnRelations(['orderItem.product.primaryImage', 'order']))
             ->where('user_id', $request->user()->id)
             ->when($request->filled('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->filled('request_type'), fn ($q) => $q->where('request_type', $request->input('request_type')))
@@ -61,7 +61,7 @@ class CustomerReturnController extends Controller
 
     public function show(Request $request, string $returnId): JsonResponse
     {
-        $relations = $this->returnRelations(['orderItem.product', 'order', 'refunds']);
+        $relations = $this->returnRelations(['orderItem.product.primaryImage', 'order', 'refunds']);
         if (Schema::hasTable('return_status_history') || Schema::hasTable('return_status_histories')) {
             $relations[] = 'statusHistory.changedBy';
         }
@@ -227,4 +227,3 @@ class CustomerReturnController extends Controller
         }
     }
 }
-
