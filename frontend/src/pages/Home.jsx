@@ -2,318 +2,77 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Truck, ShieldCheck, RotateCcw, Headphones, ArrowRight,
-  Sparkles, Flame, Star,
-  ChevronRight, Check, Send, BadgeCheck
+  Sparkles, Flame, Send, TrendingUp, Package, Store, Award
 } from 'lucide-react'
 import api from '../api/client'
 import ProductCard, { ProductCardSkeletonMini } from '../components/commerce/ProductCard'
 import ProductQuickView from '../components/commerce/ProductQuickView'
 import { useToast } from '../context/ToastContext'
 import { getCategoryIcon } from '../utils/icons'
-import { apiImage } from '../utils/format'
-
-// Countdown timer hook for Flash Deals banner
-function useCountdown(initialSeconds = 2 * 86400 + 14 * 3600 + 38 * 60 + 45) {
-  const [seconds, setSeconds] = useState(initialSeconds)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSeconds((prev) => (prev > 0 ? prev - 1 : initialSeconds))
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [initialSeconds])
-
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.floor((seconds % 86400) / 3600)
-  const mins = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
-
-  return {
-    days: String(days).padStart(2, '0'),
-    hours: String(hours).padStart(2, '0'),
-    mins: String(mins).padStart(2, '0'),
-    secs: String(secs).padStart(2, '0'),
-  }
-}
-
-// 4 Pastel Promo Banners (Trending Now)
-const PASTEL_PROMOS = [
-  {
-    title: 'Up to 40% Off',
-    subtitle: 'Latest models & accessories',
-    badge: 'Smartphones',
-    badgeBg: '#dbeafe',
-    badgeColor: '#1e40af',
-    bg: '#eff6ff',
-    border: '#dbeafe',
-    ctaColor: '#2563eb',
-    categoryTerms: ['smartphone', 'mobile', 'electronic'],
-    image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&q=80',
-  },
-  {
-    title: 'From रु 499',
-    subtitle: 'Modern appliances & tools',
-    badge: 'Kitchen Essentials',
-    badgeBg: '#dcfce7',
-    badgeColor: '#166534',
-    bg: '#f0fdf4',
-    border: '#dcfce7',
-    ctaColor: '#16a34a',
-    categoryTerms: ['home', 'kitchen', 'living'],
-    image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=500&q=80',
-  },
-  {
-    title: 'Flat 50% Off',
-    subtitle: 'Trending styles this season',
-    badge: 'Fashion Sale',
-    badgeBg: '#ede9fe',
-    badgeColor: '#5b21b6',
-    bg: '#f5f3ff',
-    border: '#ede9fe',
-    ctaColor: '#7c3aed',
-    categoryTerms: ['fashion', 'apparel', 'clothing'],
-    image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&q=80',
-  },
-  {
-    title: 'Min 30% Off',
-    subtitle: 'Skincare & cosmetics',
-    badge: 'Beauty Store',
-    badgeBg: '#fce7f3',
-    badgeColor: '#9d174d',
-    bg: '#fdf2f8',
-    border: '#fce7f3',
-    ctaColor: '#db2777',
-    categoryTerms: ['beauty', 'care', 'cosmetic'],
-    image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=500&q=80',
-  },
-]
-
-const CATEGORY_IMAGES = [
-  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=300&q=80',
-  'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=300&q=80',
-  'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?w=300&q=80',
-  'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=300&q=80',
-  'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=300&q=80',
-  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&q=80',
-  'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&q=80',
-  'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&q=80',
-]
+import { apiImage, getProductImage, handleImgError, errorMessage, IMG_PLACEHOLDER } from '../utils/format'
 
 // 4 Clean Trust Cards
 const TRUST_PERKS = [
-  { icon: Truck, title: 'Fast Delivery', desc: 'Across all 77 districts' },
-  { icon: ShieldCheck, title: 'Secure Payment', desc: '100% secure checkout' },
-  { icon: RotateCcw, title: 'Easy Returns', desc: '7 days return policy' },
-  { icon: Headphones, title: 'Customer Support', desc: 'Dedicated 24/7 support' },
+  { icon: Truck, title: 'Free Delivery', desc: 'On all orders' },
+  { icon: ShieldCheck, title: 'Secure Payment', desc: '100% Safe' },
+  { icon: Headphones, title: '24/7 Support', desc: 'Always Here' },
+  { icon: RotateCcw, title: 'Easy Returns', desc: 'Hassle Free' },
 ]
 
-// Fallback high-fidelity products ensuring exact visual match if backend has fewer items
-const FALLBACK_DEALS = [
-  {
-    id: 101,
-    name: 'Wireless Noise Cancelling Headphones',
-    price: 4999,
-    compare_at_price: 6999,
-    rating_avg: 4.9,
-    rating_count: 84,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&q=80',
-    brand: { name: 'Sony' },
-  },
-  {
-    id: 102,
-    name: 'Ultra Smart Watch Pro Series 8',
-    price: 3499,
-    compare_at_price: 4999,
-    rating_avg: 4.8,
-    rating_count: 62,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80',
-    brand: { name: 'Apple' },
-  },
-  {
-    id: 103,
-    name: 'Classic Minimalist Leather Backpack',
-    price: 2799,
-    compare_at_price: 3899,
-    rating_avg: 4.7,
-    rating_count: 45,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500&q=80',
-    brand: { name: 'Gosika Origin' },
-  },
-  {
-    id: 104,
-    name: 'True Wireless Bluetooth Earbuds 5.3',
-    price: 1899,
-    compare_at_price: 2999,
-    rating_avg: 4.8,
-    rating_count: 110,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&q=80',
-    brand: { name: 'JBL' },
-  },
-  {
-    id: 105,
-    name: 'Mechanical Gaming Keyboard RGB Backlit',
-    price: 3850,
-    compare_at_price: 5200,
-    rating_avg: 4.9,
-    rating_count: 73,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=500&q=80',
-    brand: { name: 'Logitech' },
-  },
-  {
-    id: 106,
-    name: 'Smart Induction Cooktop 2000W',
-    price: 4200,
-    compare_at_price: 5900,
-    rating_avg: 4.6,
-    rating_count: 38,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=500&q=80',
-    brand: { name: 'Philips' },
-  },
-]
-
-const FALLBACK_NEW = [
-  {
-    id: 201,
-    name: 'Portable Wireless Speaker IPX7 Waterproof',
-    price: 3299,
-    compare_at_price: 3999,
-    rating_avg: 4.8,
-    rating_count: 29,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=500&q=80',
-    brand: { name: 'Boat' },
-  },
-  {
-    id: 202,
-    name: 'Premium Cotton Slim-Fit Casual Shirt',
-    price: 1450,
-    compare_at_price: 1950,
-    rating_avg: 4.7,
-    rating_count: 51,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=500&q=80',
-    brand: { name: 'Gosika Wear' },
-  },
-  {
-    id: 203,
-    name: 'Organic Hydrating Face Serum 50ml',
-    price: 980,
-    compare_at_price: 1400,
-    rating_avg: 4.9,
-    rating_count: 95,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&q=80',
-    brand: { name: 'The Derma Co' },
-  },
-  {
-    id: 204,
-    name: 'Ergonomic Mesh Office & Study Chair',
-    price: 8500,
-    compare_at_price: 10500,
-    rating_avg: 4.8,
-    rating_count: 42,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1580481077195-c9349c2642a8?w=500&q=80',
-    brand: { name: 'Comfort+' },
-  },
-  {
-    id: 205,
-    name: 'Ceramic Non-Stick Granite Cookware Set',
-    price: 3600,
-    compare_at_price: 4800,
-    rating_avg: 4.6,
-    rating_count: 34,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1584990347449-397227eb0926?w=500&q=80',
-    brand: { name: 'Prestige' },
-  },
-  {
-    id: 206,
-    name: 'Smart Air Purifier HEPA Filter Room',
-    price: 6990,
-    compare_at_price: 8990,
-    rating_avg: 4.9,
-    rating_count: 67,
-    stock_status: 'in_stock',
-    image: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=500&q=80',
-    brand: { name: 'Mi' },
-  },
-]
-
-const HERO_SLIDES = [
-  {
-    title: 'Nepal ko\nOnline Bazaar',
-    subtitle: 'Local products, trusted sellers, best deals – sabai ek thau ma.',
-    cta: 'Shop Now',
-    ctaTo: '/shop',
-    cta2: 'Explore Deals',
-    cta2To: '/shop?filter=deals',
-    image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200&q=70',
-    badge: "Nepal's Online Bazaar",
-  },
-  {
-    title: 'Genuine Products.\nTrusted Local Sellers.',
-    subtitle: 'Every vendor is KYC-verified. Every purchase is backed by Gosika buyer protection.',
-    cta: 'Browse Stores',
-    ctaTo: '/shop?mode=stores',
-    cta2: 'View All Products',
-    cta2To: '/shop',
-    image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=70',
-    badge: 'Verified Sellers Only',
-  },
-  {
-    title: 'Fast Delivery.\nCash on Delivery Available.',
-    subtitle: 'Free delivery on orders over Rs. 2,000. Pay by cash, Khalti, eSewa or Fonepay.',
-    cta: 'Start Shopping',
-    ctaTo: '/shop',
-    cta2: 'New Arrivals',
-    cta2To: '/shop?sort=newest',
-    image: 'https://images.unsplash.com/photo-1607330289024-1535c6b4e1c1?w=1200&q=70',
-    badge: 'Multiple Payment Options',
-  },
-]
+const EMPTY_HOME_DATA = {
+  categories: [],
+  deals: [],
+  newArrivals: [],
+  trending: [],
+  featuredProducts: [],
+  recommendedProducts: [],
+  stores: [],
+  brands: [],
+  banners: [],
+}
 
 export default function Home() {
-  const [categories, setCategories] = useState([])
-  const [deals, setDeals] = useState([])
-  const [newArrivals, setNewArrivals] = useState([])
+  const [homeData, setHomeData] = useState(EMPTY_HOME_DATA)
+  const [loadErrors, setLoadErrors] = useState({})
   const [loading, setLoading] = useState(true)
   const [quickView, setQuickView] = useState(null)
   const [newsletterEmail, setNewsletterEmail] = useState('')
   const toast = useToast()
-  const countdown = useCountdown()
 
   useEffect(() => {
     let alive = true
-    setLoading(true)
-    Promise.all([
-      api.get('/products', { params: { discount: true, per_page: 6 } }).catch(() => ({ data: { data: [] } })),
-      api.get('/products', { params: { sort: 'newest', per_page: 6 } }).catch(() => ({ data: { data: [] } })),
-      api.get('/categories').catch(() => ({ data: { data: [] } })),
-    ]).then(([dealsRes, newRes, categoriesRes]) => {
+    const requests = {
+      categories: () => api.get('/categories'),
+      deals: () => api.get('/deals', { params: { per_page: 6 } }),
+      trending: () => api.get('/products', { params: { sort: 'top', per_page: 6 } }),
+      newArrivals: () => api.get('/products', { params: { sort: 'newest', per_page: 6 } }),
+      featuredProducts: () => api.get('/products', { params: { featured: true, per_page: 6 } }),
+      recommendedProducts: () => api.get('/products', { params: { sort: 'rating', per_page: 24 } }),
+      stores: () => api.get('/marketplace/stores', { params: { per_page: 6 } }),
+      brands: () => api.get('/brands'),
+      banners: () => api.get('/banners'),
+    }
+
+    Promise.all(Object.entries(requests).map(async ([key, request]) => {
+      try {
+        const response = await request()
+        return { key, items: api.unwrapList(response.data) }
+      } catch (error) {
+        return { key, error: errorMessage(error, `Could not load ${key}.`) }
+      }
+    })).then((results) => {
       if (!alive) return
-      const apiDeals = api.unwrapList(dealsRes.data)
-      const apiNew = api.unwrapList(newRes.data)
-      setCategories(api.unwrapList(categoriesRes.data))
-
-      // Fill with high-fidelity fallback items if database has fewer than 6
-      const mergedDeals = apiDeals.length >= 6
-        ? apiDeals.slice(0, 6)
-        : [...apiDeals, ...FALLBACK_DEALS.slice(apiDeals.length, 6)]
-
-      const mergedNew = apiNew.length >= 6
-        ? apiNew.slice(0, 6)
-        : [...apiNew, ...FALLBACK_NEW.slice(apiNew.length, 6)]
-
-      setDeals(mergedDeals)
-      setNewArrivals(mergedNew)
+      const nextData = { ...EMPTY_HOME_DATA }
+      const nextErrors = {}
+      results.forEach(({ key, items, error }) => {
+        if (error) nextErrors[key] = error
+        else nextData[key] = items
+      })
+      setHomeData(nextData)
+      setLoadErrors(nextErrors)
       setLoading(false)
     })
+
     return () => { alive = false }
   }, [])
 
@@ -327,300 +86,289 @@ export default function Home() {
     setNewsletterEmail('')
   }
 
+  const {
+    categories, deals, trending, newArrivals, featuredProducts,
+    recommendedProducts, stores, brands, banners,
+  } = homeData
   const [slide, setSlide] = useState(0)
 
   useEffect(() => {
-    const t = setInterval(() => setSlide((s) => (s + 1) % HERO_SLIDES.length), 6000)
-    return () => clearInterval(t)
-  }, [])
+    if (banners.length < 2) return undefined
+    const timer = setInterval(() => setSlide((current) => (current + 1) % banners.length), 6000)
+    return () => clearInterval(timer)
+  }, [banners.length])
 
-  const active = HERO_SLIDES[slide]
-  const categoryLink = (terms) => {
-    const category = categories.find((item) => {
-      const nameAndSlug = `${item.name} ${item.slug}`.toLowerCase()
-      return terms.some((term) => nameAndSlug.includes(term))
-    })
-    return category ? `/shop?category=${encodeURIComponent(category.slug)}` : '/shop'
+  const activeBanner = banners[slide % Math.max(banners.length, 1)]
+  const heroProducts = deals
+    .filter((product) => getProductImage(product) !== IMG_PLACEHOLDER)
+    .slice(0, 3)
+  const maxDiscount = deals.reduce((highest, product) => {
+    const price = Number(product.price)
+    const compareAtPrice = Number(product.compare_at_price)
+    if (!price || compareAtPrice <= price) return highest
+    return Math.max(highest, Math.round(((compareAtPrice - price) / compareAtPrice) * 100))
+  }, 0)
+  const heroLink = activeBanner?.link || (deals.length ? '/shop?filter=deals' : '/shop')
+  const isExternalHeroLink = /^https?:\/\//i.test(heroLink)
+  const HeroLink = isExternalHeroLink ? 'a' : Link
+  const heroLinkProps = isExternalHeroLink
+    ? { href: heroLink, target: '_blank', rel: 'noopener noreferrer' }
+    : { to: heroLink }
+  const alreadyShownProducts = new Set(
+    [...deals, ...trending, ...newArrivals, ...featuredProducts].map((product) => product.id)
+  )
+  const distinctRecommendations = recommendedProducts
+    .filter((product) => !alreadyShownProducts.has(product.id))
+    .slice(0, 6)
+  const uniqueRecommendations = distinctRecommendations.length
+    ? distinctRecommendations
+    : recommendedProducts.slice(0, 6)
+
+  const renderProductSection = (title, Icon, items, key, href) => {
+    const error = loadErrors[key]
+    if (loading || (!items.length && !error)) return null
+
+    return (
+      <section className="container home-products-section" key={key}>
+        <div className="home-section-heading">
+          <h2><Icon size={19} aria-hidden="true" />{title}</h2>
+          <Link to={href}>View All <ArrowRight size={14} /></Link>
+        </div>
+        {error ? (
+          <p className="home-section-error" role="alert">{error}</p>
+        ) : (
+          <div className="product-grid home-products-grid">
+            {items.map((product) => (
+              <ProductCard key={product.id} product={product} onQuickView={setQuickView} variant="outline" />
+            ))}
+          </div>
+        )}
+      </section>
+    )
   }
 
   return (
-    <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
+    <div className="gosika-home" style={{ background: '#f7f8fc', minHeight: '100vh' }}>
       {/* ==================== HERO ==================== */}
-      <section className="hero-section" aria-label="Featured promotions">
-        <div className="container hero-content">
-          {/* Text */}
-          <div style={{ position: 'relative', zIndex: 2 }}>
-            <span className="chip chip-navy" style={{ marginBottom: 16, display: 'inline-flex' }}>
-              <Sparkles size={13} /> {active.badge}
-            </span>
-            <h1 className="hero-title">{active.title}</h1>
-            <p className="hero-subtitle">{active.subtitle}</p>
-            <div className="hero-actions">
-              <Link to={active.ctaTo} className="btn btn-primary btn-lg">
-                {active.cta} <ArrowRight size={17} />
-              </Link>
-              <Link
-                to={active.cta2To}
-                className="btn btn-lg"
-                style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}
-              >
-                {active.cta2}
-              </Link>
+      {(loading || banners.length > 0 || deals.length > 0 || loadErrors.banners || loadErrors.deals) && (
+        <section className="hero-section home-hero" aria-label="Featured promotions">
+          <div className="container hero-content home-hero-content">
+            <div className="home-hero-copy">
+              <span className="home-hero-badge">
+                <Sparkles size={13} />
+                {activeBanner ? 'Featured offer' : deals.length ? "Today's deals" : 'GOSIKA marketplace'}
+              </span>
+              <h1 className="hero-title home-hero-title">
+                {activeBanner?.title || (deals.length ? 'Great finds, real deals' : 'Shop local with GOSIKA')}
+              </h1>
+              <p className="hero-subtitle home-hero-subtitle">
+                {activeBanner?.description || (deals.length
+                  ? 'Explore offers from trusted sellers across Nepal.'
+                  : 'Discover products from trusted sellers across Nepal.')}
+              </p>
+              <div className="hero-actions">
+                <HeroLink {...heroLinkProps} className="btn btn-primary home-hero-cta">
+                  {activeBanner ? 'Explore offer' : 'Shop deals'} <ArrowRight size={16} />
+                </HeroLink>
+              </div>
             </div>
-            <div className="hero-trust">
-              <span><Truck size={14} /> Nationwide delivery</span>
-              <span><BadgeCheck size={14} /> Verified sellers</span>
-              <span><ShieldCheck size={14} /> Buyer protection</span>
+
+            <div className={`home-hero-visual${activeBanner?.image ? ' has-banner-image' : ''}`} aria-hidden="true">
+              {activeBanner?.image ? (
+                <div className="home-hero-banner-art">
+                  <img
+                    src={apiImage(activeBanner.image)}
+                    alt=""
+                    loading="eager"
+                    onError={(event) => { event.currentTarget.closest('.home-hero-banner-art').style.display = 'none' }}
+                  />
+                </div>
+              ) : heroProducts.map((product, index) => (
+                <div className={`home-hero-product home-hero-product-${index + 1}`} key={product.id}>
+                  <img
+                    src={getProductImage(product)}
+                    alt=""
+                    onError={handleImgError}
+                    loading={index === 0 ? 'eager' : 'lazy'}
+                  />
+                </div>
+              ))}
+              {maxDiscount > 0 && (
+                <span className="home-hero-discount">
+                  <span>Up to</span><strong>{maxDiscount}%</strong><span>OFF</span>
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Image */}
-          <div className="hide-sm">
-            <img
-              src={active.image}
-              alt=""
-              className="hero-img"
-              loading="eager"
-            />
-          </div>
-        </div>
+          {banners.length > 1 && (
+            <div className="hero-slides-dots" role="tablist" aria-label="Promotion slides">
+              {banners.map((banner, index) => (
+                <button
+                  key={banner.id}
+                  className={`hero-dot ${index === slide ? 'active' : ''}`}
+                  onClick={() => setSlide(index)}
+                  aria-label={`Go to offer ${index + 1}`}
+                  aria-selected={index === slide}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
-        {/* Carousel indicators */}
-        <div className="hero-slides-dots" role="tablist" aria-label="Slide indicators">
-          {HERO_SLIDES.map((_, i) => (
-            <button
-              key={i}
-              className={`hero-dot ${i === slide ? 'active' : ''}`}
-              onClick={() => setSlide(i)}
-              aria-label={`Go to slide ${i + 1}`}
-              aria-selected={i === slide}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* ==================== 2. FLOATING CATEGORY BAR (8 ICONS) ==================== */}
-      <div className="container" style={{ padding: '0 20px' }}>
+      {/* ==================== SHOPPER PROMISES ==================== */}
+      <section className="container home-trust-wrap" aria-label="Shopping benefits">
         <div className="floating-cat-card">
-          <div className="floating-cat-grid">
-            {categories.slice(0, 8).map((cat, index) => {
-              const IconComp = getCategoryIcon(cat, index)
+          <div className="trust-cards-grid home-trust-grid">
+            {TRUST_PERKS.map((perk) => {
+              const Icon = perk.icon
               return (
-                <Link
-                  key={cat.id}
-                  to={`/shop?category=${encodeURIComponent(cat.slug)}`}
-                  className="floating-cat-item"
-                  aria-label={cat.name}
-                >
-                  <div className="floating-cat-icon">
-                    <IconComp size={24} />
-                  </div>
-                  <span className="floating-cat-label">{cat.name}</span>
-                </Link>
+                <div key={perk.title} className="trust-card-clean home-trust-card">
+                  <span className="home-trust-icon"><Icon size={19} /></span>
+                  <span className="home-trust-copy"><strong>{perk.title}</strong><small>{perk.desc}</small></span>
+                </div>
               )
             })}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* ==================== 3. FLASH DEALS (COUNTDOWN + 6 PRODUCTS) ==================== */}
-      <section className="container" style={{ padding: '48px 20px 24px' }}>
-        {/* Countdown Header Banner */}
-        <div className="flash-countdown-banner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-            <h2 style={{ fontSize: 20, fontWeight: 900, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Flame size={22} color="#ff5500" /> Flash Deals
-            </h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#64748b' }}>
-              <span style={{ fontWeight: 600 }}>Ends in:</span>
-              <span className="timer-chip">{countdown.days}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Days</span>
-              <span className="timer-chip">{countdown.hours}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Hrs</span>
-              <span className="timer-chip">{countdown.mins}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Mins</span>
-              <span className="timer-chip">{countdown.secs}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Secs</span>
+      {(loading || categories.length > 0 || loadErrors.categories) && (
+        <section className="container home-category-section">
+          <div className="home-section-heading">
+            <h2><span />Shop by Categories</h2>
+            <Link to="/shop">View All <ArrowRight size={14} /></Link>
+          </div>
+          {loadErrors.categories ? (
+            <p className="home-section-error" role="alert">{loadErrors.categories}</p>
+          ) : loading ? (
+            <div className="home-category-grid home-category-loading" aria-label="Loading categories">
+              {Array.from({ length: 5 }, (_, index) => <span key={index} />)}
             </div>
+          ) : (
+            <div className="home-category-grid">
+              {categories.slice(0, 12).map((category, index) => {
+                const Icon = getCategoryIcon(category, index)
+                return (
+                  <Link
+                    key={category.id}
+                    to={`/shop?category=${encodeURIComponent(category.slug)}`}
+                    className="home-category-item"
+                    aria-label={category.name}
+                  >
+                    <div className="home-category-image">
+                      {category.image ? (
+                        <img
+                          src={apiImage(category.image)}
+                          alt={category.name}
+                          loading="lazy"
+                          onError={(event) => {
+                            event.currentTarget.style.display = 'none'
+                            event.currentTarget.nextSibling.style.display = 'grid'
+                          }}
+                        />
+                      ) : null}
+                      <Icon
+                        className={`home-category-fallback${category.image ? '' : ' visible'}`}
+                        size={30}
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <span className="home-category-label">{category.name}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {(loading || deals.length > 0 || loadErrors.deals) && (
+        <section className="container home-deals-section">
+          <div className="home-section-heading home-deals-heading">
+            <h2><Flame size={20} aria-hidden="true" />Today's Deals</h2>
+            <Link to="/shop?filter=deals">See All <ArrowRight size={14} /></Link>
           </div>
-          <Link
-            to="/shop?filter=deals"
-            style={{ color: '#ff5500', fontWeight: 700, fontSize: 14, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          >
-            View All Deals →
-          </Link>
-        </div>
+          {loadErrors.deals ? (
+            <p className="home-section-error" role="alert">{loadErrors.deals}</p>
+          ) : loading ? (
+            <div className="product-grid home-products-grid home-deals-grid">
+              {Array.from({ length: 4 }, (_, index) => <ProductCardSkeletonMini key={index} />)}
+            </div>
+          ) : (
+            <div className="product-grid home-products-grid home-deals-grid">
+              {deals.map((product) => (
+                <ProductCard key={product.id} product={product} onQuickView={setQuickView} variant="outline" />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
-        {/* 6 Product Cards Grid */}
-        {loading ? (
-          <div className="product-grid">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <ProductCardSkeletonMini key={i} />
-            ))}
+      {renderProductSection('Trending Now', TrendingUp, trending, 'trending', '/shop?sort=top')}
+      {renderProductSection('New Arrivals', Package, newArrivals, 'newArrivals', '/shop?sort=newest')}
+      {renderProductSection('Featured Products', Sparkles, featuredProducts, 'featuredProducts', '/shop?sort=top')}
+      {renderProductSection('Recommended Products', Award, uniqueRecommendations, 'recommendedProducts', '/shop?sort=rating')}
+
+      {!loading && (stores.length > 0 || loadErrors.stores) && (
+        <section className="container home-listing-section">
+          <div className="home-section-heading">
+            <h2><Store size={19} aria-hidden="true" />Featured Sellers</h2>
+            <Link to="/shop?mode=stores">View All <ArrowRight size={14} /></Link>
           </div>
-        ) : (
-          <div className="product-grid">
-            {deals.map((p) => (
-              <ProductCard key={p.id} product={p} onQuickView={setQuickView} variant="outline" />
-            ))}
+          {loadErrors.stores ? (
+            <p className="home-section-error" role="alert">{loadErrors.stores}</p>
+          ) : (
+            <div className="home-store-grid">
+              {stores.slice(0, 6).map((store) => (
+                <Link key={store.id} to={`/store/${store.id}`} className="home-store-card">
+                  <span className="home-store-logo">
+                    <Store size={24} aria-hidden="true" />
+                    {store.logo ? (
+                      <img src={apiImage(store.logo)} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = 'none' }} />
+                    ) : null}
+                  </span>
+                  <span className="home-store-details">
+                    <strong>{store.name}</strong>
+                    <small>{store.product_count || 0} products{store.location ? ` · ${store.location}` : ''}</small>
+                  </span>
+                  <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {!loading && (brands.length > 0 || loadErrors.brands) && (
+        <section className="container home-listing-section">
+          <div className="home-section-heading">
+            <h2><Award size={19} aria-hidden="true" />Top Brands</h2>
+            <Link to="/brands">View All <ArrowRight size={14} /></Link>
           </div>
-        )}
-      </section>
+          {loadErrors.brands ? (
+            <p className="home-section-error" role="alert">{loadErrors.brands}</p>
+          ) : (
+            <div className="home-brand-grid">
+              {brands.slice(0, 8).map((brand) => (
+                <Link key={brand.id} to={`/brand/${brand.slug || brand.id}`} className="home-brand-card">
+                  <span className="home-brand-logo">
+                    <span aria-hidden="true">{brand.name?.charAt(0)?.toUpperCase()}</span>
+                    {brand.logo ? (
+                      <img src={apiImage(brand.logo)} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = 'none' }} />
+                    ) : null}
+                  </span>
+                  <strong>{brand.name}</strong>
+                  <small>{brand.products_count || 0} products</small>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
-      {/* ==================== 4. TRENDING NOW (4 PASTEL CARDS) ==================== */}
-      <section className="container" style={{ padding: '24px 20px' }}>
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', margin: 0 }}>Trending Now</h2>
-          <p style={{ fontSize: 13.5, color: '#64748b', margin: '4px 0 0' }}>Popular collections this week</p>
-        </div>
-
-        <div className="pastel-promo-grid">
-          {PASTEL_PROMOS.map((promo) => (
-            <Link
-              key={promo.badge}
-              to={categoryLink(promo.categoryTerms)}
-              className="pastel-promo-card"
-              style={{
-                background: promo.bg,
-                border: `1.5px solid ${promo.border}`,
-              }}
-            >
-              <div>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    background: promo.badgeBg,
-                    color: promo.badgeColor,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: '3px 9px',
-                    borderRadius: 6,
-                    marginBottom: 10,
-                  }}
-                >
-                  {promo.badge}
-                </span>
-                <h3 style={{ fontSize: 20, fontWeight: 900, color: '#0f172a', margin: '0 0 4px' }}>
-                  {promo.title}
-                </h3>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
-                  {promo.subtitle}
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 }}>
-                <span style={{ color: promo.ctaColor, fontWeight: 700, fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  Shop Now →
-                </span>
-                <img
-                  src={promo.image}
-                  alt={promo.badge}
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 12,
-                    objectFit: 'cover',
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.08)'
-                  }}
-                />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ==================== 5. NEW ARRIVALS (6 PRODUCTS) ==================== */}
-      <section className="container" style={{ padding: '24px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div>
-            <h2 style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', margin: 0 }}>New Arrivals</h2>
-            <p style={{ fontSize: 13.5, color: '#64748b', margin: '4px 0 0' }}>Fresh products from verified sellers</p>
-          </div>
-          <Link
-            to="/shop?sort=newest"
-            style={{ color: '#ff5500', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}
-          >
-            View All →
-          </Link>
-        </div>
-
-        {loading ? (
-          <div className="product-grid">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <ProductCardSkeletonMini key={i} />
-            ))}
-          </div>
-        ) : (
-          <div className="product-grid">
-            {newArrivals.map((p) => (
-              <ProductCard key={p.id} product={p} onQuickView={setQuickView} variant="outline" />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* ==================== 6. TOP CATEGORIES (8 CIRCULAR AVATARS) ==================== */}
-      <section className="container" style={{ padding: '36px 20px 24px' }}>
-        <div style={{ marginBottom: 22 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', margin: 0 }}>Top Categories</h2>
-          <p style={{ fontSize: 13.5, color: '#64748b', margin: '4px 0 0' }}>Explore products by top categories</p>
-        </div>
-
-        <div className="circular-cat-grid">
-          {categories.slice(0, 8).map((cat, index) => (
-            <Link
-              key={cat.id}
-              to={`/shop?category=${encodeURIComponent(cat.slug)}`}
-              className="circular-cat-card"
-              aria-label={cat.name}
-            >
-              <div className="circular-cat-avatar">
-                <img
-                  src={cat.image ? apiImage(cat.image) : CATEGORY_IMAGES[index % CATEGORY_IMAGES.length]}
-                  alt={cat.name}
-                  loading="lazy"
-                />
-              </div>
-              <span className="circular-cat-name">{cat.name}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ==================== 7. 4 CLEAN TRUST CARDS ==================== */}
-      <section className="container" style={{ padding: '32px 20px' }}>
-        <div className="trust-cards-grid">
-          {TRUST_PERKS.map((t) => {
-            const Icon = t.icon
-            return (
-              <div key={t.title} className="trust-card-clean">
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: '50%',
-                    background: '#fff7ed',
-                    border: '1px solid #ffedd5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#ff5500',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Icon size={22} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{t.title}</div>
-                  <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 2 }}>{t.desc}</div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
-      {/* ==================== 8. FULL-WIDTH ORANGE NEWSLETTER BANNER ==================== */}
+      {/* ==================== 7. FULL-WIDTH ORANGE NEWSLETTER BANNER ==================== */}
       <section className="container" style={{ padding: '16px 20px 48px' }}>
         <div className="newsletter-strip">
           <div style={{ maxWidth: 480 }}>

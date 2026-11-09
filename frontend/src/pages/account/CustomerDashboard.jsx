@@ -133,6 +133,7 @@ export default function CustomerDashboard() {
           onStatusFilter={setFilter}
           searchPlaceholder="Search orders…"
           perPage={6}
+          responsiveCards
         />
       </AccountSection>
     </AccountPage>

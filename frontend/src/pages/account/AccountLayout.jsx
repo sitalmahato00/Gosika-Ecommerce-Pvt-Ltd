@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, Link, useLocation } from 'react-router-dom'
-import { LogOut, ChevronRight, Menu, X } from 'lucide-react'
+import { LogOut, ChevronRight } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useBranding } from '../../context/BrandingContext'
@@ -40,28 +40,13 @@ export default function AccountLayout() {
   const { user, logout } = useAuth()
   const branding = useBranding()
   const location = useLocation()
-  const [menuOpen, setMenuOpen] = useState(false)
   const [label, setLabel] = useState('My Account')
 
   const userInitials = useMemo(() => initials(user?.name || user?.email || 'U'), [user])
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
   const brandLogo = branding.logo_light || branding.logo_dark || ''
 
-  useEffect(() => { setMenuOpen(false) }, [location.pathname])
-
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }) }, [location.pathname])
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false) }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      document.body.style.overflow = prevOverflow
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [menuOpen])
 
   const handleLogout = async () => {
     await logout()
@@ -80,15 +65,6 @@ export default function AccountLayout() {
 
       {/* Mobile account toolbar */}
       <div className="acc-mobilebar">
-        <button
-          type="button"
-          className="acc-menu-btn"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open account menu"
-          aria-expanded={menuOpen}
-        >
-          <Menu size={22} />
-        </button>
         <div className="acc-current-title">{label}</div>
         <Link to="/account/profile" className="acc-mobile-avatar" aria-label="Go to profile">
           {user?.avatar ? (
@@ -99,51 +75,6 @@ export default function AccountLayout() {
         </Link>
       </div>
       <PageSearch nav={CUSTOMER_NAV} placeholder="Search account pages..." className="acc-mobile-page-search" />
-
-      {/* Mobile drawer + backdrop */}
-      {menuOpen && <div className="acc-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />}
-      <aside
-        className={`acc-drawer ${menuOpen ? 'open' : ''}`}
-        aria-hidden={!menuOpen}
-        aria-label="Account menu"
-      >
-        <div className="acc-drawer-head">
-          <BrandBlock link={false} brandName={brandName} brandLogo={brandLogo} />
-          <button
-            type="button"
-            className="acc-drawer-close"
-            onClick={() => setMenuOpen(false)}
-            aria-label="Close menu"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {user && (
-          <div className="acc-user">
-            {user.avatar ? (
-              <img className="acc-user-avatar" src={apiImage(user.avatar)} alt="" />
-            ) : (
-              <span className="acc-user-avatar">{userInitials}</span>
-            )}
-            <div className="acc-user-text">
-              <div className="acc-user-name">{user.name}</div>
-              <div className="acc-user-mail">{user.email}</div>
-            </div>
-          </div>
-        )}
-
-        <div className="acc-nav-scroll">
-          <nav className="acc-nav" aria-label="Account navigation" onClick={() => setMenuOpen(false)}>
-            <AccountNavItems onNavigate={() => setMenuOpen(false)} />
-          </nav>
-        </div>
-
-        <button type="button" className="acc-logout" onClick={handleLogout}>
-          <LogOut size={17} />
-          <span className="acc-logout-text">Logout</span>
-        </button>
-      </aside>
 
       {/* Desktop / tablet grid */}
       <div className="account-layout" id="account-layout-grid">

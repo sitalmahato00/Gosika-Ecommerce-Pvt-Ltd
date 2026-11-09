@@ -41,6 +41,7 @@ export default function StatusOrderTable({
   rowTo,
   emptyText = 'No records match your current filters.',
   stickyFirstColumn = false,
+  responsiveCards = false,
 }) {
   const [internalFilter, setInternalFilter] = useState('all')
   const [search, setSearch] = useState('')
@@ -81,7 +82,7 @@ export default function StatusOrderTable({
   const themeOf = (row) => TINT_BADGE[getTintKey(getStatus(row))] || TINT_BADGE.pending
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+    <div className={responsiveCards ? 'status-order-table status-order-table-cards' : 'status-order-table'} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       {/* Toolbar: search + status filter pills */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 190, maxWidth: 320 }}>
@@ -129,7 +130,7 @@ export default function StatusOrderTable({
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: 'auto', flex: 1 }}>
+      <div className="status-order-table-scroll" style={{ overflowX: 'auto', flex: 1 }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12.5, textAlign: 'left' }}>
           <thead>
             <tr style={{ background: '#fafbfc', borderBottom: '1px solid var(--border)', color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -166,7 +167,7 @@ export default function StatusOrderTable({
                   onMouseLeave={(e) => (e.currentTarget.style.background = tint.row)}
                 >
                   {columns.map((c) => (
-                    <td key={c.key} style={{ padding: '12px 16px', color: '#334155', ...(stickyFirstColumn && c.sticky ? { position: 'sticky', left: 0, background: tint.row, zIndex: 1 } : {}) }}>
+                    <td key={c.key} data-label={c.label} style={{ padding: '12px 16px', color: '#334155', ...(stickyFirstColumn && c.sticky ? { position: 'sticky', left: 0, background: tint.row, zIndex: 1 } : {}) }}>
                       {c.render ? c.render(row, badge, tint) : (row?.[c.key] ?? '—')}
                     </td>
                   ))}

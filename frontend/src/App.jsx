@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import CustomerHeader from './components/layout/CustomerHeader'
 import CustomerFooter from './components/layout/CustomerFooter'
 import CustomerBottomNav from './components/layout/CustomerBottomNav'
@@ -259,6 +259,15 @@ function AdminIndexRedirect() {
 
 function CustomerLayout() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const showFooter =
+    pathname === '/' ||
+    pathname === '/shop' ||
+    pathname === '/brands' ||
+    pathname === '/deals' ||
+    pathname === '/help' ||
+    /^\/(product|products|store|category|brand)\//.test(pathname)
+
   return (
     <div className="flex flex-col customer-shell" style={{ minHeight: '100vh' }}>
       <CustomerHeader />
@@ -308,7 +317,7 @@ function CustomerLayout() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-      <CustomerFooter />
+      {showFooter && <CustomerFooter />}
       <CustomerBottomNav onSearchClick={() => navigate('/search')} />
     </div>
   )

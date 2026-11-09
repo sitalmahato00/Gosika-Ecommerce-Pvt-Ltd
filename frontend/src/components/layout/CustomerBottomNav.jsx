@@ -1,5 +1,5 @@
 import React from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Home, Search, ShoppingBag, User, LayoutGrid } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
@@ -13,6 +13,11 @@ export default function CustomerBottomNav({ onSearchClick }) {
   const { itemCount } = useCart()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { pathname, search } = useLocation()
+  const query = new URLSearchParams(search)
+  const searchActive = pathname === '/search' || (pathname === '/shop' && query.has('search'))
+  const categoriesActive = pathname.startsWith('/category/') ||
+    (pathname === '/shop' && !query.has('search'))
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -40,7 +45,7 @@ export default function CustomerBottomNav({ onSearchClick }) {
       <NavLink
         to="/shop"
         aria-label="Browse categories"
-        className={({ isActive }) => isActive ? 'active' : ''}
+        className={() => categoriesActive ? 'active' : ''}
       >
         <LayoutGrid size={22} strokeWidth={1.8} aria-hidden="true" />
         <span>Categories</span>
@@ -51,6 +56,8 @@ export default function CustomerBottomNav({ onSearchClick }) {
         type="button"
         onClick={handleSearch}
         aria-label="Search products"
+        aria-current={searchActive ? 'page' : undefined}
+        className={searchActive ? 'active' : ''}
       >
         <Search size={22} strokeWidth={1.8} aria-hidden="true" />
         <span>Search</span>
@@ -60,7 +67,7 @@ export default function CustomerBottomNav({ onSearchClick }) {
       <NavLink
         to="/cart"
         aria-label={`Cart, ${itemCount} items`}
-        className={({ isActive }) => isActive ? 'active' : ''}
+        className={({ isActive }) => isActive || ['/checkout', '/order-success'].includes(pathname) ? 'active' : ''}
       >
         <span style={{ position: 'relative', display: 'inline-flex' }}>
           <ShoppingBag size={22} strokeWidth={1.8} aria-hidden="true" />
@@ -96,11 +103,11 @@ export default function CustomerBottomNav({ onSearchClick }) {
       {/* Account */}
       <NavLink
         to={user ? '/account' : '/login'}
-        aria-label={user ? 'My account' : 'Login'}
+        aria-label={user ? 'My account' : 'Account, sign in'}
         className={({ isActive }) => isActive ? 'active' : ''}
       >
         <User size={22} strokeWidth={1.8} aria-hidden="true" />
-        <span>{user ? 'Account' : 'Login'}</span>
+        <span>Account</span>
       </NavLink>
     </nav>
   )

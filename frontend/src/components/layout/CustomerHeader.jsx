@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import * as Icons from 'lucide-react'
 import {
   ShoppingBag, Heart, User, Search, Menu, Truck, MapPin,
-  Store, ChevronDown, X, Bell, Phone, Package, LogOut,
-  UserCheck, LayoutDashboard, Settings, Flame, Clock, HelpCircle, Tag, Star
+  Store, ChevronDown, Bell, Package, LogOut,
+  UserCheck, LayoutDashboard, Settings, Clock, HelpCircle, Tag, Star
 } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
@@ -14,17 +15,21 @@ import api from '../../api/client'
 import { getCategoryIcon } from '../../utils/icons'
 import { getSearchLocation, saveSearchLocation } from '../../utils/searchLocation'
 import GosikaLogo from '../common/GosikaLogo'
+import { CUSTOMER_NAV } from '../../utils/constants'
 
 import { useBranding } from '../../context/BrandingContext'
 
-function Logo({ size = 'md' }) {
+function Logo({ size = 'md', onClick }) {
   const branding = useBranding()
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
   const logoUrl = branding.logo_light || branding.logo_dark
   return (
-    <Link to="/" className="brand" aria-label={brandName} style={{ fontSize: 22, display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+    <Link to="/" onClick={onClick} className="brand" aria-label={brandName} style={{ fontSize: 22, display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
       {logoUrl ? (
-        <img src={apiImage(logoUrl)} alt={brandName} className="customer-brand-image" />
+        <>
+          <img src={apiImage(logoUrl)} alt="" aria-hidden="true" className="customer-brand-image" />
+          <span className="customer-brand-name">{brandName}</span>
+        </>
       ) : (
         <>
           <GosikaLogo size={32} showText={false} />
@@ -41,6 +46,7 @@ export default function CustomerHeader() {
   const { itemCount } = useCart()
   const { ids: wishlistIds = [] } = useWishlist() || {}
   const { user, isVendor, isSuperAdmin, logout } = useAuth()
+  const location = useLocation()
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [catFilter, setCatFilter] = useState('')
@@ -59,6 +65,11 @@ export default function CustomerHeader() {
   const accountRef = useRef(null)
   const suggestRef = useRef(null)
   const prevItemCount = useRef(itemCount)
+  const closeMenu = useCallback(() => setMenuOpen(false), [])
+
+  useEffect(() => {
+    closeMenu()
+  }, [location.pathname, location.search, closeMenu])
 
   useEffect(() => {
     api
@@ -230,6 +241,7 @@ export default function CustomerHeader() {
 
   const handleLogout = async () => {
     setAccountOpen(false)
+    setMenuOpen(false)
     await logout()
     navigate('/')
   }
@@ -238,9 +250,34 @@ export default function CustomerHeader() {
   const isAdminUser = isSuperAdmin()
   const showCustomerOptions = !!user && !isAdminUser
   const wishlistCount = wishlistIds?.length || 0
+  const isAccountPage = location.pathname === '/account' || location.pathname.startsWith('/account/')
+  const isDrawerLinkActive = (to, exact = false, activePaths = []) => {
+    if (activePaths.includes(location.pathname)) return true
+    if (to.includes('?')) return location.pathname + location.search === to
+    return exact
+      ? location.pathname === to && !location.search
+      : location.pathname === to || location.pathname.startsWith(`${to}/`)
+  }
+  const renderDrawerLink = (to, label, icon, { exact = false, activePaths = [], count } = {}) => {
+    const Icon = typeof icon === 'string' ? Icons[icon] || Icons.Circle : icon
+    const active = isDrawerLinkActive(to, exact, activePaths)
+    return (
+      <Link
+        key={`${to}-${label}`}
+        to={to}
+        className={`customer-drawer-link${active ? ' active' : ''}`}
+        aria-current={active ? 'page' : undefined}
+        onClick={() => setMenuOpen(false)}
+      >
+        {Icon && <Icon size={17} strokeWidth={1.9} aria-hidden="true" />}
+        <span>{label}</span>
+        {count > 0 && <span className="customer-drawer-count">{count > 99 ? '99+' : count}</span>}
+      </Link>
+    )
+  }
 
   return (
-    <header className="customer-header" role="banner">
+    <header className={`customer-header${isAccountPage ? ' customer-header-account' : ''}`} role="banner">
       {/* ---- Top strip matching Design: Solid Brand Orange ---- */}
       <div style={{ background: '#ff5500', color: '#ffffff', fontSize: 12, padding: '7px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
         <div className="container flex items-center justify-between gap-3" style={{ padding: '0 20px' }}>
@@ -264,16 +301,17 @@ export default function CustomerHeader() {
 
       {/* ---- Main header ---- */}
       <div className="container header-main" style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 24 }}>
-        {/* Mobile: hamburger */}
-        <button
-          className="icon-btn show-sm"
-          style={{ border: 'none', background: 'none' }}
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open navigation menu"
-          aria-expanded={menuOpen}
-        >
-          <Menu size={22} />
-        </button>
+        {isAccountPage && (
+          <button
+            className="icon-btn show-sm"
+            style={{ border: 'none', background: 'none' }}
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={menuOpen}
+          >
+            <Menu size={22} />
+          </button>
+        )}
 
         <Logo />
 
@@ -513,8 +551,8 @@ export default function CustomerHeader() {
           <button
             className="icon-btn show-sm"
             style={{ border: 'none', background: 'none' }}
-            onClick={() => setMenuOpen(true)}
-            aria-label="Search"
+            onClick={() => navigate('/search')}
+            aria-label="Search products"
           >
             <Search size={20} />
           </button>
@@ -774,6 +812,20 @@ export default function CustomerHeader() {
         </div>
       </div>
 
+      <div className="container mobile-header-search-wrap">
+        <form className="mobile-header-search" onSubmit={submitSearch} role="search" aria-label="Search products">
+          <Search size={16} aria-hidden="true" />
+          <input
+            type="search"
+            value={q}
+            onChange={(event) => setQ(event.target.value)}
+            placeholder="Search products or brands"
+            aria-label="Search products, brands, or categories"
+          />
+          <button type="submit" aria-label="Search products"><Search size={17} /></button>
+        </form>
+      </div>
+
       {/* ---- Category nav bar (desktop) matching Design ---- */}
       <nav className="nav-bar hide-sm" aria-label="Category navigation" style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '6px 0' }}>
         <div className="container nav-bar-inner" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -794,7 +846,7 @@ export default function CustomerHeader() {
               textDecoration: 'none'
             }}
           >
-            <Menu size={15} color="#ff5500" /> Categories <ChevronDown size={13} />
+            <Icons.LayoutGrid size={15} color="#ff5500" /> Categories <ChevronDown size={13} />
           </NavLink>
           <NavLink to="/shop?filter=deals" className="nav-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, fontSize: 13.5, color: '#334155', textDecoration: 'none' }}>
             <span style={{ color: '#ff5500' }}>⚡</span> Flash Deals
@@ -810,118 +862,169 @@ export default function CustomerHeader() {
       </nav>
 
       {/* ---- Mobile drawer ---- */}
-      <Drawer open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu" side="left">
-        {/* Search in drawer */}
-        <form className="search-bar" onSubmit={submitSearch} role="search" style={{ marginBottom: 20 }}>
+      <Drawer
+        open={menuOpen}
+        onClose={closeMenu}
+        title="Customer navigation"
+        side="left"
+        panelClassName="customer-navigation-drawer"
+        bodyClassName="customer-navigation-body"
+        headerContent={(
+          <div className="customer-drawer-header">
+            <Logo onClick={() => setMenuOpen(false)} />
+            <button type="button" className="customer-drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close navigation">
+              <Icons.X size={20} />
+            </button>
+          </div>
+        )}
+      >
+        <div className="customer-drawer-profile">
+          {user ? (
+            <div className="customer-drawer-user">
+              {user.avatar ? (
+                <img src={apiImage(user.avatar)} alt="" />
+              ) : (
+                <span className="customer-drawer-avatar">{userInitials}</span>
+              )}
+              <div className="customer-drawer-user-details">
+                <strong>{user.name}</strong>
+                <span>{user.email}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="customer-drawer-guest">
+              <div>
+                <strong>Welcome to GOSIKA</strong>
+                <span>Sign in to manage your account and orders.</span>
+              </div>
+              <div className="customer-drawer-guest-actions">
+                <Link className="btn btn-outline btn-sm" to="/login" onClick={() => setMenuOpen(false)}>Login</Link>
+                <Link className="btn btn-primary btn-sm" to="/register" onClick={() => setMenuOpen(false)}>Register</Link>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <form className="customer-drawer-search" onSubmit={submitSearch} role="search">
+          <Search size={17} aria-hidden="true" />
           <input
             type="search"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search products…"
-            aria-label="Search"
+            onChange={(event) => setQ(event.target.value)}
+            placeholder="Search products..."
+            aria-label="Search products"
           />
-          <button type="submit" aria-label="Search"><Search size={16} /></button>
+          <button type="submit" aria-label="Submit product search"><Search size={16} /></button>
         </form>
 
-        {user ? (
-          <div style={{ padding: '12px 0 16px', borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
-            <div className="flex items-center gap-3">
-              <span className="avatar" style={{ width: 40, height: 40, fontSize: 14, background: 'var(--primary)', color: '#fff' }}>
-                {userInitials}
-              </span>
-              <div>
-                <div className="font-semibold" style={{ fontSize: 14 }}>{user.name}</div>
-                <div className="muted text-xs">{user.email}</div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
-            <Link className="btn btn-outline" to="/login" onClick={() => setMenuOpen(false)}>Login</Link>
-            <Link className="btn btn-primary" to="/register" onClick={() => setMenuOpen(false)}>Register</Link>
+        <nav className="customer-drawer-nav" aria-label="Customer navigation">
+          {!isAccountPage && (
+            <>
+              <section className="customer-drawer-section">
+                <h2>Shop</h2>
+                {renderDrawerLink('/', 'Home', 'Home', { exact: true })}
+                {renderDrawerLink('/shop', 'All Products', 'ShoppingBag', { exact: true })}
+                {renderDrawerLink('/shop?sort=newest', 'New Arrivals', 'Clock')}
+                {renderDrawerLink('/shop?filter=deals', "Today's Deals", 'Flame')}
+              </section>
+
+              <section className="customer-drawer-section">
+                <h2>Categories</h2>
+                {categories.map((category, index) => {
+                  const Icon = getCategoryIcon(category, index)
+                  const to = `/shop?category=${encodeURIComponent(category.slug)}`
+                  const active = isDrawerLinkActive(to) ||
+                    location.pathname === `/category/${category.slug}`
+                  return (
+                    <Link
+                      key={category.id}
+                      to={to}
+                      className={`customer-drawer-link${active ? ' active' : ''}`}
+                      aria-current={active ? 'page' : undefined}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Icon size={17} strokeWidth={1.9} aria-hidden="true" />
+                      <span>{category.name}</span>
+                    </Link>
+                  )
+                })}
+              </section>
+            </>
+          )}
+
+          {!showCustomerOptions && !isAccountPage && (
+            <section className="customer-drawer-section">
+              <h2>Shopping</h2>
+              {renderDrawerLink('/cart', 'Cart', ShoppingBag, {
+                activePaths: ['/checkout', '/order-success'],
+                count: itemCount,
+              })}
+            </section>
+          )}
+
+          {showCustomerOptions && CUSTOMER_NAV.map((item, index) => {
+            if (item.section) {
+              return (
+                <React.Fragment key={`${item.section}-${index}`}>
+                  <h2 className="customer-drawer-section-title">{item.section}</h2>
+                  {item.section === 'SHOPPING' && !isAccountPage && renderDrawerLink('/cart', 'Cart', ShoppingBag, {
+                    activePaths: ['/checkout', '/order-success'],
+                    count: itemCount,
+                  })}
+                </React.Fragment>
+              )
+            }
+            const activePaths = item.to === '/account/orders'
+              ? ['/account/orders', ...(
+                location.pathname.startsWith('/account/orders/') && location.pathname !== '/account/orders/active'
+                  ? [location.pathname]
+                  : []
+              )]
+              : item.to === '/account/orders/active'
+                ? ['/account/orders/active']
+              : item.to === '/account/wishlist'
+                ? ['/wishlist']
+                : []
+            return renderDrawerLink(item.to, item.label, item.icon, {
+              exact: item.to === '/account/orders' || item.to === '/account/orders/active' || item.end,
+              activePaths,
+              count: item.to === '/account/wishlist'
+                ? wishlistCount
+                : item.to === '/account/notifications'
+                  ? unreadNotif
+                  : 0,
+            })
+          })}
+
+          {!showCustomerOptions && !isAccountPage && (
+            <section className="customer-drawer-section">
+              <h2>Support</h2>
+              {renderDrawerLink('/help', 'Help Center', 'LifeBuoy')}
+            </section>
+          )}
+
+          {!isAdminUser && !isAccountPage && (
+            <section className="customer-drawer-section">
+              <h2>Seller</h2>
+              {renderDrawerLink('/seller/login', 'Become a Seller', Store)}
+              {isVendor() && renderDrawerLink('/vendor', 'Vendor Dashboard', LayoutDashboard)}
+            </section>
+          )}
+          {isAdminUser && !isAccountPage && (
+            <section className="customer-drawer-section">
+              <h2>Administration</h2>
+              {renderDrawerLink('/admin', 'Admin Panel', Settings)}
+            </section>
+          )}
+        </nav>
+
+        {user && (
+          <div className="customer-drawer-footer">
+            <button type="button" onClick={handleLogout}>
+              <LogOut size={17} aria-hidden="true" /> Logout
+            </button>
           </div>
         )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', padding: '8px 0 4px', letterSpacing: '0.06em' }}>Shop</div>
-          <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/" onClick={() => setMenuOpen(false)}>Home</Link>
-          <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/shop" onClick={() => setMenuOpen(false)}>All Products</Link>
-          <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/shop?sort=newest" onClick={() => setMenuOpen(false)}>New Arrivals</Link>
-          <Link className="dash-nav-link" style={{ color: 'var(--danger)', background: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }} to="/shop?filter=deals" onClick={() => setMenuOpen(false)}>
-            <Flame size={15} color="var(--danger)" /> Today's Deals
-          </Link>
-
-          {categories.length > 0 && (
-            <>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', padding: '12px 0 4px', letterSpacing: '0.06em' }}>Categories</div>
-              {categories.map((c, i) => {
-                const Icon = getCategoryIcon(c, i)
-                return (
-                  <Link
-                    key={c.id}
-                    className="dash-nav-link"
-                    style={{ color: 'var(--ink)', background: 'none' }}
-                    to={`/shop?category=${c.slug}`}
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <Icon size={15} color="var(--primary)" /> {c.name}
-                  </Link>
-                )
-              })}
-            </>
-          )}
-
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', padding: '12px 0 4px', letterSpacing: '0.06em' }}>Account</div>
-          <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/cart" onClick={() => setMenuOpen(false)}>
-            <ShoppingBag size={15} /> Cart {itemCount > 0 && `(${itemCount})`}
-          </Link>
-          {!isAdminUser && (
-            <>
-              <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/orders" onClick={() => setMenuOpen(false)}>
-                <Package size={15} /> My Orders
-              </Link>
-              <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/wishlist" onClick={() => setMenuOpen(false)}>
-                <Heart size={15} /> Wishlist
-              </Link>
-              {user && (
-                <Link className="dash-nav-link" style={{ color: 'var(--ink)', background: 'none' }} to="/account" onClick={() => setMenuOpen(false)}>
-                  <User size={15} /> My Account
-                </Link>
-              )}
-            </>
-          )}
-
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', padding: '12px 0 4px', letterSpacing: '0.06em' }}>Sell on GOSIKA</div>
-          {!isAdminUser && (
-            <Link className="dash-nav-link" style={{ color: 'var(--primary)', background: 'none', fontWeight: 600 }} to="/seller/login" onClick={() => setMenuOpen(false)}>
-              <Store size={15} /> Become a Seller
-            </Link>
-          )}
-          {isVendor() && (
-            <Link className="dash-nav-link" style={{ color: 'var(--primary)', background: 'none' }} to="/vendor" onClick={() => setMenuOpen(false)}>
-              <LayoutDashboard size={15} /> Vendor Dashboard
-            </Link>
-          )}
-          {isSuperAdmin() && (
-            <Link className="dash-nav-link" style={{ color: 'var(--danger)', background: 'none' }} to="/admin" onClick={() => setMenuOpen(false)}>
-              <Settings size={15} /> Admin Panel
-            </Link>
-          )}
-
-          {user && (
-            <>
-              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-                <button
-                  className="dash-nav-link"
-                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', width: '100%', textAlign: 'left', fontFamily: 'inherit' }}
-                  onClick={async () => { setMenuOpen(false); await logout(); navigate('/') }}
-                >
-                  <LogOut size={15} /> Logout
-                </button>
-              </div>
-            </>
-          )}
-        </div>
       </Drawer>
     </header>
   )
