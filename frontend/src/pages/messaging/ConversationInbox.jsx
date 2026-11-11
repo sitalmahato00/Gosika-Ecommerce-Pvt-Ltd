@@ -105,8 +105,7 @@ export default function ConversationInbox({ portal }) {
   const [attachments, setAttachments] = useState([])
   const [sendingCount, setSendingCount] = useState(0)
   const [live, setLive] = useState(false)
-  const [streamError, setStreamError] = useState(false)
-  const [connectionMessage, setConnectionMessage] = useState('')
+  const [pollingError, setPollingError] = useState(false)
   const listRef = useRef(null)
   const shouldStickToBottomRef = useRef(true)
   const previousConversationIdRef = useRef(null)
@@ -201,33 +200,16 @@ export default function ConversationInbox({ portal }) {
     let pusher
     const connectionHandlers = {
       state_change: ({ current }) => {
-        const connected = current === 'connected'
-        setLive(connected)
-        setStreamError(!connected)
-      },
-      connected: () => {
-        setLive(true)
-        setStreamError(false)
-        setConnectionMessage('')
+        setLive(current === 'connected' && channel?.subscription?.subscribed === true)
       },
       unavailable: () => {
         setLive(false)
-        setStreamError(true)
       },
       failed: () => {
         setLive(false)
-        setStreamError(true)
       },
-      error: (event) => {
-        const data = event?.error?.data || event?.data
-        const code = data?.code || event?.error?.code
-        const message = event?.error?.message || data?.message || event?.message
+      error: () => {
         setLive(false)
-        setStreamError(true)
-        setConnectionMessage(
-          [code && `(${code})`, message].filter(Boolean).join(' ')
-            || 'Realtime connection failed. Check the WebSocket server and proxy.',
-        )
       },
     }
 
@@ -235,6 +217,14 @@ export default function ConversationInbox({ portal }) {
       const echo = getChatEcho()
       pusher = echo.connector.pusher
       channel = echo.private(`chat.conversation.${activeConversation.id}`)
+      channel.subscribed(() => {
+        if (!active) return
+        setLive(true)
+      })
+      channel.error(() => {
+        if (!active) return
+        setLive(false)
+      })
       channel.listen('.chat.message.sent', ({ message }) => {
         if (!active || !message) return
         setActiveConversation((current) => {
@@ -258,18 +248,13 @@ export default function ConversationInbox({ portal }) {
         })
         if (message.sender?.id !== user?.id) {
           api.post(`${base}/${activeConversation.id}/read`)
-            .catch(() => {
-              setStreamError(true)
-              setConnectionMessage('A new message arrived, but its read status could not be updated.')
-            })
+            .catch(() => toast.error('Could not update message status.'))
         }
       })
 
       Object.entries(connectionHandlers).forEach(([event, handler]) => pusher.connection.bind(event, handler))
-    } catch (connectionError) {
+    } catch {
       setLive(false)
-      setStreamError(true)
-      setConnectionMessage(connectionError.message || 'Realtime chat could not connect.')
     }
 
     return () => {
@@ -281,7 +266,49 @@ export default function ConversationInbox({ portal }) {
       if (channel) getChatEcho().leave(`chat.conversation.${activeConversation.id}`)
       setLive(false)
     }
-  }, [activeConversation?.id, base, user?.id])
+  }, [activeConversation?.id, base, toast, user?.id])
+
+  useEffect(() => {
+    const conversationId = activeConversation?.id
+    if (!conversationId || live) return undefined
+
+    let active = true
+    let requestInFlight = false
+
+    const syncConversation = async () => {
+      if (requestInFlight) return
+      requestInFlight = true
+
+      try {
+        const response = await api.get(`${base}/${conversationId}`, { skipCache: true })
+        const detail = response.data?.data
+        if (!active || !detail) return
+
+        setActiveConversation((current) => {
+          if (!current || current.id !== conversationId) return current
+          const messages = (detail.messages || []).reduce(
+            (merged, message) => mergeMessage(merged, message),
+            current.messages || [],
+          )
+          return { ...current, ...detail, messages }
+        })
+        setConversations((items) => updateConversation(items, { ...detail, unread_count: 0 }))
+        setPollingError(false)
+      } catch {
+        if (active) setPollingError(true)
+      } finally {
+        requestInFlight = false
+      }
+    }
+
+    syncConversation()
+    const intervalId = window.setInterval(syncConversation, 3000)
+
+    return () => {
+      active = false
+      window.clearInterval(intervalId)
+    }
+  }, [activeConversation?.id, base, live])
 
   useEffect(() => {
     if (previousConversationIdRef.current !== activeConversation?.id) {
@@ -484,7 +511,7 @@ export default function ConversationInbox({ portal }) {
                 <span className="conversation-inbox__avatar"><Store size={18} /></span>
                 <span className="conversation-inbox__thread-heading">
                   <strong>{conversationTitle(activeConversation, portal)}</strong>
-                  <small>{live ? 'Live chat' : streamError ? 'Reconnecting…' : 'Connecting…'}</small>
+                  <small>{live ? 'Live chat' : pollingError ? 'Messages may be delayed' : 'Messages update automatically'}</small>
                 </span>
                 <span className={`conversation-inbox__live-dot${live ? ' is-live' : ''}`} aria-label={live ? 'Live connection active' : 'Live connection reconnecting'} />
               </header>
@@ -528,7 +555,6 @@ export default function ConversationInbox({ portal }) {
                 )}
               </div>
 
-              {streamError && <p className="conversation-inbox__connection-warning">{connectionMessage || 'Connection interrupted. Reconnecting…'}</p>}
               <form className="conversation-inbox__composer" onSubmit={sendMessage}>
                 {attachments.length > 0 && (
                   <div className="conversation-inbox__attachment-previews">
