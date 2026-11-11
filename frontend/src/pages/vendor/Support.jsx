@@ -145,14 +145,14 @@ export default function VendorSupport() {
     <div style={{ paddingBottom: 40 }}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Vendor Support & Help Desk</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Messages & Vendor Support</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Get direct assistance from GOSIKA Merchant Operations, Finance, and Logistics teams.
+            Reply to customer questions about your store and continue conversations with GOSIKA Merchant Operations.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/vendor/support/new" className="btn btn-primary btn-sm flex items-center gap-1">
-            <Plus size={14} /> Open Support Ticket
+            <Plus size={14} /> Contact GOSIKA Support
           </Link>
         </div>
       </div>
@@ -285,6 +285,7 @@ export default function VendorSupport() {
                   </div>
 
                   <div className="muted text-xs flex items-center gap-2 mt-1">
+                    {t.customer?.full_name && <span>From {t.customer.full_name}</span>}
                     <span>Opened: {formatDate(t.created_at)}</span>
                     {t.last_message_at && <span>· Last activity: {formatDate(t.last_message_at)}</span>}
                     <span>· {t.messages?.length || 1} messages</span>

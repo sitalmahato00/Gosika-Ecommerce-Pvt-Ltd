@@ -1,32 +1,21 @@
 import React from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Home, Search, ShoppingBag, User, LayoutGrid } from 'lucide-react'
+import { NavLink, useLocation } from 'react-router-dom'
+import { Home, MessageCircle, ShoppingBag, User, LayoutGrid } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 
 /**
  * CustomerBottomNav — Mobile bottom navigation for the customer marketplace.
  * Visible only on screens ≤ 768px (controlled via .customer-bottom-nav CSS class).
- * Provides: Home | Categories | Search | Cart (with badge) | Account
+ * Provides: Home | Categories | Messages | Cart (with badge) | Account
  */
-export default function CustomerBottomNav({ onSearchClick }) {
+export default function CustomerBottomNav() {
   const { itemCount } = useCart()
   const { user } = useAuth()
-  const navigate = useNavigate()
   const { pathname, search } = useLocation()
   const query = new URLSearchParams(search)
-  const searchActive = pathname === '/search' || (pathname === '/shop' && query.has('search'))
   const categoriesActive = pathname.startsWith('/category/') ||
     (pathname === '/shop' && !query.has('search'))
-
-  const handleSearch = (e) => {
-    e.preventDefault()
-    if (onSearchClick) {
-      onSearchClick()
-    } else {
-      navigate('/shop')
-    }
-  }
 
   return (
     <nav className="customer-bottom-nav" aria-label="Mobile marketplace navigation" role="navigation">
@@ -51,17 +40,16 @@ export default function CustomerBottomNav({ onSearchClick }) {
         <span>Categories</span>
       </NavLink>
 
-      {/* Search */}
-      <button
-        type="button"
-        onClick={handleSearch}
-        aria-label="Search products"
-        aria-current={searchActive ? 'page' : undefined}
-        className={searchActive ? 'active' : ''}
+      {/* Messages */}
+      <NavLink
+        to={user ? '/account/messages' : '/login'}
+        state={user ? undefined : { from: '/account/messages' }}
+        aria-label={user ? 'Messages' : 'Sign in to view messages'}
+        className={({ isActive }) => isActive ? 'active' : ''}
       >
-        <Search size={22} strokeWidth={1.8} aria-hidden="true" />
-        <span>Search</span>
-      </button>
+        <MessageCircle size={22} strokeWidth={1.8} aria-hidden="true" />
+        <span>Messages</span>
+      </NavLink>
 
       {/* Cart */}
       <NavLink

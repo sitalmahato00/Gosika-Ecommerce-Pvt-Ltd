@@ -83,6 +83,7 @@ class AdminSupportController extends Controller
             'message' => $data['message'],
             'is_internal' => $data['is_internal'] ?? false,
         ]);
+        $ticket->touch();
 
         if ($ticket->status === TicketStatus::CLOSED) {
             $ticket->status = TicketStatus::OPEN;

@@ -1,20 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Headphones, Mail, Phone, MessageSquare, Plus, Paperclip, Send, Clock, CheckCircle2, AlertCircle, ArrowLeft, Image as ImageIcon, X } from 'lucide-react'
+import { MessageSquare, Plus, Paperclip, Send, ArrowLeft, X, Store } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../../api/client'
 import Input from '../../components/ui/Input'
-import Button from '../../components/ui/Button'
 import Textarea from '../../components/ui/Textarea'
 import Select from '../../components/ui/Select'
 import Spinner from '../../components/ui/Spinner'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
-import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
-import { formatDateTime, errorMessage, apiImage } from '../../utils/format'
+import { formatDateTime, errorMessage } from '../../utils/format'
 import { AccountPage, AccountTitle } from './AccountUI'
+import { useAuth } from '../../context/AuthContext'
 
 export default function AccountSupport() {
   const toast = useToast()
+  const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const storeId = searchParams.get('store')
   const [view, setView] = useState('list') // 'list' | 'new' | 'detail'
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -31,6 +34,9 @@ export default function AccountSupport() {
   const [newPriority, setNewPriority] = useState('normal')
   const [newDescription, setNewDescription] = useState('')
   const [newAttachments, setNewAttachments] = useState([])
+  const [selectedStore, setSelectedStore] = useState(null)
+  const [storeLoading, setStoreLoading] = useState(false)
+  const [syncError, setSyncError] = useState(false)
   const [creating, setCreating] = useState(false)
 
   const fileInputRef = useRef(null)
@@ -56,10 +62,62 @@ export default function AccountSupport() {
   }, [])
 
   useEffect(() => {
+    if (!storeId) {
+      setSelectedStore(null)
+      return
+    }
+
+    let active = true
+    setView('new')
+    setStoreLoading(true)
+    api.get(`/marketplace/stores/${encodeURIComponent(storeId)}`)
+      .then((res) => {
+        if (!active) return
+        const store = res.data?.data
+        setSelectedStore(store)
+        setNewSubject(`Question for ${store.name}`)
+        setNewCategory('Store Message')
+      })
+      .catch((err) => {
+        if (!active) return
+        toast.error(errorMessage(err, 'Could not open this store conversation.'))
+        setSearchParams({}, { replace: true })
+        setView('list')
+      })
+      .finally(() => {
+        if (active) setStoreLoading(false)
+      })
+
+    return () => { active = false }
+  }, [storeId, setSearchParams, toast])
+
+  useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
     }
   }, [activeTicket?.messages])
+
+  useEffect(() => {
+    if (view !== 'detail' || !activeTicket?.id) return undefined
+
+    let alive = true
+    const refreshThread = async () => {
+      if (document.visibilityState === 'hidden') return
+      try {
+        const res = await api.get(`/customer/support/tickets/${activeTicket.id}`, { skipCache: true })
+        if (!alive) return
+        setActiveTicket((current) => res.data?.data || current)
+        setSyncError(false)
+      } catch {
+        if (alive) setSyncError(true)
+      }
+    }
+    const timer = setInterval(refreshThread, 8000)
+    return () => {
+      alive = false
+      clearInterval(timer)
+    }
+  }, [view, activeTicket?.id])
 
   const openDetail = async (ticket) => {
     setView('detail')
@@ -85,12 +143,16 @@ export default function AccountSupport() {
         category: newCategory,
         priority: newPriority,
         attachments: newAttachments,
+        ...(selectedStore ? { store_id: selectedStore.id } : {}),
       })
-      toast.success('Support ticket created successfully')
+      const ticket = res.data?.data
+      setActiveTicket(ticket)
+      setView('detail')
+      setSyncError(false)
+      toast.success(selectedStore ? 'Message sent to the store.' : 'Message sent to GOSIKA Support.')
       setNewSubject('')
       setNewDescription('')
       setNewAttachments([])
-      setView('list')
       loadTickets()
     } catch (err) {
       toast.error(errorMessage(err))
@@ -101,14 +163,15 @@ export default function AccountSupport() {
 
   const handleSendReply = async (e) => {
     e?.preventDefault()
-    if (!newReplyText.trim() && newAttachments.length === 0) return
+    if (!newReplyText.trim()) return
     setReplyLoading(true)
     try {
       const res = await api.post('/customer/support/tickets/' + activeTicket.id + '/messages', {
-        message: newReplyText,
+        message: newReplyText.trim(),
         attachments: replyAttachments,
       })
       setActiveTicket(res.data?.data)
+      setSyncError(false)
       setNewReplyText('')
       setReplyAttachments([])
       toast.success('Reply sent')
@@ -130,6 +193,14 @@ export default function AccountSupport() {
     }
   }
 
+  const leaveNewMessage = () => {
+    setView('list')
+    setSelectedStore(null)
+    setSearchParams({}, { replace: true })
+    setNewSubject('')
+    setNewDescription('')
+  }
+
   const handleFileAttachment = (e, isReply = false) => {
     const files = Array.from(e.target.files || [])
     files.forEach(file => {
@@ -149,24 +220,39 @@ export default function AccountSupport() {
   if (view === 'new') {
     return (
       <div className="card">
-        <AccountTitle label="Create Support Ticket" />
+        <AccountTitle label={selectedStore ? `Message ${selectedStore.name}` : 'Message GOSIKA Support'} />
         <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
-          <button type="button" className="btn btn-ghost btn-xs flex items-center gap-1" onClick={() => setView('list')}>
-            <ArrowLeft size={14} /> Back to Tickets
+          <button type="button" className="btn btn-ghost btn-xs flex items-center gap-1" onClick={leaveNewMessage}>
+            <ArrowLeft size={14} /> Back to Support Tickets
           </button>
-          <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Create Support Ticket</h2>
+          <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>
+            {selectedStore ? `Message ${selectedStore.name}` : 'Message GOSIKA Support'}
+          </h2>
         </div>
 
         <form onSubmit={handleCreateTicket} className="flex flex-col gap-3">
+          {storeLoading ? (
+            <div className="muted text-sm">Opening store conversation…</div>
+          ) : selectedStore ? (
+            <div className="flex items-center gap-2" style={{ padding: 12, borderRadius: 10, background: '#fff9f2', color: 'var(--ink)' }}>
+              <Store size={18} color="var(--primary)" />
+              <span className="text-sm">Sending your message to <strong>{selectedStore.name}</strong></span>
+            </div>
+          ) : (
+            <p className="muted text-sm" style={{ margin: 0 }}>
+              For live product questions, open the store page and choose “Chat with Store”.
+            </p>
+          )}
+
           <Input 
             label="Subject" 
             required 
-            placeholder="e.g. Order delivery status inquiry" 
+            placeholder={selectedStore ? 'What would you like to ask the store?' : 'How can GOSIKA Support help?'}
             value={newSubject}
             onChange={(e) => setNewSubject(e.target.value)}
           />
 
-          <div className="form-row">
+          {!selectedStore && <div className="form-row">
             <Select 
               label="Category" 
               value={newCategory} 
@@ -188,7 +274,7 @@ export default function AccountSupport() {
               <option value="normal">Normal Priority</option>
               <option value="high">High Priority</option>
             </Select>
-          </div>
+          </div>}
 
           <div className="form-group">
             <label className="label font-bold text-xs">
@@ -197,7 +283,7 @@ export default function AccountSupport() {
             <Textarea 
               rows={5} 
               required 
-              placeholder="Describe your issue or question in detail..." 
+              placeholder={selectedStore ? 'Write your message to the store…' : 'Describe your question for GOSIKA Support…'}
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
             />
@@ -244,11 +330,11 @@ export default function AccountSupport() {
           </div>
 
           <div className="flex justify-end gap-2 pt-3 mt-2" style={{ borderTop: '1px solid var(--border)' }}>
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => setView('list')}>
+            <button type="button" className="btn btn-outline btn-sm" onClick={leaveNewMessage}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary btn-sm" disabled={creating}>
-              {creating ? 'Submitting…' : 'Submit Ticket'}
+            <button type="submit" className="btn btn-primary btn-sm" disabled={creating || storeLoading}>
+              {creating ? 'Sending…' : 'Send Message'}
             </button>
           </div>
         </form>
@@ -261,19 +347,19 @@ export default function AccountSupport() {
     return (
       <>
       <AccountTitle label="Support Tickets" />
-      <div className="card card-pad-none" style={{ display: 'flex', flexDirection: 'column', height: '640px', overflow: 'hidden' }}>
+      <div className="card card-pad-none" style={{ display: 'flex', flexDirection: 'column', height: 'min(640px, calc(100dvh - 190px))', minHeight: 400, overflow: 'hidden' }}>
         {/* Detail Header */}
         <div style={{ padding: '14px 18px', background: 'var(--bg)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div className="flex items-center gap-2">
-            <button type="button" className="btn btn-ghost btn-xs flex items-center gap-1" onClick={() => { setView('list'); loadTickets(); }}>
+            <button type="button" className="btn btn-ghost btn-xs flex items-center gap-1" onClick={() => { setView('list'); setSelectedStore(null); setSearchParams({}, { replace: true }); loadTickets(); }}>
               <ArrowLeft size={14} /> Back
             </button>
             <div>
               <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>
-                {activeTicket.subject}
+                {activeTicket.vendor_name || 'GOSIKA Support'}
               </div>
               <div className="muted text-xs mt-0.5">
-                Ticket #{activeTicket.ticket_number || activeTicket.id} · {activeTicket.category || 'Support'} · {formatDateTime(activeTicket.created_at)}
+                {activeTicket.subject} · #{activeTicket.ticket_number || activeTicket.id}
               </div>
             </div>
           </div>
@@ -298,19 +384,23 @@ export default function AccountSupport() {
             </div>
           ) : activeTicket.messages?.length ? (
             activeTicket.messages.map((m) => {
-              const isStaff = m.sender?.is_staff || m.sender?.name === 'Admin' || m.sender === 'agent'
+              const isOwnMessage = m.sender?.id
+                ? m.sender.id === user?.id
+                : !m.sender?.is_staff
               return (
-                <div key={m.id || Math.random()} style={{ display: 'flex', flexDirection: 'column', alignItems: isStaff ? 'flex-start' : 'flex-end' }}>
+                <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isOwnMessage ? 'flex-end' : 'flex-start' }}>
                   <div className="muted text-xs mb-1 font-semibold" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {isStaff ? 'GOSIKA Support Team' : 'You'} · {formatDateTime(m.created_at)}
+                    {!isOwnMessage
+                      ? `${activeTicket.vendor_name || 'GOSIKA Support'}`
+                      : 'You'} · {formatDateTime(m.created_at)}
                   </div>
                   <div style={{
-                    background: isStaff ? 'var(--bg)' : 'var(--primary)',
-                    color: isStaff ? 'var(--ink)' : '#fff',
+                    background: isOwnMessage ? 'var(--primary)' : 'var(--bg)',
+                    color: isOwnMessage ? '#fff' : 'var(--ink)',
                     padding: '12px 16px',
                     borderRadius: 10,
                     maxWidth: '75%',
-                    border: isStaff ? '1px solid var(--border)' : 'none',
+                    border: isOwnMessage ? 'none' : '1px solid var(--border)',
                     lineHeight: 1.5,
                     fontSize: 14,
                     whiteSpace: 'pre-wrap',
@@ -319,7 +409,7 @@ export default function AccountSupport() {
                     {m.message}
 
                     {m.attachments?.length > 0 && (
-                      <div className="flex gap-2 wrap mt-2 pt-2" style={{ borderTop: isStaff ? '1px solid var(--border)' : '1px solid rgba(255,255,255,0.2)' }}>
+                      <div className="flex gap-2 wrap mt-2 pt-2" style={{ borderTop: isOwnMessage ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--border)' }}>
                         {m.attachments.map((att, i) => (
                           <a key={i} href={att.url || att} target="_blank" rel="noreferrer" style={{ display: 'block', width: 50, height: 50, borderRadius: 4, overflow: 'hidden' }}>
                             <img src={att.url || att} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -332,13 +422,19 @@ export default function AccountSupport() {
               )
             })
           ) : (
-            <p className="muted text-center text-sm">No messages yet.</p>
+            <p className="muted text-center text-sm">No replies yet.</p>
+          )}
+          {syncError && (
+            <p role="status" className="text-xs" style={{ color: '#b45309', textAlign: 'center' }}>
+              Couldn’t refresh messages. They’ll update when your connection is restored.
+            </p>
           )}
         </div>
 
         {/* Chat Input Bar */}
-        {!isClosed ? (
+        {(
           <div style={{ padding: '12px 18px', background: 'var(--bg)', borderTop: '1px solid var(--border)' }}>
+            {isClosed && <div className="muted text-xs mb-2">This conversation is closed. Sending a message will reopen it.</div>}
             {replyAttachments.length > 0 && (
               <div className="flex gap-2 wrap mb-2">
                 {replyAttachments.map((att, idx) => (
@@ -377,22 +473,18 @@ export default function AccountSupport() {
               <input 
                 type="text" 
                 className="input flex-1" 
-                placeholder="Type your reply to support..." 
+                placeholder={`Message ${activeTicket.vendor_name || 'GOSIKA Support'}…`}
                 value={newReplyText}
                 onChange={(e) => setNewReplyText(e.target.value)}
               />
               <button 
                 type="submit" 
                 className="btn btn-primary" 
-                disabled={replyLoading || (!newReplyText.trim() && replyAttachments.length === 0)}
+                disabled={replyLoading || !newReplyText.trim()}
               >
                 <Send size={15} /> Send
               </button>
             </form>
-          </div>
-        ) : (
-          <div style={{ padding: '12px 18px', background: 'var(--bg)', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
-            <span className="muted text-xs">This ticket has been marked as closed.</span>
           </div>
         )}
       </div>
@@ -403,8 +495,8 @@ export default function AccountSupport() {
   return (
     <AccountPage
       title="Support Tickets"
-      subtitle="Submit support inquiries and chat with our team in real-time."
-      actions={<button className="btn btn-primary btn-sm flex items-center gap-1.5" onClick={() => setView('new')}><Plus size={14} /> New Ticket</button>}
+      subtitle="Create and follow up on support requests. For quick store conversations, use Chat with Store on the store profile."
+      actions={<button className="btn btn-primary btn-sm flex items-center gap-1.5" onClick={() => { setSelectedStore(null); setView('new') }}><Plus size={14} /> New Ticket</button>}
     >
 
       {loading ? (
@@ -433,7 +525,7 @@ export default function AccountSupport() {
                     <div className="muted text-xs mt-1 flex items-center gap-2 wrap">
                       <span>#{t.ticket_number || t.id}</span>
                       <span>·</span>
-                      <span>{t.category || 'General'}</span>
+                      <span>{t.vendor_name || 'GOSIKA Support'}</span>
                       <span>·</span>
                       <span>{formatDateTime(t.created_at)}</span>
                     </div>
@@ -453,9 +545,9 @@ export default function AccountSupport() {
       ) : (
         <EmptyState 
           icon={MessageSquare} 
-          title="No support tickets" 
-          message="Have a question about an order, payment, or delivery? Open a support ticket and we will assist you." 
-          action={<button className="btn btn-primary" onClick={() => setView('new')}><Plus size={14} /> Open Support Ticket</button>} 
+          title="No support tickets yet"
+          message="Create a ticket for help with orders, payments, returns, or your account."
+          action={<button className="btn btn-primary" onClick={() => { setSelectedStore(null); setView('new') }}><Plus size={14} /> Create a Support Ticket</button>}
         />
       )}
     </AccountPage>

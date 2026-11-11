@@ -22,6 +22,7 @@ class TicketResource extends JsonResource
             'customer' => new UserResource($this->whenLoaded('user')),
             'vendor' => new VendorResource($this->whenLoaded('vendor')),
             'vendor_id' => $this->vendor?->uuid,
+            'vendor_name' => $this->vendor?->company_name,
             'order_id' => $this->order?->uuid,
             'order_number' => $this->order?->order_number,
             'assignee' => new UserResource($this->whenLoaded('assignee')),

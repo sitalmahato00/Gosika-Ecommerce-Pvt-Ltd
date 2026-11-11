@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { MapPin, Mail, Phone, Clock, BadgeCheck, Store as StoreIcon, Calendar } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { MapPin, Mail, Phone, Clock, BadgeCheck, Store as StoreIcon, Calendar, MessageCircle } from 'lucide-react'
 import api from '../api/client'
 import ProductCard from '../components/commerce/ProductCard'
 import ProductQuickView from '../components/commerce/ProductQuickView'
@@ -151,14 +151,23 @@ export default function Store() {
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3 mt-3">
+      <div className="flex items-center justify-between gap-3 mt-3 wrap">
         <h2 style={{ fontSize: 18 }}>Products from {store.name}</h2>
-        <select className="select" style={{ width: 'auto' }} value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort products">
-          <option value="">Newest</option>
-          <option value="price_asc">Price: Low to High</option>
-          <option value="price_desc">Price: High to Low</option>
-          <option value="rating">Top Rated</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/account/messages?store=${encodeURIComponent(store.id)}`}
+            className="btn btn-outline btn-sm flex items-center gap-1.5"
+            aria-label={`Chat with ${store.name}`}
+          >
+            <MessageCircle size={15} /> Chat with Store
+          </Link>
+          <select className="select" style={{ width: 'auto' }} value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort products">
+            <option value="">Newest</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="rating">Top Rated</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (

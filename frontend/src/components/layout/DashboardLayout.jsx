@@ -73,6 +73,7 @@ export default function DashboardLayout({
   const dropdownRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
+  const isMessagingPage = location.pathname === '/vendor/messages' || location.pathname === '/admin/customers/messages'
 
   const role = roleLabel || (isSuperAdmin() ? 'Super Admin' : 'Vendor')
   const isVendor = role.toLowerCase().includes('vendor')
@@ -870,17 +871,20 @@ export default function DashboardLayout({
 
         {/* Right: independent scrollable content pane */}
         <main
-          className={mobileNav ? 'dash-content with-bottom-nav' : 'dash-content'}
+          className={`${mobileNav ? 'dash-content with-bottom-nav' : 'dash-content'}${isMessagingPage ? ' chat-page' : ''}`}
           style={{
             gridArea: 'main',
             flex: 1,
+            minHeight: 0,
             minWidth: 0,
             width: '100%',
             maxWidth: '100%',
-            overflowY: 'auto',
+            display: isMessagingPage ? 'flex' : undefined,
+            flexDirection: isMessagingPage ? 'column' : undefined,
+            overflowY: isMessagingPage ? 'hidden' : 'auto',
             overflowX: 'hidden',
             background: '#f8fafc',
-            padding: '22px 26px'
+            padding: isMessagingPage ? '10px 14px 12px' : '22px 26px'
           }}
         >
           <Outlet />

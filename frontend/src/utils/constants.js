@@ -174,6 +174,7 @@ export const VENDOR_NAV = [
   { to: '/vendor/bank-accounts', label: 'Bank Account', icon: 'Landmark' },
   { to: '/vendor/security', label: 'Security', icon: 'Lock' },
   { to: '/vendor/notifications', label: 'Notifications', icon: 'Bell' },
+  { to: '/vendor/messages', label: 'Customer Messages', icon: 'MessageCircle' },
   { to: '/vendor/support', label: 'Support', icon: 'Headphones' },
 ]
 
@@ -229,6 +230,7 @@ export const CUSTOMER_NAV = [
 
   { section: 'SUPPORT' },
   { to: '/account/help', label: 'Help Center', icon: 'LifeBuoy' },
+  { to: '/account/messages', label: 'Messages', icon: 'MessageCircle' },
   { to: '/account/support', label: 'Support Tickets', icon: 'Headphones' },
 
   { section: 'ACCOUNT' },
@@ -244,6 +246,7 @@ export const ADMIN_MOBILE_NAV = [
   { to: '/admin/orders', label: 'Orders', icon: 'ShoppingBag' },
   { to: '/admin/marketplace/products', label: 'Products', icon: 'Package' },
   { to: '/admin/customers', label: 'Customers', icon: 'Users' },
+  { to: '/admin/customers/messages', label: 'Messages', icon: 'MessageCircle' },
   { to: '/admin/system/settings', label: 'More', icon: 'Settings' },
 ]
 
@@ -251,6 +254,7 @@ export const VENDOR_MOBILE_NAV = [
   { to: '/vendor', label: 'Home', icon: 'LayoutDashboard', end: true },
   { to: '/vendor/orders', label: 'Orders', icon: 'ShoppingBag' },
   { to: '/vendor/products', label: 'Products', icon: 'Package' },
+  { to: '/vendor/messages', label: 'Messages', icon: 'MessageCircle' },
   { to: '/vendor/wallet', label: 'Wallet', icon: 'Wallet' },
   { to: '/vendor/profile', label: 'Profile', icon: 'UserCircle' },
 ]
@@ -279,6 +283,7 @@ export const ADMIN_NAV = [
 
   { section: 'Customers' },
   { to: '/admin/customers', label: 'Customers', icon: 'Users' },
+  { to: '/admin/customers/messages', label: 'Messages', icon: 'MessageCircle' },
   { to: '/admin/customers/support', label: 'Support', icon: 'Headphones' },
 
   { section: 'Logistics' },
@@ -357,6 +362,7 @@ export const ADMIN_PERMISSION_MAP = {
   
   // Customers
   '/admin/customers': ['users.view'],
+  '/admin/customers/messages': ['tickets.view'],
   '/admin/customers/support': ['tickets.view'],
   
   // Logistics

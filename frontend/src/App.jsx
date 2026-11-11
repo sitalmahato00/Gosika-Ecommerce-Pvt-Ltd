@@ -40,7 +40,6 @@ import BrandsPage from './pages/Public/BrandsPage'
 import AccountProfile from './pages/account/AccountProfile'
 import AccountAddresses from './pages/account/AccountAddresses'
 import AccountReturns from './pages/account/Returns'
-import AccountSupport from './pages/account/AccountSupport'
 import CustomerDashboard from './pages/account/CustomerDashboard'
 import AccountLayout from './pages/account/AccountLayout'
 import AccountActiveOrders from './pages/account/AccountActiveOrders'
@@ -48,6 +47,8 @@ import AccountVouchers from './pages/account/AccountVouchers'
 import AccountMyReviews from './pages/account/AccountMyReviews'
 import AccountSecurity from './pages/account/AccountSecurity'
 import AccountNotifications from './pages/account/Notifications'
+import AccountSupport from './pages/account/AccountSupport'
+import ConversationInbox from './pages/messaging/ConversationInbox'
 import { AccountTitle } from './pages/account/AccountUI'
 import EmailVerificationPrompt from './components/common/EmailVerificationPrompt'
 
@@ -258,7 +259,6 @@ function AdminIndexRedirect() {
 }
 
 function CustomerLayout() {
-  const navigate = useNavigate()
   const { pathname } = useLocation()
   const showFooter =
     pathname === '/' ||
@@ -311,6 +311,7 @@ function CustomerLayout() {
             <Route path="addresses" element={<AccountAddresses />} />
             <Route path="security" element={<AccountSecurity />} />
             <Route path="notifications" element={<AccountNotifications />} />
+            <Route path="messages" element={<ConversationInbox portal="customer" />} />
             <Route path="support" element={<AccountSupport />} />
             <Route path="*" element={<Navigate to="/account" replace />} />
           </Route>
@@ -318,7 +319,7 @@ function CustomerLayout() {
         </Routes>
       </main>
       {showFooter && <CustomerFooter />}
-      <CustomerBottomNav onSearchClick={() => navigate('/search')} />
+      <CustomerBottomNav />
     </div>
   )
 }
@@ -363,6 +364,7 @@ export default function App() {
         <Route path="returns" element={<VendorReturns />} />
         <Route path="store-settings" element={<VendorStoreSettings />} />
         <Route path="notifications" element={<VendorNotifications />} />
+        <Route path="messages" element={<ConversationInbox portal="vendor" />} />
         <Route path="support" element={<VendorSupport />} />
         <Route path="support/new" element={<VendorNewTicket />} />
         <Route path="security" element={<VendorSecurity />} />
@@ -428,6 +430,7 @@ export default function App() {
 
         {/* Customers */}
         <Route path="customers" element={<PermissionGuard path="/admin/customers"><AdminCustomers /></PermissionGuard>} />
+        <Route path="customers/messages" element={<PermissionGuard path="/admin/customers/messages"><ConversationInbox portal="admin" /></PermissionGuard>} />
         <Route path="customers/support" element={<PermissionGuard path="/admin/customers/support"><AdminCustomerSupport /></PermissionGuard>} />
 
         {/* Marketing */}

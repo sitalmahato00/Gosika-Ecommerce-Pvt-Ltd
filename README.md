@@ -7,6 +7,26 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Realtime messaging
+
+Local setup uses Laravel Reverb. Configure `REVERB_APP_ID`, `REVERB_APP_KEY`,
+`REVERB_APP_SECRET`, and the Reverb host/port/scheme in the backend `.env`.
+Use the same app key and public connection settings in `frontend/.env`; never
+put the app secret in frontend variables. Set `REVERB_ALLOWED_ORIGINS` to the
+hostnames serving the frontend, then rebuild the frontend after changing its
+Vite variables.
+
+Run the database migrations, then start the application services. `composer run
+dev` starts Laravel, the queue, logs, Vite, and Reverb together:
+
+```sh
+php artisan migrate
+composer run dev
+```
+
+The sample credentials in the environment examples are for local development
+only. Replace them with unique values in every deployed environment.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

@@ -31,8 +31,13 @@ export default function Login() {
   const loginHeading = branding.login_heading || 'Welcome back'
   const loginDescription = branding.login_description || `Login to continue shopping across Nepal.`
 
-  const from = location.state?.from?.pathname || location.state?.from || '/account'
-  const fromState = location.state?.from?.state || undefined
+  const fromLocation = location.state?.from
+  const from = typeof fromLocation === 'string'
+    ? fromLocation
+    : fromLocation
+      ? `${fromLocation.pathname || '/account'}${fromLocation.search || ''}`
+      : '/account'
+  const fromState = fromLocation && typeof fromLocation === 'object' ? fromLocation.state : undefined
 
   const submit = async (e) => {
     e.preventDefault()

@@ -31,7 +31,10 @@ class VendorSupportController extends Controller
 
         $tickets = SupportTicket::query()
             ->where('vendor_id', $vendor->id)
-            ->with(['user', 'messages'])
+            ->with([
+                'user',
+                'messages' => fn ($query) => $query->where('is_internal', false),
+            ])
             ->when($request->input('status'), fn ($q, $status) => $q->where('status', $status))
             ->when($request->input('priority'), fn ($q, $priority) => $q->where('priority', $priority))
             ->when($request->input('search'), fn ($q, $search) => $q->where(fn ($inner) => $inner->where('ticket_number', 'like', "%{$search}%")->orWhere('subject', 'like', "%{$search}%")))
@@ -54,7 +57,10 @@ class VendorSupportController extends Controller
     {
         $vendor = $this->vendorFor($request);
 
-        $ticket = SupportTicket::with(['user', 'messages.sender'])
+        $ticket = SupportTicket::with([
+            'user',
+            'messages' => fn ($query) => $query->where('is_internal', false)->with('sender'),
+        ])
             ->where('uuid', $ticket)
             ->where('vendor_id', $vendor->id)
             ->firstOrFail();
@@ -110,13 +116,17 @@ class VendorSupportController extends Controller
             'is_internal' => false,
             'attachments' => $data['attachments'] ?? [],
         ]);
+        $ticket->touch();
 
         if ($ticket->status === TicketStatus::CLOSED) {
             $ticket->status = TicketStatus::OPEN;
             $ticket->save();
         }
 
-        return Response::created(new VendorTicketResource($ticket->load('user', 'messages.sender')), 'Message sent.');
+        return Response::created(new VendorTicketResource($ticket->load([
+            'user',
+            'messages' => fn ($query) => $query->where('is_internal', false)->with('sender'),
+        ])), 'Message sent.');
     }
 
     public function close(Request $request, string $ticket): JsonResponse
@@ -128,7 +138,10 @@ class VendorSupportController extends Controller
         $ticket->resolved_at = now();
         $ticket->save();
 
-        return Response::success(new VendorTicketResource($ticket->load('user', 'messages.sender')), 'Ticket closed.');
+        return Response::success(new VendorTicketResource($ticket->load([
+            'user',
+            'messages' => fn ($query) => $query->where('is_internal', false)->with('sender'),
+        ])), 'Ticket closed.');
     }
 
     public function reopen(Request $request, string $ticket): JsonResponse
@@ -140,7 +153,10 @@ class VendorSupportController extends Controller
         $ticket->resolved_at = null;
         $ticket->save();
 
-        return Response::success(new VendorTicketResource($ticket->load('user', 'messages.sender')), 'Ticket reopened.');
+        return Response::success(new VendorTicketResource($ticket->load([
+            'user',
+            'messages' => fn ($query) => $query->where('is_internal', false)->with('sender'),
+        ])), 'Ticket reopened.');
     }
 
     protected function vendorFor(Request $request): Vendor
