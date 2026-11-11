@@ -6,7 +6,6 @@ use App\Modules\Identity\Domain\Roles;
 use App\Modules\Identity\Infrastructure\Models\User;
 use App\Modules\Messaging\Infrastructure\Models\ChatConversation;
 use App\Modules\Messaging\Infrastructure\Models\ChatMessage;
-use App\Modules\Messaging\Presentation\Events\ChatMessageSent;
 use App\Modules\Messaging\Presentation\Resources\ChatConversationResource;
 use App\Modules\Messaging\Presentation\Resources\ChatMessageResource;
 use App\Modules\Shared\Domain\Enums\StoreStatus;
@@ -237,10 +236,6 @@ class ConversationController extends Controller
         $message->load(['sender', 'conversation']);
         $message->setAttribute('client_uuid', $data['client_uuid'] ?? null);
         $message->setAttribute('conversation_uuid', $conversation->uuid);
-        broadcast(new ChatMessageSent(
-            $conversation->uuid,
-            (new ChatMessageResource($message))->resolve($request),
-        ));
 
         return Response::created([
             'conversation' => (new ChatConversationResource($this->loadConversation($conversation, $request->user())))->resolve($request),

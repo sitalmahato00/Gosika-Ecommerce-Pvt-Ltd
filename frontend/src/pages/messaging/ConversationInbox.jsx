@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { MessageCircle, Send, Store, UserRound, Headset, ArrowLeft, ImagePlus, X } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/client'
-import { getChatEcho } from '../../messaging/chatEcho'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Spinner from '../../components/ui/Spinner'
@@ -104,8 +103,6 @@ export default function ConversationInbox({ portal }) {
   const [draft, setDraft] = useState('')
   const [attachments, setAttachments] = useState([])
   const [sendingCount, setSendingCount] = useState(0)
-  const [live, setLive] = useState(false)
-  const [pollingError, setPollingError] = useState(false)
   const listRef = useRef(null)
   const shouldStickToBottomRef = useRef(true)
   const previousConversationIdRef = useRef(null)
@@ -193,87 +190,13 @@ export default function ConversationInbox({ portal }) {
   }, [requestedStore, loading, conversations, openConversation, startConversation])
 
   useEffect(() => {
-    if (!activeConversation?.id) return undefined
-
-    let active = true
-    let channel
-    let pusher
-    const connectionHandlers = {
-      state_change: ({ current }) => {
-        setLive(current === 'connected' && channel?.subscription?.subscribed === true)
-      },
-      unavailable: () => {
-        setLive(false)
-      },
-      failed: () => {
-        setLive(false)
-      },
-      error: () => {
-        setLive(false)
-      },
-    }
-
-    try {
-      const echo = getChatEcho()
-      pusher = echo.connector.pusher
-      channel = echo.private(`chat.conversation.${activeConversation.id}`)
-      channel.subscribed(() => {
-        if (!active) return
-        setLive(true)
-      })
-      channel.error(() => {
-        if (!active) return
-        setLive(false)
-      })
-      channel.listen('.chat.message.sent', ({ message }) => {
-        if (!active || !message) return
-        setActiveConversation((current) => {
-          if (!current || current.id !== activeConversation.id) return current
-          return {
-            ...current,
-            messages: mergeMessage(current.messages, message),
-            last_message: message,
-            last_message_at: message.created_at,
-            unread_count: 0,
-          }
-        })
-        setConversations((items) => {
-          const current = items.find((item) => item.id === activeConversation.id) || activeConversation
-          return updateConversation(items, {
-            ...current,
-            last_message: message,
-            last_message_at: message.created_at,
-            unread_count: 0,
-          })
-        })
-        if (message.sender?.id !== user?.id) {
-          api.post(`${base}/${activeConversation.id}/read`)
-            .catch(() => toast.error('Could not update message status.'))
-        }
-      })
-
-      Object.entries(connectionHandlers).forEach(([event, handler]) => pusher.connection.bind(event, handler))
-    } catch {
-      setLive(false)
-    }
-
-    return () => {
-      active = false
-      if (pusher) {
-        Object.entries(connectionHandlers).forEach(([event, handler]) => pusher.connection.unbind(event, handler))
-      }
-      if (channel) channel.stopListening('.chat.message.sent')
-      if (channel) getChatEcho().leave(`chat.conversation.${activeConversation.id}`)
-      setLive(false)
-    }
-  }, [activeConversation?.id, base, toast, user?.id])
-
-  useEffect(() => {
     const conversationId = activeConversation?.id
-    if (!conversationId || live) return undefined
+    if (!conversationId) return undefined
 
     let active = true
     let requestInFlight = false
+    let consecutiveFailures = 0
+    let notified = false
 
     const syncConversation = async () => {
       if (requestInFlight) return
@@ -293,9 +216,14 @@ export default function ConversationInbox({ portal }) {
           return { ...current, ...detail, messages }
         })
         setConversations((items) => updateConversation(items, { ...detail, unread_count: 0 }))
-        setPollingError(false)
+        consecutiveFailures = 0
+        notified = false
       } catch {
-        if (active) setPollingError(true)
+        consecutiveFailures += 1
+        if (active && consecutiveFailures >= 3 && !notified) {
+          notified = true
+          toast.error('Could not refresh messages. Check your internet connection.')
+        }
       } finally {
         requestInFlight = false
       }
@@ -308,7 +236,7 @@ export default function ConversationInbox({ portal }) {
       active = false
       window.clearInterval(intervalId)
     }
-  }, [activeConversation?.id, base, live])
+  }, [activeConversation?.id, base, toast])
 
   useEffect(() => {
     if (previousConversationIdRef.current !== activeConversation?.id) {
@@ -511,9 +439,7 @@ export default function ConversationInbox({ portal }) {
                 <span className="conversation-inbox__avatar"><Store size={18} /></span>
                 <span className="conversation-inbox__thread-heading">
                   <strong>{conversationTitle(activeConversation, portal)}</strong>
-                  <small>{live ? 'Live chat' : pollingError ? 'Messages may be delayed' : 'Messages update automatically'}</small>
                 </span>
-                <span className={`conversation-inbox__live-dot${live ? ' is-live' : ''}`} aria-label={live ? 'Live connection active' : 'Live connection reconnecting'} />
               </header>
 
               <div
@@ -613,7 +539,7 @@ export default function ConversationInbox({ portal }) {
             <div className="conversation-inbox__welcome">
               <MessageCircle size={34} />
               <strong>Select a conversation</strong>
-              <span>Messages are delivered live while you chat.</span>
+              <span>Choose a conversation to view and send messages.</span>
             </div>
           )}
         </section>

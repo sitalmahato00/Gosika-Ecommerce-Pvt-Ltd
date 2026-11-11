@@ -7,30 +7,19 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
-## Realtime messaging
+## Customer messaging
 
-Local setup uses Laravel Reverb. Configure `REVERB_APP_ID`, `REVERB_APP_KEY`,
-`REVERB_APP_SECRET`, and the Reverb host/port/scheme in the backend `.env`.
-Use the same app key and public connection settings in `frontend/.env`; never
-put the app secret in frontend variables. Set `REVERB_ALLOWED_ORIGINS` to the
-hostnames serving the frontend, then rebuild the frontend after changing its
-Vite variables. Vite reads these values at build time from `frontend/.env`.
-Production builds must not contain a localhost Reverb host: browsers would
-connect to the visitor's own device. On HTTPS deployments, the browser connects
-to `wss://<storefront-host>:443`; configure the web server to proxy WebSocket
-upgrade requests to the persistent Reverb process on its internal port (8080).
-Keep that process running with the hosting provider's process manager.
+Customer, vendor, and admin chats refresh the open conversation over the
+authenticated API every three seconds. No WebSocket service or proxy is
+required.
 
 Run the database migrations, then start the application services. `composer run
-dev` starts Laravel, the queue, logs, Vite, and Reverb together:
+dev` starts Laravel, the queue, logs, and Vite:
 
 ```sh
 php artisan migrate
 composer run dev
 ```
-
-The sample credentials in the environment examples are for local development
-only. Replace them with unique values in every deployed environment.
 
 ## About Laravel
 
@@ -42,7 +31,6 @@ Laravel is a web application framework with expressive, elegant syntax. We belie
 - Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
 - Database agnostic [schema migrations](https://laravel.com/docs/migrations).
 - [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
 
 Laravel is accessible, powerful, and provides tools required for large, robust applications.
 

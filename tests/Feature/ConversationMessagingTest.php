@@ -10,7 +10,6 @@ use App\Modules\Shared\Domain\Enums\VendorStatus;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use App\Modules\Vendor\Infrastructure\Models\Vendor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 use Spatie\Permission\Models\Permission;
@@ -47,7 +46,6 @@ class ConversationMessagingTest extends TestCase
         ]);
         $admin = User::factory()->create();
         $admin->assignRole($adminRole);
-        $originalBroadcaster = $this->configureBroadcasting();
 
         $this->actingAs($customer)
             ->postJson('/api/v1/customer/conversations', [
@@ -59,16 +57,6 @@ class ConversationMessagingTest extends TestCase
             ->assertJsonPath('data.store_name', 'Chat Store');
 
         $conversation = ChatConversation::query()->firstOrFail();
-
-        $channelAuth = [
-            'socket_id' => '123.456',
-            'channel_name' => 'private-chat.conversation.'.$conversation->uuid,
-        ];
-
-        $this->actingAs($customer)->postJson('/broadcasting/auth', $channelAuth)->assertOk();
-        $this->actingAs($vendorUser)->postJson('/broadcasting/auth', $channelAuth)->assertOk();
-        $this->actingAs($admin)->postJson('/broadcasting/auth', $channelAuth)->assertOk();
-        config(['broadcasting.default' => $originalBroadcaster]);
 
         $this->actingAs($vendorUser)
             ->getJson('/api/v1/vendor/conversations')
@@ -122,18 +110,10 @@ class ConversationMessagingTest extends TestCase
             'customer_user_id' => $otherCustomer->id,
             'subject' => 'GOSIKA Support',
         ]);
-        $this->configureBroadcasting();
 
         $this->actingAs($customer)
             ->getJson('/api/v1/customer/conversations/'.$conversation->uuid)
             ->assertNotFound();
-
-        $this->actingAs($customer)
-            ->postJson('/broadcasting/auth', [
-                'socket_id' => '123.456',
-                'channel_name' => 'private-chat.conversation.'.$conversation->uuid,
-            ])
-            ->assertForbidden();
 
         $this->actingAs($customer)
             ->postJson('/api/v1/customer/conversations', [
@@ -215,23 +195,4 @@ class ConversationMessagingTest extends TestCase
             ->assertOk();
     }
 
-    private function configureBroadcasting(): string
-    {
-        $originalBroadcaster = config('broadcasting.default') ?: 'null';
-
-        config([
-            'broadcasting.default' => 'reverb',
-            'broadcasting.connections.reverb.key' => 'test-key',
-            'broadcasting.connections.reverb.secret' => 'test-secret',
-            'broadcasting.connections.reverb.app_id' => 'test-app',
-            'broadcasting.connections.reverb.options.host' => 'localhost',
-            'broadcasting.connections.reverb.options.port' => 8080,
-            'broadcasting.connections.reverb.options.scheme' => 'http',
-            'broadcasting.connections.reverb.options.useTLS' => false,
-        ]);
-
-        require base_path('routes/channels.php');
-
-        return $originalBroadcaster;
-    }
 }
