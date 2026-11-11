@@ -18,6 +18,7 @@ use App\Modules\Shared\Domain\Enums\ReviewStatus;
 use App\Modules\Shared\Domain\Exceptions\DomainException;
 use App\Modules\Vendor\Infrastructure\Models\Store;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class MarketplaceService
 {
@@ -158,19 +159,42 @@ class MarketplaceService
             throw new DomainException('You have already reviewed this product.', 409);
         }
 
-        return DB::transaction(function () use ($user, $product, $orderItem, $data) {
-            $review = ProductReview::create([
-                'user_id' => $user->id,
-                'product_id' => $product->id,
-                'vendor_order_item_id' => $orderItem->id,
-                'rating' => (int) $data['rating'],
-                'title' => $data['title'] ?? null,
-                'body' => $data['body'] ?? null,
-                'status' => ReviewStatus::PENDING,
-            ]);
+        $storedPhotos = [];
 
-            return $review->fresh();
-        });
+        try {
+            return DB::transaction(function () use ($user, $product, $orderItem, $data, &$storedPhotos) {
+                $review = ProductReview::create([
+                    'user_id' => $user->id,
+                    'product_id' => $product->id,
+                    'vendor_order_item_id' => $orderItem->id,
+                    'rating' => (int) $data['rating'],
+                    'title' => $data['title'] ?? null,
+                    'body' => $data['body'] ?? null,
+                    'status' => ReviewStatus::PENDING,
+                ]);
+
+                foreach ($data['photos'] ?? [] as $photo) {
+                    $path = $photo->store("reviews/{$review->uuid}", 'public');
+                    if (! $path) {
+                        throw new \RuntimeException('A review photo could not be saved.');
+                    }
+                    $storedPhotos[] = $path;
+                }
+
+                if ($storedPhotos) {
+                    $review->photos = $storedPhotos;
+                    $review->save();
+                }
+
+                return $review->fresh();
+            });
+        } catch (\Throwable $exception) {
+            if ($storedPhotos) {
+                Storage::disk('public')->delete($storedPhotos);
+            }
+
+            throw $exception;
+        }
     }
 
     public function submitStoreReview(User $user, string $storeUuid, array $data): StoreReview

@@ -384,6 +384,15 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
                         </div>
                         {submittedReview.title && <div className="font-semibold text-sm">{submittedReview.title}</div>}
                         {submittedReview.body && <p className="text-sm" style={{ margin: 0 }}>{submittedReview.body}</p>}
+                        {submittedReview.photos?.length > 0 && (
+                          <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                            {submittedReview.photos.map((photo, index) => (
+                              <a key={`${submittedReview.id}-photo-${index}`} href={apiImage(photo)} target="_blank" rel="noreferrer">
+                                <img src={apiImage(photo)} alt={`Review photo ${index + 1}`} onError={handleImgError} style={{ width: 76, height: 76, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }} />
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ) : pendingItem && item.product_id ? (
                       <ProductReviewForm

@@ -1050,6 +1050,24 @@ button {
   background: #fff;
   box-shadow: 0 1px 4px rgba(15,23,42,0.08);
 }
+.customer-announcement {
+  max-height: 36px;
+  overflow: hidden;
+  background: #ff5500;
+  color: #fff;
+  font-size: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  opacity: 1;
+  transition: max-height 180ms ease, padding 180ms ease, opacity 140ms ease;
+}
+.customer-announcement.is-hidden {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom-width: 0;
+  opacity: 0;
+}
 .header-top {
   background: var(--navy);
   color: #94a3b8;
@@ -3730,28 +3748,34 @@ button {
 @media (max-width: 760px) {
   .header-main {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "logo actions";
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
+    grid-template-areas: "logo search actions";
     gap: 8px !important;
     padding: 10px 12px !important;
   }
-  .header-main > .brand { grid-area: logo; min-width: 0; }
+  .header-main > .brand { grid-area: logo; min-width: 34px; }
   .header-main > .search-autocomplete { display: none !important; }
-  .header-main > .header-actions { grid-area: actions; }
-  .mobile-header-search-wrap {
+  .header-main > .mobile-header-search-wrap {
     display: block;
-    padding: 0 12px 10px;
+    grid-area: search;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
   }
+  .header-main > .header-actions { grid-area: actions; }
   .mobile-header-search {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 5px;
     min-height: 40px;
-    padding: 0 4px 0 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 0 4px 0 9px;
     border: 1px solid #e2e8f0;
     border-radius: 999px;
     background: #f8fafc;
     color: #64748b;
+    box-sizing: border-box;
   }
   .mobile-header-search input {
     flex: 1;
@@ -3781,8 +3805,9 @@ button {
 
 @media (max-width: 640px) {
   .customer-header-account .header-main {
-    grid-template-columns: 34px minmax(0, 1fr) auto;
-    grid-template-areas: "menu logo actions";
+    grid-template-columns: 28px max-content minmax(0, 1fr) max-content;
+    grid-template-areas: "menu logo search actions";
+    gap: 6px !important;
   }
   .customer-header-account .header-main > .icon-btn.show-sm { grid-area: menu; }
 }

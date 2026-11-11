@@ -18,6 +18,8 @@ class ProductReviewRequest extends FormRequest
             'rating' => ['required', 'integer', 'between:1,5'],
             'title' => ['nullable', 'string', 'max:200'],
             'body' => ['nullable', 'string', 'max:2000'],
+            'photos' => ['nullable', 'array', 'max:5'],
+            'photos.*' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ];
     }
 }

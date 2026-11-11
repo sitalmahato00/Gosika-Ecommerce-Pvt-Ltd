@@ -140,6 +140,15 @@ export default function AccountMyReviews() {
                   </div>
                   {r.title && <div className="font-semibold" style={{ fontSize: 14 }}>{r.title}</div>}
                   {r.body && <p className="m-0" style={{ fontSize: 13.5, lineHeight: 1.6 }}>{r.body}</p>}
+                  {r.photos?.length > 0 && (
+                    <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                      {r.photos.map((photo, index) => (
+                        <a key={`${r.id}-photo-${index}`} href={apiImage(photo)} target="_blank" rel="noreferrer">
+                          <img src={apiImage(photo)} alt={`Review photo ${index + 1}`} onError={handleImgError} style={{ width: 84, height: 84, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }} />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                   {r.reply && (
                     <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '10px 12px', fontSize: 13 }}>
                       <span className="flex items-center gap-1.5 font-semibold" style={{ color: 'var(--primary)', marginBottom: 4 }}>

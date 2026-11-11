@@ -17,6 +17,9 @@ class AdminReviewResource extends JsonResource
             'rating' => $this->rating,
             'title' => $this->title ?? null,
             'body' => $this->body,
+            'photos' => $type === 'product'
+                ? collect($this->photos ?? [])->map(fn (string $photo) => url('/storage/'.$photo))->values()
+                : [],
             'status' => $this->status->value,
             'verified_buyer' => $this->vendor_order_item_id !== null || $this->vendor_order_id !== null,
             'customer' => $this->whenLoaded('user', fn () => [

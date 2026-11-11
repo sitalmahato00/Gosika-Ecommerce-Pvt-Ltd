@@ -18,6 +18,7 @@ class ProductReview extends BaseModel
         'rating',
         'title',
         'body',
+        'photos',
         'status',
         'reviewed_by',
         'reviewed_at',
@@ -30,6 +31,7 @@ class ProductReview extends BaseModel
     {
         return [
             'rating' => 'integer',
+            'photos' => 'array',
             'status' => ReviewStatus::class,
             'reviewed_at' => 'datetime',
             'replied_at' => 'datetime',

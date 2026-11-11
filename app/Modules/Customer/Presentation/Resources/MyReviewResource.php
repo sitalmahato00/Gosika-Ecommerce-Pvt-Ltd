@@ -14,6 +14,7 @@ class MyReviewResource extends JsonResource
             'rating' => $this->rating,
             'title' => $this->title,
             'body' => $this->body,
+            'photos' => collect($this->photos ?? [])->map(fn (string $photo) => url('/storage/'.$photo))->values(),
             'status' => $this->status->value,
             'reply' => $this->reply,
             'order_item_id' => $this->orderItem?->uuid,

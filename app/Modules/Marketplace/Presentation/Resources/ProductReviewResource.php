@@ -14,6 +14,7 @@ class ProductReviewResource extends JsonResource
             'rating' => $this->rating,
             'title' => $this->title,
             'body' => $this->body,
+            'photos' => collect($this->photos ?? [])->map(fn (string $photo) => url('/storage/'.$photo))->values(),
             'status' => $this->status->value,
             'user' => $this->whenLoaded('user', fn () => [
                 'name' => $this->user?->name,

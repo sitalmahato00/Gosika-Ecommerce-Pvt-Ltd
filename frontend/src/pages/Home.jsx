@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Truck, ShieldCheck, RotateCcw, Headphones, ArrowRight, ImageOff,
-  Sparkles, Flame, Send, TrendingUp, Package, Store, Award
+  Sparkles, Flame, TrendingUp, Package, Store, Award
 } from 'lucide-react'
 import api from '../api/client'
 import ProductCard, { ProductCardSkeletonMini } from '../components/commerce/ProductCard'
@@ -36,7 +36,6 @@ export default function Home() {
   const [loadErrors, setLoadErrors] = useState({})
   const [loading, setLoading] = useState(true)
   const [quickView, setQuickView] = useState(null)
-  const [newsletterEmail, setNewsletterEmail] = useState('')
   const [failedCampaignImages, setFailedCampaignImages] = useState(() => new Set())
   const toast = useToast()
 
@@ -76,16 +75,6 @@ export default function Home() {
 
     return () => { alive = false }
   }, [])
-
-  const handleSubscribe = (e) => {
-    e.preventDefault()
-    if (!newsletterEmail || !newsletterEmail.includes('@')) {
-      toast.error('Please enter a valid email address')
-      return
-    }
-    toast.success('Thank you for subscribing! Check your email for your रु 500 voucher.')
-    setNewsletterEmail('')
-  }
 
   const {
     categories, deals, trending, newArrivals, featuredProducts,
@@ -363,70 +352,6 @@ export default function Home() {
           )}
         </section>
       )}
-
-      {/* ==================== 7. FULL-WIDTH ORANGE NEWSLETTER BANNER ==================== */}
-      <section className="container" style={{ padding: '16px 20px 48px' }}>
-        <div className="newsletter-strip">
-          <div style={{ maxWidth: 480 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 900, color: '#ffffff', margin: '0 0 6px' }}>
-              Subscribe to our Newsletter
-            </h2>
-            <p style={{ fontSize: 14, color: '#ffedd5', margin: 0, lineHeight: 1.5 }}>
-              Get रु 500 off on your first order and stay updated with latest deals.
-            </p>
-          </div>
-
-          <form
-            onSubmit={handleSubscribe}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              background: '#ffffff',
-              borderRadius: 10,
-              padding: 4,
-              width: '100%',
-              maxWidth: 420,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-            }}
-          >
-            <input
-              type="email"
-              value={newsletterEmail}
-              onChange={(e) => setNewsletterEmail(e.target.value)}
-              placeholder="Enter your email address"
-              aria-label="Email address"
-              style={{
-                flex: 1,
-                border: 'none',
-                outline: 'none',
-                padding: '10px 14px',
-                fontSize: 13.5,
-                color: '#1e293b',
-                background: 'transparent'
-              }}
-            />
-            <button
-              type="submit"
-              style={{
-                background: '#0f172a',
-                color: '#ffffff',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: 8,
-                fontSize: 13.5,
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                transition: 'background 0.15s ease'
-              }}
-            >
-              Subscribe <Send size={13} />
-            </button>
-          </form>
-        </div>
-      </section>
 
       {/* Quick view modal */}
       {quickView && <ProductQuickView product={quickView} onClose={() => setQuickView(null)} />}

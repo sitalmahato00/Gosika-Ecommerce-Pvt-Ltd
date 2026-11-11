@@ -19,7 +19,7 @@ import { CUSTOMER_NAV } from '../../utils/constants'
 
 import { useBranding } from '../../context/BrandingContext'
 
-function Logo({ size = 'md', onClick }) {
+function Logo({ size = 'md', onClick, showName = true }) {
   const branding = useBranding()
   const brandName = branding.brand_name || branding.site_name || 'GOSIKA'
   const logoUrl = branding.logo_light || branding.logo_dark
@@ -28,14 +28,14 @@ function Logo({ size = 'md', onClick }) {
       {logoUrl ? (
         <>
           <img src={apiImage(logoUrl)} alt="" aria-hidden="true" className="customer-brand-image" />
-          <span className="customer-brand-name">{brandName}</span>
+          {showName && <span className="customer-brand-name">{brandName}</span>}
         </>
       ) : (
         <>
           <GosikaLogo size={32} showText={false} />
-          <span style={{ fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+          {showName && <span style={{ fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
             {brandName}
-          </span>
+          </span>}
         </>
       )}
     </Link>
@@ -62,6 +62,7 @@ export default function CustomerHeader() {
   const [locationError, setLocationError] = useState('')
   const [nearbyEnabled, setNearbyEnabled] = useState(Boolean(getSearchLocation()))
   const [activeSuggestion, setActiveSuggestion] = useState(-1)
+  const [announcementHidden, setAnnouncementHidden] = useState(false)
   const accountRef = useRef(null)
   const suggestRef = useRef(null)
   const prevItemCount = useRef(itemCount)
@@ -70,6 +71,24 @@ export default function CustomerHeader() {
   useEffect(() => {
     closeMenu()
   }, [location.pathname, location.search, closeMenu])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = Math.max(
+        window.scrollY,
+        document.documentElement.scrollTop,
+        document.body.scrollTop,
+      )
+      setAnnouncementHidden((hidden) => {
+        if (scrollTop > 64) return true
+        if (scrollTop <= 16) return false
+        return hidden
+      })
+    }
+
+    document.addEventListener('scroll', handleScroll, { passive: true, capture: true })
+    return () => document.removeEventListener('scroll', handleScroll, true)
+  }, [])
 
   useEffect(() => {
     api
@@ -250,6 +269,7 @@ export default function CustomerHeader() {
   const isAdminUser = isSuperAdmin()
   const showCustomerOptions = !!user && !isAdminUser
   const wishlistCount = wishlistIds?.length || 0
+  const isHomePage = location.pathname === '/'
   const isAccountPage = location.pathname === '/account' || location.pathname.startsWith('/account/')
   const isDrawerLinkActive = (to, exact = false, activePaths = []) => {
     if (activePaths.includes(location.pathname)) return true
@@ -279,25 +299,27 @@ export default function CustomerHeader() {
   return (
     <header className={`customer-header${isAccountPage ? ' customer-header-account' : ''}`} role="banner">
       {/* ---- Top strip matching Design: Solid Brand Orange ---- */}
-      <div style={{ background: '#ff5500', color: '#ffffff', fontSize: 12, padding: '7px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-        <div className="container flex items-center justify-between gap-3" style={{ padding: '0 20px' }}>
-          <span className="flex items-center gap-2" style={{ fontWeight: 500, letterSpacing: '0.01em' }}>
-            <Truck size={14} color="#ffffff" />
-            Delivering across Nepal
-          </span>
-          <span className="flex items-center gap-5 hide-sm" style={{ fontSize: 12 }}>
-            <Link to="/orders" className="flex items-center gap-1.5" style={{ color: '#ffffff', opacity: 0.95, textDecoration: 'none' }}>
-              <Clock size={13} /> Track Order
-            </Link>
-            <Link to="/help" className="flex items-center gap-1.5" style={{ color: '#ffffff', opacity: 0.95, textDecoration: 'none' }}>
-              <HelpCircle size={13} /> Help Center
-            </Link>
-            <Link to="/seller/login" className="flex items-center gap-1.5" style={{ color: '#ffffff', fontWeight: 600, textDecoration: 'none' }}>
-              <Store size={13} /> Become a Seller
-            </Link>
-          </span>
+      {isHomePage && (
+        <div className={`customer-announcement${announcementHidden ? ' is-hidden' : ''}`} aria-hidden={announcementHidden}>
+          <div className="container flex items-center justify-between gap-3" style={{ padding: '0 20px' }}>
+            <span className="flex items-center gap-2" style={{ fontWeight: 500, letterSpacing: '0.01em' }}>
+              <Truck size={14} color="#ffffff" />
+              Delivering across Nepal
+            </span>
+            <span className="flex items-center gap-5 hide-sm" style={{ fontSize: 12 }}>
+              <Link to="/orders" className="flex items-center gap-1.5" style={{ color: '#ffffff', opacity: 0.95, textDecoration: 'none' }}>
+                <Clock size={13} /> Track Order
+              </Link>
+              <Link to="/help" className="flex items-center gap-1.5" style={{ color: '#ffffff', opacity: 0.95, textDecoration: 'none' }}>
+                <HelpCircle size={13} /> Help Center
+              </Link>
+              <Link to="/seller/login" className="flex items-center gap-1.5" style={{ color: '#ffffff', fontWeight: 600, textDecoration: 'none' }}>
+                <Store size={13} /> Become a Seller
+              </Link>
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ---- Main header ---- */}
       <div className="container header-main" style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 24 }}>
@@ -313,7 +335,21 @@ export default function CustomerHeader() {
           </button>
         )}
 
-        <Logo />
+        <Logo showName={false} />
+
+        <div className="mobile-header-search-wrap">
+          <form className="mobile-header-search" onSubmit={submitSearch} role="search" aria-label="Search products">
+            <Search size={16} aria-hidden="true" />
+            <input
+              type="search"
+              value={q}
+              onChange={(event) => setQ(event.target.value)}
+              placeholder="Search products or brands"
+              aria-label="Search products, brands, or categories"
+            />
+            <button type="submit" aria-label="Search products"><Search size={17} /></button>
+          </form>
+        </div>
 
         {/* Search bar with Category dropdown — hidden on mobile */}
         <div
@@ -547,16 +583,6 @@ export default function CustomerHeader() {
 
         {/* Header actions: Login / Wishlist / Cart */}
         <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          {/* Search icon on mobile */}
-          <button
-            className="icon-btn show-sm"
-            style={{ border: 'none', background: 'none' }}
-            onClick={() => navigate('/search')}
-            aria-label="Search products"
-          >
-            <Search size={20} />
-          </button>
-
           {/* Account / Login dropdown */}
           <div style={{ position: 'relative' }} ref={accountRef}>
             <button
@@ -810,20 +836,6 @@ export default function CustomerHeader() {
             </span>
           </Link>
         </div>
-      </div>
-
-      <div className="container mobile-header-search-wrap">
-        <form className="mobile-header-search" onSubmit={submitSearch} role="search" aria-label="Search products">
-          <Search size={16} aria-hidden="true" />
-          <input
-            type="search"
-            value={q}
-            onChange={(event) => setQ(event.target.value)}
-            placeholder="Search products or brands"
-            aria-label="Search products, brands, or categories"
-          />
-          <button type="submit" aria-label="Search products"><Search size={17} /></button>
-        </form>
       </div>
 
       {/* ---- Category nav bar (desktop) matching Design ---- */}

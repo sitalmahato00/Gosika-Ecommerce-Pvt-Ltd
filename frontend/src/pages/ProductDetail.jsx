@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ShoppingCart, Heart, Share2, Truck, ShieldCheck, RefreshCcw,
-  Store, ChevronRight, CheckCircle2, AlertTriangle, Star, Eye
+  Store, ChevronRight, CheckCircle2, AlertTriangle, Star, Eye, ImagePlus, X
 } from 'lucide-react'
 import api from '../api/client'
 import { useCart } from '../context/CartContext'
@@ -46,6 +46,14 @@ export default function ProductDetail() {
   const [busy, setBusy] = useState(false)
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', body: '' })
+  const [reviewPhotos, setReviewPhotos] = useState([])
+  const [reviewPhotoPreviews, setReviewPhotoPreviews] = useState([])
+
+  useEffect(() => {
+    const previews = reviewPhotos.map((photo) => URL.createObjectURL(photo))
+    setReviewPhotoPreviews(previews)
+    return () => previews.forEach((preview) => URL.revokeObjectURL(preview))
+  }, [reviewPhotos])
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -170,10 +178,18 @@ export default function ProductDetail() {
   const submitReview = async (e) => {
     e.preventDefault()
     try {
-      await api.post(`/marketplace/products/${product.id}/reviews`, reviewForm)
+      const formData = new FormData()
+      formData.append('rating', String(reviewForm.rating))
+      formData.append('title', reviewForm.title)
+      formData.append('body', reviewForm.body)
+      reviewPhotos.forEach((photo) => formData.append('photos[]', photo))
+      await api.post(`/marketplace/products/${product.id}/reviews`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
       toast.success('Review submitted for approval')
       setShowReviewForm(false)
       setReviewForm({ rating: 5, title: '', body: '' })
+      setReviewPhotos([])
     } catch (err) {
       toast.error(errorMessage(err))
     }
@@ -476,6 +492,46 @@ export default function ProductDetail() {
                     <label className="label">Your review</label>
                     <textarea className="textarea" rows={3} value={reviewForm.body} onChange={(e) => setReviewForm((f) => ({ ...f, body: e.target.value }))} placeholder="Tell other shoppers what you liked or disliked about this product…" required />
                   </div>
+                  <div className="form-group">
+                    <label className="label" htmlFor="product-review-photos">Photos <span className="muted">(optional, up to 5)</span></label>
+                    <label htmlFor="product-review-photos" className="btn btn-outline btn-sm inline-flex items-center gap-1.5" style={{ cursor: 'pointer' }}>
+                      <ImagePlus size={15} /> Add photos
+                    </label>
+                    <input
+                      id="product-review-photos"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      onChange={(event) => {
+                        const selected = Array.from(event.target.files || [])
+                        if (reviewPhotos.length + selected.length > 5) {
+                          toast.error('You can attach up to 5 photos.')
+                        } else {
+                          setReviewPhotos((current) => [...current, ...selected])
+                        }
+                        event.target.value = ''
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                    <p className="muted text-xs" style={{ margin: '6px 0 0' }}>JPG, PNG, or WebP; maximum 5 MB per photo.</p>
+                    {reviewPhotos.length > 0 && (
+                      <div className="flex items-center gap-2" style={{ flexWrap: 'wrap', marginTop: 10 }}>
+                        {reviewPhotoPreviews.map((preview, index) => (
+                          <div key={`${reviewPhotos[index].name}-${index}`} style={{ position: 'relative', width: 64, height: 64 }}>
+                            <img src={preview} alt={`Review upload ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                            <button
+                              type="button"
+                              aria-label={`Remove photo ${index + 1}`}
+                              onClick={() => setReviewPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index))}
+                              style={{ position: 'absolute', top: -6, right: -6, width: 22, height: 22, display: 'grid', placeItems: 'center', border: 0, borderRadius: '50%', background: 'var(--ink)', color: '#fff', cursor: 'pointer' }}
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button className="btn btn-primary btn-sm">Submit Review</button>
                 </form>
               )}
@@ -496,6 +552,15 @@ export default function ProductDetail() {
                       </div>
                       {r.title && <div className="font-semibold mt-2" style={{ fontSize: 14 }}>{r.title}</div>}
                       {r.body && <p className="muted m-0 mt-1" style={{ fontSize: 13.5 }}>{r.body}</p>}
+                      {r.photos?.length > 0 && (
+                        <div className="flex gap-2 mt-2" style={{ flexWrap: 'wrap' }}>
+                          {r.photos.map((photo, index) => (
+                            <a key={`${r.id}-photo-${index}`} href={apiImage(photo)} target="_blank" rel="noreferrer">
+                              <img src={apiImage(photo)} alt={`Customer review photo ${index + 1}`} style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
