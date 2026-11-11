@@ -14,6 +14,7 @@ class ProductReviewRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'order_item_id' => ['nullable', 'uuid'],
             'rating' => ['required', 'integer', 'between:1,5'],
             'title' => ['nullable', 'string', 'max:200'],
             'body' => ['nullable', 'string', 'max:2000'],

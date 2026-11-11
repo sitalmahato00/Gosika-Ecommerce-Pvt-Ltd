@@ -11,6 +11,7 @@ use App\Modules\Marketplace\Infrastructure\Models\StoreReview;
 use App\Modules\Order\Infrastructure\Models\Order;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
 use App\Modules\Order\Infrastructure\Models\VendorOrder;
+use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Domain\Enums\ProductStatus;
 use App\Modules\Shared\Domain\Enums\ReviewStatus;
@@ -141,10 +142,10 @@ class MarketplaceService
             throw new DomainException('Product not found.', 404);
         }
 
-        $orderItem = $this->purchasedOrderItem($user, $product);
+        $orderItem = $this->purchasedOrderItem($user, $product, $data['order_item_id'] ?? null);
 
         if (! $orderItem) {
-            throw new DomainException('You can only review products you have purchased.', 403);
+            throw new DomainException('You can only review delivered products you have purchased.', 403);
         }
 
         $exists = ProductReview::query()
@@ -246,19 +247,20 @@ class MarketplaceService
         ]);
     }
 
-    protected function purchasedOrderItem(User $user, Product $product): ?OrderItem
+    protected function purchasedOrderItem(User $user, Product $product, ?string $orderItemUuid = null): ?OrderItem
     {
         return OrderItem::query()
             ->where('product_id', $product->id)
+            ->when($orderItemUuid, fn ($query) => $query->where('uuid', $orderItemUuid))
             ->whereHas('order', function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                    ->whereNotIn('status', [
-                        OrderStatus::CANCELLED->value,
-                        OrderStatus::FAILED->value,
-                        OrderStatus::REJECTED->value,
-                        OrderStatus::REFUNDED->value,
-                        OrderStatus::RETURNED->value,
-                    ]);
+                $q->where('user_id', $user->id);
+            })
+            ->where(function ($query) {
+                $query->where('delivery_status', DeliveryStatus::DELIVERED->value)
+                    ->orWhereHas('order', fn ($orderQuery) => $orderQuery->whereIn('status', [
+                        OrderStatus::DELIVERED->value,
+                        OrderStatus::COMPLETED->value,
+                    ]));
             })
             ->orderByDesc('id')
             ->first();

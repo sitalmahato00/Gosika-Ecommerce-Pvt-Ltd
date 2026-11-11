@@ -9,6 +9,7 @@ use App\Modules\Customer\Presentation\Resources\PendingReviewResource;
 use App\Modules\Marketplace\Infrastructure\Models\ProductQuestion;
 use App\Modules\Marketplace\Infrastructure\Models\ProductReview;
 use App\Modules\Order\Infrastructure\Models\OrderItem;
+use App\Modules\Shared\Domain\Enums\DeliveryStatus;
 use App\Modules\Shared\Domain\Enums\OrderStatus;
 use App\Modules\Shared\Presentation\Http\Response;
 use App\Modules\Vendor\Infrastructure\Models\Store;
@@ -47,22 +48,17 @@ class CustomerAccountController extends Controller
     public function pendingReviews(Request $request): JsonResponse
     {
         $user = $request->user();
-        $eligibleStatuses = [
-            OrderStatus::CONFIRMED->value,
-            OrderStatus::ACCEPTED->value,
-            OrderStatus::PROCESSING->value,
-            OrderStatus::PREPARING->value,
-            OrderStatus::READY_FOR_PICKUP->value,
-            OrderStatus::PICKED_UP->value,
-            OrderStatus::OUT_FOR_DELIVERY->value,
-            OrderStatus::DELIVERED->value,
-            OrderStatus::COMPLETED->value,
-            OrderStatus::RETURNED->value,
-        ];
 
         $items = OrderItem::query()
-            ->whereHas('order', function ($query) use ($user, $eligibleStatuses) {
-                $query->where('user_id', $user->id)->whereIn('status', $eligibleStatuses);
+            ->whereHas('order', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })
+            ->where(function ($query) {
+                $query->where('delivery_status', DeliveryStatus::DELIVERED->value)
+                    ->orWhereHas('order', fn ($orderQuery) => $orderQuery->whereIn('status', [
+                        OrderStatus::DELIVERED->value,
+                        OrderStatus::COMPLETED->value,
+                    ]));
             })
             ->whereNotNull('product_id')
             ->whereNotExists(function ($query) use ($user) {
