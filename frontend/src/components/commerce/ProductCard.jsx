@@ -60,11 +60,15 @@ export default function ProductCard({ product, onQuickView, variant = 'outline' 
   return (
     <div className="card card-pad-none card-hover" style={{ display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
       <Link to={`/product/${slug}`} aria-label={product.name} style={{ position: 'relative', display: 'block' }}>
-        <div style={{ aspectRatio: '4 / 3', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <div
+          className="product-card-image-frame"
+          style={{ width: '100%', aspectRatio: '1 / 1', background: '#f8fafc', display: 'grid', placeItems: 'center', overflow: 'hidden' }}
+        >
           <img
             src={imageUrl}
             alt={product.name}
             loading="lazy"
+            className="product-card-image"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={handleImgError}
           />
@@ -152,7 +156,9 @@ export default function ProductCard({ product, onQuickView, variant = 'outline' 
 export function ProductCardSkeletonMini() {
   return (
     <div className="card card-pad-none" style={{ overflow: 'hidden' }}>
-      <Skeleton height={190} />
+      <div className="product-card-image-frame">
+        <Skeleton width="100%" height="100%" />
+      </div>
       <div style={{ padding: 14 }}>
         <Skeleton height={13} width="80%" style={{ marginBottom: 8 }} />
         <Skeleton height={12} width="50%" style={{ marginBottom: 8 }} />

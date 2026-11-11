@@ -32,12 +32,6 @@ class PublicMarketingController extends Controller
     public function campaigns(): JsonResponse
     {
         $campaigns = Campaign::where('status', 'active')
-            ->where(function ($q) {
-                $q->whereNull('start_date')->orWhere('start_date', '<=', now());
-            })
-            ->where(function ($q) {
-                $q->whereNull('end_date')->orWhere('end_date', '>=', now());
-            })
             ->orderBy('sort_order')
             ->orderByDesc('id')
             ->get();

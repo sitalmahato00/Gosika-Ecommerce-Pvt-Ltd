@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Truck, ShieldCheck, RotateCcw, Headphones, ArrowRight,
+  Truck, ShieldCheck, RotateCcw, Headphones, ArrowRight, ImageOff,
   Sparkles, Flame, Send, TrendingUp, Package, Store, Award
 } from 'lucide-react'
 import api from '../api/client'
@@ -9,7 +9,7 @@ import ProductCard, { ProductCardSkeletonMini } from '../components/commerce/Pro
 import ProductQuickView from '../components/commerce/ProductQuickView'
 import { useToast } from '../context/ToastContext'
 import { getCategoryIcon } from '../utils/icons'
-import { apiImage, getProductImage, handleImgError, errorMessage, IMG_PLACEHOLDER } from '../utils/format'
+import { apiImage, errorMessage, money } from '../utils/format'
 
 // 4 Clean Trust Cards
 const TRUST_PERKS = [
@@ -28,7 +28,7 @@ const EMPTY_HOME_DATA = {
   recommendedProducts: [],
   stores: [],
   brands: [],
-  banners: [],
+  campaigns: [],
 }
 
 export default function Home() {
@@ -37,6 +37,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [quickView, setQuickView] = useState(null)
   const [newsletterEmail, setNewsletterEmail] = useState('')
+  const [failedCampaignImages, setFailedCampaignImages] = useState(() => new Set())
   const toast = useToast()
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export default function Home() {
       recommendedProducts: () => api.get('/products', { params: { sort: 'rating', per_page: 24 } }),
       stores: () => api.get('/marketplace/stores', { params: { per_page: 6 } }),
       brands: () => api.get('/brands'),
-      banners: () => api.get('/banners'),
+      campaigns: () => api.get('/campaigns'),
     }
 
     Promise.all(Object.entries(requests).map(async ([key, request]) => {
@@ -88,32 +89,32 @@ export default function Home() {
 
   const {
     categories, deals, trending, newArrivals, featuredProducts,
-    recommendedProducts, stores, brands, banners,
+    recommendedProducts, stores, brands, campaigns,
   } = homeData
   const [slide, setSlide] = useState(0)
+  const heroSlides = campaigns
 
   useEffect(() => {
-    if (banners.length < 2) return undefined
-    const timer = setInterval(() => setSlide((current) => (current + 1) % banners.length), 6000)
+    if (heroSlides.length < 2) return undefined
+    const timer = setInterval(() => setSlide((current) => (current + 1) % heroSlides.length), 5000)
     return () => clearInterval(timer)
-  }, [banners.length])
+  }, [heroSlides.length])
 
-  const activeBanner = banners[slide % Math.max(banners.length, 1)]
-  const heroProducts = deals
-    .filter((product) => getProductImage(product) !== IMG_PLACEHOLDER)
-    .slice(0, 3)
-  const maxDiscount = deals.reduce((highest, product) => {
-    const price = Number(product.price)
-    const compareAtPrice = Number(product.compare_at_price)
-    if (!price || compareAtPrice <= price) return highest
-    return Math.max(highest, Math.round(((compareAtPrice - price) / compareAtPrice) * 100))
-  }, 0)
-  const heroLink = activeBanner?.link || (deals.length ? '/shop?filter=deals' : '/shop')
-  const isExternalHeroLink = /^https?:\/\//i.test(heroLink)
-  const HeroLink = isExternalHeroLink ? 'a' : Link
-  const heroLinkProps = isExternalHeroLink
-    ? { href: heroLink, target: '_blank', rel: 'noopener noreferrer' }
-    : { to: heroLink }
+  const activeSlideIndex = slide % Math.max(heroSlides.length, 1)
+  const activeCampaign = heroSlides[activeSlideIndex]
+  const campaignImageKey = activeCampaign
+    ? `${activeCampaign.id || ''}:${activeCampaign.image || ''}`
+    : ''
+  const showCampaignImage = Boolean(activeCampaign?.image && !failedCampaignImages.has(campaignImageKey))
+  const campaignType = activeCampaign?.type?.replace(/_/g, ' ')
+  const campaignDiscount = Number(activeCampaign?.discount_value)
+  const campaignOffer = activeCampaign?.type === 'free_shipping'
+    ? 'Free delivery'
+    : activeCampaign?.discount_type === 'percentage' && campaignDiscount > 0
+      ? `${campaignDiscount}% OFF`
+      : activeCampaign?.discount_type === 'fixed' && campaignDiscount > 0
+        ? `${money(campaignDiscount)} OFF`
+        : campaignType
   const alreadyShownProducts = new Set(
     [...deals, ...trending, ...newArrivals, ...featuredProducts].map((product) => product.id)
   )
@@ -150,70 +151,65 @@ export default function Home() {
   return (
     <div className="gosika-home" style={{ background: '#f7f8fc', minHeight: '100vh' }}>
       {/* ==================== HERO ==================== */}
-      {(loading || banners.length > 0 || deals.length > 0 || loadErrors.banners || loadErrors.deals) && (
+      {(heroSlides.length > 0 || loadErrors.campaigns) && (
         <section className="hero-section home-hero" aria-label="Featured promotions">
-          <div className="container hero-content home-hero-content">
-            <div className="home-hero-copy">
-              <span className="home-hero-badge">
-                <Sparkles size={13} />
-                {activeBanner ? 'Featured offer' : deals.length ? "Today's deals" : 'GOSIKA marketplace'}
-              </span>
-              <h1 className="hero-title home-hero-title">
-                {activeBanner?.title || (deals.length ? 'Great finds, real deals' : 'Shop local with GOSIKA')}
-              </h1>
-              <p className="hero-subtitle home-hero-subtitle">
-                {activeBanner?.description || (deals.length
-                  ? 'Explore offers from trusted sellers across Nepal.'
-                  : 'Discover products from trusted sellers across Nepal.')}
-              </p>
-              <div className="hero-actions">
-                <HeroLink {...heroLinkProps} className="btn btn-primary home-hero-cta">
-                  {activeBanner ? 'Explore offer' : 'Shop deals'} <ArrowRight size={16} />
-                </HeroLink>
+          {loadErrors.campaigns ? (
+            <p className="container home-section-error" role="alert">{loadErrors.campaigns}</p>
+          ) : activeCampaign ? (
+            <>
+              <div className="container hero-content home-hero-content">
+                <div className="home-hero-copy">
+                  <span className="home-hero-badge">
+                    <Sparkles size={13} />
+                    {campaignType || 'Featured campaign'}
+                  </span>
+                  <h1 className="hero-title home-hero-title">{activeCampaign.title}</h1>
+                  <p className="hero-subtitle home-hero-subtitle">
+                    {activeCampaign.tagline || activeCampaign.description || activeCampaign.title}
+                  </p>
+                  {campaignOffer && (
+                    <p className="home-campaign-offer">{campaignOffer}</p>
+                  )}
+                  <div className="hero-actions">
+                    <Link to="/shop" className="btn btn-primary home-hero-cta">
+                      Shop campaign <ArrowRight size={16} />
+                    </Link>
+                  </div>
+                </div>
+
+                <div className={`home-hero-visual${showCampaignImage ? ' has-banner-image' : ''}`} aria-hidden="true">
+                  {showCampaignImage ? (
+                    <div className="home-hero-banner-art">
+                      <img
+                        src={apiImage(activeCampaign.image)}
+                        alt=""
+                        loading="eager"
+                        onError={() => setFailedCampaignImages((failed) => new Set(failed).add(campaignImageKey))}
+                      />
+                    </div>
+                  ) : (
+                    <div className="home-hero-campaign-placeholder">
+                      <ImageOff size={36} strokeWidth={1.5} />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className={`home-hero-visual${activeBanner?.image ? ' has-banner-image' : ''}`} aria-hidden="true">
-              {activeBanner?.image ? (
-                <div className="home-hero-banner-art">
-                  <img
-                    src={apiImage(activeBanner.image)}
-                    alt=""
-                    loading="eager"
-                    onError={(event) => { event.currentTarget.closest('.home-hero-banner-art').style.display = 'none' }}
-                  />
+              {heroSlides.length > 1 && (
+                <div className="hero-slides-dots" role="tablist" aria-label="Campaign slides">
+                  {heroSlides.map((campaign, index) => (
+                    <button
+                      key={campaign.id || index}
+                      className={`hero-dot ${index === activeSlideIndex ? 'active' : ''}`}
+                      onClick={() => setSlide(index)}
+                      aria-label={`Go to campaign: ${campaign.title}`}
+                      aria-selected={index === slide}
+                    />
+                  ))}
                 </div>
-              ) : heroProducts.map((product, index) => (
-                <div className={`home-hero-product home-hero-product-${index + 1}`} key={product.id}>
-                  <img
-                    src={getProductImage(product)}
-                    alt=""
-                    onError={handleImgError}
-                    loading={index === 0 ? 'eager' : 'lazy'}
-                  />
-                </div>
-              ))}
-              {maxDiscount > 0 && (
-                <span className="home-hero-discount">
-                  <span>Up to</span><strong>{maxDiscount}%</strong><span>OFF</span>
-                </span>
               )}
-            </div>
-          </div>
-
-          {banners.length > 1 && (
-            <div className="hero-slides-dots" role="tablist" aria-label="Promotion slides">
-              {banners.map((banner, index) => (
-                <button
-                  key={banner.id}
-                  className={`hero-dot ${index === slide ? 'active' : ''}`}
-                  onClick={() => setSlide(index)}
-                  aria-label={`Go to offer ${index + 1}`}
-                  aria-selected={index === slide}
-                />
-              ))}
-            </div>
-          )}
+            </>
+          ) : null}
         </section>
       )}
 
