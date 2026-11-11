@@ -14,7 +14,12 @@ Local setup uses Laravel Reverb. Configure `REVERB_APP_ID`, `REVERB_APP_KEY`,
 Use the same app key and public connection settings in `frontend/.env`; never
 put the app secret in frontend variables. Set `REVERB_ALLOWED_ORIGINS` to the
 hostnames serving the frontend, then rebuild the frontend after changing its
-Vite variables.
+Vite variables. Vite reads these values at build time from `frontend/.env`.
+Production builds must not contain a localhost Reverb host: browsers would
+connect to the visitor's own device. On HTTPS deployments, the browser connects
+to `wss://<storefront-host>:443`; configure the web server to proxy WebSocket
+upgrade requests to the persistent Reverb process on its internal port (8080).
+Keep that process running with the hosting provider's process manager.
 
 Run the database migrations, then start the application services. `composer run
 dev` starts Laravel, the queue, logs, Vite, and Reverb together:

@@ -218,6 +218,17 @@ export default function ConversationInbox({ portal }) {
         setLive(false)
         setStreamError(true)
       },
+      error: (event) => {
+        const data = event?.error?.data || event?.data
+        const code = data?.code || event?.error?.code
+        const message = event?.error?.message || data?.message || event?.message
+        setLive(false)
+        setStreamError(true)
+        setConnectionMessage(
+          [code && `(${code})`, message].filter(Boolean).join(' ')
+            || 'Realtime connection failed. Check the WebSocket server and proxy.',
+        )
+      },
     }
 
     try {
