@@ -16,6 +16,7 @@ class MyReviewResource extends JsonResource
             'body' => $this->body,
             'status' => $this->status->value,
             'reply' => $this->reply,
+            'order_item_id' => $this->orderItem?->uuid,
             'product_id' => $this->product?->uuid,
             'product_name' => $this->product?->name,
             'image' => $this->product?->primaryImage

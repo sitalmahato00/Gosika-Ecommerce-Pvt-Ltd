@@ -17,7 +17,7 @@ export default function AccountActiveOrders() {
     setLoading(true)
     setError(null)
     api
-      .get('/orders', { params: { per_page: 100 } })
+      .get('/orders', { params: { per_page: 50 } })
       .then((res) => {
         const raw = res.data?.data?.data ?? res.data?.data ?? res.data
         const list = Array.isArray(raw) ? raw : []

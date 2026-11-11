@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { MessageSquare, MessageCircleReply, Star, ShoppingBag } from 'lucide-react'
 import api from '../../api/client'
+import ProductReviewForm from '../../components/commerce/ProductReviewForm'
 import StatusBadge from '../../components/commerce/StatusBadge'
 import { apiImage, formatDate, getProductImage, handleImgError } from '../../utils/format'
 import { AccountPage, AccountSkeleton, AccountEmpty, AccountError } from './AccountUI'
@@ -12,9 +13,6 @@ export default function AccountMyReviews() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeReviewId, setActiveReviewId] = useState(null)
-  const [draft, setDraft] = useState({ rating: 5, title: '', body: '' })
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -37,26 +35,11 @@ export default function AccountMyReviews() {
 
   const startReview = (item) => {
     setActiveReviewId(item.id)
-    setDraft({ rating: 5, title: '', body: '' })
-    setSubmitError('')
   }
 
-  const submitReview = async (event, item) => {
-    event.preventDefault()
-    setSubmitting(true)
-    setSubmitError('')
-    try {
-      await api.post(`/marketplace/products/${item.product_id}/reviews`, {
-        ...draft,
-        order_item_id: item.id,
-      })
-      setActiveReviewId(null)
-      load()
-    } catch (e) {
-      setSubmitError(e.response?.data?.message || 'Could not submit your review. Please try again.')
-    } finally {
-      setSubmitting(false)
-    }
+  const reviewSubmitted = () => {
+    setActiveReviewId(null)
+    load()
   }
 
   if (loading) {
@@ -120,50 +103,11 @@ export default function AccountMyReviews() {
                     </button>
                   </div>
                   {activeReviewId === item.id && (
-                    <form onSubmit={(event) => submitReview(event, item)} style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-                      <label className="label">Your rating</label>
-                      <div className="flex items-center gap-1" style={{ marginBottom: 14 }}>
-                        {[1, 2, 3, 4, 5].map((rating) => (
-                          <button
-                            key={rating}
-                            type="button"
-                            aria-label={`${rating} star${rating === 1 ? '' : 's'}`}
-                            aria-pressed={draft.rating === rating}
-                            onClick={() => setDraft((current) => ({ ...current, rating }))}
-                            style={{ border: 0, background: 'transparent', padding: 4, color: rating <= draft.rating ? '#f59e0b' : '#cbd5e1', cursor: 'pointer' }}
-                          >
-                            <Star size={24} fill={rating <= draft.rating ? 'currentColor' : 'none'} />
-                          </button>
-                        ))}
-                      </div>
-                      <div className="form-group">
-                        <label className="label" htmlFor={`review-title-${item.id}`}>Title <span className="muted">(optional)</span></label>
-                        <input
-                          id={`review-title-${item.id}`}
-                          className="input"
-                          maxLength={200}
-                          value={draft.title}
-                          onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-                          placeholder="Summarize your experience"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="label" htmlFor={`review-body-${item.id}`}>Your review <span className="muted">(optional)</span></label>
-                        <textarea
-                          id={`review-body-${item.id}`}
-                          className="textarea"
-                          rows={4}
-                          maxLength={2000}
-                          value={draft.body}
-                          onChange={(event) => setDraft((current) => ({ ...current, body: event.target.value }))}
-                          placeholder="What did you think about this product?"
-                        />
-                      </div>
-                      {submitError && <p role="alert" style={{ color: 'var(--danger)', fontSize: 13, margin: '0 0 12px' }}>{submitError}</p>}
-                      <button type="submit" className="btn btn-primary" disabled={submitting}>
-                        {submitting ? 'Submitting…' : 'Submit review'}
-                      </button>
-                    </form>
+                    <ProductReviewForm
+                      productId={item.product_id}
+                      orderItemId={item.id}
+                      onSubmitted={reviewSubmitted}
+                    />
                   )}
                 </article>
               ))}

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { PackageOpen } from 'lucide-react'
+import { MessageSquare, PackageOpen } from 'lucide-react'
 import api from '../api/client'
 import { useList } from '../hooks/useApi'
 import StatusBadge from '../components/commerce/StatusBadge'
@@ -199,21 +199,22 @@ export default function OrderList({ basePath = '/orders' }) {
       />
       <div className="flex flex-col gap-3 mt-2">
         {items.map((o) => (
-          <Link key={o.id} to={`${basePath}/${o.id}`} className="card card-hover" style={{ display: 'block' }}>
-            <div className="flex items-center justify-between wrap gap-2">
-              <div>
-                <div className="flex items-center gap-2 wrap">
-                  <span className="font-bold">#{o.order_number}</span>
-                  <StatusBadge status={o.status} />
-                  {o.payment_status && <StatusBadge status={o.payment_status} />}
+          <div key={o.id} className="card card-hover">
+            <Link to={`${basePath}/${o.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+              <div className="flex items-center justify-between wrap gap-2">
+                <div>
+                  <div className="flex items-center gap-2 wrap">
+                    <span className="font-bold">#{o.order_number}</span>
+                    <StatusBadge status={o.status} />
+                    {o.payment_status && <StatusBadge status={o.payment_status} />}
+                  </div>
+                  <div className="muted text-sm mt-1">{formatDateTime(o.placed_at)} · {o.items?.length} item(s)</div>
                 </div>
-                <div className="muted text-sm mt-1">{formatDateTime(o.placed_at)} · {o.items?.length} item(s)</div>
+                <div className="text-right">
+                  <div className="price-current" style={{ fontSize: 17 }}>{money(o.grand_total)}</div>
+                  <div className="muted text-xs flex items-center justify-end gap-1">{o.payment_method === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 12, width: 'auto' }} />}{PAYMENT_METHOD_LABELS[o.payment_method] || o.payment_method}</div>
+                </div>
               </div>
-              <div className="text-right">
-                <div className="price-current" style={{ fontSize: 17 }}>{money(o.grand_total)}</div>
-                <div className="muted text-xs flex items-center justify-end gap-1">{o.payment_method === 'esewa' && <img src={PAYMENT_BRAND_LOGOS.esewa} alt="eSewa" style={{ height: 12, width: 'auto' }} />}{PAYMENT_METHOD_LABELS[o.payment_method] || o.payment_method}</div>
-              </div>
-            </div>
               <div className="flex gap-2 mt-2" style={{ overflow: 'hidden' }}>
                 {o.items?.slice(0, 4).map((it) => {
                   const fallback = getProductImage(it, 0, true)
@@ -231,33 +232,28 @@ export default function OrderList({ basePath = '/orders' }) {
                   )
                 })}
               </div>
+            </Link>
+            <div className="flex items-center gap-2 mt-3" style={{ flexWrap: 'wrap' }}>
+              {['delivered', 'completed'].includes(o.status) && (
+                <Link to={`${basePath}/${o.id}#order-reviews`} className="btn btn-outline btn-sm inline-flex items-center gap-1.5">
+                  <MessageSquare size={14} /> Review items
+                </Link>
+              )}
               {o.payment_status === 'pending' && ['khalti', 'esewa'].includes(o.payment_method) && !['cancelled', 'refunded', 'delivered', 'completed'].includes(o.status) && (
-                <div className="mt-3">
-                  <button 
-                    className="btn btn-primary btn-sm"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      window.location.href = `${basePath}/${o.id}`
-                    }}
-                  >
-                    Pay Now
-                  </button>
-                </div>
+                <Link to={`${basePath}/${o.id}`} className="btn btn-primary btn-sm">Pay Now</Link>
               )}
               {o.status === 'cancelled' && (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={reorderingId === o.id}
-                    onClick={(event) => reorder(event, o)}
-                  >
-                    {reorderingId === o.id ? 'Adding to cart…' : 'Order Again'}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={reorderingId === o.id}
+                  onClick={(event) => reorder(event, o)}
+                >
+                  {reorderingId === o.id ? 'Adding to cart…' : 'Order Again'}
+                </button>
               )}
-          </Link>
+            </div>
+          </div>
         ))}
       </div>
       <Pagination page={page} lastPage={meta.last_page} total={meta.total} onChange={setPage} />

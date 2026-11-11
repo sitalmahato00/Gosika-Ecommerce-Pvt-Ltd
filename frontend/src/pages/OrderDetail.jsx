@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ChevronRight, MapPin, Truck, ShieldCheck, Phone, Clock, AlertCircle, HelpCircle, KeyRound, Copy, CheckCircle2, RotateCcw } from 'lucide-react'
+import { ChevronRight, MapPin, Truck, ShieldCheck, Phone, Clock, AlertCircle, HelpCircle, KeyRound, Copy, CheckCircle2, RotateCcw, MessageSquare, Star } from 'lucide-react'
 import api from '../api/client'
+import ProductReviewForm from '../components/commerce/ProductReviewForm'
 import StatusBadge from '../components/commerce/StatusBadge'
 import DeliveryRouteMap from '../components/delivery/DeliveryRouteMap'
 import ErrorState from '../components/ui/ErrorState'
@@ -23,6 +24,11 @@ const CANCEL_REASONS = [
   'Other',
 ]
 
+const responseItems = (response) => {
+  const raw = response?.data?.data?.data ?? response?.data?.data ?? response?.data
+  return Array.isArray(raw) ? raw : []
+}
+
 export default function OrderDetail({ embedded = false, basePath = '/orders' }) {
   const { id } = useParams()
   const toast = useToast()
@@ -36,6 +42,11 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
   const [explanation, setExplanation] = useState('')
   const [countdown, setCountdown] = useState(0)
   const [otpCopied, setOtpCopied] = useState(false)
+  const [pendingReviewItems, setPendingReviewItems] = useState([])
+  const [orderReviews, setOrderReviews] = useState([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [reviewsError, setReviewsError] = useState(null)
+  const reviewsSectionRef = useRef(null)
 
   const copyOtp = () => {
     if (!order?.delivery_otp) return
@@ -65,6 +76,37 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
   }
 
   useEffect(load, [id])
+
+  const loadOrderReviews = useCallback(async () => {
+    if (!order?.id || !['delivered', 'completed'].includes(order.status)) return
+
+    setReviewsLoading(true)
+    setReviewsError(null)
+    try {
+      const [pendingResponse, reviewsResponse] = await Promise.all([
+        api.get('/customer/reviews/pending', { params: { per_page: 50, order_id: order.id } }),
+        api.get('/customer/reviews', { params: { per_page: 50, order_id: order.id } }),
+      ])
+      setPendingReviewItems(responseItems(pendingResponse))
+      setOrderReviews(responseItems(reviewsResponse))
+    } catch (reviewError) {
+      setReviewsError(reviewError)
+    } finally {
+      setReviewsLoading(false)
+    }
+  }, [order])
+
+  useEffect(() => {
+    if (order && ['delivered', 'completed'].includes(order.status)) {
+      loadOrderReviews()
+    }
+  }, [order?.id, order?.status, loadOrderReviews])
+
+  useEffect(() => {
+    if (window.location.hash === '#order-reviews' && order && !reviewsLoading) {
+      requestAnimationFrame(() => reviewsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    }
+  }, [order, reviewsLoading])
 
   useEffect(() => {
     if (order?.cancellation_seconds_remaining > 0) {
@@ -291,6 +333,77 @@ export default function OrderDetail({ embedded = false, basePath = '/orders' }) 
           ))}
         </div>
       </div>
+
+      {deliveryComplete && (
+        <section id="order-reviews" ref={reviewsSectionRef} className="card mb-4" style={{ scrollMarginTop: 24 }}>
+          <div className="flex items-center justify-between wrap gap-2" style={{ marginBottom: 14 }}>
+            <div className="flex items-center gap-2">
+              <MessageSquare size={18} color="var(--primary)" />
+              <h2 style={{ fontSize: 16, margin: 0 }}>Reviews for this order</h2>
+            </div>
+            <Link to="/account/reviews" className="text-primary text-sm" style={{ fontWeight: 700, textDecoration: 'none' }}>
+              All reviews
+            </Link>
+          </div>
+          {reviewsLoading ? (
+            <p className="muted text-sm" style={{ margin: 0 }}>Loading your review options…</p>
+          ) : reviewsError ? (
+            <div className="flex items-center justify-between wrap gap-2">
+              <p className="muted text-sm" style={{ margin: 0 }}>Could not load review options for this order.</p>
+              <button type="button" className="btn btn-outline btn-sm" onClick={loadOrderReviews}>Try again</button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {(order.items || []).map((item) => {
+                const submittedReview = orderReviews.find((review) => review.order_item_id === item.id)
+                const pendingItem = pendingReviewItems.find((pending) => pending.id === item.id)
+
+                return (
+                  <article key={item.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
+                    <div className="flex items-center gap-3" style={{ minWidth: 0, marginBottom: submittedReview || pendingItem ? 12 : 0 }}>
+                      <img
+                        src={item.image ? apiImage(item.image) : getProductImage(item, 0, true)}
+                        alt={item.product_name || 'Product'}
+                        onError={handleImgError}
+                        style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }}
+                      />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="font-semibold text-sm">{item.product_name || 'Purchased product'}</div>
+                        <div className="muted text-xs">Quantity: {item.quantity}</div>
+                      </div>
+                    </div>
+                    {submittedReview ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 wrap">
+                          <span className="rating-stars" aria-label={`Rated ${submittedReview.rating} out of 5`}>
+                            {[1, 2, 3, 4, 5].map((rating) => (
+                              <Star key={rating} size={15} fill={rating <= submittedReview.rating ? '#f59e0b' : 'none'} color={rating <= submittedReview.rating ? '#f59e0b' : '#cbd5e1'} />
+                            ))}
+                          </span>
+                          <StatusBadge status={submittedReview.status} />
+                        </div>
+                        {submittedReview.title && <div className="font-semibold text-sm">{submittedReview.title}</div>}
+                        {submittedReview.body && <p className="text-sm" style={{ margin: 0 }}>{submittedReview.body}</p>}
+                      </div>
+                    ) : pendingItem && item.product_id ? (
+                      <ProductReviewForm
+                        productId={item.product_id}
+                        orderItemId={item.id}
+                        onSubmitted={() => {
+                          toast.success('Review submitted for approval.')
+                          loadOrderReviews()
+                        }}
+                      />
+                    ) : (
+                      <p className="muted text-xs" style={{ margin: 0 }}>A review is not available for this item.</p>
+                    )}
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       <div id="order-detail-layout" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, alignItems: 'start' }}>
         <div className="flex flex-col gap-4">

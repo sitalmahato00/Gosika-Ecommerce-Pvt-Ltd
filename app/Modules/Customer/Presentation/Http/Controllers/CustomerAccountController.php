@@ -29,6 +29,10 @@ class CustomerAccountController extends Controller
         $reviews = ProductReview::query()
             ->with(['product.primaryImage', 'orderItem'])
             ->where('user_id', $request->user()->id)
+            ->when($request->filled('order_id'), fn ($query) => $query->whereHas(
+                'orderItem.order',
+                fn ($orderQuery) => $orderQuery->where('uuid', $request->input('order_id'))
+            ))
             ->when($request->filled('status'), fn ($query, $status) => $query->where('status', $status))
             ->latest()
             ->paginate($request->integer('per_page', 12));
@@ -50,8 +54,9 @@ class CustomerAccountController extends Controller
         $user = $request->user();
 
         $items = OrderItem::query()
-            ->whereHas('order', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
+            ->whereHas('order', function ($query) use ($user, $request) {
+                $query->where('user_id', $user->id)
+                    ->when($request->filled('order_id'), fn ($orderQuery) => $orderQuery->where('uuid', $request->input('order_id')));
             })
             ->where(function ($query) {
                 $query->where('delivery_status', DeliveryStatus::DELIVERED->value)
